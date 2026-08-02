@@ -68,31 +68,41 @@
     return article;
   }
 
-  fetch("/.netlify/functions/googleReviews")
-    .then((res) => res.json())
-    .then((data) => {
-      if (data.googleMapsUri && googleButton) googleButton.href = data.googleMapsUri;
-      if (data.googleReviewsUrl && googleButton) googleButton.href = data.googleReviewsUrl;
+  let loaded = false;
 
-      if (data.rating && ratingSummary) {
-        const count = data.userRatingCount
-          ? " from " + Number(data.userRatingCount).toLocaleString() + " Google reviews"
-          : " on Google";
-        ratingSummary.textContent = data.rating.toFixed(1) + "★" + count;
-      }
+  function loadGoogleReviews() {
+    if (loaded) return;
+    loaded = true;
+    setFallback("Loading Google reviews…");
 
-      const reviews = Array.isArray(data.reviews) ? data.reviews.slice(0, 5) : [];
-      if (!reviews.length) {
-        setFallback("Google reviews will appear here once the Google Places API key and Place ID are configured in Netlify.");
-        return;
-      }
+    fetch("/.netlify/functions/googleReviews")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.googleMapsUri && googleButton) googleButton.href = data.googleMapsUri;
+        if (data.googleReviewsUrl && googleButton) googleButton.href = data.googleReviewsUrl;
 
-      reviewList.replaceChildren();
-      reviews.forEach((review) => reviewList.appendChild(makeReviewCard(review)));
-    })
-    .catch(() => {
-      setFallback("Google reviews could not be loaded right now. Use the button below to view them on Google.");
-    });
+        if (data.rating && ratingSummary) {
+          const count = data.userRatingCount
+            ? " from " + Number(data.userRatingCount).toLocaleString() + " Google reviews"
+            : " on Google";
+          ratingSummary.textContent = data.rating.toFixed(1) + "★" + count;
+        }
+
+        const reviews = Array.isArray(data.reviews) ? data.reviews.slice(0, 5) : [];
+        if (!reviews.length) {
+          setFallback("Google reviews will appear here once the Google Places API key and Place ID are configured in Netlify.");
+          return;
+        }
+
+        reviewList.replaceChildren();
+        reviews.forEach((review) => reviewList.appendChild(makeReviewCard(review)));
+      })
+      .catch(() => {
+        setFallback("Google reviews could not be loaded right now. Use the button below to view them on Google.");
+      });
+  }
+
+  window.addEventListener("nbg:load-reviews", loadGoogleReviews, { once: true });
 })();
 
 (function () {
@@ -161,13 +171,10 @@
     resizeTimer = window.setTimeout(fitFacebookFeed, 150);
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", fitFacebookFeed);
-  } else {
+  window.addEventListener("nbg:load-reviews", () => {
     fitFacebookFeed();
-  }
-
-  window.addEventListener("resize", scheduleFit);
+    window.addEventListener("resize", scheduleFit);
+  }, { once: true });
 })();
 
 (function () {

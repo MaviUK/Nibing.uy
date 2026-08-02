@@ -6,7 +6,7 @@ export default function StandeeSpottedClosed() {
 
   return (
     <div className="bg-black text-white min-h-screen flex flex-col items-center justify-center p-6 text-center">
-      <img src="/logo.png" alt="Ni Bin Guy" className="w-48 mb-6" />
+      <img src="/logo.webp" alt="Ni Bin Guy" width="192" height="192" decoding="async" className="w-48 mb-6" />
 
       <h1 className="text-3xl font-bold mb-4 text-red-500">🚫 All Free Washes Claimed</h1>
 

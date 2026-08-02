@@ -12,6 +12,7 @@
   <meta name="author" content="Ni Bin Guy">
   <link rel="canonical" href="https://nibing.uy" />
   <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+  <link rel="preload" as="image" href="/logo.webp" type="image/webp" fetchpriority="high" />
 
   <!-- OpenGraph -->
   <meta property="og:title" content="Ni Bin Guy | County Down's Bin Cleaning Service">
@@ -146,16 +147,9 @@
     #site-section-menu a:hover, #site-section-menu a:focus, #site-section-menu button:hover, #site-section-menu button:focus { background: rgba(74,222,128,0.16); color: #86efac; outline: none; }
   </style>
 
-  <!-- Google Maps JS (Places) -->
-  <script async src="https://maps.googleapis.com/maps/api/js?key=%VITE_GOOGLE_MAPS_API_KEY%&libraries=places"></script>
-  <!-- Google reCAPTCHA v3 -->
-  <script src="https://www.google.com/recaptcha/api.js?render=%VITE_RECAPTCHA_SITE_KEY%"></script>
-  <!-- Google Reviews Carousel (Elfsight) -->
-  <script src="https://apps.elfsight.com/p/platform.js" defer></script>
-  <script src="/google-reviews.js?v=20260704-4" defer></script>
+  <script src="/google-reviews.js?v=20260802-1" defer></script>
+  <script src="/deferred-embeds.js?v=20260802-1" defer></script>
   <script src="/site-tracking.js?v=20260704-1" defer></script>
-  <!-- Squeegee Portal -->
-  <script src="https://widgets.sqg.ee/main.js" defer></script>
 </head>
 <body>
 
@@ -178,11 +172,11 @@
   <script src="/privacy-link.js?v=20260704-3" defer></script>
   <script>
     (function () {
-      const logos = ["/logo.png", "/logo2.png", "/logo3.png", "/logo4.png", "/logo5.png"];
+      const logos = ["/logo.webp", "/logo2.webp", "/logo3.webp", "/logo4.webp", "/logo5.webp"];
       const storageKey = "nbg_last_logo_index";
       function pickLogo() { let lastIndex = -1; try { lastIndex = Number(window.localStorage.getItem(storageKey)); } catch (error) { lastIndex = -1; } const availableIndexes = logos.map((_, index) => index).filter((index) => index !== lastIndex); const nextIndex = availableIndexes[Math.floor(Math.random() * availableIndexes.length)] ?? 0; try { window.localStorage.setItem(storageKey, String(nextIndex)); } catch (error) {} return logos[nextIndex]; }
       const selectedLogo = pickLogo();
-      function applySelectedLogo() { const logoImages = document.querySelectorAll('img[alt*="Ni Bin Guy"], img[src$="logo.png"]'); logoImages.forEach((img) => { const currentSrc = img.getAttribute("src") || ""; const looksLikeLogo = currentSrc.includes("logo.png") || /logo[2-5]\.png$/i.test(currentSrc) || img.alt.includes("Ni Bin Guy"); if (!looksLikeLogo || img.dataset.randomLogoApplied === "true") return; img.dataset.randomLogoApplied = "true"; img.onerror = function () { if (!img.src.endsWith("/logo.png")) img.src = "/logo.png"; }; img.src = selectedLogo; }); }
+      function applySelectedLogo() { const logoImages = document.querySelectorAll('img[alt*="Ni Bin Guy"], img[src$="logo.webp"]'); logoImages.forEach((img) => { const currentSrc = img.getAttribute("src") || ""; const looksLikeLogo = currentSrc.includes("logo.webp") || /logo[2-5]\.webp$/i.test(currentSrc) || img.alt.includes("Ni Bin Guy"); if (!looksLikeLogo || img.dataset.randomLogoApplied === "true") return; img.dataset.randomLogoApplied = "true"; img.onerror = function () { if (!img.src.endsWith("/logo.png")) img.src = "/logo.png"; }; img.src = selectedLogo; }); }
       if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", applySelectedLogo); } else { applySelectedLogo(); }
       new MutationObserver(applySelectedLogo).observe(document.documentElement, { childList: true, subtree: true });
     })();
@@ -214,13 +208,13 @@
           <div>
             <h3 style="margin: 0 0 10px; color: #4ade80; font-size: 1.15rem;">Google Reviews</h3>
             <p id="google-rating-summary" style="margin: 0 0 14px; color: #facc15; font-weight: 800;"></p>
-            <div id="google-reviews-list" style="margin: 0 0 18px;"><p style="margin: 0; color: #a1a1aa; line-height: 1.65;">Loading Google reviews…</p></div>
+            <div id="google-reviews-list" style="margin: 0 0 18px;"><p style="margin: 0; color: #a1a1aa; line-height: 1.65;">Reviews load as you reach this section.</p></div>
           </div>
           <a id="google-reviews-button" data-track="google_reviews_click" href="https://share.google/hE0fuZuoDjknpdsjF" target="_blank" rel="noopener noreferrer" style="display: inline-block; align-self: center; margin: 0 auto; text-align: center; background: #22c55e; color: #000; font-weight: 800; padding: 12px 20px; border-radius: 14px; text-decoration: none; box-shadow: 0 10px 24px rgba(34,197,94,0.22);">View More Google Reviews</a>
         </div>
         <div style="background: rgba(39, 39, 42, 0.82); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 22px; box-shadow: 0 14px 36px rgba(0,0,0,0.26);">
           <h3 style="margin: 0 0 14px; color: #4ade80; font-size: 1.15rem;">Facebook Reviews & Updates</h3>
-          <div style="overflow: hidden; border-radius: 14px; background: #000; min-height: 500px;"><iframe title="Ni Bin Guy Facebook page" src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2Fprofile.php%3Fid%3D100064103796752&tabs=timeline&width=500&height=500&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true" width="100%" height="500" style="border:none; overflow:hidden; display:block;" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe></div>
+          <div style="overflow: hidden; border-radius: 14px; background: #000; min-height: 500px;"><iframe title="Ni Bin Guy Facebook page" loading="lazy" width="100%" height="500" style="border:none; overflow:hidden; display:block;" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe></div>
           <a data-track="facebook_click" href="https://www.facebook.com/profile.php?id=100064103796752" target="_blank" rel="noopener noreferrer" style="display: block; width: fit-content; margin: 14px auto 0; background: #22c55e; color: #000; font-weight: 800; padding: 12px 20px; border-radius: 14px; text-decoration: none; box-shadow: 0 10px 24px rgba(34,197,94,0.22); text-align: center;">View Facebook Page</a>
         </div>
       </div>

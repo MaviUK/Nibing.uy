@@ -37,7 +37,7 @@ export default function StandeePreClaim() {
   return (
     <div className="bg-black text-white min-h-screen p-6 text-center">
       <Link to="/">
-        <img src="/logo.png" alt="Ni Bin Guy Logo" className="mx-auto w-56 mb-6 hover:opacity-80" />
+        <img src="/logo.webp" alt="Ni Bin Guy Logo" width="224" height="224" decoding="async" className="mx-auto w-56 mb-6 hover:opacity-80" />
       </Link>
       <h1 className="text-3xl font-bold mb-4">The Wheelie Washer is at:</h1>
       <p className="text-xl mb-8 font-semibold">{standee.current_address}</p>

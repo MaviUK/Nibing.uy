@@ -42,7 +42,7 @@ export default function ChoicePage() {
   return (
     <div className="bg-black min-h-screen text-white font-sans px-6 py-10 text-center">
       <Link to="/">
-        <img src="/logo.png" alt="Ni Bin Guy Logo" className="w-56 md:w-72 mx-auto hover:opacity-80 transition mb-6" />
+        <img src="/logo.webp" alt="Ni Bin Guy Logo" width="288" height="288" decoding="async" className="w-56 md:w-72 mx-auto hover:opacity-80 transition mb-6" />
       </Link>
 
       <h1 className="text-3xl font-bold mb-4">The Wheelie Washer is at:</h1>

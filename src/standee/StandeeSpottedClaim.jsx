@@ -108,7 +108,7 @@ export default function StandeeSpottedClaim() {
 
   return (
     <div className="bg-black text-white min-h-screen p-6 flex flex-col items-center">
-      <img src="/logo.png" alt="Ni Bin Guy" className="w-48 mb-4" />
+      <img src="/logo.webp" alt="Ni Bin Guy" width="192" height="192" decoding="async" className="w-48 mb-4" />
       <h1 className="text-3xl font-bold text-center mb-2">🎯 You’ve Spotted The Wheelie Washer!</h1>
       <p className="text-center mb-6">
         Current Standee Location: <strong>{standee.current_address}</strong>

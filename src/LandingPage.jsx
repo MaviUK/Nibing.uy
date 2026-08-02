@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useLiveCounters } from "./data/statsPlan";
-import TenSecondChallenge from "./TenSecondChallenge.jsx";
-import BinCheckerModal from "./BinCheckerModal.jsx";
+
+const TenSecondChallenge = lazy(() => import("./TenSecondChallenge.jsx"));
+const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
 
 /**
  * Ni Bin Guy — Landing Page
@@ -1227,7 +1228,9 @@ function ChallengeModal({ open, onClose }) {
           <button onClick={onClose} className="absolute top-3 right-4 text-neutral-400 hover:text-white text-2xl" aria-label="Close">
             &times;
           </button>
-          <TenSecondChallenge />
+          <Suspense fallback={<p className="py-12 text-center text-neutral-300">Loading challenge…</p>}>
+            <TenSecondChallenge />
+          </Suspense>
         </div>
       </div>
     </div>
@@ -1280,7 +1283,15 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker }) {
       <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-b from-transparent via-[#121212] to-[#18181b] z-10 pointer-events-none" />
 
       <div className="relative z-20 flex flex-col items-center gap-4">
-        <img src="logo.png" alt="Ni Bin Guy wheelie bin cleaning service logo" className="w-64 h-64 md:w-80 md:h-80 rounded-xl shadow-lg" />
+        <img
+          src="/logo.webp"
+          alt="Ni Bin Guy wheelie bin cleaning service logo"
+          width="320"
+          height="320"
+          fetchPriority="high"
+          decoding="async"
+          className="w-64 h-64 md:w-80 md:h-80 rounded-xl shadow-lg"
+        />
 
         {/* Stats under logo */}
         <div className="w-full max-w-4xl mt-2 grid grid-cols-3 gap-2 sm:grid-cols-3 sm:gap-4">
@@ -1403,11 +1414,11 @@ function TheProcess({ onBook }) {
 
 function BinsWeClean() {
   const items = [
-  { src: "/bins/120L.png", alt: "120 litre wheelie bin", size: "120L", h: "h-32" },
-  { src: "/bins/240L.png", alt: "240 litre wheelie bin", size: "240L", h: "h-36" },
-  { src: "/bins/360L.png", alt: "360 litre commercial bin", size: "360L", h: "h-40" },
-  { src: "/bins/660L.png", alt: "660 litre commercial waste bin", size: "660L", h: "h-44" },
-  { src: "/bins/1100L.png", alt: "1100 litre commercial waste container", size: "1100L", h: "h-48" },
+  { src: "/bins/120L.webp", alt: "120 litre wheelie bin", size: "120L", h: "h-32" },
+  { src: "/bins/240L.webp", alt: "240 litre wheelie bin", size: "240L", h: "h-36" },
+  { src: "/bins/360L.webp", alt: "360 litre commercial bin", size: "360L", h: "h-40" },
+  { src: "/bins/660L.webp", alt: "660 litre commercial waste bin", size: "660L", h: "h-44" },
+  { src: "/bins/1100L.webp", alt: "1100 litre commercial waste container", size: "1100L", h: "h-48" },
 ];
   return (
     <section className="relative py-16 px-6 bg-[#18181b] text-white text-center">
@@ -1415,7 +1426,7 @@ function BinsWeClean() {
       <div className="relative z-20 flex flex-wrap justify-center items-end gap-12 md:gap-20">
         {items.map((it) => (
           <div key={it.size} className="flex flex-col items-center">
-            <img src={it.src} alt={it.alt} className={`${it.h} mb-2`} />
+            <img src={it.src} alt={it.alt} loading="lazy" decoding="async" className={`${it.h} mb-2`} />
             <span className="text-sm">{it.size}</span>
           </div>
         ))}
@@ -1427,10 +1438,10 @@ function BinsWeClean() {
 
 function WhyCleanYourBin() {
   const points = [
-    { icon: "/odour.png", title: "Prevent Nasty Odours", text: "Bins can start to smell unpleasant fast. Regular cleaning eliminates those foul smells at the source." },
-    { icon: "/bacteria.png", title: "Stop Bacteria Buildup", text: "Leftover waste can attract harmful bacteria. Professional bin cleaning keeps your environment safer and more hygienic." },
-    { icon: "/pests.png", title: "Deter Insects & Vermin", text: "Flies, maggots, and rodents are drawn to dirty bins. Keep them away by keeping your bin spotless." },
-    { icon: "/family.png", title: "Protect Your Family", text: "A clean bin reduces exposure to germs and pathogens, helping keep your household healthier." },
+    { icon: "/odour.webp", title: "Prevent Nasty Odours", text: "Bins can start to smell unpleasant fast. Regular cleaning eliminates those foul smells at the source." },
+    { icon: "/bacteria.webp", title: "Stop Bacteria Buildup", text: "Leftover waste can attract harmful bacteria. Professional bin cleaning keeps your environment safer and more hygienic." },
+    { icon: "/pests.webp", title: "Deter Insects & Vermin", text: "Flies, maggots, and rodents are drawn to dirty bins. Keep them away by keeping your bin spotless." },
+    { icon: "/family.webp", title: "Protect Your Family", text: "A clean bin reduces exposure to germs and pathogens, helping keep your household healthier." },
   ];
   return (
     <section className="py-16 px-6 bg-gradient-to-b from-black via-[#0a0a0a] to-zinc-900 text-white">
@@ -1438,7 +1449,7 @@ function WhyCleanYourBin() {
       <div className="grid md:grid-cols-2 gap-12 max-w-6xl mx-auto">
         {points.map((p) => (
           <div key={p.title} className="flex items-start gap-4">
-            <img src={p.icon} alt={p.title} className="w-12 h-12 mt-1" />
+            <img src={p.icon} alt={p.title} loading="lazy" decoding="async" width="48" height="48" className="w-12 h-12 mt-1" />
             <div>
               <h3 className="text-xl font-semibold mb-1">{p.title}</h3>
               <p className="text-gray-300">{p.text}</p>
@@ -1484,12 +1495,6 @@ export default function NiBinGuyLandingPage() {
   // Snow toggle (persisted)
   const [snowEnabled, setSnowEnabled] = useState(false);
 
-  // ✅ Inject reCAPTCHA once for this page
-  useEffect(() => {
-    const siteKey = import.meta.env?.VITE_RECAPTCHA_SITE_KEY;
-    loadRecaptchaV3(siteKey).catch((e) => console.warn("reCAPTCHA failed to load:", e));
-  }, []);
-
   useEffect(() => {
     try {
       // Always force snow off (ignores saved setting)
@@ -1526,7 +1531,9 @@ export default function NiBinGuyLandingPage() {
       </Modal>
 
       <Modal open={showBinChecker} onClose={() => setShowBinChecker(false)} maxWidth="max-w-md" labelledBy="bin-checker-title">
-        <BinCheckerModal onClose={() => setShowBinChecker(false)} />
+        <Suspense fallback={<p className="p-8 text-center">Loading bin checker…</p>}>
+          <BinCheckerModal onClose={() => setShowBinChecker(false)} />
+        </Suspense>
       </Modal>
 
       {/* 10 Second Challenge Modal */}

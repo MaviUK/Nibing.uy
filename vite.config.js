@@ -182,7 +182,6 @@ function niBinGuyInitialLoader() {
 
 export default defineConfig({
   plugins: [
-    niBinGuyInitialLoader(),
     niBinGuyPriceOverrides(),
     react(),
     viteStaticCopy({

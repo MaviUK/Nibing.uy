@@ -106,7 +106,7 @@ export default function StandeeClaim() {
       <div className="bg-black text-green-400 min-h-screen p-6 text-center">
         <div className="flex justify-center mb-4">
           <Link to="/">
-            <img src="/logo.png" alt="Ni Bin Guy Logo" className="w-56 md:w-72 hover:opacity-80 transition" />
+            <img src="/logo.webp" alt="Ni Bin Guy Logo" width="288" height="288" decoding="async" className="w-56 md:w-72 hover:opacity-80 transition" />
           </Link>
         </div>
         <h1 className="text-3xl font-bold mb-4">🎉 Success!</h1>
@@ -137,7 +137,7 @@ export default function StandeeClaim() {
     <div className="bg-black min-h-screen text-white font-sans px-6 py-10">
       <div className="flex justify-center mb-6">
         <Link to="/">
-          <img src="/logo.png" alt="Ni Bin Guy Logo" className="w-56 md:w-72 hover:opacity-80 transition" />
+          <img src="/logo.webp" alt="Ni Bin Guy Logo" width="288" height="288" decoding="async" className="w-56 md:w-72 hover:opacity-80 transition" />
         </Link>
       </div>
 
