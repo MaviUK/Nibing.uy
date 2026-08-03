@@ -18,14 +18,6 @@ function niBinGuyPriceOverrides() {
           '<img src={it.src} alt={it.alt} loading="lazy" decoding="async" className={`${it.h} mb-2`} />',
           '<img src={it.src} alt={it.alt} width="512" height="512" loading="lazy" decoding="async" className={`${it.h} mb-2`} />'
         )
-        .replace(
-          /\n  \/\/ Snow toggle \(persisted\)[\s\S]*?\n  const toggleSnow = \(\) => \{[\s\S]*?\n  \};\n/,
-          '\n'
-        )
-        .replace(
-          /\n      \{\/\* Snow overlay \*\/\}\n      <SnowCanvas enabled=\{snowEnabled\} \/>\n/,
-          '\n'
-        )
 
       return updatedCode === code ? null : { code: updatedCode, map: null }
     }
