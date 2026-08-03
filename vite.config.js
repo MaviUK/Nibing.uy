@@ -44,9 +44,14 @@ function niBinGuyPriceOverrides() {
   }
 }
 
-function niBinGuyReviewLayoutStability() {
-  const reviewSpaceCss = `
-  <style id="nbg-review-layout-stability">
+function niBinGuyLayoutStability() {
+  const stabilityHead = `
+  <style id="nbg-layout-stability">
+    body:not(.nbg-app-ready) #root ~ section,
+    body:not(.nbg-app-ready) #root ~ footer {
+      visibility: hidden;
+    }
+
     @media (min-width: 768px) {
       #customer-reviews {
         min-height: 760px;
@@ -57,12 +62,37 @@ function niBinGuyReviewLayoutStability() {
         min-height: 430px;
       }
     }
-  </style>`
+  </style>
+  <script>
+    (function () {
+      function revealStaticSections() {
+        if (!document.body || !document.getElementById('main-content')) return false;
+        document.body.classList.add('nbg-app-ready');
+        return true;
+      }
+
+      function watchForApp() {
+        if (revealStaticSections()) return;
+        var root = document.getElementById('root');
+        if (!root) return;
+        var observer = new MutationObserver(function () {
+          if (revealStaticSections()) observer.disconnect();
+        });
+        observer.observe(root, { childList: true, subtree: true });
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', watchForApp, { once: true });
+      } else {
+        watchForApp();
+      }
+    })();
+  </script>`
 
   return {
-    name: 'ni-bin-guy-review-layout-stability',
+    name: 'ni-bin-guy-layout-stability',
     transformIndexHtml(html) {
-      return html.replace('</head>', `${reviewSpaceCss}\n</head>`)
+      return html.replace('</head>', `${stabilityHead}\n</head>`)
     }
   }
 }
@@ -70,7 +100,7 @@ function niBinGuyReviewLayoutStability() {
 export default defineConfig({
   plugins: [
     niBinGuyPriceOverrides(),
-    niBinGuyReviewLayoutStability(),
+    niBinGuyLayoutStability(),
     react(),
     viteStaticCopy({
       targets: [
