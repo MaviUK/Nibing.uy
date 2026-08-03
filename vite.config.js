@@ -97,10 +97,22 @@ function niBinGuyLayoutStability() {
   }
 }
 
+function niBinGuyLcpLogoDiscovery() {
+  const randomLogoScript = /\n  <script>\s*\(function \(\) \{\s*const logos = \[[\s\S]*?new MutationObserver\(applySelectedLogo\)\.observe\(document\.documentElement, \{ childList: true, subtree: true \}\);\s*\}\)\(\);\s*<\/script>/
+
+  return {
+    name: 'ni-bin-guy-lcp-logo-discovery',
+    transformIndexHtml(html) {
+      return html.replace(randomLogoScript, '')
+    }
+  }
+}
+
 export default defineConfig({
   plugins: [
     niBinGuyPriceOverrides(),
     niBinGuyLayoutStability(),
+    niBinGuyLcpLogoDiscovery(),
     react(),
     viteStaticCopy({
       targets: [
