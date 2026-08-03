@@ -36,7 +36,7 @@ function niBinGuyPriceOverrides() {
         )
         .replace(
           '<img src={it.src} alt={it.alt} loading="lazy" decoding="async" className={`${it.h} mb-2`} />',
-          '<img src={it.src} alt={it.alt} width={it.width} height={it.height} loading="lazy" decoding="async" className={`${it.h} w-auto max-w-full object-contain mb-2`} />'
+          '<img src={it.src} alt={it.alt} width={it.width} height={it.height} loading="lazy" decoding="async" style={{ width: "auto", maxWidth: "100%", objectFit: "contain" }} className={`${it.h} mb-2`} />'
         )
 
       return updatedCode === code ? null : { code: updatedCode, map: null }
