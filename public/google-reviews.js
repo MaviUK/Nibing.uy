@@ -1,9 +1,12 @@
 (function () {
+  const section = document.getElementById("customer-reviews");
   const reviewList = document.getElementById("google-reviews-list");
   const ratingSummary = document.getElementById("google-rating-summary");
   const googleButton = document.getElementById("google-reviews-button");
 
-  if (!reviewList) return;
+  if (!section || !reviewList) return;
+
+  let started = false;
 
   function setFallback(message) {
     reviewList.replaceChildren();
@@ -68,31 +71,53 @@
     return article;
   }
 
-  fetch("/.netlify/functions/googleReviews")
-    .then((res) => res.json())
-    .then((data) => {
-      if (data.googleMapsUri && googleButton) googleButton.href = data.googleMapsUri;
-      if (data.googleReviewsUrl && googleButton) googleButton.href = data.googleReviewsUrl;
+  function loadReviews() {
+    if (started) return;
+    started = true;
 
-      if (data.rating && ratingSummary) {
-        const count = data.userRatingCount
-          ? " from " + Number(data.userRatingCount).toLocaleString() + " Google reviews"
-          : " on Google";
-        ratingSummary.textContent = data.rating.toFixed(1) + "★" + count;
-      }
+    fetch("/.netlify/functions/googleReviews")
+      .then((res) => {
+        if (!res.ok) throw new Error("Review request failed");
+        return res.json();
+      })
+      .then((data) => {
+        if (data.googleMapsUri && googleButton) googleButton.href = data.googleMapsUri;
+        if (data.googleReviewsUrl && googleButton) googleButton.href = data.googleReviewsUrl;
 
-      const reviews = Array.isArray(data.reviews) ? data.reviews.slice(0, 5) : [];
-      if (!reviews.length) {
-        setFallback("Google reviews will appear here once the Google Places API key and Place ID are configured in Netlify.");
-        return;
-      }
+        if (data.rating && ratingSummary) {
+          const count = data.userRatingCount
+            ? " from " + Number(data.userRatingCount).toLocaleString() + " Google reviews"
+            : " on Google";
+          ratingSummary.textContent = Number(data.rating).toFixed(1) + "★" + count;
+        }
 
-      reviewList.replaceChildren();
-      reviews.forEach((review) => reviewList.appendChild(makeReviewCard(review)));
-    })
-    .catch(() => {
-      setFallback("Google reviews could not be loaded right now. Use the button below to view them on Google.");
-    });
+        const reviews = Array.isArray(data.reviews) ? data.reviews.slice(0, 5) : [];
+        if (!reviews.length) {
+          setFallback("Google reviews are available using the button below.");
+          return;
+        }
+
+        reviewList.replaceChildren();
+        reviews.forEach((review) => reviewList.appendChild(makeReviewCard(review)));
+      })
+      .catch(() => {
+        setFallback("Google reviews could not be loaded right now. Use the button below to view them on Google.");
+      });
+  }
+
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        loadReviews();
+      },
+      { rootMargin: "600px 0px" }
+    );
+    observer.observe(section);
+  } else {
+    window.setTimeout(loadReviews, 1500);
+  }
 })();
 
 (function () {
@@ -101,15 +126,6 @@
   const MIN_WIDTH = 180;
   const MAX_WIDTH = 500;
   const HEIGHT = 500;
-
-  function removeFacebookFallbackBlurb() {
-    document.querySelectorAll("#customer-reviews p").forEach((paragraph) => {
-      const text = (paragraph.textContent || "").trim().toLowerCase();
-      if (text.startsWith("if the facebook feed is blocked")) {
-        paragraph.remove();
-      }
-    });
-  }
 
   function clampWidth(value) {
     const n = Math.floor(Number(value) || MAX_WIDTH);
@@ -127,19 +143,16 @@
       hide_cover: "false",
       show_facepile: "true",
     });
-
     return BASE_URL + "?" + params.toString();
   }
 
   function fitFacebookFeed() {
-    removeFacebookFallbackBlurb();
-
     const frame = document.querySelector('iframe[title="Ni Bin Guy Facebook page"]');
     if (!frame) return;
 
+    frame.loading = "lazy";
     const parent = frame.parentElement;
-    const available = parent ? parent.clientWidth : frame.clientWidth;
-    const width = clampWidth(available);
+    const width = clampWidth(parent ? parent.clientWidth : frame.clientWidth);
     const nextSrc = buildSrc(width);
 
     frame.width = String(width);
@@ -148,32 +161,23 @@
     frame.style.maxWidth = "100%";
     frame.style.margin = "0 auto";
     frame.style.display = "block";
-
-    if (frame.src !== nextSrc) {
-      frame.src = nextSrc;
-    }
+    if (frame.src !== nextSrc) frame.src = nextSrc;
   }
 
   let resizeTimer = null;
-
   function scheduleFit() {
     window.clearTimeout(resizeTimer);
-    resizeTimer = window.setTimeout(fitFacebookFeed, 150);
+    resizeTimer = window.setTimeout(fitFacebookFeed, 200);
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", fitFacebookFeed);
-  } else {
-    fitFacebookFeed();
-  }
-
-  window.addEventListener("resize", scheduleFit);
+  fitFacebookFeed();
+  window.addEventListener("resize", scheduleFit, { passive: true });
 })();
 
 (function () {
   const FACEBOOK_URL = "https://www.facebook.com/profile.php?id=100064103796752";
 
-  function centreReviewButtons() {
+  function centreButtons() {
     const googleButton = document.getElementById("google-reviews-button");
     if (googleButton) {
       googleButton.style.alignSelf = "center";
@@ -192,89 +196,40 @@
     }
   }
 
-  function findMainBookingButton() {
-    return Array.from(document.querySelectorAll("button")).find((candidate) => {
-      const label = (candidate.textContent || "").trim();
-      return label === "Book a Clean" &&
-        candidate.id !== "site-menu-toggle" &&
-        !candidate.closest("#site-section-menu") &&
-        !candidate.closest("#wheelie-bin-cleaning-questions");
-    });
-  }
-
   function openBookingForm() {
-    const bookingButton = findMainBookingButton();
-    if (bookingButton) {
-      bookingButton.click();
-      return;
-    }
+    const bookingButton = Array.from(document.querySelectorAll("button")).find((candidate) => {
+      const label = (candidate.textContent || "").trim();
+      return label === "Book a Clean" && candidate.id !== "site-menu-toggle" && !candidate.closest("#site-section-menu");
+    });
 
-    document.getElementById("main-content")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (bookingButton) bookingButton.click();
+    else document.getElementById("main-content")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function wireCustomerQuestionsBookButton() {
-    const questionsSection = document.getElementById("wheelie-bin-cleaning-questions");
-    if (!questionsSection) return;
+  function wireQuestionButton() {
+    const section = document.getElementById("wheelie-bin-cleaning-questions");
+    if (!section) return;
 
-    const customerQuestionsButton = Array.from(questionsSection.querySelectorAll("a, button")).find((candidate) => {
+    const button = Array.from(section.querySelectorAll("a, button")).find((candidate) => {
       const label = (candidate.textContent || "").trim();
       return label === "Book a Bin Clean" || label === "Book a Clean";
     });
 
-    if (!customerQuestionsButton || customerQuestionsButton.dataset.opensBookingForm === "true") return;
-
-    customerQuestionsButton.textContent = "Book a Clean";
-    customerQuestionsButton.setAttribute("href", "#");
-    customerQuestionsButton.setAttribute("role", "button");
-    customerQuestionsButton.dataset.opensBookingForm = "true";
-
-    customerQuestionsButton.addEventListener("click", (event) => {
+    if (!button || button.dataset.opensBookingForm === "true") return;
+    button.textContent = "Book a Clean";
+    button.setAttribute("href", "#");
+    button.setAttribute("role", "button");
+    button.dataset.opensBookingForm = "true";
+    button.addEventListener("click", (event) => {
       event.preventDefault();
       openBookingForm();
     });
   }
 
-  function applyCustomerReviewAndQuestionTweaks() {
-    centreReviewButtons();
-    wireCustomerQuestionsBookButton();
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", applyCustomerReviewAndQuestionTweaks);
-  } else {
-    applyCustomerReviewAndQuestionTweaks();
-  }
-
-  window.setTimeout(applyCustomerReviewAndQuestionTweaks, 400);
-})();
-
-(function () {
-  const BLACK = "#000000";
-  const GREY = "#18181b";
-
-  function fadeNewSectionBackgrounds() {
-    const customerReviews = document.getElementById("customer-reviews");
-    const customerQuestions = document.getElementById("wheelie-bin-cleaning-questions");
-    const customerPortal = document.getElementById("customer-portal");
-
-    if (customerReviews) {
-      customerReviews.style.background = `linear-gradient(180deg, ${BLACK} 0%, ${GREY} 16%, ${GREY} 84%, ${BLACK} 100%)`;
-    }
-
-    if (customerQuestions) {
-      customerQuestions.style.background = `linear-gradient(180deg, ${BLACK} 0%, ${GREY} 16%, ${GREY} 84%, ${BLACK} 100%)`;
-    }
-
-    if (customerPortal) {
-      customerPortal.style.background = BLACK;
-    }
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", fadeNewSectionBackgrounds);
-  } else {
-    fadeNewSectionBackgrounds();
-  }
-
-  window.setTimeout(fadeNewSectionBackgrounds, 400);
+  centreButtons();
+  wireQuestionButton();
+  window.setTimeout(() => {
+    centreButtons();
+    wireQuestionButton();
+  }, 400);
 })();
