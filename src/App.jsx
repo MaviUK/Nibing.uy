@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect } from "react"
+import React, { lazy, Suspense } from "react"
 import { Routes, Route } from "react-router-dom"
 import NiBinGuyLandingPage from "./LandingPage"
 
@@ -30,34 +30,6 @@ function RouteFallback() {
 }
 
 export default function App() {
-  useEffect(() => {
-    const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY
-
-    if (!siteKey || document.getElementById("recaptcha-script")) return
-
-    const loadRecaptcha = () => {
-      if (document.getElementById("recaptcha-script")) return
-      const script = document.createElement("script")
-      script.id = "recaptcha-script"
-      script.src = `https://www.google.com/recaptcha/api.js?render=${siteKey}`
-      script.async = true
-      script.defer = true
-      document.head.appendChild(script)
-    }
-
-    const idleId = window.requestIdleCallback
-      ? window.requestIdleCallback(loadRecaptcha, { timeout: 3000 })
-      : window.setTimeout(loadRecaptcha, 1500)
-
-    return () => {
-      if (window.cancelIdleCallback && typeof idleId === "number") {
-        window.cancelIdleCallback(idleId)
-      } else {
-        window.clearTimeout(idleId)
-      }
-    }
-  }, [])
-
   return (
     <>
       <a href="#main-content" className="skip-link">
