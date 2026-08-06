@@ -1,4 +1,21 @@
 (function () {
+  // Keep the normal booking endpoint protected by reCAPTCHA, while routing
+  // genuine 10-second challenge winner forms to their dedicated endpoint.
+  var originalFetch = window.fetch;
+  window.fetch = function (input, init) {
+    try {
+      var url = typeof input === "string" ? input : input && input.url;
+      if (url && url.indexOf("/.netlify/functions/sendBookingEmail") !== -1 && init && typeof init.body === "string") {
+        var body = JSON.parse(init.body);
+        if (body && body.source === "ten-second-challenge") {
+          input = "/.netlify/functions/sendChallengeWinnerEmail";
+        }
+      }
+    } catch (error) {}
+
+    return originalFetch.call(window, input, init);
+  };
+
   function safeLabel(value) {
     return String(value || "")
       .trim()
