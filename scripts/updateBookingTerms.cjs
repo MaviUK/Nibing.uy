@@ -75,9 +75,74 @@ function updateFile(path, updater) {
 updateFile("src/LandingPage.jsx", (text) => {
   text = text.replace(/const TERMS_VERSION = "[^"]+";/, `const TERMS_VERSION = "${VERSION}";`);
   text = text.replace(/const TERMS_BODY = `.*?`;/s, `const TERMS_BODY = \`${FULL_TERMS}\`;`);
-  if (!text.includes("isWhatsAppSubmitting")) text = text.replace('  const [agreeToTerms, setAgreeToTerms] = useState(false);','  const [agreeToTerms, setAgreeToTerms] = useState(false);\n  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);');
-  if (!text.includes("isEmailSubmitting")) text = text.replace('  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);','  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);\n  const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);');
+
+  if (!text.includes("isWhatsAppSubmitting")) {
+    text = text.replace(
+      '  const [agreeToTerms, setAgreeToTerms] = useState(false);',
+      '  const [agreeToTerms, setAgreeToTerms] = useState(false);\n  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);'
+    );
+  }
+  if (!text.includes("isEmailSubmitting")) {
+    text = text.replace(
+      '  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);',
+      '  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);\n  const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);'
+    );
+  }
+  if (!text.includes("bookingSubmitLockRef")) {
+    text = text.replace(
+      '  const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);',
+      '  const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);\n  const bookingSubmitLockRef = useRef(false);'
+    );
+  }
+
   text = text.replace("const handleSendWhatsApp = () => {", "const handleSendWhatsApp = async () => {");
+
+  if (!text.includes('bookingSubmitLockRef.current = true;\n    setIsWhatsAppSubmitting(true);')) {
+    text = text.replace(
+      '    const payload = {\n      source: "whatsapp",',
+      '    if (bookingSubmitLockRef.current) return;\n    bookingSubmitLockRef.current = true;\n    setIsWhatsAppSubmitting(true);\n\n    const payload = {\n      source: "whatsapp",'
+    );
+  }
+
+  if (!text.includes('bookingSubmitLockRef.current = true;\n    setIsEmailSubmitting(true);')) {
+    text = text.replace(
+      '    // ✅ reCAPTCHA token (v3)\n    const recaptchaAction = "booking_submit";',
+      '    if (bookingSubmitLockRef.current) return;\n    bookingSubmitLockRef.current = true;\n    setIsEmailSubmitting(true);\n\n    // ✅ reCAPTCHA token (v3)\n    const recaptchaAction = "booking_submit";'
+    );
+  }
+
+  text = text.replace(
+    '    if (!recaptchaToken) {\n      alert("Anti-bot check not ready. Please try again in a moment.");',
+    '    if (!recaptchaToken) {\n      bookingSubmitLockRef.current = false;\n      setIsEmailSubmitting(false);\n      alert("Anti-bot check not ready. Please try again in a moment.");'
+  );
+
+  text = text.replace(
+    '    console.error("Email failed:", errorText);\n    alert("Failed to send booking email: " + errorText);',
+    '    bookingSubmitLockRef.current = false;\n    setIsEmailSubmitting(false);\n    console.error("Email failed:", errorText);\n    alert("Failed to send booking email: " + errorText);'
+  );
+
+  text = text.replace(
+    '  console.error(err);\n  alert("Error sending booking.");',
+    '  bookingSubmitLockRef.current = false;\n  setIsEmailSubmitting(false);\n  console.error(err);\n  alert("Error sending booking.");'
+  );
+
+  text = text.replace(
+    '      <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>\n        Send via WhatsApp\n      </button>',
+    '      <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms || isWhatsAppSubmitting || isEmailSubmitting}>\n        {isWhatsAppSubmitting ? "Sending booking..." : "Send via WhatsApp"}\n      </button>'
+  );
+
+  text = text.replace(
+    '      <button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>\n        Send via Email\n      </button>',
+    '      <button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms || isEmailSubmitting || isWhatsAppSubmitting}>\n        {isEmailSubmitting ? "Sending booking..." : "Send via Email"}\n      </button>'
+  );
+
+  if (!text.includes("Your booking is being sent")) {
+    text = text.replace(
+      '      <TermsModal',
+      '      {(isEmailSubmitting || isWhatsAppSubmitting) && (\n        <div className="fixed left-1/2 bottom-5 -translate-x-1/2 z-[9999] flex items-center gap-3 rounded-full bg-black/95 px-5 py-3 text-white shadow-2xl border border-white/20" role="status" aria-live="polite">\n          <span className="inline-block h-5 w-5 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden="true" />\n          <span className="text-sm font-bold whitespace-nowrap">Your booking is being sent...</span>\n        </div>\n      )}\n\n      <TermsModal'
+    );
+  }
+
   return text;
 });
 
