@@ -92,11 +92,31 @@ function wrapText(text, font, fontSize, maxWidth) {
     let line = "";
     for (const word of words) {
       const test = line ? `${line} ${word}` : word;
-      if (font.widthOfTextAtSize(test, fontSize) <= maxWidth) line = test;
-      else {
-        if (line) lines.push(line);
-        line = word;
+      if (font.widthOfTextAtSize(test, fontSize) <= maxWidth) {
+        line = test;
+        continue;
       }
+
+      if (line) {
+        lines.push(line);
+        line = "";
+      }
+
+      if (font.widthOfTextAtSize(word, fontSize) <= maxWidth) {
+        line = word;
+        continue;
+      }
+
+      let chunk = "";
+      for (const char of word) {
+        const next = chunk + char;
+        if (font.widthOfTextAtSize(next, fontSize) <= maxWidth) chunk = next;
+        else {
+          if (chunk) lines.push(chunk);
+          chunk = char;
+        }
+      }
+      line = chunk;
     }
     if (line) lines.push(line);
   }
@@ -232,12 +252,16 @@ async function buildTermsAcceptancePdfAttachment(data) {
   };
 
   const section = (title) => {
-    y -= 12;
-    ensureSpace(54);
-    page.drawRectangle({ x: margin, y: y - 4, width: contentWidth, height: 28, color: BRAND.black });
-    page.drawRectangle({ x: margin, y: y - 4, width: 7, height: 28, color: BRAND.yellow });
-    page.drawText(pdfSafe(title).toUpperCase(), { x: margin + 16, y: y + 5, size: 12, font: bold, color: BRAND.white });
-    y -= 44;
+    const topGap = 22;
+    const barHeight = 28;
+    const bottomGap = 18;
+    ensureSpace(topGap + barHeight + bottomGap + 8);
+    y -= topGap;
+    const barBottom = y - barHeight;
+    page.drawRectangle({ x: margin, y: barBottom, width: contentWidth, height: barHeight, color: BRAND.black });
+    page.drawRectangle({ x: margin, y: barBottom, width: 7, height: barHeight, color: BRAND.yellow });
+    page.drawText(pdfSafe(title).toUpperCase(), { x: margin + 16, y: barBottom + 9, size: 12, font: bold, color: BRAND.white });
+    y = barBottom - bottomGap;
   };
 
   const detailRow = (label, value, highlight = false) => {
@@ -279,20 +303,22 @@ async function buildTermsAcceptancePdfAttachment(data) {
   y -= 6;
   drawWrapped(data.pricingText || "Pricing not provided.", { size: 10 });
 
-  // Keep verification together and away from the previous pricing lines.
-  if (y < 190) addPage(false);
+  if (y < 220) addPage(false);
   section("Verification");
   drawWrapped("This unique SHA-256 verification hash is generated from the booking and acceptance details recorded in this certificate.", { size: 9, color: BRAND.grey });
-  y -= 6;
-  drawWrapped(verificationHash, { size: 8, bold: true, color: BRAND.red });
+  y -= 10;
+  const hashChunks = verificationHash.match(/.{1,32}/g) || [verificationHash];
+  for (const hashChunk of hashChunks) {
+    drawWrapped(hashChunk, { size: 8, bold: true, color: BRAND.red });
+  }
+  y -= 8;
 
-  // Start the legal terms with enough breathing room so its title never overlaps the hash.
-  if (y < 180) addPage(false);
+  if (y < 210) addPage(false);
   section("Terms agreed to");
   drawWrapped(termsBody, { size: 9, lineGap: 12 });
 
-  ensureSpace(70);
-  y -= 12;
+  ensureSpace(82);
+  y -= 16;
   page.drawRectangle({ x: margin, y: y - 44, width: contentWidth, height: 44, color: BRAND.black });
   page.drawText("DIRTY BINS. SORTED.", { x: margin + 16, y: y - 19, size: 16, font: bold, color: BRAND.yellow });
   page.drawText("Thank you for choosing Ni Bin Guy.", { x: margin + 16, y: y - 34, size: 9, font: regular, color: BRAND.white });
