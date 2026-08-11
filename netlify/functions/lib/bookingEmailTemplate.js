@@ -78,14 +78,14 @@ function buildBookingEmailHtml({
             <tr>
               <td style="background:#050505;padding:26px 28px 18px;text-align:center;">
                 <img src="${logoUrl}" width="190" alt="Ni Bin Guy" style="display:block;margin:0 auto 18px;max-width:190px;width:100%;height:auto;border:0;">
-                <div style="font-family:Arial Black,Arial,sans-serif;color:#ffffff;font-size:34px;line-height:1.05;font-weight:900;text-transform:uppercase;letter-spacing:-1px;">YOUR BIN'S DAYS</div>
+                <div style="font-family:Arial Black,Arial,sans-serif;color:#ffffff;font-size:34px;line-height:1.05;font-weight:900;text-transform:uppercase;letter-spacing:-1px;">YOUR DIRTY BIN'S DAYS</div>
                 <div style="font-family:Arial Black,Arial,sans-serif;color:#ffd400;font-size:38px;line-height:1.05;font-weight:900;text-transform:uppercase;letter-spacing:-1px;">ARE NUMBERED.</div>
                 <div style="font-family:Arial,sans-serif;color:#ffffff;font-size:17px;line-height:1.5;margin-top:12px;">Nice one, ${firstName} — you're booked in.</div>
               </td>
             </tr>
             <tr>
               <td style="background:#ffd400;padding:18px 24px;text-align:center;">
-                <div style="font-family:Arial Black,Arial,sans-serif;color:#050505;font-size:24px;font-weight:900;text-transform:uppercase;">✓ BOOKING CONFIRMED</div>
+                <div style="font-family:Arial Black,Arial,sans-serif;color:#050505;font-size:24px;font-weight:900;text-transform:uppercase;">✓ BOOKING REQUEST RECEIVED</div>
                 <div style="font-family:Arial,sans-serif;color:#050505;font-size:14px;margin-top:4px;font-weight:700;">We've got your details and we'll confirm your cleaning schedule shortly.</div>
               </td>
             </tr>
