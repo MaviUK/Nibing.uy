@@ -1,101 +1,47 @@
 // netlify/functions/sendTosReceipt.js
 const { Resend } = require("resend");
 const { buildTermsAcceptancePdfAttachment, DEFAULT_TERMS_BODY } = require("./lib/termsPdf");
+const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
 
-// Optional blobs logging
 let getStoreSafe = null;
 try {
   const { getStore } = require("@netlify/blobs");
   getStoreSafe = function (name) {
     const siteID = process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID;
-    const token  = process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN;
-    return (siteID && token) ? getStore({ name, siteID, token }) : getStore({ name });
+    const token = process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN;
+    return siteID && token ? getStore({ name, siteID, token }) : getStore({ name });
   };
 } catch (_) {}
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-
 const FROM_DEFAULT = process.env.RESEND_FROM || "Ni Bin Guy <noreply@nibing.uy>";
-const TO_ADMIN     = process.env.BOOKINGS_TO || "info@nibing.uy";
-const TERMS_VERSION_DEFAULT = "July 2026";
+const TO_ADMIN = process.env.BOOKINGS_TO || "info@nibing.uy";
+const TERMS_VERSION_DEFAULT = "August 2026";
 
-const escapeHtml = (s) => String(s ?? "")
-  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 
-const fmtGBP = (n) => {
-  const x = Math.round((Number(n) || 0) * 100) / 100;
-  return `£${x % 1 === 0 ? x.toFixed(0) : x.toFixed(2)}`;
+const fmtGBP = (value) => {
+  const amount = Math.round((Number(value) || 0) * 100) / 100;
+  return `£${amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2)}`;
 };
 
-function buildPricingBlocks(pricing, discountCode) {
-  const code = (discountCode || "").trim();
-  const hasPricing = pricing && Array.isArray(pricing.lines) && pricing.lines.length > 0;
+function buildPricingText(pricing, discountCode) {
+  const code = String(discountCode || "").trim();
+  const lines = Array.isArray(pricing?.lines) ? pricing.lines : [];
+  if (!lines.length) return `Pricing:\n(No pricing breakdown provided)\n\nDiscount Code: ${code || "None"}`;
 
-  if (!hasPricing) {
-    const text =
-`Pricing:
-(No pricing breakdown provided)
-
-Discount Code: ${code || "None"}`;
-    const html = `
-      <h3 style="margin:16px 0 6px">Pricing</h3>
-      <p style="margin:0 0 8px;color:#6b7280">(No pricing breakdown provided)</p>
-      <p style="margin:0"><strong>Discount Code:</strong> ${escapeHtml(code || "None")}</p>
-    `;
-    return { text, html, applied: false };
-  }
-
-  const lines = pricing.lines;
-  const anyDiscounted = lines.some((l) => !!l.discounted);
-  const applied = !!code && anyDiscounted;
-
-  const textLines = lines.map((l) => {
-    const type = String(l.type || "").replace(" Bin", "");
-    const planLabel = l.planLabel || "";
-    const each = fmtGBP(l.unitPrice);
-    const total = fmtGBP(l.lineTotal);
-    const badge = l.discounted ? " (discounted)" : "";
-    return `${l.count}x ${type} — ${planLabel} @ ${each}${badge} = ${total}`;
+  const lineText = lines.map((line) => {
+    const type = String(line.type || "").replace(" Bin", "");
+    const badge = line.discounted ? " (discounted)" : "";
+    return `${line.count || 1}x ${type} — ${line.planLabel || ""} @ ${fmtGBP(line.unitPrice)}${badge} = ${fmtGBP(line.lineTotal)}`;
   });
 
-  const subtotal = fmtGBP(pricing.subtotal);
-  const total = fmtGBP(pricing.total);
-
-  const text =
-`Pricing:
-${textLines.join("\n")}
-
-Subtotal: ${subtotal}
-Total: ${total}
-
-Discount Code: ${code || "None"}${code ? (applied ? " (applied)" : " (not applied)") : ""}`;
-
-  const htmlLines = lines.map((l) => {
-    const type = escapeHtml(String(l.type || "").replace(" Bin", ""));
-    const planLabel = escapeHtml(l.planLabel || "");
-    const each = escapeHtml(fmtGBP(l.unitPrice));
-    const totalLine = escapeHtml(fmtGBP(l.lineTotal));
-    const badge = l.discounted ? ` <span style="color:#059669;font-weight:700">(discounted)</span>` : "";
-    return `<div style="margin:0 0 6px">${escapeHtml(String(l.count || 1))}x <strong>${type}</strong> — ${planLabel} @ ${each}${badge} = <strong>${totalLine}</strong></div>`;
-  }).join("");
-
-  const html = `
-    <h3 style="margin:16px 0 6px">Pricing</h3>
-    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:12px">
-      ${htmlLines}
-      <div style="margin-top:10px;border-top:1px solid #e5e7eb;padding-top:10px;display:flex;justify-content:space-between">
-        <div style="color:#374151">Subtotal</div>
-        <div style="font-weight:700">${escapeHtml(subtotal)}</div>
-      </div>
-      <div style="margin-top:6px;display:flex;justify-content:space-between">
-        <div style="color:#111827;font-weight:700">Total</div>
-        <div style="font-weight:800">${escapeHtml(total)}</div>
-      </div>
-    </div>
-    <p style="margin:10px 0 0"><strong>Discount Code:</strong> ${escapeHtml(code || "None")}${code ? (applied ? " <span style='color:#059669;font-weight:700'>(applied)</span>" : " <span style='color:#dc2626;font-weight:700'>(not applied)</span>") : ""}</p>
-  `;
-
-  return { text, html, applied };
+  return `Pricing:\n${lineText.join("\n")}\n\nSubtotal: ${fmtGBP(pricing.subtotal)}\nTotal: ${fmtGBP(pricing.total)}\n\nDiscount Code: ${code || "None"}`;
 }
 
 exports.handler = async (event) => {
@@ -105,29 +51,29 @@ exports.handler = async (event) => {
 
   try {
     const {
-      name="", email="", phone="", address="",
-      bins=[], source="whatsapp",
-
+      name = "",
+      email = "",
+      phone = "",
+      address = "",
+      bins = [],
+      source = "whatsapp",
       discountCode = null,
       pricing = null,
-
       termsAccepted = true,
       termsVersion = TERMS_VERSION_DEFAULT,
       termsAcceptanceText = `I confirm I’ve read and agree to the Ni Bin Guy Terms of Service (v${TERMS_VERSION_DEFAULT}).`,
       termsTimestamp = new Date().toISOString(),
     } = JSON.parse(event.body || "{}");
 
-    const filteredBins = (Array.isArray(bins) ? bins : []).filter(b => b && b.type);
-
+    const filteredBins = (Array.isArray(bins) ? bins : []).filter((bin) => bin && bin.type);
     const binsText = filteredBins
-      .map(b => {
-        const planOrFreq = b.planId ? `plan: ${b.planId}` : (b.frequency || "");
-        return `${b.count || 1} x ${b.type} (${planOrFreq})`;
+      .map((bin) => {
+        const planOrFreq = bin.planId ? `plan: ${bin.planId}` : bin.frequency || "";
+        return `${bin.count || 1} x ${bin.type} (${planOrFreq})`;
       })
       .join("\n") || "(none provided)";
 
-    const binsHtml = escapeHtml(binsText).replace(/\n/g,"<br>");
-    const pricingBlocks = buildPricingBlocks(pricing, discountCode);
+    const pricingText = buildPricingText(pricing, discountCode);
 
     let termsPdfAttachment = null;
     try {
@@ -137,7 +83,7 @@ exports.handler = async (event) => {
         phone,
         address,
         binsText,
-        pricingText: pricingBlocks.text,
+        pricingText,
         termsAccepted,
         termsVersion,
         termsAcceptanceText,
@@ -148,50 +94,26 @@ exports.handler = async (event) => {
     } catch (pdfError) {
       console.warn("Terms PDF generation skipped:", pdfError.message);
     }
-    const termsAttachments = termsPdfAttachment ? [termsPdfAttachment] : undefined;
 
-    // ADMIN email
+    const attachments = termsPdfAttachment ? [termsPdfAttachment] : undefined;
+
     const { error: adminError } = await resend.emails.send({
       from: FROM_DEFAULT,
       to: TO_ADMIN,
-      subject: `🗑️ New booking via WhatsApp (ToS receipt)`,
-      text:
-`New booking via WhatsApp
-
-Name: ${name}
-Email: ${email}
-Phone: ${phone}
-Address: ${address}
-
-Bins:
-${binsText}
-
-${pricingBlocks.text}
-
-— TERMS —
-Accepted: ${termsAccepted ? "yes" : "no"}
-Version: ${termsVersion}
-Confirmed: ${termsTimestamp}
-Acceptance line: ${termsAcceptanceText}
-Source: ${source}`,
+      subject: "🗑️ New booking request via WhatsApp",
+      text: `New booking request via WhatsApp\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\n\nBins:\n${binsText}\n\n${pricingText}\n\nTerms accepted: ${termsAccepted ? "yes" : "no"}\nTerms version: ${termsVersion}\nConfirmed: ${termsTimestamp}`,
       html: `
-        <h2>New booking via WhatsApp</h2>
-        <p><strong>Name:</strong> ${escapeHtml(name)}</p>
-        <p><strong>Email:</strong> ${escapeHtml(email)}</p>
-        <p><strong>Phone:</strong> ${escapeHtml(phone)}</p>
-        <p><strong>Address:</strong> ${escapeHtml(address)}</p>
-        <p><strong>Bins:</strong><br>${binsHtml}</p>
-
-        ${pricingBlocks.html}
-
-        <hr>
-        <p><strong>TERMS</strong> <span style="color:#6b7280">(v${escapeHtml(termsVersion)})</span></p>
-        <p><em>${escapeHtml(termsAcceptanceText)}</em></p>
-        <p>Confirmed: ${escapeHtml(termsTimestamp)}</p>
-        <p style="color:#6b7280">Source: ${escapeHtml(source)}</p>
+        <h2>New booking request via WhatsApp</h2>
+        <p><strong>Name:</strong> ${escapeHtml(name)}<br>
+        <strong>Email:</strong> ${escapeHtml(email)}<br>
+        <strong>Phone:</strong> ${escapeHtml(phone)}<br>
+        <strong>Address:</strong> ${escapeHtml(address)}</p>
+        <p><strong>Bins:</strong><br>${escapeHtml(binsText).replace(/\n/g, "<br>")}</p>
+        <pre style="white-space:pre-wrap">${escapeHtml(pricingText)}</pre>
+        <p><strong>Terms:</strong> ${termsAccepted ? "Accepted" : "Not accepted"} — ${escapeHtml(termsVersion)}</p>
       `,
       replyTo: email || undefined,
-      attachments: termsAttachments,
+      attachments,
     });
 
     if (adminError) {
@@ -199,75 +121,63 @@ Source: ${source}`,
       return { statusCode: 502, body: JSON.stringify({ error: "Failed to send admin email", details: adminError }) };
     }
 
-    // CUSTOMER email
     if (email) {
-      const { error: custError } = await resend.emails.send({
-        from: FROM_DEFAULT,
-        to: email,
-        subject: `Your Ni Bin Guy booking, pricing & Terms confirmation (v${termsVersion})`,
-        text:
-`Thanks ${name},
-
-We’ve received your WhatsApp booking. Here is your summary (including pricing) and your Terms confirmation.
-
-Your signed Terms & Conditions Acceptance Certificate PDF is attached to this email.
-
-Address: ${address}
-
-Bins:
-${binsText}
-
-${pricingBlocks.text}
-
-Terms:
-Accepted: ${termsAccepted ? "yes" : "no"}
-Version: ${termsVersion}
-Confirmed: ${termsTimestamp}
-
-We’ll be in touch to confirm your schedule.`,
-        html: `
-          <h2>Thanks, ${escapeHtml(name)} — we’ve received your WhatsApp booking</h2>
-          <p><strong>Your signed Terms &amp; Conditions Acceptance Certificate PDF is attached to this email.</strong></p>
-          <p><strong>Address:</strong> ${escapeHtml(address)}</p>
-          <p><strong>Bins:</strong><br>${binsHtml}</p>
-
-          ${pricingBlocks.html}
-
-          <h3>Terms confirmation</h3>
-          <p>Version: <strong>${escapeHtml(termsVersion)}</strong><br>
-             Confirmed: <strong>${escapeHtml(termsTimestamp)}</strong></p>
-          <p><em>${escapeHtml(termsAcceptanceText)}</em></p>
-        `,
-        replyTo: TO_ADMIN,
-        attachments: termsAttachments,
+      const customerHtml = buildBookingEmailHtml({
+        name,
+        address,
+        phone,
+        bins: filteredBins,
+        pricing,
+        discountCode,
+        termsVersion,
+        termsTimestamp,
+        termsPdfAttached: !!termsPdfAttachment,
       });
 
-      if (custError) {
-        console.error("Resend customer error:", custError);
-        return { statusCode: 502, body: JSON.stringify({ error: "Failed to send customer email", details: custError }) };
+      const { error: customerError } = await resend.emails.send({
+        from: FROM_DEFAULT,
+        to: email,
+        subject: `Booking request received — Ni Bin Guy`,
+        text: `Thanks ${name},\n\nWe’ve received your booking request via WhatsApp.\n\nKeep an eye out for your quote — it will include your clean date and proposed schedule. If everything looks good, hit Confirm at the top of the quote and you’ll be booked in.\n\nAddress: ${address}\n\nBins:\n${binsText}\n\n${pricingText}\n\nYour Terms & Conditions Acceptance Certificate PDF is attached.`,
+        html: customerHtml,
+        replyTo: TO_ADMIN,
+        attachments,
+      });
+
+      if (customerError) {
+        console.error("Resend customer error:", customerError);
+        return { statusCode: 502, body: JSON.stringify({ error: "Failed to send customer email", details: customerError }) };
       }
     }
 
-    // Optional: log to Blobs
     if (getStoreSafe) {
       try {
         const store = getStoreSafe("tos-confirmations");
-        const key = `${termsTimestamp}__${(email || phone || "unknown").replace(/[^a-z0-9@.+_-]/gi,"_")}.json`;
+        const key = `${termsTimestamp}__${(email || phone || "unknown").replace(/[^a-z0-9@.+_-]/gi, "_")}.json`;
         await store.setJSON(key, {
           channel: "whatsapp",
-          name, email, phone, address, bins,
+          name,
+          email,
+          phone,
+          address,
+          bins,
           discountCode: discountCode || null,
           pricing: pricing || null,
-          termsAccepted, termsVersion, termsAcceptanceText, termsTimestamp,
+          termsAccepted,
+          termsVersion,
+          termsAcceptanceText,
+          termsTimestamp,
           termsPdfAttached: !!termsPdfAttachment,
           createdAt: new Date().toISOString(),
         });
-      } catch (e) { console.warn("Blobs log skipped:", e.message); }
+      } catch (error) {
+        console.warn("Blobs log skipped:", error.message);
+      }
     }
 
     return { statusCode: 200, body: JSON.stringify({ ok: true }) };
-  } catch (e) {
-    console.error("sendTosReceipt error:", e);
+  } catch (error) {
+    console.error("sendTosReceipt error:", error);
     return { statusCode: 500, body: JSON.stringify({ error: "Failed" }) };
   }
 };
