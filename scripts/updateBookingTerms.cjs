@@ -46,7 +46,7 @@ const FULL_TERMS = `We keep our Terms of Service simple and transparent. By book
 • Please keep your contact details, address, and payment details up to date.
 • Please tell us in advance if your bin will not be available.
 • Please make sure gates are unlocked, access is safe, and pets are secured where needed.
-• By booking, you authorise Ni Bin Guy to use a suitable external water tap at the service address, where available, to refill our cleaning tank or equipment as reasonably required to carry out the service. Please let us know before your scheduled clean if no suitable outside water supply is available.
+• By booking, you authorise Ni Bin Guy to use a suitable external water tap at the service address, where available, to refill our cleaning tank or equipment as reasonably required to carry out the service.
 • We have zero tolerance for abuse, threats, or harassment toward staff, including online abuse.
 
 8) Other Terms
