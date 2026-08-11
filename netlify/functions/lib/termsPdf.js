@@ -55,6 +55,16 @@ const DEFAULT_TERMS_BODY = `We keep our Terms of Service simple and transparent.
 - You consent to us storing your details and contacting you about your booking, schedule, payment, and service.
 - Text reminders are a courtesy only. You remain responsible for knowing your scheduled clean date.`;
 
+const BRAND = {
+  black: rgb(0.02, 0.02, 0.02),
+  yellow: rgb(1, 0.83, 0),
+  red: rgb(0.77, 0.07, 0.16),
+  white: rgb(1, 1, 1),
+  ink: rgb(0.08, 0.08, 0.08),
+  grey: rgb(0.42, 0.42, 0.42),
+  pale: rgb(0.96, 0.96, 0.96),
+};
+
 function pdfSafe(value) {
   return String(value ?? "")
     .replace(/£/g, "GBP ")
@@ -67,40 +77,29 @@ function pdfSafe(value) {
 }
 
 function safeFilePart(value) {
-  const cleaned = String(value || "customer")
-    .trim()
-    .replace(/[^a-z0-9_-]+/gi, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
+  const cleaned = String(value || "customer").trim().replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 40);
   return cleaned || "customer";
 }
 
 function wrapText(text, font, fontSize, maxWidth) {
   const lines = [];
-  const paragraphs = pdfSafe(text).split(/\r?\n/);
-
-  for (const paragraph of paragraphs) {
+  for (const paragraph of pdfSafe(text).split(/\r?\n/)) {
     if (!paragraph.trim()) {
       lines.push("");
       continue;
     }
-
     const words = paragraph.trim().split(/\s+/);
     let line = "";
-
     for (const word of words) {
       const test = line ? `${line} ${word}` : word;
-      if (font.widthOfTextAtSize(test, fontSize) <= maxWidth) {
-        line = test;
-      } else {
+      if (font.widthOfTextAtSize(test, fontSize) <= maxWidth) line = test;
+      else {
         if (line) lines.push(line);
         line = word;
       }
     }
-
     if (line) lines.push(line);
   }
-
   return lines;
 }
 
@@ -135,8 +134,18 @@ function buildHash(data) {
     termsBody: data.termsBody || DEFAULT_TERMS_BODY,
     source: data.source || "website",
   };
-
   return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
+}
+
+async function tryEmbedLogo(pdfDoc) {
+  try {
+    const response = await fetch("https://nibing.uy/logo.png");
+    if (!response.ok) return null;
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return await pdfDoc.embedPng(bytes);
+  } catch (_) {
+    return null;
+  }
 }
 
 async function buildTermsAcceptancePdfAttachment(data) {
@@ -152,51 +161,54 @@ async function buildTermsAcceptancePdfAttachment(data) {
 
   const regular = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const logo = await tryEmbedLogo(pdfDoc);
 
   const pageWidth = 595.28;
   const pageHeight = 841.89;
-  const margin = 48;
-  const maxWidth = pageWidth - margin * 2;
-  let page = pdfDoc.addPage([pageWidth, pageHeight]);
-  let y = pageHeight - margin;
-  let pageNumber = 1;
+  const margin = 42;
+  const contentWidth = pageWidth - margin * 2;
+  let page;
+  let y;
+  let pageNumber = 0;
 
-  const addFooter = () => {
-    page.drawText(`Page ${pageNumber}`, { x: margin, y: 24, size: 8, font: regular, color: rgb(0.45, 0.45, 0.45) });
-    page.drawText("Digital acceptance certificate generated from the website booking form.", {
-      x: margin + 70,
-      y: 24,
-      size: 8,
-      font: regular,
-      color: rgb(0.45, 0.45, 0.45),
-    });
+  const drawBrandHeader = (firstPage = false) => {
+    page.drawRectangle({ x: 0, y: pageHeight - (firstPage ? 150 : 74), width: pageWidth, height: firstPage ? 150 : 74, color: BRAND.black });
+    page.drawRectangle({ x: 0, y: pageHeight - (firstPage ? 156 : 80), width: pageWidth, height: 6, color: BRAND.yellow });
+
+    if (logo) {
+      const ratio = logo.width / logo.height;
+      const h = firstPage ? 62 : 38;
+      const w = h * ratio;
+      page.drawImage(logo, { x: margin, y: pageHeight - h - (firstPage ? 24 : 18), width: w, height: h });
+    } else {
+      page.drawText("NI BIN GUY", { x: margin, y: pageHeight - (firstPage ? 60 : 44), size: firstPage ? 24 : 17, font: bold, color: BRAND.white });
+      page.drawText("NO MORE DIRTY BINS", { x: margin, y: pageHeight - (firstPage ? 80 : 60), size: firstPage ? 10 : 8, font: bold, color: BRAND.red });
+    }
+
+    if (firstPage) {
+      page.drawText("TERMS & CONDITIONS", { x: margin, y: pageHeight - 104, size: 25, font: bold, color: BRAND.white });
+      page.drawText("ACCEPTANCE CERTIFICATE", { x: margin, y: pageHeight - 131, size: 21, font: bold, color: BRAND.yellow });
+    } else {
+      page.drawText("TERMS ACCEPTANCE CERTIFICATE", { x: 270, y: pageHeight - 44, size: 12, font: bold, color: BRAND.yellow });
+    }
   };
 
-  const newPage = () => {
-    addFooter();
+  const drawFooter = () => {
+    page.drawRectangle({ x: 0, y: 0, width: pageWidth, height: 34, color: BRAND.black });
+    page.drawText(`Page ${pageNumber}`, { x: margin, y: 13, size: 8, font: regular, color: BRAND.white });
+    page.drawText("nibing.uy  |  07555 178484  |  info@nibing.uy", { x: 180, y: 13, size: 8, font: regular, color: BRAND.yellow });
+  };
+
+  const addPage = (firstPage = false) => {
+    if (page) drawFooter();
     page = pdfDoc.addPage([pageWidth, pageHeight]);
     pageNumber += 1;
-    y = pageHeight - margin;
+    drawBrandHeader(firstPage);
+    y = pageHeight - (firstPage ? 180 : 102);
   };
 
   const ensureSpace = (height) => {
-    if (y - height < margin + 20) newPage();
-  };
-
-  const drawLine = (text, options = {}) => {
-    const size = options.size || 10;
-    const font = options.bold ? bold : regular;
-    const gap = options.gap || size + 4;
-    const indent = options.indent || 0;
-    ensureSpace(gap + 2);
-    page.drawText(pdfSafe(text), {
-      x: margin + indent,
-      y,
-      size,
-      font,
-      color: options.color || rgb(0.1, 0.1, 0.1),
-    });
-    y -= gap;
+    if (y - height < 58) addPage(false);
   };
 
   const drawWrapped = (text, options = {}) => {
@@ -204,66 +216,97 @@ async function buildTermsAcceptancePdfAttachment(data) {
     const font = options.bold ? bold : regular;
     const lineGap = options.lineGap || size + 4;
     const indent = options.indent || 0;
-    const lines = wrapText(text, font, size, maxWidth - indent);
-
+    const color = options.color || BRAND.ink;
+    const lines = wrapText(text, font, size, contentWidth - indent - (options.extraWidth || 0));
     for (const line of lines) {
       if (!line) {
         y -= lineGap / 2;
         continue;
       }
-      ensureSpace(lineGap + 2);
-      page.drawText(line, {
-        x: margin + indent,
-        y,
-        size,
-        font,
-        color: options.color || rgb(0.1, 0.1, 0.1),
-      });
+      ensureSpace(lineGap + 3);
+      page.drawText(line, { x: margin + indent, y, size, font, color });
       y -= lineGap;
     }
   };
 
-  const drawSectionTitle = (title) => {
+  const section = (title) => {
+    ensureSpace(42);
     y -= 8;
-    ensureSpace(26);
-    page.drawText(pdfSafe(title), { x: margin, y, size: 13, font: bold, color: rgb(0.02, 0.35, 0.16) });
-    y -= 18;
-    page.drawLine({ start: { x: margin, y: y + 5 }, end: { x: pageWidth - margin, y: y + 5 }, thickness: 0.8, color: rgb(0.8, 0.86, 0.8) });
+    page.drawRectangle({ x: margin, y: y - 4, width: contentWidth, height: 28, color: BRAND.black });
+    page.drawRectangle({ x: margin, y: y - 4, width: 7, height: 28, color: BRAND.yellow });
+    page.drawText(pdfSafe(title).toUpperCase(), { x: margin + 16, y: y + 5, size: 12, font: bold, color: BRAND.white });
+    y -= 38;
   };
 
-  page.drawText("Ni Bin Guy", { x: margin, y, size: 24, font: bold, color: rgb(0.02, 0.35, 0.16) });
-  y -= 30;
-  page.drawText("Terms & Conditions Acceptance Certificate", { x: margin, y, size: 17, font: bold, color: rgb(0.1, 0.1, 0.1) });
-  y -= 24;
-  drawWrapped("This PDF records the customer's digital acceptance of the Ni Bin Guy Terms of Service when submitting a booking request.", { size: 10 });
+  const detailRow = (label, value, highlight = false) => {
+    const text = `${label}: ${value || ""}`;
+    const lines = wrapText(text, highlight ? bold : regular, 10, contentWidth - 24);
+    const h = Math.max(30, lines.length * 14 + 14);
+    ensureSpace(h + 5);
+    page.drawRectangle({ x: margin, y: y - h + 8, width: contentWidth, height: h, color: highlight ? BRAND.yellow : BRAND.pale });
+    let ty = y - 8;
+    for (const line of lines) {
+      page.drawText(line, { x: margin + 12, y: ty, size: 10, font: highlight ? bold : regular, color: BRAND.ink });
+      ty -= 14;
+    }
+    y -= h + 6;
+  };
 
-  drawSectionTitle("Acceptance details");
-  drawLine(`Accepted: ${data.termsAccepted ? "Yes" : "No"}`);
-  drawLine(`Terms version: ${data.termsVersion || ""}`);
-  drawLine(`Accepted at: ${ukDateTime(data.termsTimestamp)} Europe/London`);
-  drawWrapped(`Acceptance wording: ${data.termsAcceptanceText || ""}`);
-  drawWrapped(`Verification SHA-256: ${verificationHash}`, { size: 8 });
+  addPage(true);
 
-  drawSectionTitle("Customer details");
-  drawLine(`Name: ${data.name || ""}`);
-  drawLine(`Email: ${data.email || ""}`);
-  drawLine(`Phone: ${data.phone || ""}`);
-  drawWrapped(`Address: ${data.address || ""}`);
-  drawLine(`Booking source: ${data.source || "website"}`);
+  page.drawRectangle({ x: margin, y: y - 54, width: contentWidth, height: 54, color: BRAND.yellow });
+  page.drawText(data.termsAccepted ? "ACCEPTANCE RECORDED" : "ACCEPTANCE NOT RECORDED", {
+    x: margin + 18,
+    y: y - 24,
+    size: 18,
+    font: bold,
+    color: BRAND.black,
+  });
+  page.drawText("Digital record created from the Ni Bin Guy website booking request.", {
+    x: margin + 18,
+    y: y - 42,
+    size: 9,
+    font: regular,
+    color: BRAND.black,
+  });
+  y -= 72;
 
-  drawSectionTitle("Booking summary");
-  drawWrapped(data.binsText || "(none provided)");
+  section("Acceptance details");
+  detailRow("Accepted", data.termsAccepted ? "Yes" : "No", true);
+  detailRow("Terms version", data.termsVersion || "");
+  detailRow("Accepted at", `${ukDateTime(data.termsTimestamp)} Europe/London`);
+  detailRow("Acceptance wording", data.termsAcceptanceText || "");
+
+  section("Customer details");
+  detailRow("Name", data.name || "");
+  detailRow("Email", data.email || "");
+  detailRow("Phone", data.phone || "");
+  detailRow("Address", data.address || "");
+  detailRow("Booking source", data.source || "website");
+
+  section("Booking summary");
+  drawWrapped(data.binsText || "(none provided)", { size: 10, bold: true });
   y -= 4;
-  drawWrapped(data.pricingText || "Pricing not provided.");
+  drawWrapped(data.pricingText || "Pricing not provided.", { size: 10 });
 
-  drawSectionTitle("Terms agreed to");
+  section("Verification");
+  drawWrapped("This unique SHA-256 verification hash is generated from the booking and acceptance details recorded in this certificate.", { size: 9, color: BRAND.grey });
+  y -= 4;
+  drawWrapped(verificationHash, { size: 8, bold: true, color: BRAND.red });
+
+  section("Terms agreed to");
   drawWrapped(termsBody, { size: 9, lineGap: 12 });
 
-  addFooter();
+  ensureSpace(58);
+  y -= 8;
+  page.drawRectangle({ x: margin, y: y - 44, width: contentWidth, height: 44, color: BRAND.black });
+  page.drawText("DIRTY BINS. SORTED.", { x: margin + 16, y: y - 19, size: 16, font: bold, color: BRAND.yellow });
+  page.drawText("Thank you for choosing Ni Bin Guy.", { x: margin + 16, y: y - 34, size: 9, font: regular, color: BRAND.white });
+
+  drawFooter();
 
   const pdfBytes = await pdfDoc.save();
   const filename = `Ni-Bin-Guy-Terms-Acceptance-${safeFilePart(data.name || data.email)}.pdf`;
-
   return {
     filename,
     content: Buffer.from(pdfBytes).toString("base64"),
