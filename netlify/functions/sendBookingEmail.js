@@ -1,6 +1,7 @@
 // netlify/functions/sendBookingEmail.js
 const { Resend } = require("resend");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
+const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
 
 // Optional audit logging. If Netlify Blobs is unavailable, logging is skipped.
 let getStoreSafe = null;
@@ -246,23 +247,7 @@ exports.handler = async (event) => {
 
     const attachments = termsPdfAttachment ? [termsPdfAttachment] : undefined;
     const subjectAdmin = `🗑️ New Bin Cleaning Booking (${source})`;
-    const textAdmin = `New Bin Cleaning Booking
-
-Name: ${name}
-Email: ${email}
-Phone: ${phone}
-Address: ${address}
-${lat != null && lng != null ? `Geo: ${lat}, ${lng}\n` : ""}${placeId ? `Place ID: ${placeId}\n` : ""}Bins:
-${binsText}
-
-${pricingBlocks.text}
-
-— TERMS —
-Accepted: ${termsAccepted ? "yes" : "no"}
-Version: ${termsVersion}
-Confirmed: ${termsTimestamp}
-Acceptance line: ${termsAcceptanceText}
-`;
+    const textAdmin = `New Bin Cleaning Booking\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\n${lat != null && lng != null ? `Geo: ${lat}, ${lng}\n` : ""}${placeId ? `Place ID: ${placeId}\n` : ""}Bins:\n${binsText}\n\n${pricingBlocks.text}\n\n— TERMS —\nAccepted: ${termsAccepted ? "yes" : "no"}\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\nAcceptance line: ${termsAcceptanceText}\n`;
     const htmlAdmin = `
       <h2>New Bin Cleaning Booking</h2>
       <p><strong>Name:</strong> ${escapeHtml(name)}</p>
@@ -296,40 +281,19 @@ Acceptance line: ${termsAcceptanceText}
       ? resend.emails.send({
           from: FROM_DEFAULT,
           to: email,
-          subject: `Your Ni Bin Guy booking & Terms confirmation (v${termsVersion})`,
-          text: `Thanks ${name},
-
-We've received your booking. Here is your booking summary (including pricing) and your Terms confirmation.
-
-Your signed Terms & Conditions Acceptance Certificate PDF is attached to this email.
-
-Name: ${name}
-Phone: ${phone}
-Address: ${address}
-
-Bins:
-${binsText}
-
-${pricingBlocks.text}
-
-Terms:
-Accepted: ${termsAccepted ? "yes" : "no"}
-Version: ${termsVersion}
-Confirmed: ${termsTimestamp}
-
-We’ll be in touch to confirm your schedule.`,
-          html: `
-            <h2>Thanks, ${escapeHtml(name)} — your booking is in!</h2>
-            <p>We’ve received your details and your Terms confirmation. We’ll be in touch to confirm your schedule.</p>
-            <p><strong>Your signed Terms &amp; Conditions Acceptance Certificate PDF is attached to this email.</strong></p>
-            <h3 style="margin:16px 0 6px">Booking summary</h3>
-            <p><strong>Name:</strong> ${escapeHtml(name)}<br>
-               <strong>Phone:</strong> ${escapeHtml(phone)}<br>
-               <strong>Address:</strong> ${escapeHtml(address)}</p>
-            <p><strong>Bins:</strong><br>${binsHtml}</p>
-            ${pricingBlocks.html}
-            ${tosHtmlBlock(termsVersion, termsTimestamp)}
-          `,
+          subject: `🗑️ Booking confirmed — your bin's days are numbered`,
+          text: `Thanks ${name},\n\nYour Ni Bin Guy booking is confirmed.\n\nName: ${name}\nPhone: ${phone}\nAddress: ${address}\n\nBins:\n${binsText}\n\n${pricingBlocks.text}\n\nTerms:\nAccepted: ${termsAccepted ? "yes" : "no"}\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\n\n${termsPdfAttachment ? "Your signed Terms & Conditions Acceptance Certificate PDF is attached to this email.\n\n" : ""}We’ll be in touch shortly to confirm your cleaning schedule.`,
+          html: buildBookingEmailHtml({
+            name,
+            address,
+            phone,
+            bins: filteredBins,
+            pricing,
+            discountCode,
+            termsVersion,
+            termsTimestamp,
+            termsPdfAttached: Boolean(termsPdfAttachment),
+          }),
           replyTo: TO_ADMIN,
           attachments,
         })
