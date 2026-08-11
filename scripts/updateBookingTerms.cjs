@@ -1,7 +1,7 @@
 const { readFileSync, writeFileSync } = require("fs");
 const { resolve } = require("path");
 
-const VERSION = "July 2026";
+const VERSION = "August 2026";
 
 const FULL_TERMS = `We keep our Terms of Service simple and transparent. By booking or receiving a bin clean from Ni Bin Guy, you agree to:
 
@@ -13,7 +13,7 @@ const FULL_TERMS = `We keep our Terms of Service simple and transparent. By book
 
 2) Bin Availability
 • Bins must be left out or made accessible on the scheduled cleaning day and must remain available until 8pm.
-• If your bin is not available when we attend, or access is blocked, the clean may still be charged.
+• If your bin is not available when we attend, or access is blocked, the clean will still be charged.
 • If we are unable to attend on the scheduled day, we will notify you and rearrange the clean as soon as reasonably possible.
 • We may be unable to clean if the bin has not been emptied by the council, is too heavy to move safely, or contains unsafe or excessive waste.
 
@@ -46,6 +46,7 @@ const FULL_TERMS = `We keep our Terms of Service simple and transparent. By book
 • Please keep your contact details, address, and payment details up to date.
 • Please tell us in advance if your bin will not be available.
 • Please make sure gates are unlocked, access is safe, and pets are secured where needed.
+• By booking, you authorise Ni Bin Guy to use a suitable external water tap at the service address, where available, to refill our cleaning tank or equipment as reasonably required to carry out the service. Please let us know before your scheduled clean if no suitable outside water supply is available.
 • We have zero tolerance for abuse, threats, or harassment toward staff, including online abuse.
 
 8) Other Terms
@@ -57,29 +58,7 @@ const FULL_TERMS = `We keep our Terms of Service simple and transparent. By book
 • You consent to us storing your details and contacting you about your booking, schedule, payment, and service.
 • Text reminders are a courtesy only. You remain responsible for knowing your scheduled clean date.`;
 
-const EMAIL_TERMS = `
-Ni Bin Guy – Terms of Service
-
-• Regular 4-weekly plans are based on a 13-clean minimum term, which is approximately 12 months, unless agreed otherwise.
-• One-off cleans have no minimum term and may be cancelled up to 24 hours before the scheduled clean day without charge.
-• Bins must be left out or made accessible on the scheduled cleaning day and must remain available until 8pm.
-• If your bin is not available when we attend, or access is blocked, the clean may still be charged.
-• If we are unable to attend on the scheduled day, we will notify you and rearrange the clean as soon as reasonably possible.
-• A 4-weekly plan may be cancelled any time up to 24 hours before the second scheduled clean. If cancelled before the second clean, the first clean will be charged at the standard one-off clean price, and any difference between the 4-weekly price and one-off price will become payable.
-• After the second clean, the 4-weekly plan continues for the full 13-clean minimum term.
-• If the customer cancels before the end of the 13-clean minimum term, they will remain liable for the outstanding balance for the remaining cleans within the 12-month minimum term.
-• After the 13-clean minimum term has been completed, the plan continues on a rolling basis and may be cancelled by giving at least 30 days’ notice.
-• One-off cleans containing dog faeces, cat litter, animal bedding, or other animal faeces/waste will incur a £5 surcharge per affected bin.
-• We may refuse to clean bins containing excessive animal waste, hazardous waste, sharp items, medical waste, chemicals, paint, oil, rubble, hot ashes, or anything unsafe.
-• Bins are cleaned inside and outside where safe using pressurised water and detergent. Some stains, ingrained smells, paint, tar, or long-term residue may take multiple visits or may not fully remove.
-• Payment is due within 7 days unless agreed otherwise. Accepted methods are Direct Debit, Bank Transfer, and Card. No cash.
-• Cancelling a Direct Debit does not cancel your service or contract. Cancellation must be requested directly with Ni Bin Guy.
-• Overdue accounts may result in service being stopped and may be referred for recovery.
-• Please keep your contact details, address, and payment details up to date, and make sure access is safe on cleaning day.
-• We may place a small sticker or service tag on your bin. Discounts are discretionary and may be withdrawn or changed.
-• You consent to us storing your details and contacting you about your booking, schedule, payment, and service.
-• Text reminders are a courtesy only. You remain responsible for knowing your scheduled clean date.
-`;
+const EMAIL_TERMS = `Ni Bin Guy – Terms of Service\n\n${FULL_TERMS}`;
 
 function updateFile(path, updater) {
   const filePath = resolve(process.cwd(), path);
@@ -111,10 +90,7 @@ updateFile("src/LandingPage.jsx", (text) => {
     );
   }
 
-  text = text.replace(
-    "const handleSendWhatsApp = () => {",
-    "const handleSendWhatsApp = async () => {"
-  );
+  text = text.replace("const handleSendWhatsApp = () => {", "const handleSendWhatsApp = async () => {");
 
   const unreliableSend = `    try {
       const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
@@ -154,18 +130,7 @@ updateFile("src/LandingPage.jsx", (text) => {
       return;
     }`;
 
-  if (text.includes(unreliableSend)) {
-    text = text.replace(unreliableSend, reliableSend);
-  } else if (text.includes('    try {\n      const response = await fetch("/.netlify/functions/sendTosReceipt"') && !text.includes("setIsWhatsAppSubmitting(true);")) {
-    text = text.replace(
-      '    try {\n      const response = await fetch("/.netlify/functions/sendTosReceipt"',
-      '    setIsWhatsAppSubmitting(true);\n\n    try {\n      const response = await fetch("/.netlify/functions/sendTosReceipt"'
-    );
-    text = text.replace(
-      '    } catch (error) {\n      console.error("WhatsApp booking receipt failed:", error);',
-      '    } catch (error) {\n      setIsWhatsAppSubmitting(false);\n      console.error("WhatsApp booking receipt failed:", error);'
-    );
-  }
+  if (text.includes(unreliableSend)) text = text.replace(unreliableSend, reliableSend);
 
   if (!text.includes('setIsEmailSubmitting(true);')) {
     text = text.replace(
@@ -201,11 +166,44 @@ updateFile("src/LandingPage.jsx", (text) => {
 
 updateFile("netlify/functions/sendBookingEmail.js", (text) => {
   text = text.replace(/const TERMS_VERSION_DEFAULT = "[^"]+";/, `const TERMS_VERSION_DEFAULT = "${VERSION}";`);
-  text = text.replace(/const TERMS_BODY = `.*?`;/s, `const TERMS_BODY = \`${EMAIL_TERMS}\`;`);
+  text = text.replace(/const TERMS_BODY = `.*?`;/s, `const TERMS_BODY = \`\n${EMAIL_TERMS}\n\`;`);
   return text;
 });
 
 updateFile("netlify/functions/sendTosReceipt.js", (text) => {
   text = text.replace(/const TERMS_VERSION_DEFAULT = "[^"]+";/, `const TERMS_VERSION_DEFAULT = "${VERSION}";`);
+  return text;
+});
+
+updateFile("netlify/functions/lib/termsPdf.js", (text) => {
+  text = text.replace(/const DEFAULT_TERMS_BODY = `.*?`;/s, `const DEFAULT_TERMS_BODY = \`${FULL_TERMS}\`;`);
+
+  const oldRender = `  section("Terms agreed to");\n  drawWrapped(termsBody, { size: 9, lineGap: 12 });`;
+  const newRender = `  section("Terms agreed to");
+  const termLines = String(termsBody || "").split(/\\r?\\n/);
+  for (const rawLine of termLines) {
+    const line = pdfSafe(rawLine).trim();
+    if (!line) {
+      y -= 7;
+      continue;
+    }
+
+    if (/^\\d+\\)\\s/.test(line)) {
+      ensureSpace(34);
+      y -= 5;
+      drawWrapped(line, { size: 10, bold: true, lineGap: 14, color: BRAND.ink });
+      y -= 2;
+      continue;
+    }
+
+    if (line.startsWith("- ")) {
+      drawWrapped(line, { size: 9, lineGap: 12, indent: 10 });
+      continue;
+    }
+
+    drawWrapped(line, { size: 9, lineGap: 12 });
+  }`;
+
+  if (text.includes(oldRender)) text = text.replace(oldRender, newRender);
   return text;
 });
