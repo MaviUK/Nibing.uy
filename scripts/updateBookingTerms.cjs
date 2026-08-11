@@ -75,92 +75,9 @@ function updateFile(path, updater) {
 updateFile("src/LandingPage.jsx", (text) => {
   text = text.replace(/const TERMS_VERSION = "[^"]+";/, `const TERMS_VERSION = "${VERSION}";`);
   text = text.replace(/const TERMS_BODY = `.*?`;/s, `const TERMS_BODY = \`${FULL_TERMS}\`;`);
-
-  if (!text.includes("isWhatsAppSubmitting")) {
-    text = text.replace(
-      '  const [agreeToTerms, setAgreeToTerms] = useState(false);',
-      '  const [agreeToTerms, setAgreeToTerms] = useState(false);\n  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);'
-    );
-  }
-
-  if (!text.includes("isEmailSubmitting")) {
-    text = text.replace(
-      '  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);',
-      '  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);\n  const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);'
-    );
-  }
-
+  if (!text.includes("isWhatsAppSubmitting")) text = text.replace('  const [agreeToTerms, setAgreeToTerms] = useState(false);','  const [agreeToTerms, setAgreeToTerms] = useState(false);\n  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);');
+  if (!text.includes("isEmailSubmitting")) text = text.replace('  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);','  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);\n  const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);');
   text = text.replace("const handleSendWhatsApp = () => {", "const handleSendWhatsApp = async () => {");
-
-  const unreliableSend = `    try {
-      const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-      if (!navigator.sendBeacon("/.netlify/functions/sendTosReceipt", blob)) {
-        throw new Error("sendBeacon not sent");
-      }
-    } catch {
-      fetch("/.netlify/functions/sendTosReceipt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        keepalive: true,
-        body: JSON.stringify(payload),
-      }).catch(() => {});
-    }`;
-
-  const reliableSend = `    setIsWhatsAppSubmitting(true);
-
-    try {
-      const response = await fetch("/.netlify/functions/sendTosReceipt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        let details = "";
-        try {
-          const result = await response.json();
-          details = result?.error ? \`: \${result.error}\` : "";
-        } catch (_) {}
-        throw new Error(\`Booking receipt failed\${details}\`);
-      }
-    } catch (error) {
-      setIsWhatsAppSubmitting(false);
-      console.error("WhatsApp booking receipt failed:", error);
-      alert("We couldn't register your booking yet. Please check your connection and try again. WhatsApp has not been opened.");
-      return;
-    }`;
-
-  if (text.includes(unreliableSend)) text = text.replace(unreliableSend, reliableSend);
-
-  if (!text.includes('setIsEmailSubmitting(true);')) {
-    text = text.replace(
-      '    // ✅ reCAPTCHA token (v3)\n    const recaptchaAction = "booking_submit";',
-      '    setIsEmailSubmitting(true);\n\n    // ✅ reCAPTCHA token (v3)\n    const recaptchaAction = "booking_submit";'
-    );
-    text = text.replace(
-      '    if (!recaptchaToken) {\n      alert("Anti-bot check not ready. Please try again in a moment.");',
-      '    if (!recaptchaToken) {\n      setIsEmailSubmitting(false);\n      alert("Anti-bot check not ready. Please try again in a moment.");'
-    );
-    text = text.replace(
-      '    console.error("Email failed:", errorText);\n    alert("Failed to send booking email: " + errorText);',
-      '    setIsEmailSubmitting(false);\n    console.error("Email failed:", errorText);\n    alert("Failed to send booking email: " + errorText);'
-    );
-    text = text.replace(
-      '  console.error(err);\n  alert("Error sending booking.");',
-      '  setIsEmailSubmitting(false);\n  console.error(err);\n  alert("Error sending booking.");'
-    );
-  }
-
-  text = text.replace(
-    '      <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>\n        Send via WhatsApp\n      </button>',
-    '      <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60 flex items-center justify-center gap-2" disabled={!agreeToTerms || isWhatsAppSubmitting || isEmailSubmitting}>\n        {isWhatsAppSubmitting && <span className="inline-block h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" aria-hidden="true" />}\n        {isWhatsAppSubmitting ? "Registering booking..." : "Send via WhatsApp"}\n      </button>'
-  );
-
-  text = text.replace(
-    '      <button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>\n        Send via Email\n      </button>',
-    '      <button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60 flex items-center justify-center gap-2" disabled={!agreeToTerms || isEmailSubmitting || isWhatsAppSubmitting}>\n        {isEmailSubmitting && <span className="inline-block h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" aria-hidden="true" />}\n        {isEmailSubmitting ? "Sending booking..." : "Send via Email"}\n      </button>'
-  );
-
   return text;
 });
 
@@ -177,33 +94,9 @@ updateFile("netlify/functions/sendTosReceipt.js", (text) => {
 
 updateFile("netlify/functions/lib/termsPdf.js", (text) => {
   text = text.replace(/const DEFAULT_TERMS_BODY = `.*?`;/s, `const DEFAULT_TERMS_BODY = \`${FULL_TERMS}\`;`);
-
-  const oldRender = `  section("Terms agreed to");\n  drawWrapped(termsBody, { size: 9, lineGap: 12 });`;
-  const newRender = `  section("Terms agreed to");
-  const termLines = String(termsBody || "").split(/\\r?\\n/);
-  for (const rawLine of termLines) {
-    const line = pdfSafe(rawLine).trim();
-    if (!line) {
-      y -= 7;
-      continue;
-    }
-
-    if (/^\\d+\\)\\s/.test(line)) {
-      ensureSpace(34);
-      y -= 5;
-      drawWrapped(line, { size: 10, bold: true, lineGap: 14, color: BRAND.ink });
-      y -= 2;
-      continue;
-    }
-
-    if (line.startsWith("- ")) {
-      drawWrapped(line, { size: 9, lineGap: 12, indent: 10 });
-      continue;
-    }
-
-    drawWrapped(line, { size: 9, lineGap: 12 });
-  }`;
-
-  if (text.includes(oldRender)) text = text.replace(oldRender, newRender);
   return text;
+});
+
+updateFile("netlify/functions/lib/bookingEmailTemplate.js", (text) => {
+  return text.replace("Your first clean is one step closer.", "Your clean is one step closer.");
 });
