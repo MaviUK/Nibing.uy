@@ -167,13 +167,15 @@ async function buildTermsAcceptancePdfAttachment(data) {
   const pageHeight = 841.89;
   const margin = 42;
   const contentWidth = pageWidth - margin * 2;
+  const footerTop = 46;
   let page;
   let y;
   let pageNumber = 0;
 
   const drawBrandHeader = (firstPage = false) => {
-    page.drawRectangle({ x: 0, y: pageHeight - (firstPage ? 150 : 74), width: pageWidth, height: firstPage ? 150 : 74, color: BRAND.black });
-    page.drawRectangle({ x: 0, y: pageHeight - (firstPage ? 156 : 80), width: pageWidth, height: 6, color: BRAND.yellow });
+    const headerHeight = firstPage ? 150 : 74;
+    page.drawRectangle({ x: 0, y: pageHeight - headerHeight, width: pageWidth, height: headerHeight, color: BRAND.black });
+    page.drawRectangle({ x: 0, y: pageHeight - headerHeight - 6, width: pageWidth, height: 6, color: BRAND.yellow });
 
     if (logo) {
       const ratio = logo.width / logo.height;
@@ -204,11 +206,11 @@ async function buildTermsAcceptancePdfAttachment(data) {
     page = pdfDoc.addPage([pageWidth, pageHeight]);
     pageNumber += 1;
     drawBrandHeader(firstPage);
-    y = pageHeight - (firstPage ? 180 : 102);
+    y = pageHeight - (firstPage ? 184 : 110);
   };
 
   const ensureSpace = (height) => {
-    if (y - height < 58) addPage(false);
+    if (y - height < footerTop + 16) addPage(false);
   };
 
   const drawWrapped = (text, options = {}) => {
@@ -223,53 +225,41 @@ async function buildTermsAcceptancePdfAttachment(data) {
         y -= lineGap / 2;
         continue;
       }
-      ensureSpace(lineGap + 3);
+      ensureSpace(lineGap + 6);
       page.drawText(line, { x: margin + indent, y, size, font, color });
       y -= lineGap;
     }
   };
 
   const section = (title) => {
-    ensureSpace(42);
-    y -= 8;
+    y -= 12;
+    ensureSpace(54);
     page.drawRectangle({ x: margin, y: y - 4, width: contentWidth, height: 28, color: BRAND.black });
     page.drawRectangle({ x: margin, y: y - 4, width: 7, height: 28, color: BRAND.yellow });
     page.drawText(pdfSafe(title).toUpperCase(), { x: margin + 16, y: y + 5, size: 12, font: bold, color: BRAND.white });
-    y -= 38;
+    y -= 44;
   };
 
   const detailRow = (label, value, highlight = false) => {
     const text = `${label}: ${value || ""}`;
     const lines = wrapText(text, highlight ? bold : regular, 10, contentWidth - 24);
     const h = Math.max(30, lines.length * 14 + 14);
-    ensureSpace(h + 5);
+    ensureSpace(h + 10);
     page.drawRectangle({ x: margin, y: y - h + 8, width: contentWidth, height: h, color: highlight ? BRAND.yellow : BRAND.pale });
     let ty = y - 8;
     for (const line of lines) {
       page.drawText(line, { x: margin + 12, y: ty, size: 10, font: highlight ? bold : regular, color: BRAND.ink });
       ty -= 14;
     }
-    y -= h + 6;
+    y -= h + 8;
   };
 
   addPage(true);
 
   page.drawRectangle({ x: margin, y: y - 54, width: contentWidth, height: 54, color: BRAND.yellow });
-  page.drawText(data.termsAccepted ? "ACCEPTANCE RECORDED" : "ACCEPTANCE NOT RECORDED", {
-    x: margin + 18,
-    y: y - 24,
-    size: 18,
-    font: bold,
-    color: BRAND.black,
-  });
-  page.drawText("Digital record created from the Ni Bin Guy website booking request.", {
-    x: margin + 18,
-    y: y - 42,
-    size: 9,
-    font: regular,
-    color: BRAND.black,
-  });
-  y -= 72;
+  page.drawText(data.termsAccepted ? "ACCEPTANCE RECORDED" : "ACCEPTANCE NOT RECORDED", { x: margin + 18, y: y - 24, size: 18, font: bold, color: BRAND.black });
+  page.drawText("Digital record created from the Ni Bin Guy website booking request.", { x: margin + 18, y: y - 42, size: 9, font: regular, color: BRAND.black });
+  y -= 76;
 
   section("Acceptance details");
   detailRow("Accepted", data.termsAccepted ? "Yes" : "No", true);
@@ -286,19 +276,23 @@ async function buildTermsAcceptancePdfAttachment(data) {
 
   section("Booking summary");
   drawWrapped(data.binsText || "(none provided)", { size: 10, bold: true });
-  y -= 4;
+  y -= 6;
   drawWrapped(data.pricingText || "Pricing not provided.", { size: 10 });
 
+  // Keep verification together and away from the previous pricing lines.
+  if (y < 190) addPage(false);
   section("Verification");
   drawWrapped("This unique SHA-256 verification hash is generated from the booking and acceptance details recorded in this certificate.", { size: 9, color: BRAND.grey });
-  y -= 4;
+  y -= 6;
   drawWrapped(verificationHash, { size: 8, bold: true, color: BRAND.red });
 
+  // Start the legal terms with enough breathing room so its title never overlaps the hash.
+  if (y < 180) addPage(false);
   section("Terms agreed to");
   drawWrapped(termsBody, { size: 9, lineGap: 12 });
 
-  ensureSpace(58);
-  y -= 8;
+  ensureSpace(70);
+  y -= 12;
   page.drawRectangle({ x: margin, y: y - 44, width: contentWidth, height: 44, color: BRAND.black });
   page.drawText("DIRTY BINS. SORTED.", { x: margin + 16, y: y - 19, size: 16, font: bold, color: BRAND.yellow });
   page.drawText("Thank you for choosing Ni Bin Guy.", { x: margin + 16, y: y - 34, size: 9, font: regular, color: BRAND.white });
