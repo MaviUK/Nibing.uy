@@ -89,6 +89,13 @@ updateFile("src/LandingPage.jsx", (text) => {
   return text;
 });
 
+updateFile("src/TenSecondChallenge.jsx", (text) => {
+  return text.replace(
+    "      const finalCs = autoWin ? 1000 : rawFinalCs;",
+    "      const finalCs = 1000; // TEMP: everyone wins while testing the winner email flow"
+  );
+});
+
 updateFile("netlify/functions/sendBookingEmail.js", (text) => {
   text = text.replace(/const TERMS_VERSION_DEFAULT = "[^"]+";/, `const TERMS_VERSION_DEFAULT = "${VERSION}";`);
   text = text.replace(/const TERMS_BODY = `.*?`;/s, `const TERMS_BODY = \`\n${EMAIL_TERMS}\n\`;`);
