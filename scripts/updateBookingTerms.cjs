@@ -89,34 +89,6 @@ updateFile("src/LandingPage.jsx", (text) => {
   return text;
 });
 
-updateFile("src/TenSecondChallenge.jsx", (text) => {
-  text = text.replace(
-    "      const finalCs = autoWin ? 1000 : rawFinalCs;",
-    "      const finalCs = 1000; // TEMP: everyone wins while testing the winner email flow"
-  );
-  text = text.replace(
-    "    setHasTriedToday(!!tried);",
-    "    setHasTriedToday(false); // TEMP: unlimited plays while testing"
-  );
-  text = text.replace(
-    "    if (!autoWin && hasTriedToday) return;",
-    "    // TEMP: daily play restriction disabled while testing"
-  );
-  text = text.replace(
-    "      setHasTriedToday(true);",
-    "      setHasTriedToday(false); // TEMP: keep challenge immediately replayable"
-  );
-  text = text.replace(
-    "              disabled={!autoWin && hasTriedToday}",
-    "              disabled={false}"
-  );
-  text = text.replace(
-    "            One try per device · Europe/London",
-    "            Testing mode · Unlimited plays"
-  );
-  return text;
-});
-
 updateFile("netlify/functions/sendBookingEmail.js", (text) => {
   text = text.replace(/const TERMS_VERSION_DEFAULT = "[^"]+";/, `const TERMS_VERSION_DEFAULT = "${VERSION}";`);
   text = text.replace(/const TERMS_BODY = `.*?`;/s, `const TERMS_BODY = \`\n${EMAIL_TERMS}\n\`;`);
