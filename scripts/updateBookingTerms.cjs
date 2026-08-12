@@ -75,9 +75,37 @@ function updateFile(path, updater) {
 updateFile("src/LandingPage.jsx", (text) => {
   text = text.replace(/const TERMS_VERSION = "[^"]+";/, `const TERMS_VERSION = "${VERSION}";`);
   text = text.replace(/const TERMS_BODY = `.*?`;/s, `const TERMS_BODY = \`${FULL_TERMS}\`;`);
-  if (!text.includes("isWhatsAppSubmitting")) text = text.replace('  const [agreeToTerms, setAgreeToTerms] = useState(false);','  const [agreeToTerms, setAgreeToTerms] = useState(false);\n  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);');
-  if (!text.includes("isEmailSubmitting")) text = text.replace('  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);','  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);\n  const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);');
-  text = text.replace("const handleSendWhatsApp = () => {", "const handleSendWhatsApp = async () => {");
+
+  if (!text.includes("const [isEmailSubmitting, setIsEmailSubmitting]")) {
+    text = text.replace(
+      '  const [agreeToTerms, setAgreeToTerms] = useState(false);',
+      '  const [agreeToTerms, setAgreeToTerms] = useState(false);\n  const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);'
+    );
+  }
+
+  if (!text.includes('setIsEmailSubmitting(true);\n\n    // ✅ reCAPTCHA token')) {
+    text = text.replace(
+      '    // ✅ reCAPTCHA token (v3)\n    const recaptchaAction = "booking_submit";',
+      '    setIsEmailSubmitting(true);\n\n    // ✅ reCAPTCHA token (v3)\n    const recaptchaAction = "booking_submit";'
+    );
+  }
+
+  text = text.replace(
+    '    if (!recaptchaToken) {\n      alert("Anti-bot check not ready. Please try again in a moment.");\n      return;\n    }',
+    '    if (!recaptchaToken) {\n      setIsEmailSubmitting(false);\n      alert("Anti-bot check not ready. Please try again in a moment.");\n      return;\n    }'
+  );
+
+  if (!text.includes('} finally {\n  setIsEmailSubmitting(false);\n}\n  };')) {
+    text = text.replace(
+      '} catch (err) {\n  console.error(err);\n  alert("Error sending booking.");\n}\n  };',
+      '} catch (err) {\n  console.error(err);\n  alert("Error sending booking.");\n} finally {\n  setIsEmailSubmitting(false);\n}\n  };'
+    );
+  }
+
+  text = text.replace(
+    '<button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>\n        Send via Email\n      </button>',
+    '<button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60 disabled:cursor-not-allowed" disabled={!agreeToTerms || isEmailSubmitting}>\n        {isEmailSubmitting ? "Sending booking…" : "Send via Email"}\n      </button>\n\n      {isEmailSubmitting && (\n        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] bg-neutral-950 text-white border border-green-500 rounded-full shadow-2xl px-5 py-3 flex items-center gap-3" role="status" aria-live="polite">\n          <span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-green-400 animate-spin" aria-hidden="true" />\n          <span className="text-sm font-semibold whitespace-nowrap">Your booking is being sent…</span>\n        </div>\n      )}'
+  );
 
   if (!text.includes('window.scrollTo({ top: 0, behavior: "smooth" });')) {
     text = text.replace(
@@ -88,6 +116,8 @@ updateFile("src/LandingPage.jsx", (text) => {
 
   return text;
 });
+
+updateFile("src/TenSecondChallenge.jsx", (text) => text);
 
 updateFile("netlify/functions/sendBookingEmail.js", (text) => {
   text = text.replace(/const TERMS_VERSION_DEFAULT = "[^"]+";/, `const TERMS_VERSION_DEFAULT = "${VERSION}";`);
