@@ -3,16 +3,22 @@
   "short_name": "Street Signup",
   "description": "Ni Bin Guy street customer signup",
   "start_url": "/street-booking",
-  "scope": "/street-booking",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#050505",
   "theme_color": "#050505",
   "icons": [
     {
-      "src": "/street-signup-icon.svg?v=2",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/logo.png?v=20260819-1",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png?v=20260819-1",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
