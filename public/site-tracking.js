@@ -1,4 +1,30 @@
 (function () {
+  if (window.location.pathname.indexOf("/street-booking") === 0) {
+    var oldIcons = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"], link[rel="manifest"]');
+    oldIcons.forEach(function (node) { node.remove(); });
+
+    var icon = document.createElement("link");
+    icon.rel = "icon";
+    icon.type = "image/svg+xml";
+    icon.href = "/street-signup-icon.svg?v=2";
+    document.head.appendChild(icon);
+
+    var apple = document.createElement("link");
+    apple.rel = "apple-touch-icon";
+    apple.href = "/street-signup-icon.svg?v=2";
+    document.head.appendChild(apple);
+
+    var manifest = document.createElement("link");
+    manifest.rel = "manifest";
+    manifest.href = "/street-signup.webmanifest?v=2";
+    document.head.appendChild(manifest);
+
+    var theme = document.querySelector('meta[name="theme-color"]') || document.createElement("meta");
+    theme.name = "theme-color";
+    theme.content = "#050505";
+    if (!theme.parentNode) document.head.appendChild(theme);
+  }
+
   // Keep the normal booking endpoint protected by reCAPTCHA, while routing
   // genuine 10-second challenge winner forms to their dedicated endpoint.
   var originalFetch = window.fetch;
