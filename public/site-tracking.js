@@ -5,18 +5,26 @@
 
     var icon = document.createElement("link");
     icon.rel = "icon";
-    icon.type = "image/svg+xml";
-    icon.href = "/street-signup-icon.svg?v=2";
+    icon.type = "image/png";
+    icon.sizes = "512x512";
+    icon.href = "/logo.png?v=20260819-1";
     document.head.appendChild(icon);
+
+    var shortcut = document.createElement("link");
+    shortcut.rel = "shortcut icon";
+    shortcut.type = "image/png";
+    shortcut.href = "/logo.png?v=20260819-1";
+    document.head.appendChild(shortcut);
 
     var apple = document.createElement("link");
     apple.rel = "apple-touch-icon";
-    apple.href = "/street-signup-icon.svg?v=2";
+    apple.sizes = "180x180";
+    apple.href = "/logo.png?v=20260819-1";
     document.head.appendChild(apple);
 
     var manifest = document.createElement("link");
     manifest.rel = "manifest";
-    manifest.href = "/street-signup.webmanifest?v=2";
+    manifest.href = "/street-signup.webmanifest?v=20260819-1";
     document.head.appendChild(manifest);
 
     var theme = document.querySelector('meta[name="theme-color"]') || document.createElement("meta");
