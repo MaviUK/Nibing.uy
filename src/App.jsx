@@ -7,6 +7,7 @@ const StandeeSpottedClaim = lazy(() => import("./standee/StandeeSpottedClaim"))
 const StandeePreClaim = lazy(() => import("./standee/StandeePreClaim"))
 const LatestStandeeRedirect = lazy(() => import("./pages/standee/latest"))
 const StandeeSpottedClosed = lazy(() => import("./standee/StandeeSpottedClosed"))
+const StreetBookingPage = lazy(() => import("./pages/StreetBookingPage"))
 const AdminLogin = lazy(() => import("./admin/AdminLogin"))
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"))
 const AuthCallback = lazy(() => import("./auth/AuthCallback"))
@@ -16,6 +17,7 @@ export default function App() {
     <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">Loading page…</div>}>
       <Routes>
         <Route path="/" element={<NiBinGuyLandingPage />} />
+        <Route path="/street-booking" element={<StreetBookingPage />} />
         <Route path="/standee/:slug" element={<StandeePreClaim />} />
         <Route path="/standee/:slug/claim" element={<StandeeClaim />} />
         <Route path="/standee/:slug/spotted" element={<StandeeSpottedClaim />} />
