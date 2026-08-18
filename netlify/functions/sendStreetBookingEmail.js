@@ -92,23 +92,23 @@ function buildCustomerHtml({ name, address, phone, bins, pricing, termsVersion, 
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;background:#ffffff;border-radius:18px;overflow:hidden;">
           <tr><td style="background:#050505;padding:28px;text-align:center;">
             <img src="${logoUrl}" width="190" alt="Ni Bin Guy" style="display:block;margin:0 auto 18px;max-width:190px;width:100%;height:auto;border:0;">
-            <div style="font-family:Arial Black,Arial,sans-serif;color:#fff;font-size:34px;font-weight:900;text-transform:uppercase;">YOUR BIN IS</div>
-            <div style="font-family:Arial Black,Arial,sans-serif;color:${yellow};font-size:42px;font-weight:900;text-transform:uppercase;">WHEELIE FRESH.</div>
-            <div style="font-family:Arial,sans-serif;color:#fff;font-size:17px;line-height:1.5;margin-top:10px;">Nice one, ${firstName} — today’s clean is complete.</div>
+            <div style="font-family:Arial Black,Arial,sans-serif;color:#fff;font-size:34px;font-weight:900;text-transform:uppercase;">WELCOME TO</div>
+            <div style="font-family:Arial Black,Arial,sans-serif;color:${yellow};font-size:42px;font-weight:900;text-transform:uppercase;">NI BIN GUY.</div>
+            <div style="font-family:Arial,sans-serif;color:#fff;font-size:17px;line-height:1.5;margin-top:10px;">Nice one, ${firstName} — your booking is confirmed.</div>
           </td></tr>
 
           <tr><td style="background:${yellow};padding:18px 24px;text-align:center;">
-            <div style="font-family:Arial Black,Arial,sans-serif;color:#050505;font-size:24px;font-weight:900;text-transform:uppercase;">✓ CLEAN COMPLETED TODAY</div>
-            <div style="font-family:Arial,sans-serif;color:#050505;font-size:14px;margin-top:4px;font-weight:700;">This is your confirmation — there is no quote to approve.</div>
+            <div style="font-family:Arial Black,Arial,sans-serif;color:#050505;font-size:24px;font-weight:900;text-transform:uppercase;">✓ BOOKING CONFIRMED</div>
+            <div style="font-family:Arial,sans-serif;color:#050505;font-size:14px;margin-top:4px;font-weight:700;">You’re all signed up. There is no quote to approve.</div>
           </td></tr>
 
           <tr><td style="padding:26px;">
-            <div style="font-family:Arial,sans-serif;color:#222;font-size:16px;line-height:1.65;">Thanks for signing up with Ni Bin Guy. We’ve recorded your clean as completed today and saved the service details below.</div>
+            <div style="font-family:Arial,sans-serif;color:#222;font-size:16px;line-height:1.65;">Thanks for signing up with Ni Bin Guy. Your booking has been set up and your service details are below.</div>
           </td></tr>
 
           <tr><td style="padding:0 26px 16px;">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#090909;border-radius:14px;">
-              <tr><td style="padding:20px 20px 8px;text-align:center;font-family:Arial Black,Arial,sans-serif;color:${yellow};font-size:20px;font-weight:900;text-transform:uppercase;">YOUR SERVICE</td></tr>
+              <tr><td style="padding:20px 20px 8px;text-align:center;font-family:Arial Black,Arial,sans-serif;color:${yellow};font-size:20px;font-weight:900;text-transform:uppercase;">YOUR BOOKING</td></tr>
               <tr><td style="padding:0 20px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">${binRows || `<tr><td style="color:#fff;padding:10px 0;">Your bin clean</td></tr>`}</table></td></tr>
               <tr><td style="padding:16px 20px 20px;color:#fff;font-family:Arial,sans-serif;font-size:15px;line-height:1.5;"><strong>Address:</strong> ${escapeHtml(address)}${phone ? `<br><strong>Phone:</strong> ${escapeHtml(phone)}` : ""}</td></tr>
             </table>
@@ -117,7 +117,7 @@ function buildCustomerHtml({ name, address, phone, bins, pricing, termsVersion, 
           <tr><td style="padding:0 26px 16px;">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${green};border-radius:14px;">
               <tr><td style="padding:22px;text-align:center;color:#fff;font-family:Arial,sans-serif;">
-                <div style="font-size:12px;font-weight:800;text-transform:uppercase;color:${yellow};">Recorded price</div>
+                <div style="font-size:12px;font-weight:800;text-transform:uppercase;color:${yellow};">Your price</div>
                 <div style="font-family:Arial Black,Arial,sans-serif;font-size:48px;font-weight:900;margin-top:4px;">${escapeHtml(total)}</div>
               </td></tr>
             </table>
@@ -125,7 +125,7 @@ function buildCustomerHtml({ name, address, phone, bins, pricing, termsVersion, 
 
           <tr><td style="padding:12px 26px 28px;">
             <div style="font-family:Arial Black,Arial,sans-serif;color:#111;font-size:22px;font-weight:900;text-transform:uppercase;">What happens next?</div>
-            <div style="font-family:Arial,sans-serif;color:#333;font-size:15px;line-height:1.65;margin-top:10px;">${recurring ? "You’ve chosen a 4-weekly service. We’ll contact you with your next scheduled clean details — you do not need to approve a quote for today’s clean." : "You’ve chosen a one-off clean, so there is nothing else you need to do unless you’d like to book again."}</div>
+            <div style="font-family:Arial,sans-serif;color:#333;font-size:15px;line-height:1.65;margin-top:10px;">${recurring ? "Your 4-weekly service is now active. We’ll keep you updated with your future cleaning schedule and service notifications." : "Your one-off booking has been recorded. Any service updates will be sent separately."}</div>
           </td></tr>
 
           <tr><td style="background:#f5f5f5;padding:18px 26px;font-family:Arial,sans-serif;color:#555;font-size:12px;line-height:1.5;">
@@ -205,9 +205,9 @@ exports.handler = async (event) => {
     const adminPromise = resend.emails.send({
       from: FROM_DEFAULT,
       to: TO_ADMIN,
-      subject: "🧼 Street signup — clean completed today",
-      text: `Street signup completed\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\nBins:\n${binsText}\n\n${pricingText}\nClean completed today: ${cleanCompletedToday ? "yes" : "no"}\nPlace ID: ${placeId || "—"}\nGeo: ${geoText}\n\nTerms accepted: yes\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\n\nNo quote required.`,
-      html: `<h2>Street signup — clean completed today</h2><p><strong>Name:</strong> ${escapeHtml(name)}</p><p><strong>Email:</strong> ${escapeHtml(email)}</p><p><strong>Phone:</strong> ${escapeHtml(phone)}</p><p><strong>Address:</strong> ${escapeHtml(address)}</p><p><strong>Bins:</strong><br>${filteredBins.map((bin) => `${escapeHtml(bin.count || 1)} x ${escapeHtml(bin.type)} — ${escapeHtml(friendlyPlan(bin))}`).join("<br>")}</p><p><strong>Total:</strong> ${escapeHtml(fmtGBP(pricing?.total || 0))}</p><p><strong>Clean completed today:</strong> Yes</p><p><strong>No quote required.</strong></p><hr><p>Terms: v${escapeHtml(termsVersion)} accepted ${escapeHtml(termsTimestamp)}</p>`,
+      subject: "🧼 Street signup — booking confirmed",
+      text: `Street signup booking confirmed\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\nBins:\n${binsText}\n\n${pricingText}\nClean completed on signup visit: ${cleanCompletedToday ? "yes" : "no"}\nPlace ID: ${placeId || "—"}\nGeo: ${geoText}\n\nTerms accepted: yes\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\n\nNo quote required.`,
+      html: `<h2>Street signup — booking confirmed</h2><p><strong>Name:</strong> ${escapeHtml(name)}</p><p><strong>Email:</strong> ${escapeHtml(email)}</p><p><strong>Phone:</strong> ${escapeHtml(phone)}</p><p><strong>Address:</strong> ${escapeHtml(address)}</p><p><strong>Bins:</strong><br>${filteredBins.map((bin) => `${escapeHtml(bin.count || 1)} x ${escapeHtml(bin.type)} — ${escapeHtml(friendlyPlan(bin))}`).join("<br>")}</p><p><strong>Total:</strong> ${escapeHtml(fmtGBP(pricing?.total || 0))}</p><p><strong>Clean completed on signup visit:</strong> ${cleanCompletedToday ? "Yes" : "No"}</p><p><strong>No quote required.</strong></p><hr><p>Terms: v${escapeHtml(termsVersion)} accepted ${escapeHtml(termsTimestamp)}</p>`,
       replyTo: email,
       attachments,
     });
@@ -215,8 +215,8 @@ exports.handler = async (event) => {
     const customerPromise = resend.emails.send({
       from: FROM_DEFAULT,
       to: email,
-      subject: "🧼 Your Ni Bin Guy clean is complete",
-      text: `Thanks ${name},\n\nYour Ni Bin Guy clean has been completed today. This is your confirmation and there is no quote to approve.\n\nAddress: ${address}\nPhone: ${phone}\n\nBins:\n${binsText}\n\n${pricingText}\n\n${filteredBins.some((bin) => String(bin.planId || "").includes("4w")) ? "You chose a 4-weekly service. We’ll contact you with your next scheduled clean details." : "You chose a one-off clean, so there is nothing else you need to do."}\n\nTerms accepted: v${termsVersion} at ${termsTimestamp}.${termsPdfAttachment ? "\nYour Terms & Conditions Acceptance Certificate is attached." : ""}`,
+      subject: "🗑️ Booking confirmed — welcome to Ni Bin Guy",
+      text: `Thanks ${name},\n\nYour Ni Bin Guy booking is confirmed and you’re all signed up. There is no quote to approve.\n\nAddress: ${address}\nPhone: ${phone}\n\nBins:\n${binsText}\n\n${pricingText}\n\n${filteredBins.some((bin) => String(bin.planId || "").includes("4w")) ? "Your 4-weekly service is now active. We’ll keep you updated with your future cleaning schedule and service notifications." : "Your one-off booking has been recorded. Any service updates will be sent separately."}\n\nTerms accepted: v${termsVersion} at ${termsTimestamp}.${termsPdfAttachment ? "\nYour Terms & Conditions Acceptance Certificate is attached." : ""}`,
       html: buildCustomerHtml({
         name,
         address,
