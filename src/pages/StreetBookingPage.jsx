@@ -1,44 +1,61 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-const TERMS_VERSION = "July 2026";
+const TERMS_VERSION = "August 2026";
 const TERMS_TITLE = "Ni Bin Guy – Terms of Service";
-const TERMS_BODY = `Regular 4-weekly plans are based on a 13-clean minimum term, which is approximately 12 months, unless agreed otherwise.
+const TERMS_BODY = `We keep our Terms of Service simple and transparent. By booking or receiving a bin clean from Ni Bin Guy, you agree to:
 
-One-off cleans have no minimum term and may be cancelled up to 24 hours before the scheduled clean day without charge.
+1) Service & Contracts
+- Regular 4-weekly plans are based on a 13-clean minimum term, which is approximately 12 months, unless agreed otherwise.
+- One-off cleans have no minimum term.
+- Each bin is treated separately; adding another bin may start a new agreement for that bin.
+- Bookings and plans are not transferable without our agreement.
 
-Bins must be left out or made accessible on the scheduled cleaning day and must remain available until 8pm.
+2) Bin Availability
+- Bins must be left out or made accessible on the scheduled cleaning day and must remain available until 8pm.
+- If your bin is not available when we attend, or access is blocked, the clean will still be charged.
+- If we are unable to attend on the scheduled day, we will notify you and rearrange the clean as soon as reasonably possible.
+- We may be unable to clean if the bin has not been emptied by the council, is too heavy to move safely, or contains unsafe or excessive waste.
 
-If your bin is not available when we attend, or access is blocked, the clean may still be charged.
+3) Cancellations & Minimum Term
+- One-off cleans may be cancelled up to 24 hours before the scheduled clean day without charge.
+- If a one-off clean is cancelled with less than 24 hours' notice, or the bin is not available when we attend, the clean may still be charged in full.
+- A 4-weekly plan may be cancelled any time up to 24 hours before the second scheduled clean. If cancelled before the second clean, the first clean will be charged at the standard one-off clean price, and any difference between the 4-weekly price and one-off price will become payable.
+- After the second clean, the 4-weekly plan continues for the full 13-clean minimum term.
+- If the customer cancels before the end of the 13-clean minimum term, they will remain liable for the outstanding balance for the remaining cleans within the 12-month minimum term.
+- After the 13-clean minimum term has been completed, the plan continues on a rolling basis and may be cancelled by giving at least 30 days' notice.
 
-If we are unable to attend on the scheduled day, we will notify you and rearrange the clean as soon as reasonably possible.
+4) One-Off Cleans & Animal Waste
+- One-off cleans containing dog faeces, cat litter, animal bedding, or other animal faeces/waste will incur a £5 surcharge per affected bin.
+- We may refuse to clean bins containing excessive animal waste, hazardous waste, sharp items, medical waste, chemicals, paint, oil, rubble, hot ashes, or anything unsafe.
 
-A 4-weekly plan may be cancelled any time up to 24 hours before the second scheduled clean. If cancelled before the second clean, the first clean will be charged at the standard one-off clean price, and any difference between the 4-weekly price and one-off price will become payable.
+5) Cleaning Process
+- Bins are cleaned inside and outside where safe using pressurised water and detergent.
+- Some stains, ingrained smells, paint, tar, or long-term residue may take multiple visits or may not fully remove.
+- Any loosened waste may be bagged and left in your bin for disposal.
+- Please keep at least 5 metres away during cleaning.
 
-After the second clean, the 4-weekly plan continues for the full 13-clean minimum term.
+6) Payments
+- Payment is due within 7 days of each clean unless agreed otherwise.
+- Accepted payment methods are Direct Debit, Bank Transfer, and Card. No cash.
+- Cancelling a Direct Debit does not cancel your service or contract. Cancellation must be requested directly with Ni Bin Guy.
+- If a 4-weekly plan is cancelled early, any outstanding balance due under the minimum term may still be payable.
+- Overdue accounts may result in service being stopped and may be referred for recovery.
 
-If the customer cancels before the end of the 13-clean minimum term, they will remain liable for the outstanding balance for the remaining cleans within the 12-month minimum term.
+7) Customer Responsibilities
+- Please keep your contact details, address, and payment details up to date.
+- Please tell us in advance if your bin will not be available.
+- Please make sure gates are unlocked, access is safe, and pets are secured where needed.
+- By booking, you authorise Ni Bin Guy to use a suitable external water tap at the service address, where available, to refill our cleaning tank or equipment as reasonably required to carry out the service.
+- We have zero tolerance for abuse, threats, or harassment toward staff, including online abuse.
 
-After the 13-clean minimum term has been completed, the plan continues on a rolling basis and may be cancelled by giving at least 30 days’ notice.
+8) Other Terms
+- We may place a small sticker or service tag on your bin.
+- Discounts are discretionary and may be withdrawn or changed.
+- Prices may change outside of any agreed fixed term.
 
-One-off cleans containing dog faeces, cat litter, animal bedding, or other animal faeces/waste will incur a £5 surcharge per affected bin.
-
-We may refuse to clean bins containing excessive animal waste, hazardous waste, sharp items, medical waste, chemicals, paint, oil, rubble, hot ashes, or anything unsafe.
-
-Bins are cleaned inside and outside where safe using pressurised water and detergent. Some stains, ingrained smells, paint, tar, or long-term residue may take multiple visits or may not fully remove.
-
-Payment is due within 7 days unless agreed otherwise. Accepted methods are Direct Debit, Bank Transfer, and Card. No cash.
-
-Cancelling a Direct Debit does not cancel your service or contract. Cancellation must be requested directly with Ni Bin Guy.
-
-Overdue accounts may result in service being stopped and may be referred for recovery.
-
-Please keep your contact details, address, and payment details up to date, and make sure access is safe on cleaning day.
-
-We may place a small sticker or service tag on your bin. Discounts are discretionary and may be withdrawn or changed.
-
-You consent to us storing your details and contacting you about your booking, schedule, payment, and service.
-
-Text reminders are a courtesy only. You remain responsible for knowing your scheduled clean date.`;
+9) Data & Communication
+- You consent to us storing your details and contacting you about your booking, schedule, payment, and service.
+- Text reminders are a courtesy only. You remain responsible for knowing your scheduled clean date.`;
 
 const PLANS = [
   { id: "domestic_4w", label: "4 Weekly", price: 5 },
@@ -264,7 +281,7 @@ export default function StreetBookingPage() {
           cleanCompletedToday: true,
           termsAccepted: true,
           termsVersion: TERMS_VERSION,
-          termsAcceptanceText: `I confirm I’ve read and agree to the Ni Bin Guy Terms of Service (v${TERMS_VERSION}).`,
+          termsAcceptanceText: `I confirm I’ve read and agree to the Ni Bin Guy Terms of Service (v${TERMS_VERSION})`,
           termsTimestamp: new Date().toISOString(),
           recaptchaToken,
           recaptchaAction,
@@ -299,12 +316,12 @@ export default function StreetBookingPage() {
             <div className="p-7 sm:p-10 text-center">
               <div className="mx-auto w-16 h-16 rounded-full bg-green-500 flex items-center justify-center text-3xl font-black">✓</div>
               <h2 className="mt-5 text-3xl font-black">Signup complete</h2>
-              <p className="mt-3 text-gray-600">The customer confirmation email has been triggered and records that today’s clean was completed. No quote will be sent.</p>
+              <p className="mt-3 text-gray-600">The booking confirmation email and Terms & Conditions Acceptance Certificate have been triggered. No quote will be sent.</p>
               <button type="button" onClick={reset} className="mt-6 bg-black hover:bg-neutral-800 text-white font-bold py-3 px-6 rounded-xl w-full">Add another street customer</button>
             </div>
           ) : (
             <form onSubmit={submit} className="p-5 sm:p-7 space-y-4">
-              <div className="rounded-xl bg-yellow-300 border border-yellow-400 p-4 text-sm font-semibold">This form records the clean as <strong>completed today</strong>. It is not a quote request.</div>
+              <div className="rounded-xl bg-yellow-300 border border-yellow-400 p-4 text-sm font-semibold">This is a street signup booking. The customer is signed up immediately and no quote is required.</div>
 
               <input type="text" placeholder="Customer Name" value={name} onChange={(event) => setName(event.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-3" />
 
@@ -332,7 +349,7 @@ export default function StreetBookingPage() {
               </div>
 
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                <div className="font-bold">Today’s clean / plan price</div>
+                <div className="font-bold">Booking price</div>
                 <div className="mt-3 space-y-2 text-sm">
                   {pricing.lines.length ? pricing.lines.map((line) => (
                     <div key={line.idx} className="flex justify-between gap-4">
