@@ -6,25 +6,32 @@
     var icon = document.createElement("link");
     icon.rel = "icon";
     icon.type = "image/png";
-    icon.sizes = "512x512";
-    icon.href = "/logo.png?v=20260819-1";
+    icon.sizes = "192x192";
+    icon.href = "/street-signup-192.png?v=20260819-2";
     document.head.appendChild(icon);
+
+    var largeIcon = document.createElement("link");
+    largeIcon.rel = "icon";
+    largeIcon.type = "image/png";
+    largeIcon.sizes = "512x512";
+    largeIcon.href = "/street-signup-512.png?v=20260819-2";
+    document.head.appendChild(largeIcon);
 
     var shortcut = document.createElement("link");
     shortcut.rel = "shortcut icon";
     shortcut.type = "image/png";
-    shortcut.href = "/logo.png?v=20260819-1";
+    shortcut.href = "/street-signup-192.png?v=20260819-2";
     document.head.appendChild(shortcut);
 
     var apple = document.createElement("link");
     apple.rel = "apple-touch-icon";
-    apple.sizes = "180x180";
-    apple.href = "/logo.png?v=20260819-1";
+    apple.sizes = "192x192";
+    apple.href = "/street-signup-192.png?v=20260819-2";
     document.head.appendChild(apple);
 
     var manifest = document.createElement("link");
     manifest.rel = "manifest";
-    manifest.href = "/street-signup.webmanifest?v=20260819-1";
+    manifest.href = "/street-signup.webmanifest?v=20260819-2";
     document.head.appendChild(manifest);
 
     var theme = document.querySelector('meta[name="theme-color"]') || document.createElement("meta");
