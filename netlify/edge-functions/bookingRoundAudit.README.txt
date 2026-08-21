@@ -1,0 +1,1 @@
+Test-mode middleware only. It observes website booking submissions, calls /api/round-lookup for each selected bin, logs the proposed round/date in Netlify Edge Function logs, and then passes the original booking request through unchanged. It does not alter customer confirmation emails or booking data.
