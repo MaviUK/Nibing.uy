@@ -15,10 +15,13 @@
   }
 
   function bookingRoot() {
-    var heading = Array.prototype.find.call(document.querySelectorAll("h2"), function (node) {
-      return /book a bin clean/i.test(node.textContent || "");
-    });
-    return heading ? heading.closest(".p-6") : null;
+    var headings = document.querySelectorAll("h2");
+    for (var i = 0; i < headings.length; i++) {
+      if (/book a bin clean/i.test(headings[i].textContent || "")) {
+        return headings[i].closest(".p-6");
+      }
+    }
+    return null;
   }
 
   function readForm(root) {
@@ -106,7 +109,6 @@
       card.style.borderColor = "#f59e0b";
       card.innerHTML = '<div style="font-weight:900;color:#92400e;">We need to confirm your first clean date</div><div style="margin-top:4px;font-size:13px;color:#92400e;">You can still submit your booking. We’ll confirm the schedule manually rather than risk giving you the wrong date.</div>';
       setPrimaryButton(root, false);
-      return;
     }
   }
 
@@ -154,16 +156,33 @@
     root.dataset.scheduleUiBound = "true";
     root.addEventListener("input", function () { scheduleLookup(root); });
     root.addEventListener("change", function () { scheduleLookup(root); });
-    scheduleLookup(root);
   }
 
-  function scan() {
+  function scanAndBind() {
     var root = bookingRoot();
     if (root) bind(root);
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", scan);
-  else scan();
+  function bindAfterBookingOpen() {
+    window.setTimeout(scanAndBind, 0);
+    window.setTimeout(scanAndBind, 80);
+    window.setTimeout(scanAndBind, 220);
+  }
 
-  new MutationObserver(scan).observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener("click", function (event) {
+    var button = event.target && event.target.closest ? event.target.closest("button") : null;
+    if (!button) return;
+    var text = (button.textContent || "").trim();
+    if (/book a clean|book a bin clean/i.test(text) || button.dataset.openBookingForm === "true") {
+      bindAfterBookingOpen();
+    }
+  }, true);
+
+  window.addEventListener("nbg:booking-open", bindAfterBookingOpen);
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", scanAndBind, { once: true });
+  } else {
+    scanAndBind();
+  }
 })();
