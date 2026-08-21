@@ -19,6 +19,9 @@ function normAddress(value) {
     .toUpperCase()
     .replace(/\bNORTHERN IRELAND\b/g, "")
     .replace(/[.,'’]/g, " ")
+    .replace(/\bRD\b/g, "ROAD")
+    .replace(/\bST\b/g, "STREET")
+    .replace(/\bAVE\b/g, "AVENUE")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -151,6 +154,36 @@ function resolveRoundWithCouncilDates(round, councilDates) {
   };
 }
 
+function normalizeAddressList(payload) {
+  let list = payload?.data?.addresses;
+  if (!Array.isArray(list) && Array.isArray(payload?.addresses)) list = payload.addresses;
+  if (!Array.isArray(list) && payload?.addresses && typeof payload.addresses === "object") list = Object.values(payload.addresses);
+
+  return (list || [])
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const uprn = String(item.uprn || item.UPRN || "").trim();
+      const label = String(item.addressText || item.address || item.label || "").trim();
+      return uprn && label ? { uprn, label } : null;
+    })
+    .filter(Boolean);
+}
+
+async function getCouncilAddresses(origin, postcode) {
+  const directRes = await fetch(new URL(`/.netlify/functions/binAddresses?postcode=${encodeURIComponent(postcode)}`, origin));
+  const directData = await directRes.json().catch(() => ({}));
+  const directAddresses = directRes.ok ? normalizeAddressList(directData) : [];
+  if (directAddresses.length) return { source: "binAddresses", addresses: directAddresses };
+
+  const fallbackRes = await fetch(new URL(`/.netlify/functions/binLookup?postcode=${encodeURIComponent(postcode)}`, origin));
+  const fallbackData = await fallbackRes.json().catch(() => ({}));
+  const fallbackAddresses = Array.isArray(fallbackData.addresses)
+    ? fallbackData.addresses.map((item) => ({ uprn: String(item.uprn || "").trim(), label: String(item.label || "").trim() })).filter((item) => item.uprn && item.label)
+    : [];
+
+  return { source: "binLookup", addresses: fallbackRes.ok ? fallbackAddresses : [] };
+}
+
 export default async function handler(req) {
   try {
     const body = req.method === "POST" ? await req.json() : {};
@@ -161,17 +194,20 @@ export default async function handler(req) {
     if (!address || !postcode || !bins.length) return new Response(JSON.stringify({ error: "address, postcode and bins are required" }), { status: 400, headers: { "Content-Type": "application/json" } });
 
     const origin = new URL(req.url).origin;
-    const addrRes = await fetch(new URL(`/.netlify/functions/binLookup?postcode=${encodeURIComponent(postcode)}`, origin));
-    const addrData = await addrRes.json();
-    if (!addrRes.ok || !Array.isArray(addrData.addresses) || !addrData.addresses.length) return new Response(JSON.stringify({ matched:false, reason:"council_address_not_found", postcode }), { status: 200, headers:{"Content-Type":"application/json"} });
+    const councilAddressLookup = await getCouncilAddresses(origin, postcode);
+    if (!councilAddressLookup.addresses.length) {
+      return new Response(JSON.stringify({ matched:false, reason:"council_address_not_found", postcode, addressSource:councilAddressLookup.source }), { status: 200, headers:{"Content-Type":"application/json"} });
+    }
 
-    const ranked = addrData.addresses.map((a) => ({ ...a, score: addressScore(address, a.label) })).sort((a,b) => b.score-a.score);
+    const ranked = councilAddressLookup.addresses.map((a) => ({ ...a, score: addressScore(address, a.label) })).sort((a,b) => b.score-a.score);
     const chosen = ranked[0];
-    if (!chosen || chosen.score < 20) return new Response(JSON.stringify({ matched:false, reason:"council_address_ambiguous", candidates:ranked.slice(0,3) }), { status:200, headers:{"Content-Type":"application/json"} });
+    if (!chosen || chosen.score < 20) {
+      return new Response(JSON.stringify({ matched:false, reason:"council_address_ambiguous", addressSource:councilAddressLookup.source, candidates:ranked.slice(0,3) }), { status:200, headers:{"Content-Type":"application/json"} });
+    }
 
     const calRes = await fetch(new URL(`/.netlify/functions/binCalendar?uprn=${encodeURIComponent(chosen.uprn)}`, origin));
-    const calData = await calRes.json();
-    if (!calRes.ok || !calData.html) return new Response(JSON.stringify({ matched:false, reason:"council_calendar_failed" }), { status:200, headers:{"Content-Type":"application/json"} });
+    const calData = await calRes.json().catch(() => ({}));
+    if (!calRes.ok || !calData.html) return new Response(JSON.stringify({ matched:false, reason:"council_calendar_failed", addressSource:councilAddressLookup.source, councilAddress:chosen.label, uprn:chosen.uprn }), { status:200, headers:{"Content-Type":"application/json"} });
 
     const results = [];
     for (const bin of bins) {
@@ -197,7 +233,7 @@ export default async function handler(req) {
       });
     }
 
-    return new Response(JSON.stringify({ matched: results.every((r) => r.automatic), postcode, councilAddress: chosen.label, uprn: chosen.uprn, results }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+    return new Response(JSON.stringify({ matched: results.every((r) => r.automatic), postcode, addressSource:councilAddressLookup.source, councilAddress: chosen.label, uprn: chosen.uprn, results }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
   } catch (error) {
     return new Response(JSON.stringify({ error: error?.message || "Booking schedule failed" }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
