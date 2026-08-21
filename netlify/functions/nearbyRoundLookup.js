@@ -3,8 +3,7 @@ const CLUSTERS = [[54.5545,-5.7352,"Black",1,"2026-08-24",31],[54.6364,-5.6646,"
 const EARTH_RADIUS_M = 6371000;
 function toRad(value) { return value * Math.PI / 180; }
 function distanceMeters(aLat, aLon, bLat, bLon) {
-  const dLat = toRad(bLat - aLat);
-  const dLon = toRad(bLon - aLon);
+  const dLat = toRad(bLat - aLat); const dLon = toRad(bLon - aLon);
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLon / 2) ** 2;
   return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h));
 }
@@ -26,20 +25,30 @@ function serviceMatches(service, bin) {
 async function geocodePostcode(postcode) {
   const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode.replace(/\s+/g, ""))}`);
   const data = await res.json().catch(() => ({}));
-  const lat = Number(data?.result?.latitude);
-  const lon = Number(data?.result?.longitude);
-  return res.ok && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+  const lat = Number(data?.result?.latitude); const lon = Number(data?.result?.longitude);
+  return res.ok && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon, source: "postcode" } : null;
+}
+async function geocodeAddress(address, postcode) {
+  const q = [address, postcode, "Northern Ireland", "UK"].filter(Boolean).join(", ");
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=gb&q=${encodeURIComponent(q)}`, {
+    headers: { "User-Agent": "NI-Bin-Guy-booking/1.0 (https://nibing.uy)" }
+  });
+  const data = await res.json().catch(() => []);
+  const lat = Number(data?.[0]?.lat); const lon = Number(data?.[0]?.lon);
+  return res.ok && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon, source: "property_address" } : null;
 }
 
 export default async function handler(req) {
   try {
     const url = new URL(req.url);
     const postcode = normalizePostcode(url.searchParams.get("postcode"));
+    const address = String(url.searchParams.get("address") || "").trim();
     const bin = normalizeBin(url.searchParams.get("bin"));
     if (!postcode || !bin) return new Response(JSON.stringify({ error: "postcode and bin are required" }), { status: 400, headers: { "Content-Type": "application/json" } });
 
-    const target = await geocodePostcode(postcode);
-    if (!target) return new Response(JSON.stringify({ matched: false, reason: "postcode_geocode_failed", postcode, bin }), { headers: { "Content-Type": "application/json" } });
+    let target = address ? await geocodeAddress(address, postcode) : null;
+    if (!target) target = await geocodePostcode(postcode);
+    if (!target) return new Response(JSON.stringify({ matched: false, reason: "property_geocode_failed", postcode, bin }), { headers: { "Content-Type": "application/json" } });
 
     const nearby = CLUSTERS
       .filter(([, , service]) => serviceMatches(service, bin))
@@ -61,7 +70,7 @@ export default async function handler(req) {
       .sort((a, b) => (a.nearestDistanceMeters - b.nearestDistanceMeters) || (b.weightedSupport - a.weightedSupport))
       .slice(0, 1);
 
-    return new Response(JSON.stringify({ matched: candidates.length > 0, method: "postcode_proximity_nearest", postcode, bin, candidates }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+    return new Response(JSON.stringify({ matched: candidates.length > 0, method: target.source === "property_address" ? "property_proximity_nearest" : "postcode_proximity_nearest", locationSource: target.source, postcode, bin, candidates }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
   } catch (error) {
     return new Response(JSON.stringify({ error: error?.message || "Nearby round lookup failed" }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
