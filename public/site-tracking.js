@@ -111,4 +111,12 @@
     if (!target) return;
     sendEvent(eventNameFor(target), target);
   }, true);
+
+  // Load the visible council + round schedule helper on the normal website.
+  if (window.location.pathname.indexOf("/street-booking") !== 0) {
+    var scheduleScript = document.createElement("script");
+    scheduleScript.src = "/booking-schedule-ui.js?v=20260821-1";
+    scheduleScript.defer = true;
+    document.head.appendChild(scheduleScript);
+  }
 })();
