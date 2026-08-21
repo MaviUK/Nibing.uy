@@ -157,8 +157,8 @@ function keepSubmitButtonLabels(root) {
   const buttons = Array.from(root.querySelectorAll("button"));
   const whatsapp = buttons.find((node) => /send via whatsapp/i.test(String(node.textContent || "")));
   const email = buttons.find((node) => /send via email|confirm booking|sending booking/i.test(String(node.textContent || "")));
-  if (whatsapp) whatsapp.textContent = "Send Via WhatsApp";
-  if (email) email.textContent = "Send Via Email";
+  if (whatsapp && whatsapp.textContent !== "Send Via WhatsApp") whatsapp.textContent = "Send Via WhatsApp";
+  if (email && email.textContent !== "Send Via Email") email.textContent = "Send Via Email";
 }
 
 function render(root, state, data = null) {
@@ -173,7 +173,7 @@ function render(root, state, data = null) {
   }
   if (state === "loading") {
     panel.classList.add("border-gray-300", "bg-gray-50", "text-gray-800");
-    panel.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:74px;"><div style="width:34px;height:34px;border:4px solid #d1d5db;border-top-color:#16a34a;border-radius:9999px;animation:nbgScheduleSpin .8s linear infinite;"></div></div><style>@keyframes nbgScheduleSpin{to{transform:rotate(360deg)}}</style>';
+    panel.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:74px;"><div aria-label="Checking bin days and availability" role="status" style="width:34px;height:34px;border:4px solid #d1d5db;border-top-color:#16a34a;border-radius:9999px;animation:nbgScheduleSpin .8s linear infinite;"></div></div><style>@keyframes nbgScheduleSpin{to{transform:rotate(360deg)}}</style>';
     return;
   }
   if (state === "matched") {
@@ -229,6 +229,9 @@ function bindBookingRoot(root) {
   reorderBookingLayout(root);
   ensurePostcodeMessage(root);
   render(root, "idle");
+  keepSubmitButtonLabels(root);
+  const labelObserver = new MutationObserver(() => keepSubmitButtonLabels(root));
+  labelObserver.observe(root, { childList: true, subtree: true, characterData: true });
   root.addEventListener("input", () => scheduleLookup(root));
   root.addEventListener("change", () => scheduleLookup(root));
   root.addEventListener("click", (event) => {
