@@ -27,38 +27,31 @@ export default async (req: Request, context: Context) => {
     }
 
     const origin = new URL(req.url).origin;
-    const checks = await Promise.all(
-      bins.map(async (bin: any) => {
-        const url = new URL("/api/round-lookup", origin);
-        url.searchParams.set("postcode", postcode);
-        url.searchParams.set("address", address);
-        url.searchParams.set("bin", String(bin.type || ""));
+    let schedule: any = null;
 
-        try {
-          const response = await fetch(url);
-          const data = await response.json().catch(() => ({}));
-          return {
-            requestedBin: bin.type,
-            status: response.status,
-            ...data,
-          };
-        } catch (error) {
-          return {
-            requestedBin: bin.type,
-            status: 0,
-            error: error instanceof Error ? error.message : "lookup_failed",
-          };
-        }
-      })
-    );
+    try {
+      const scheduleUrl = new URL("/api/booking-schedule", origin);
+      const response = await fetch(scheduleUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, postcode, bins }),
+      });
+      schedule = await response.json().catch(() => ({}));
+      schedule.httpStatus = response.status;
+    } catch (error) {
+      schedule = {
+        matched: false,
+        reason: "booking_schedule_lookup_failed",
+        error: error instanceof Error ? error.message : "lookup_failed",
+      };
+    }
 
-    console.info("[round-audit] booking proposed schedule", {
+    console.info("[round-audit] council-aware proposed schedule", {
       address,
       postcode,
-      checks,
+      schedule,
     });
 
-    // Internal-only validation email. Failure must never block the booking.
     try {
       const auditUrl = new URL("/.netlify/functions/sendRoundAuditEmail", origin);
       await fetch(auditUrl, {
@@ -68,7 +61,7 @@ export default async (req: Request, context: Context) => {
           name: payload?.name || "",
           address,
           postcode,
-          checks,
+          schedule,
         }),
       });
     } catch (error) {
