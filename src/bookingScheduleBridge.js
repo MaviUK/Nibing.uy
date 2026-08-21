@@ -150,7 +150,7 @@ function render(root, state, data = null) {
   panel.className = "mt-3 rounded-xl border px-4 py-3 text-sm";
   if (state === "idle") {
     panel.classList.add("border-green-300", "bg-green-50", "text-green-900");
-    panel.innerHTML = '<div class="font-bold">Automatic clean-date booking</div><div class="mt-1 text-xs leading-5">Select your bin and enter your full address including postcode. We’ll check the council collection day and match it to our next cleaning round.</div>';
+    panel.innerHTML = '<div class="font-bold">Next Clean Date</div><div class="mt-1 text-xs leading-5">Please fill in the above to show date.</div>';
     setEmailButton(root, false);
     return;
   }
