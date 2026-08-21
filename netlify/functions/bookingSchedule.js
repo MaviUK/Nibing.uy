@@ -54,18 +54,10 @@ function parseCouncilDates(html, wantedBin) {
       : ["GREEN/BROWN BIN", "GREEN BROWN BIN", "BROWN BIN", "GREEN BIN"];
 
   const monthNumber = {
-    JAN: 0, JANUARY: 0,
-    FEB: 1, FEBRUARY: 1,
-    MAR: 2, MARCH: 2,
-    APR: 3, APRIL: 3,
-    MAY: 4,
-    JUN: 5, JUNE: 5,
-    JUL: 6, JULY: 6,
-    AUG: 7, AUGUST: 7,
-    SEP: 8, SEPT: 8, SEPTEMBER: 8,
-    OCT: 9, OCTOBER: 9,
-    NOV: 10, NOVEMBER: 10,
-    DEC: 11, DECEMBER: 11,
+    JAN: 0, JANUARY: 0, FEB: 1, FEBRUARY: 1, MAR: 2, MARCH: 2,
+    APR: 3, APRIL: 3, MAY: 4, JUN: 5, JUNE: 5, JUL: 6, JULY: 6,
+    AUG: 7, AUGUST: 7, SEP: 8, SEPT: 8, SEPTEMBER: 8,
+    OCT: 9, OCTOBER: 9, NOV: 10, NOVEMBER: 10, DEC: 11, DECEMBER: 11,
   };
 
   const longDateRe = /\b(\d{1,2})\s+(JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+(20\d{2})\b/g;
@@ -88,8 +80,6 @@ function parseCouncilDates(html, wantedBin) {
   for (const alias of aliases) {
     let pos = text.indexOf(alias);
     while (pos >= 0) {
-      // Council cards are not consistent about whether the collection date
-      // appears before or after the bin label. Inspect both sides of the label.
       const start = Math.max(0, pos - 260);
       const window = text.slice(start, pos + alias.length + 260);
       let m;
@@ -119,6 +109,10 @@ function alignedCouncilDate(anchorDate, councilDates) {
   return null;
 }
 
+function isProximityMethod(method) {
+  return String(method || "").startsWith("postcode_proximity");
+}
+
 function resolveRoundWithCouncilDates(round, councilDates, method = "exact_round") {
   if (round?.matched && round.anchorDate) {
     const assignedCleanDate = alignedCouncilDate(round.anchorDate, councilDates);
@@ -130,13 +124,14 @@ function resolveRoundWithCouncilDates(round, councilDates, method = "exact_round
     .filter((item) => item.assignedCleanDate);
   if (aligned.length !== 1) return null;
   const winner = aligned[0];
-  if (method === "postcode_proximity" && Number(winner.candidate.nearestDistanceMeters) > 1800) return null;
+  const proximity = isProximityMethod(method);
+  if (proximity && Number(winner.candidate.nearestDistanceMeters) > 1800) return null;
   return {
     round: {
       ...round,
       matched: true,
       ambiguous: false,
-      resolvedBy: method === "postcode_proximity" ? "nearby_area_plus_council_cycle" : "council_date_phase",
+      resolvedBy: proximity ? "nearby_area_plus_council_cycle" : "council_date_phase",
       round: winner.candidate.round,
       anchorDate: winner.candidate.anchorDate,
       nextCleanDate: winner.candidate.nextCleanDate,
@@ -222,7 +217,7 @@ export default async function handler(req) {
       if (!resolved && councilDates.length) {
         const nearbyRound = await getNearbyRound(origin, postcode, binName);
         if (nearbyRound) {
-          const nearbyResolved = resolveRoundWithCouncilDates(nearbyRound, councilDates, "postcode_proximity");
+          const nearbyResolved = resolveRoundWithCouncilDates(nearbyRound, councilDates, nearbyRound.method || "postcode_proximity");
           if (nearbyResolved) {
             resolved = nearbyResolved;
             round = nearbyResolved.round;
