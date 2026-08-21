@@ -35,6 +35,20 @@ function findBinSelects(root) {
   });
 }
 
+function findFrequencySelect(root) {
+  return Array.from(root?.querySelectorAll("select") || []).find((select) => {
+    const text = Array.from(select.options || []).map((option) => option.textContent || "").join(" ");
+    return /one[- ]?off/i.test(text) && /4\s*weekly/i.test(text);
+  }) || null;
+}
+
+function isOneOffBooking(root) {
+  const select = findFrequencySelect(root);
+  if (!select) return false;
+  const selectedText = select.options?.[select.selectedIndex]?.textContent || select.value || "";
+  return /one[- ]?off/i.test(selectedText);
+}
+
 function topLevelChild(container, node) {
   if (!container || !node || !container.contains(node)) return null;
   let current = node;
@@ -162,8 +176,9 @@ function render(root, state, data = null) {
   }
   if (state === "matched") {
     const rows = (data?.results || []).map((result) => `<div class="mt-1"><strong>${result.bin || "Bin"}:</strong> ${formatDate(result.assignedCleanDate)}</div>`).join("");
+    const cycleNote = isOneOffBooking(root) ? "" : '<div class="mt-2 text-xs">Your regular service will continue on the same 4-week cycle.</div>';
     panel.classList.add("border-green-500", "bg-green-50", "text-green-900");
-    panel.innerHTML = `<div class="font-bold">✓ We’ve found your clean day</div>${rows}<div class="mt-2 text-xs">Your regular service will continue on the same 4-week cycle.</div>`;
+    panel.innerHTML = `<div class="font-bold">✓ We’ve found your clean day</div>${rows}${cycleNote}`;
     setEmailButton(root, true);
     return;
   }
