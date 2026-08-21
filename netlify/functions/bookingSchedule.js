@@ -90,17 +90,13 @@ function parseCouncilDates(html, wantedBin) {
     while (pos >= 0) {
       const window = text.slice(pos, pos + 260);
       let m;
-
       longDateRe.lastIndex = 0;
       while ((m = longDateRe.exec(window))) addDate(m[1], m[2], m[3]);
-
       shortDateRe.lastIndex = 0;
       while ((m = shortDateRe.exec(window))) addDate(m[1], m[2], m[3]);
-
       pos = text.indexOf(alias, pos + alias.length);
     }
   }
-
   return [...new Set(dates)].sort();
 }
 
@@ -111,7 +107,6 @@ function alignedCouncilDate(anchorDate, councilDates) {
   if (!anchorDate || !Array.isArray(councilDates) || !councilDates.length) return null;
   const anchor = new Date(`${anchorDate}T12:00:00Z`).getTime();
   if (!Number.isFinite(anchor)) return null;
-
   for (const date of councilDates) {
     const t = new Date(`${date}T12:00:00Z`).getTime();
     if (!Number.isFinite(t) || t < Date.now() - DAY_MS) continue;
@@ -121,33 +116,29 @@ function alignedCouncilDate(anchorDate, councilDates) {
   return null;
 }
 
-function resolveRoundWithCouncilDates(round, councilDates) {
+function resolveRoundWithCouncilDates(round, councilDates, method = "exact_round") {
   if (round?.matched && round.anchorDate) {
     const assignedCleanDate = alignedCouncilDate(round.anchorDate, councilDates);
-    return assignedCleanDate ? { round, assignedCleanDate } : null;
+    return assignedCleanDate ? { round: { ...round, resolvedBy: round.resolvedBy || method }, assignedCleanDate } : null;
   }
-
   if (!round?.ambiguous || !Array.isArray(round.candidates)) return null;
-
   const aligned = round.candidates
-    .map((candidate) => ({
-      candidate,
-      assignedCleanDate: alignedCouncilDate(candidate.anchorDate, councilDates),
-    }))
+    .map((candidate) => ({ candidate, assignedCleanDate: alignedCouncilDate(candidate.anchorDate, councilDates) }))
     .filter((item) => item.assignedCleanDate);
-
   if (aligned.length !== 1) return null;
-
   const winner = aligned[0];
+  if (method === "postcode_proximity" && Number(winner.candidate.nearestDistanceMeters) > 1800) return null;
   return {
     round: {
       ...round,
       matched: true,
       ambiguous: false,
-      resolvedBy: "council_date_phase",
+      resolvedBy: method === "postcode_proximity" ? "nearby_area_plus_council_cycle" : "council_date_phase",
       round: winner.candidate.round,
       anchorDate: winner.candidate.anchorDate,
       nextCleanDate: winner.candidate.nextCleanDate,
+      nearestDistanceMeters: winner.candidate.nearestDistanceMeters,
+      support: winner.candidate.support,
       candidates: round.candidates,
     },
     assignedCleanDate: winner.assignedCleanDate,
@@ -158,15 +149,12 @@ function normalizeAddressList(payload) {
   let list = payload?.data?.addresses;
   if (!Array.isArray(list) && Array.isArray(payload?.addresses)) list = payload.addresses;
   if (!Array.isArray(list) && payload?.addresses && typeof payload.addresses === "object") list = Object.values(payload.addresses);
-
-  return (list || [])
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const uprn = String(item.uprn || item.UPRN || "").trim();
-      const label = String(item.addressText || item.address || item.label || "").trim();
-      return uprn && label ? { uprn, label } : null;
-    })
-    .filter(Boolean);
+  return (list || []).map((item) => {
+    if (!item || typeof item !== "object") return null;
+    const uprn = String(item.uprn || item.UPRN || "").trim();
+    const label = String(item.addressText || item.address || item.label || "").trim();
+    return uprn && label ? { uprn, label } : null;
+  }).filter(Boolean);
 }
 
 async function getCouncilAddresses(origin, postcode) {
@@ -174,14 +162,22 @@ async function getCouncilAddresses(origin, postcode) {
   const directData = await directRes.json().catch(() => ({}));
   const directAddresses = directRes.ok ? normalizeAddressList(directData) : [];
   if (directAddresses.length) return { source: "binAddresses", addresses: directAddresses };
-
   const fallbackRes = await fetch(new URL(`/.netlify/functions/binLookup?postcode=${encodeURIComponent(postcode)}`, origin));
   const fallbackData = await fallbackRes.json().catch(() => ({}));
   const fallbackAddresses = Array.isArray(fallbackData.addresses)
     ? fallbackData.addresses.map((item) => ({ uprn: String(item.uprn || "").trim(), label: String(item.label || "").trim() })).filter((item) => item.uprn && item.label)
     : [];
-
   return { source: "binLookup", addresses: fallbackRes.ok ? fallbackAddresses : [] };
+}
+
+async function getNearbyRound(origin, postcode, bin) {
+  const nearbyUrl = new URL("/api/nearby-round-lookup", origin);
+  nearbyUrl.searchParams.set("postcode", postcode);
+  nearbyUrl.searchParams.set("bin", String(bin));
+  const response = await fetch(nearbyUrl);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !Array.isArray(data.candidates) || !data.candidates.length) return null;
+  return { matched: false, ambiguous: true, confidence: "nearby", method: data.method, candidates: data.candidates };
 }
 
 export default async function handler(req) {
@@ -195,15 +191,11 @@ export default async function handler(req) {
 
     const origin = new URL(req.url).origin;
     const councilAddressLookup = await getCouncilAddresses(origin, postcode);
-    if (!councilAddressLookup.addresses.length) {
-      return new Response(JSON.stringify({ matched:false, reason:"council_address_not_found", postcode, addressSource:councilAddressLookup.source }), { status: 200, headers:{"Content-Type":"application/json"} });
-    }
+    if (!councilAddressLookup.addresses.length) return new Response(JSON.stringify({ matched:false, reason:"council_address_not_found", postcode, addressSource:councilAddressLookup.source }), { status:200, headers:{"Content-Type":"application/json"} });
 
     const ranked = councilAddressLookup.addresses.map((a) => ({ ...a, score: addressScore(address, a.label) })).sort((a,b) => b.score-a.score);
     const chosen = ranked[0];
-    if (!chosen || chosen.score < 20) {
-      return new Response(JSON.stringify({ matched:false, reason:"council_address_ambiguous", addressSource:councilAddressLookup.source, candidates:ranked.slice(0,3) }), { status:200, headers:{"Content-Type":"application/json"} });
-    }
+    if (!chosen || chosen.score < 20) return new Response(JSON.stringify({ matched:false, reason:"council_address_ambiguous", addressSource:councilAddressLookup.source, candidates:ranked.slice(0,3) }), { status:200, headers:{"Content-Type":"application/json"} });
 
     const calRes = await fetch(new URL(`/.netlify/functions/binCalendar?uprn=${encodeURIComponent(chosen.uprn)}`, origin));
     const calData = await calRes.json().catch(() => ({}));
@@ -211,26 +203,34 @@ export default async function handler(req) {
 
     const results = [];
     for (const bin of bins) {
-      const councilBin = normalizeBin(bin.type || bin);
+      const binName = bin.type || bin;
+      const councilBin = normalizeBin(binName);
       const councilDates = parseCouncilDates(calData.html, councilBin);
       const roundUrl = new URL("/api/round-lookup", origin);
       roundUrl.searchParams.set("postcode", postcode);
       roundUrl.searchParams.set("address", address);
-      roundUrl.searchParams.set("bin", String(bin.type || bin));
+      roundUrl.searchParams.set("bin", String(binName));
       const roundRes = await fetch(roundUrl);
       const rawRound = await roundRes.json().catch(() => ({}));
-      const resolved = resolveRoundWithCouncilDates(rawRound, councilDates);
-      const round = resolved?.round || rawRound;
-      const assigned = resolved?.assignedCleanDate || null;
 
-      results.push({
-        bin: bin.type || bin,
-        councilBin,
-        councilDates,
-        round,
-        assignedCleanDate: assigned,
-        automatic: Boolean(assigned),
-      });
+      let resolved = resolveRoundWithCouncilDates(rawRound, councilDates);
+      let round = resolved?.round || rawRound;
+
+      if (!resolved && councilDates.length) {
+        const nearbyRound = await getNearbyRound(origin, postcode, binName);
+        if (nearbyRound) {
+          const nearbyResolved = resolveRoundWithCouncilDates(nearbyRound, councilDates, "postcode_proximity");
+          if (nearbyResolved) {
+            resolved = nearbyResolved;
+            round = nearbyResolved.round;
+          } else if (!rawRound?.matched) {
+            round = nearbyRound;
+          }
+        }
+      }
+
+      const assigned = resolved?.assignedCleanDate || null;
+      results.push({ bin: binName, councilBin, councilDates, round, assignedCleanDate: assigned, automatic: Boolean(assigned) });
     }
 
     return new Response(JSON.stringify({ matched: results.every((r) => r.automatic), postcode, addressSource:councilAddressLookup.source, councilAddress: chosen.label, uprn: chosen.uprn, results }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
