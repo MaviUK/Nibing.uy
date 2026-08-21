@@ -64,6 +64,8 @@ function findTipNode(root) {
 }
 
 function reorderBookingLayout(root) {
+  if (!root || root.dataset.bookingLayoutOrdered === "true") return;
+
   const nameInput = root?.querySelector('input[placeholder="Your Name"]');
   const addressInput = root?.querySelector('input[placeholder="Full Address"]');
   const firstBinSelect = findBinSelects(root)[0];
@@ -85,6 +87,8 @@ function reorderBookingLayout(root) {
     const desiredBefore = addressBlock.nextSibling;
     if (tipBlock !== desiredBefore) container.insertBefore(tipBlock, desiredBefore);
   }
+
+  root.dataset.bookingLayoutOrdered = "true";
 }
 
 function getFormData(root) {
@@ -139,7 +143,6 @@ function setEmailButton(root, automatic) {
 }
 
 function render(root, state, data = null) {
-  reorderBookingLayout(root);
   const panel = ensurePanel(root);
   if (!panel) return;
 
@@ -173,7 +176,6 @@ function render(root, state, data = null) {
 }
 
 async function runLookup(root) {
-  reorderBookingLayout(root);
   const form = getFormData(root);
   if (!form || !form.address || !form.postcode || !form.bins.length) {
     render(root, "idle");
@@ -200,7 +202,6 @@ async function runLookup(root) {
 }
 
 function scheduleLookup(root) {
-  reorderBookingLayout(root);
   window.clearTimeout(lookupTimer);
   lookupTimer = window.setTimeout(() => runLookup(root), 450);
 }
