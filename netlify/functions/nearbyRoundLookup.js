@@ -59,9 +59,9 @@ export default async function handler(req) {
 
     const candidates = [...grouped.values()]
       .sort((a, b) => (a.nearestDistanceMeters - b.nearestDistanceMeters) || (b.weightedSupport - a.weightedSupport))
-      .slice(0, 8);
+      .slice(0, 1);
 
-    return new Response(JSON.stringify({ matched: candidates.length > 0, method: "postcode_proximity", postcode, bin, candidates }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+    return new Response(JSON.stringify({ matched: candidates.length > 0, method: "postcode_proximity_nearest", postcode, bin, candidates }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
   } catch (error) {
     return new Response(JSON.stringify({ error: error?.message || "Nearby round lookup failed" }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
