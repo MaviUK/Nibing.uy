@@ -38,16 +38,13 @@ function findBinSelects(root) {
 function topLevelChild(container, node) {
   if (!container || !node || !container.contains(node)) return null;
   let current = node;
-  while (current?.parentElement && current.parentElement !== container) {
-    current = current.parentElement;
-  }
+  while (current?.parentElement && current.parentElement !== container) current = current.parentElement;
   return current?.parentElement === container ? current : null;
 }
 
 function findSharedContainer(root, nodes) {
   const valid = nodes.filter(Boolean);
   if (!valid.length) return root;
-
   let container = valid[0].parentElement;
   while (container && container !== root) {
     if (valid.every((node) => container.contains(node))) return container;
@@ -65,21 +62,16 @@ function findTipNode(root) {
 
 function reorderBookingLayout(root) {
   if (!root || root.dataset.bookingLayoutOrdered === "true") return;
-
-  const nameInput = root?.querySelector('input[placeholder="Your Name"]');
-  const addressInput = root?.querySelector('input[placeholder="Full Address"]');
+  const nameInput = root.querySelector('input[placeholder="Your Name"]');
+  const addressInput = root.querySelector('input[placeholder="Full Address"]');
   const firstBinSelect = findBinSelects(root)[0];
-  const discountInput = root?.querySelector('input[placeholder="Enter code"]');
-
+  const discountInput = root.querySelector('input[placeholder="Enter code"]');
   if (!addressInput || !firstBinSelect || !discountInput) return;
 
   const container = findSharedContainer(root, [nameInput, addressInput, firstBinSelect, discountInput]);
   const addressBlock = topLevelChild(container, addressInput);
   const binBlock = topLevelChild(container, firstBinSelect);
-
-  if (addressBlock && binBlock && addressBlock !== binBlock && addressBlock.nextElementSibling !== binBlock) {
-    container.insertBefore(addressBlock, binBlock);
-  }
+  if (addressBlock && binBlock && addressBlock !== binBlock && addressBlock.nextElementSibling !== binBlock) container.insertBefore(addressBlock, binBlock);
 
   const tipNode = findTipNode(root);
   const tipBlock = topLevelChild(container, tipNode);
@@ -87,24 +79,40 @@ function reorderBookingLayout(root) {
     const desiredBefore = addressBlock.nextSibling;
     if (tipBlock !== desiredBefore) container.insertBefore(tipBlock, desiredBefore);
   }
-
   root.dataset.bookingLayoutOrdered = "true";
+}
+
+function ensurePostcodeMessage(root) {
+  let message = root.querySelector("[data-postcode-validation]");
+  if (message) return message;
+  const addressInput = root.querySelector('input[placeholder="Full Address"]');
+  if (!addressInput) return null;
+  message = document.createElement("div");
+  message.dataset.postcodeValidation = "true";
+  message.className = "mt-2 text-xs font-semibold text-red-600";
+  message.style.display = "none";
+  message.textContent = "Please include your postcode in the address.";
+  addressInput.insertAdjacentElement("afterend", message);
+  return message;
+}
+
+function validatePostcode(root, forceMessage = false) {
+  const addressInput = root?.querySelector('input[placeholder="Full Address"]');
+  if (!addressInput) return false;
+  const address = String(addressInput.value || "").trim();
+  const valid = Boolean(extractPostcode(address));
+  const message = ensurePostcodeMessage(root);
+  if (message) message.style.display = !valid && (forceMessage || address.length > 5) ? "block" : "none";
+  addressInput.setCustomValidity(valid || !address ? "" : "Please include your postcode in the address.");
+  return valid;
 }
 
 function getFormData(root) {
   const addressInput = root?.querySelector('input[placeholder="Full Address"]');
   if (!addressInput) return null;
-
-  const bins = findBinSelects(root)
-    .filter((select) => select.value)
-    .map((select) => ({ type: select.value }));
+  const bins = findBinSelects(root).filter((select) => select.value).map((select) => ({ type: select.value }));
   const address = String(addressInput.value || "").trim();
-
-  return {
-    address,
-    postcode: extractPostcode(address),
-    bins,
-  };
+  return { address, postcode: extractPostcode(address), bins };
 }
 
 function positionPanel(root, panel) {
@@ -112,19 +120,14 @@ function positionPanel(root, panel) {
   const firstBinSelect = findBinSelects(root)[0];
   const discountInput = root?.querySelector('input[placeholder="Enter code"]');
   if (!addressInput || !firstBinSelect || !discountInput || !panel) return;
-
   const container = findSharedContainer(root, [addressInput, firstBinSelect, discountInput]);
   const discountBlock = topLevelChild(container, discountInput);
-  if (!discountBlock) return;
-
-  if (panel.parentElement !== container || panel.nextSibling !== discountBlock) {
-    container.insertBefore(panel, discountBlock);
-  }
+  if (discountBlock && (panel.parentElement !== container || panel.nextSibling !== discountBlock)) container.insertBefore(panel, discountBlock);
 }
 
 function ensurePanel(root) {
   reorderBookingLayout(root);
-
+  ensurePostcodeMessage(root);
   let panel = root.querySelector("[data-auto-schedule-panel]");
   if (!panel) {
     panel = document.createElement("div");
@@ -132,7 +135,6 @@ function ensurePanel(root) {
     panel.className = "mt-3 rounded-xl border px-4 py-3 text-sm";
     root.appendChild(panel);
   }
-
   positionPanel(root, panel);
   return panel;
 }
@@ -145,23 +147,19 @@ function setEmailButton(root, automatic) {
 function render(root, state, data = null) {
   const panel = ensurePanel(root);
   if (!panel) return;
-
   panel.className = "mt-3 rounded-xl border px-4 py-3 text-sm";
-
   if (state === "idle") {
     panel.classList.add("border-green-300", "bg-green-50", "text-green-900");
-    panel.innerHTML = '<div class="font-bold">Automatic clean-date booking</div><div class="mt-1 text-xs leading-5">Select your bin and enter your full address. We’ll check the council collection day and match it to our next cleaning round.</div>';
+    panel.innerHTML = '<div class="font-bold">Automatic clean-date booking</div><div class="mt-1 text-xs leading-5">Select your bin and enter your full address including postcode. We’ll check the council collection day and match it to our next cleaning round.</div>';
     setEmailButton(root, false);
     return;
   }
-
   if (state === "loading") {
     panel.classList.add("border-gray-300", "bg-gray-50", "text-gray-800");
     panel.innerHTML = '<div class="font-bold">Checking your bin day…</div><div class="mt-1 text-xs text-gray-600">Matching the council calendar with our 4-week cleaning round.</div>';
     setEmailButton(root, false);
     return;
   }
-
   if (state === "matched") {
     const rows = (data?.results || []).map((result) => `<div class="mt-1"><strong>${result.bin || "Bin"}:</strong> ${formatDate(result.assignedCleanDate)}</div>`).join("");
     panel.classList.add("border-green-500", "bg-green-50", "text-green-900");
@@ -169,7 +167,6 @@ function render(root, state, data = null) {
     setEmailButton(root, true);
     return;
   }
-
   panel.classList.add("border-amber-400", "bg-amber-50", "text-amber-900");
   panel.innerHTML = '<div class="font-bold">We need to confirm your first clean date</div><div class="mt-1 text-xs leading-5">You can still submit your booking. We’ll confirm the date manually rather than risk giving you the wrong one.</div>';
   setEmailButton(root, false);
@@ -177,15 +174,20 @@ function render(root, state, data = null) {
 
 async function runLookup(root) {
   const form = getFormData(root);
-  if (!form || !form.address || !form.postcode || !form.bins.length) {
+  if (!form || !form.address || !form.bins.length) {
+    validatePostcode(root, false);
     render(root, "idle");
     return;
   }
-
+  if (!form.postcode) {
+    validatePostcode(root, true);
+    render(root, "idle");
+    return;
+  }
+  validatePostcode(root, false);
   if (activeController) activeController.abort();
   activeController = new AbortController();
   render(root, "loading");
-
   try {
     const response = await fetch("/api/booking-schedule", {
       method: "POST",
@@ -210,9 +212,22 @@ function bindBookingRoot(root) {
   if (!root || root.dataset.autoScheduleBound === "true") return;
   root.dataset.autoScheduleBound = "true";
   reorderBookingLayout(root);
+  ensurePostcodeMessage(root);
   render(root, "idle");
   root.addEventListener("input", () => scheduleLookup(root));
   root.addEventListener("change", () => scheduleLookup(root));
+  root.addEventListener("click", (event) => {
+    const button = event.target?.closest?.("button");
+    if (!button || !/send via whatsapp|send via email|confirm booking/i.test(String(button.textContent || ""))) return;
+    if (!validatePostcode(root, true)) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      const addressInput = root.querySelector('input[placeholder="Full Address"]');
+      addressInput?.focus();
+      addressInput?.reportValidity?.();
+    }
+  }, true);
 }
 
 function bindAfterOpen() {
@@ -220,10 +235,7 @@ function bindAfterOpen() {
   const tryBind = () => {
     attempts += 1;
     const root = findBookingRoot();
-    if (root) {
-      bindBookingRoot(root);
-      return;
-    }
+    if (root) { bindBookingRoot(root); return; }
     if (attempts < 12) window.setTimeout(tryBind, 50);
   };
   window.setTimeout(tryBind, 0);
@@ -233,7 +245,5 @@ document.addEventListener("click", (event) => {
   const target = event.target?.closest?.("button, a");
   if (!target) return;
   const text = String(target.textContent || "").trim();
-  if (/book a clean|book a bin clean/i.test(text) || target.dataset?.openBookingForm === "true") {
-    bindAfterOpen();
-  }
+  if (/book a clean|book a bin clean/i.test(text) || target.dataset?.openBookingForm === "true") bindAfterOpen();
 }, true);
