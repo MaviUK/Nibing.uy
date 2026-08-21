@@ -101,6 +101,56 @@ function parseCouncilDates(html, wantedBin) {
   return [...new Set(dates)].sort();
 }
 
+const DAY_MS = 86400000;
+const ROUND_MS = 28 * DAY_MS;
+
+function alignedCouncilDate(anchorDate, councilDates) {
+  if (!anchorDate || !Array.isArray(councilDates) || !councilDates.length) return null;
+  const anchor = new Date(`${anchorDate}T12:00:00Z`).getTime();
+  if (!Number.isFinite(anchor)) return null;
+
+  for (const date of councilDates) {
+    const t = new Date(`${date}T12:00:00Z`).getTime();
+    if (!Number.isFinite(t) || t < Date.now() - DAY_MS) continue;
+    const delta = t - anchor;
+    if (((delta % ROUND_MS) + ROUND_MS) % ROUND_MS === 0) return date;
+  }
+  return null;
+}
+
+function resolveRoundWithCouncilDates(round, councilDates) {
+  if (round?.matched && round.anchorDate) {
+    const assignedCleanDate = alignedCouncilDate(round.anchorDate, councilDates);
+    return assignedCleanDate ? { round, assignedCleanDate } : null;
+  }
+
+  if (!round?.ambiguous || !Array.isArray(round.candidates)) return null;
+
+  const aligned = round.candidates
+    .map((candidate) => ({
+      candidate,
+      assignedCleanDate: alignedCouncilDate(candidate.anchorDate, councilDates),
+    }))
+    .filter((item) => item.assignedCleanDate);
+
+  if (aligned.length !== 1) return null;
+
+  const winner = aligned[0];
+  return {
+    round: {
+      ...round,
+      matched: true,
+      ambiguous: false,
+      resolvedBy: "council_date_phase",
+      round: winner.candidate.round,
+      anchorDate: winner.candidate.anchorDate,
+      nextCleanDate: winner.candidate.nextCleanDate,
+      candidates: round.candidates,
+    },
+    assignedCleanDate: winner.assignedCleanDate,
+  };
+}
+
 export default async function handler(req) {
   try {
     const body = req.method === "POST" ? await req.json() : {};
@@ -132,16 +182,19 @@ export default async function handler(req) {
       roundUrl.searchParams.set("address", address);
       roundUrl.searchParams.set("bin", String(bin.type || bin));
       const roundRes = await fetch(roundUrl);
-      const round = await roundRes.json().catch(() => ({}));
-      let assigned = null;
-      if (roundRes.ok && round.matched && councilDates.length) {
-        const anchor = new Date(`${round.anchorDate}T12:00:00Z`).getTime();
-        for (const d of councilDates) {
-          const t = new Date(`${d}T12:00:00Z`).getTime();
-          if (t >= Date.now() - 86400000 && (t - anchor) % (28 * 86400000) === 0) { assigned = d; break; }
-        }
-      }
-      results.push({ bin: bin.type || bin, councilBin, councilDates, round, assignedCleanDate: assigned, automatic: Boolean(assigned) });
+      const rawRound = await roundRes.json().catch(() => ({}));
+      const resolved = resolveRoundWithCouncilDates(rawRound, councilDates);
+      const round = resolved?.round || rawRound;
+      const assigned = resolved?.assignedCleanDate || null;
+
+      results.push({
+        bin: bin.type || bin,
+        councilBin,
+        councilDates,
+        round,
+        assignedCleanDate: assigned,
+        automatic: Boolean(assigned),
+      });
     }
 
     return new Response(JSON.stringify({ matched: results.every((r) => r.automatic), postcode, councilAddress: chosen.label, uprn: chosen.uprn, results }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
