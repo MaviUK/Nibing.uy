@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/updateBookingTerms.cjs && vite build",
+    "build": "node scripts/updateBookingTerms.cjs && node scripts/updateAutomaticBookingTerms.cjs && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -22,6 +22,6 @@
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.17",
     "vite": "^7.0.5",
-    "vite-plugin-static-copy": "^3.1.1"
+    "vite-plugin-static-copy": "^1.1.1"
   }
 }
