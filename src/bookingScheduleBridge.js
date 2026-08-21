@@ -156,7 +156,7 @@ function render(root, state, data = null) {
   }
   if (state === "loading") {
     panel.classList.add("border-gray-300", "bg-gray-50", "text-gray-800");
-    panel.innerHTML = '<div class="font-bold">Checking your bin day…</div><div class="mt-1 text-xs text-gray-600">Matching the council calendar with our 4-week cleaning round.</div>';
+    panel.innerHTML = '<div class="font-bold">Checking your bin days & our availability.....</div>';
     setEmailButton(root, false);
     return;
   }
