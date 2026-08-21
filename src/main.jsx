@@ -17,6 +17,16 @@ if (recaptchaSiteKey && !document.getElementById('recaptcha-script')) {
   document.head.appendChild(script);
 }
 
+// Load the visible booking scheduler from the Vite app entry point rather than
+// relying on the separately cached site-tracking.js file.
+if (!window.location.pathname.startsWith('/street-booking') && !document.getElementById('booking-schedule-ui-script')) {
+  const scheduleScript = document.createElement('script');
+  scheduleScript.id = 'booking-schedule-ui-script';
+  scheduleScript.src = '/booking-schedule-ui.js?v=20260821-2';
+  scheduleScript.defer = true;
+  document.head.appendChild(scheduleScript);
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
