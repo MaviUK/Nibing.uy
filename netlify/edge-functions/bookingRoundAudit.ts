@@ -18,13 +18,7 @@ export default async (req: Request, context: Context) => {
     const postcode = extractPostcode(address);
     const bins = Array.isArray(payload?.bins) ? payload.bins.filter((bin: any) => bin?.type) : [];
 
-    if (!address || !postcode || !bins.length) {
-      console.info("[round-audit] skipped", {
-        reason: !address ? "missing_address" : !postcode ? "postcode_not_found" : "missing_bins",
-        address,
-      });
-      return context.next();
-    }
+    if (!address || !postcode || !bins.length) return context.next();
 
     const origin = new URL(req.url).origin;
     let schedule: any = null;
@@ -46,9 +40,17 @@ export default async (req: Request, context: Context) => {
       };
     }
 
+    const automatic = Boolean(
+      schedule?.matched &&
+      Array.isArray(schedule?.results) &&
+      schedule.results.length > 0 &&
+      schedule.results.every((result: any) => result?.automatic && result?.assignedCleanDate)
+    );
+
     console.info("[round-audit] council-aware proposed schedule", {
       address,
       postcode,
+      automatic,
       schedule,
     });
 
@@ -66,6 +68,24 @@ export default async (req: Request, context: Context) => {
       });
     } catch (error) {
       console.warn("[round-audit] audit email failed", error instanceof Error ? error.message : error);
+    }
+
+    if (automatic) {
+      const confirmationUrl = new URL("/.netlify/functions/sendAutomaticBookingConfirmation", origin);
+      const confirmation = await fetch(confirmationUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...payload, schedule }),
+      });
+
+      if (confirmation.ok) {
+        return new Response(await confirmation.text(), {
+          status: confirmation.status,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      console.warn("[round-audit] automatic confirmation failed; falling back to existing booking flow", confirmation.status);
     }
   } catch (error) {
     console.warn("[round-audit] middleware error", error instanceof Error ? error.message : error);
