@@ -1,0 +1,1 @@
+Generated schedule proximity data in nearbyRoundLookup.js is derived from the NI Bin Guy Squeegee export. It uses privacy-reduced ~100m location cells, bin type, round number, actual round_next_visit, and support counts. Customer names and full addresses are not published. Refresh this derived data when the Squeegee schedule changes materially.
