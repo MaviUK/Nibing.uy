@@ -44,23 +44,60 @@ function normalizeBin(value) {
 
 function parseCouncilDates(html, wantedBin) {
   const text = stripHtml(html).toUpperCase();
-  const aliases = wantedBin === "GREY" ? ["GREY BIN", "GRAY BIN", "BLACK BIN"] : wantedBin === "BLUE" ? ["BLUE BIN"] : ["GREEN/BROWN BIN", "GREEN BROWN BIN", "BROWN BIN", "GREEN BIN"];
-  const dateRe = /\b(\d{1,2})\s+(JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+(20\d{2})\b/g;
-  const months = { JANUARY:0,FEBRUARY:1,MARCH:2,APRIL:3,MAY:4,JUNE:5,JULY:6,AUGUST:7,SEPTEMBER:8,OCTOBER:9,NOVEMBER:10,DECEMBER:11 };
+  const aliases = wantedBin === "GREY"
+    ? ["GREY BIN", "GRAY BIN", "BLACK BIN"]
+    : wantedBin === "BLUE"
+      ? ["BLUE BIN"]
+      : ["GREEN/BROWN BIN", "GREEN BROWN BIN", "BROWN BIN", "GREEN BIN"];
+
+  const monthNumber = {
+    JAN: 0, JANUARY: 0,
+    FEB: 1, FEBRUARY: 1,
+    MAR: 2, MARCH: 2,
+    APR: 3, APRIL: 3,
+    MAY: 4,
+    JUN: 5, JUNE: 5,
+    JUL: 6, JULY: 6,
+    AUG: 7, AUGUST: 7,
+    SEP: 8, SEPT: 8, SEPTEMBER: 8,
+    OCT: 9, OCTOBER: 9,
+    NOV: 10, NOVEMBER: 10,
+    DEC: 11, DECEMBER: 11,
+  };
+
+  const longDateRe = /\b(\d{1,2})\s+(JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+(20\d{2})\b/g;
+  const shortDateRe = /\b(?:MON|TUE|TUES|WED|THU|THUR|THURS|FRI|SAT|SUN)\s+(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)(?:\s+(20\d{2}))?\b/g;
   const dates = [];
+  const now = new Date();
+
+  function addDate(day, monthName, explicitYear) {
+    const month = monthNumber[monthName];
+    if (month == null) return;
+    let year = explicitYear ? Number(explicitYear) : now.getUTCFullYear();
+    let d = new Date(Date.UTC(year, month, Number(day)));
+    if (!explicitYear && d.getTime() < now.getTime() - 120 * 86400000) {
+      year += 1;
+      d = new Date(Date.UTC(year, month, Number(day)));
+    }
+    dates.push(d.toISOString().slice(0, 10));
+  }
+
   for (const alias of aliases) {
     let pos = text.indexOf(alias);
     while (pos >= 0) {
-      const window = text.slice(pos, pos + 240);
+      const window = text.slice(pos, pos + 260);
       let m;
-      dateRe.lastIndex = 0;
-      while ((m = dateRe.exec(window))) {
-        const d = new Date(Date.UTC(Number(m[3]), months[m[2]], Number(m[1])));
-        dates.push(d.toISOString().slice(0,10));
-      }
+
+      longDateRe.lastIndex = 0;
+      while ((m = longDateRe.exec(window))) addDate(m[1], m[2], m[3]);
+
+      shortDateRe.lastIndex = 0;
+      while ((m = shortDateRe.exec(window))) addDate(m[1], m[2], m[3]);
+
       pos = text.indexOf(alias, pos + alias.length);
     }
   }
+
   return [...new Set(dates)].sort();
 }
 
