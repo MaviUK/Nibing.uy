@@ -88,7 +88,10 @@ function parseCouncilDates(html, wantedBin) {
   for (const alias of aliases) {
     let pos = text.indexOf(alias);
     while (pos >= 0) {
-      const window = text.slice(pos, pos + 260);
+      // Council cards are not consistent about whether the collection date
+      // appears before or after the bin label. Inspect both sides of the label.
+      const start = Math.max(0, pos - 260);
+      const window = text.slice(start, pos + alias.length + 260);
       let m;
       longDateRe.lastIndex = 0;
       while ((m = longDateRe.exec(window))) addDate(m[1], m[2], m[3]);
