@@ -11,6 +11,7 @@ const DAY_MS=86400000,ROUND_MS=28*DAY_MS;
 function alignedCouncilDate(anchorDate,councilDates){if(!anchorDate||!Array.isArray(councilDates)||!councilDates.length)return null;const anchor=new Date(`${anchorDate}T12:00:00Z`).getTime();if(!Number.isFinite(anchor))return null;for(const date of councilDates){const t=new Date(`${date}T12:00:00Z`).getTime();if(!Number.isFinite(t)||t<Date.now()-DAY_MS)continue;const delta=t-anchor;if(((delta%ROUND_MS)+ROUND_MS)%ROUND_MS===0)return date;}return null;}
 function nextRoundWorkDate(anchorDate){if(!anchorDate)return null;let t=new Date(`${anchorDate}T12:00:00Z`).getTime();if(!Number.isFinite(t))return null;const today=new Date();const floor=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth(),today.getUTCDate())).getTime();while(t<floor)t+=ROUND_MS;return new Date(t).toISOString().slice(0,10);}
 function isProximityMethod(method){return String(method||"").includes("proximity");}
+function isCustomerScheduleMethod(method){return String(method||"").includes("schedule_proximity");}
 function resolveRoundWithCouncilDates(round,councilDates,method="exact_round"){
   if(round?.matched&&round.anchorDate){
     const councilValidationDate=alignedCouncilDate(round.anchorDate,councilDates);
@@ -20,6 +21,21 @@ function resolveRoundWithCouncilDates(round,councilDates,method="exact_round"){
   }
   if(!round?.ambiguous||!Array.isArray(round.candidates))return null;
   const proximity=isProximityMethod(method);
+  const customerSchedule=isCustomerScheduleMethod(method);
+
+  // Customer schedule candidates come from real Squeegee round_next_visit dates.
+  // For these, the council lookup confirms the property/bin exists, but it must
+  // not force the clean onto a generic council/round phase. Choose the nearest
+  // actual day on which NI Bin Guy already has scheduled work.
+  if(customerSchedule){
+    const viable=round.candidates
+      .filter(candidate=>candidate.nextCleanDate&&Number(candidate.nearestDistanceMeters)<=1800)
+      .sort((a,b)=>Number(a.nearestDistanceMeters??Infinity)-Number(b.nearestDistanceMeters??Infinity));
+    if(!viable.length)return null;
+    const winner=viable[0];
+    return{round:{...round,matched:true,ambiguous:false,resolvedBy:"nearest_existing_customer_schedule",round:winner.round,anchorDate:winner.anchorDate,nextCleanDate:winner.nextCleanDate,nearestDistanceMeters:winner.nearestDistanceMeters,support:winner.support,candidates:round.candidates},assignedCleanDate:winner.nextCleanDate};
+  }
+
   const aligned=round.candidates.map(candidate=>({candidate,councilValidationDate:alignedCouncilDate(candidate.anchorDate,councilDates)})).filter(i=>i.councilValidationDate);
   if(!aligned.length)return null;
   if(!proximity&&aligned.length!==1)return null;
