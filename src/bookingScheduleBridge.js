@@ -153,25 +153,27 @@ function ensurePanel(root) {
   return panel;
 }
 
-function setEmailButton(root, automatic) {
-  const button = Array.from(root.querySelectorAll("button")).find((node) => /send via email|confirm booking/i.test(node.textContent || ""));
-  if (button) button.textContent = automatic ? "Confirm Booking" : "Send via Email";
+function keepSubmitButtonLabels(root) {
+  const buttons = Array.from(root.querySelectorAll("button"));
+  const whatsapp = buttons.find((node) => /send via whatsapp/i.test(String(node.textContent || "")));
+  const email = buttons.find((node) => /send via email|confirm booking|sending booking/i.test(String(node.textContent || "")));
+  if (whatsapp) whatsapp.textContent = "Send Via WhatsApp";
+  if (email) email.textContent = "Send Via Email";
 }
 
 function render(root, state, data = null) {
   const panel = ensurePanel(root);
   if (!panel) return;
+  keepSubmitButtonLabels(root);
   panel.className = "mt-3 rounded-xl border px-4 py-3 text-sm";
   if (state === "idle") {
     panel.classList.add("border-green-300", "bg-green-50", "text-green-900");
     panel.innerHTML = '<div class="font-bold">Next Clean Date</div><div class="mt-1 text-xs leading-5">Please fill in the above to show date.</div>';
-    setEmailButton(root, false);
     return;
   }
   if (state === "loading") {
     panel.classList.add("border-gray-300", "bg-gray-50", "text-gray-800");
-    panel.innerHTML = '<div class="font-bold">Checking your bin days & our availability.....</div>';
-    setEmailButton(root, false);
+    panel.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:74px;"><div style="width:34px;height:34px;border:4px solid #d1d5db;border-top-color:#16a34a;border-radius:9999px;animation:nbgScheduleSpin .8s linear infinite;"></div></div><style>@keyframes nbgScheduleSpin{to{transform:rotate(360deg)}}</style>';
     return;
   }
   if (state === "matched") {
@@ -179,12 +181,10 @@ function render(root, state, data = null) {
     const cycleNote = isOneOffBooking(root) ? "" : '<div class="mt-2 text-xs">Your regular service will continue on the same 4-week cycle.</div>';
     panel.classList.add("border-green-500", "bg-green-50", "text-green-900");
     panel.innerHTML = `<div class="font-bold">✓ We’ve found your clean day</div>${rows}${cycleNote}`;
-    setEmailButton(root, true);
     return;
   }
   panel.classList.add("border-amber-400", "bg-amber-50", "text-amber-900");
   panel.innerHTML = '<div class="font-bold">We need to confirm your first clean date</div><div class="mt-1 text-xs leading-5">You can still submit your booking. We’ll confirm the date manually rather than risk giving you the wrong one.</div>';
-  setEmailButton(root, false);
 }
 
 async function runLookup(root) {
