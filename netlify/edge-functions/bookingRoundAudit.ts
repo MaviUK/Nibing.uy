@@ -57,6 +57,23 @@ export default async (req: Request, context: Context) => {
       postcode,
       checks,
     });
+
+    // Internal-only validation email. Failure must never block the booking.
+    try {
+      const auditUrl = new URL("/.netlify/functions/sendRoundAuditEmail", origin);
+      await fetch(auditUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: payload?.name || "",
+          address,
+          postcode,
+          checks,
+        }),
+      });
+    } catch (error) {
+      console.warn("[round-audit] audit email failed", error instanceof Error ? error.message : error);
+    }
   } catch (error) {
     console.warn("[round-audit] middleware error", error instanceof Error ? error.message : error);
   }
