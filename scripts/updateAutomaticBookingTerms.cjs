@@ -63,9 +63,81 @@ const before = readFileSync(filePath, "utf8");
 let after = before.replace(/const TERMS_VERSION_DEFAULT = "[^"]+";/, `const TERMS_VERSION_DEFAULT = "${VERSION}";`);
 after = after.replace(/const TERMS_BODY = `.*?`;/s, `const TERMS_BODY = \`\nNi Bin Guy – Terms of Service\n\n${FULL_TERMS}\n\`;`);
 
+if (!after.includes("const BIN_JOKES = [")) {
+  const jokeCode = `
+const BIN_JOKES = [
+  ["Why did the wheelie bin go to therapy?", "It had too much rubbish to deal with."],
+  ["What did one bin say to the other?", "You look rubbish."],
+  ["Why was the bin embarrassed?", "Everyone kept talking trash about it."],
+  ["What's a wheelie bin's favourite music?", "Heavy metal."],
+  ["What did the clean bin say to the dirty bin?", "You scrub up well."],
+  ["Why don't bins tell secrets?", "They always end up spilling the rubbish."],
+  ["What's a bin's favourite day?", "Throwback Thursday."],
+  ["Why did the bin cross the road?", "Because someone forgot to bring it back in."],
+  ["What do you call a bin that tells bad jokes?", "A waste of comedy."],
+  ["Why was the wheelie bin exhausted?", "It was completely trashed."],
+  ["Why are wheelie bins terrible at hide-and-seek?", "They're always left out."],
+  ["Why did the bin break up with the rubbish bag?", "The relationship was toxic."],
+  ["Why did the wheelie bin blush?", "Someone lifted its lid."],
+  ["Why did the wheelie bin refuse dessert?", "It was already stuffed."],
+  ["Why did the rubbish bin get arrested?", "It was caught littering."],
+  ["Why did the bin become a comedian?", "It had loads of material."],
+  ["What do you call a wheelie bin with no wheels?", "A drag."],
+  ["Why did the bin go on a diet?", "Too much junk food."],
+  ["What did the bin say to the bin lorry?", "You pick me up every time I'm feeling down."],
+  ["Why did the wheelie bin get a makeover?", "It wanted to clean up its act."],
+  ["What did the bin say after being pressure washed?", "That was wheelie refreshing."],
+  ["Why are bins so good at listening?", "You can dump anything on them."],
+  ["Why did the wheelie bin start exercising?", "It wanted to lose some waste."],
+  ["What did the dirty bin say when Ni Bin Guy arrived?", "Oh rubbish... he found me."],
+  ["Why was the wheelie bin popular at parties?", "It could handle everyone's rubbish."],
+  ["Why did the bin book a spa day?", "It needed a good scrub."],
+  ["What did the bin say after Ni Bin Guy finished?", "That's a weight off my lid."],
+  ["Why did the wheelie bin get an award?", "For outstanding waste management."],
+  ["What does a bin say before a big clean?", "Time to get my act together."],
+  ["Why was the bin always calm?", "It knew how to let things go."],
+  ["What's a wheelie bin's favourite dance?", "The trash can-can."],
+  ["Why did the bin refuse to argue?", "It didn't want to talk rubbish."],
+  ["Why was the wheelie bin so confident?", "It knew it was wheelie good."],
+  ["What do bins do on holiday?", "They take some time to unwind and de-compose."],
+  ["Why did the bin get a new lid?", "It needed a fresh outlook."],
+  ["What did the bin say on collection morning?", "Today's my pick-up day."],
+  ["Why did the bin avoid gossip?", "Too much trash talk."],
+  ["What's a bin's favourite compliment?", "You clean up nicely."],
+  ["Why was the dirty bin nervous?", "Ni Bin Guy was on the way."],
+  ["What did one sparkling clean bin say to another?", "We're looking wheelie fresh."],
+];
+function randomBinJoke() {
+  return BIN_JOKES[Math.floor(Math.random() * BIN_JOKES.length)];
+}
+`;
+  after = after.replace("exports.handler = async (event) => {", `${jokeCode}\nexports.handler = async (event) => {`);
+}
+
+if (!after.includes("const [jokeQuestion, jokeAnswer] = randomBinJoke();")) {
+  after = after.replace(
+    "    const priceLines = Array.isArray(pricing?.lines) ? pricing.lines : [];",
+    "    const priceLines = Array.isArray(pricing?.lines) ? pricing.lines : [];\n    const [jokeQuestion, jokeAnswer] = randomBinJoke();"
+  );
+}
+
+if (!after.includes("TODAY'S RUBBISH JOKE")) {
+  const jokeBlock = `
+            <tr><td style="padding:14px 26px 0;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#0b6b44;border:1px solid #14865b;border-radius:14px;"><tr><td style="padding:18px 20px;text-align:center;">
+              <div style="font-family:Arial Black,Arial,sans-serif;color:#fff;font-size:17px;font-weight:900;text-transform:uppercase;">🗑 TODAY'S RUBBISH JOKE</div>
+              <div style="font-family:Arial,sans-serif;color:#fff;font-size:14px;line-height:1.5;margin-top:8px;font-weight:700;">\${escapeHtml(jokeQuestion)}</div>
+              <div style="font-family:Arial,sans-serif;color:#ffd400;font-size:14px;line-height:1.5;margin-top:4px;font-weight:800;">\${escapeHtml(jokeAnswer)} 😄</div>
+            </td></tr></table></td></tr>
+`;
+  after = after.replace(
+    '            <tr><td style="padding:26px;text-align:center;background:#050505;">',
+    `${jokeBlock}\n            <tr><td style="padding:26px;text-align:center;background:#050505;">`
+  );
+}
+
 if (after !== before) {
   writeFileSync(filePath, after, "utf8");
-  console.log("Updated automatic booking confirmation terms");
+  console.log("Updated automatic booking confirmation terms and rubbish joke");
 } else {
-  console.log("Automatic booking confirmation terms already up to date");
+  console.log("Automatic booking confirmation already up to date");
 }
