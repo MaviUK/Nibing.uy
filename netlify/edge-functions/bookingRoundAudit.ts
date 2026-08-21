@@ -54,22 +54,6 @@ export default async (req: Request, context: Context) => {
       schedule,
     });
 
-    try {
-      const auditUrl = new URL("/.netlify/functions/sendRoundAuditEmail", origin);
-      await fetch(auditUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: payload?.name || "",
-          address,
-          postcode,
-          schedule,
-        }),
-      });
-    } catch (error) {
-      console.warn("[round-audit] audit email failed", error instanceof Error ? error.message : error);
-    }
-
     if (automatic) {
       const confirmationUrl = new URL("/.netlify/functions/sendAutomaticBookingConfirmation", origin);
       const confirmation = await fetch(confirmationUrl, {
