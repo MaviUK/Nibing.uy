@@ -56,7 +56,7 @@
 
     var card = document.createElement("div");
     card.setAttribute("data-booking-schedule-card", "true");
-    card.style.cssText = "margin-top:12px;padding:14px 16px;border-radius:12px;border:1px solid #d1d5db;background:#f9fafb;font-family:Arial,sans-serif;display:none;";
+    card.style.cssText = "margin-top:12px;padding:14px 16px;border-radius:12px;border:1px solid #86efac;background:#f0fdf4;font-family:Arial,sans-serif;display:block;";
     addressInput.parentNode.insertBefore(card, addressInput.nextSibling);
     return card;
   }
@@ -72,6 +72,14 @@
     var card = ensureCard(root);
     if (!card) return;
     card.style.display = "block";
+
+    if (state === "idle") {
+      card.style.background = "#f0fdf4";
+      card.style.borderColor = "#86efac";
+      card.innerHTML = '<div style="font-weight:900;color:#166534;font-size:16px;">Automatic clean-date booking</div><div style="margin-top:5px;font-size:13px;line-height:1.45;color:#166534;">Select your bin and enter your full address. We’ll check your council collection day and our next round automatically.</div>';
+      setPrimaryButton(root, false);
+      return;
+    }
 
     if (state === "loading") {
       card.style.background = "#f9fafb";
@@ -100,9 +108,6 @@
       setPrimaryButton(root, false);
       return;
     }
-
-    card.style.display = "none";
-    setPrimaryButton(root, false);
   }
 
   async function lookup(root) {
@@ -110,6 +115,7 @@
     if (!form) return;
     var postcode = extractPostcode(form.address);
     if (!form.address || !postcode || !form.bins.length) {
+      lastKey = "";
       render(root, "idle");
       return;
     }
@@ -137,11 +143,14 @@
 
   function scheduleLookup(root) {
     clearTimeout(scheduleTimer);
-    scheduleTimer = setTimeout(function () { lookup(root); }, 500);
+    scheduleTimer = setTimeout(function () { lookup(root); }, 350);
   }
 
   function bind(root) {
-    if (!root || root.dataset.scheduleUiBound === "true") return;
+    if (!root) return;
+    ensureCard(root);
+    render(root, "idle");
+    if (root.dataset.scheduleUiBound === "true") return;
     root.dataset.scheduleUiBound = "true";
     root.addEventListener("input", function () { scheduleLookup(root); });
     root.addEventListener("change", function () { scheduleLookup(root); });
