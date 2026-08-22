@@ -30,7 +30,7 @@ function findBookingRoot() {
 
 function serviceAreaBlocksLookup(root) {
   const status = String(root?.dataset?.addressValidation || "");
-  return status === "outside" || status === "invalid";
+  return status === "outside" || status === "invalid" || status === "checking";
 }
 
 function findBinSelects(root) {
