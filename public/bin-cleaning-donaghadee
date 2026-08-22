@@ -1,1 +1,261 @@
-<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bin Cleaning Donaghadee | Wheelie Bin Cleaner Donaghadee | Ni Bin Guy</title><meta name="description" content="Professional wheelie bin cleaning in Donaghadee from Ni Bin Guy. Regular bin cleaning, one-off cleans and commercial bin cleaning across County Down."><link rel="canonical" href="https://nibing.uy/bin-cleaning-donaghadee"><link rel="stylesheet" href="/town-pages.css"></head><body><main class="wrap"><h1>Bin Cleaning in Donaghadee</h1><p>Ni Bin Guy provides professional wheelie bin cleaning in Donaghadee.</p></main><script>window.NBG_TOWN_PAGE={town:"Donaghadee"};</script><script src="/town-page.js" defer></script></body></html>
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Bin Cleaning Donaghadee | Wheelie Bin Cleaning | NI Bin Guy</title>
+  <meta name="description" content="Wheelie bin cleaning in Donaghadee from NI Bin Guy. Regular 4-weekly cleans from £5 per bin, one-off cleans and commercial bin cleaning. Book your Donaghadee bin clean online.">
+  <link rel="canonical" href="https://nibing.uy/bin-cleaning-donaghadee">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Bin Cleaning Donaghadee | NI Bin Guy">
+  <meta property="og:description" content="Professional wheelie bin cleaning in Donaghadee. Regular 4-weekly cleans, one-off cleans and commercial bin cleaning from NI Bin Guy.">
+  <meta property="og:url" content="https://nibing.uy/bin-cleaning-donaghadee">
+  <meta property="og:image" content="https://nibing.uy/logo.png">
+  <link rel="stylesheet" href="/town-pages.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "LocalBusiness",
+        "@id": "https://nibing.uy/#business",
+        "name": "NI Bin Guy",
+        "url": "https://nibing.uy/",
+        "logo": "https://nibing.uy/logo.png",
+        "telephone": "+447555178484",
+        "email": "info@nibing.uy",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Bangor",
+          "postalCode": "BT20 5NF",
+          "addressRegion": "County Down",
+          "addressCountry": "GB"
+        },
+        "areaServed": {
+          "@type": "City",
+          "name": "Donaghadee"
+        }
+      },
+      {
+        "@type": "Service",
+        "@id": "https://nibing.uy/bin-cleaning-donaghadee#service",
+        "name": "Wheelie Bin Cleaning in Donaghadee",
+        "serviceType": "Wheelie bin cleaning",
+        "provider": {"@id": "https://nibing.uy/#business"},
+        "areaServed": {
+          "@type": "City",
+          "name": "Donaghadee"
+        },
+        "offers": {
+          "@type": "Offer",
+          "priceCurrency": "GBP",
+          "price": "5.00",
+          "description": "Regular domestic bin cleaning starts from £5 per bin."
+        }
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "How much does bin cleaning cost in Donaghadee?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Regular domestic wheelie bin cleaning starts from £5 per bin. One-off cleans are also available."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I need to be at home when my bin is cleaned?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Your bin simply needs to be empty and accessible for cleaning after collection."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What bins do you clean in Donaghadee?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "NI Bin Guy cleans domestic wheelie bins including black, blue, brown and green bins, as well as larger commercial bins by arrangement."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How often can I have my wheelie bin cleaned?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Regular customers can book a 4-weekly cleaning service. One-off cleans are also available."
+            }
+          }
+        ]
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://nibing.uy/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Bin Cleaning Donaghadee",
+            "item": "https://nibing.uy/bin-cleaning-donaghadee"
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <main>
+    <section class="section-black">
+      <div class="wrap">
+        <a class="back" href="/">← Back to NI Bin Guy</a>
+        <div class="hero">
+          <img src="/logo.png" alt="NI Bin Guy wheelie bin cleaning logo" width="190" height="190">
+          <p style="color:#86efac;font-weight:900;letter-spacing:.14em;text-transform:uppercase;margin:0 0 10px">Local wheelie bin cleaning</p>
+          <h1>Bin Cleaning in <span>Donaghadee</span></h1>
+          <p class="lead">Keep your wheelie bins clean, sanitised and fresher with NI Bin Guy. We provide regular 4-weekly bin cleaning in Donaghadee, one-off cleans and commercial bin cleaning, with regular domestic cleans starting from £5 per bin.</p>
+          <div class="cta">
+            <a class="btn" href="/">Book a Donaghadee Clean</a>
+            <a class="btn secondary" href="tel:07555178484">Call 07555 178484</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-dark">
+      <div class="wrap">
+        <h2>Professional Wheelie Bin Cleaning in Donaghadee</h2>
+        <p class="lead">An emptied bin can still hold residue, grime and strong smells after collection. NI Bin Guy provides a dedicated wheelie bin cleaning service for homes and businesses in Donaghadee, washing and sanitising bins so they are cleaner and more pleasant to keep around your property.</p>
+        <p>Our service is designed to fit around normal bin collections. Leave the bin accessible after it has been emptied and we take care of the cleaning. You do not need to be at home while the work is carried out.</p>
+        <div class="grid">
+          <article class="card">
+            <h3>Regular 4-weekly cleans</h3>
+            <p>A straightforward recurring service for customers who want their bins cleaned regularly rather than waiting for odours and grime to build up.</p>
+          </article>
+          <article class="card">
+            <h3>One-off bin cleans</h3>
+            <p>Need a particularly dirty or unpleasant bin cleaned without committing to a regular schedule? One-off cleans are available.</p>
+          </article>
+          <article class="card">
+            <h3>Commercial bin cleaning</h3>
+            <p>We also clean larger business bins and commercial containers by arrangement for organisations in the local area.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-black">
+      <div class="wrap">
+        <h2>What Happens on Cleaning Day?</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>1. Your bin is emptied</h3>
+            <p>Leave the wheelie bin accessible after the council collection so it is ready for us to clean.</p>
+          </article>
+          <article class="card">
+            <h3>2. We wash and sanitise it</h3>
+            <p>We clean away the residue and grime left behind inside the bin, then sanitise and deodorise it.</p>
+          </article>
+          <article class="card">
+            <h3>3. Your bin is returned clean</h3>
+            <p>Once the clean is complete, your bin is left ready to use again. You do not need to wait at home for us.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-dark">
+      <div class="wrap">
+        <h2>Why Have Your Bins Cleaned?</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Reduce unpleasant smells</h3>
+            <p>Food residue and waste left behind after collection can quickly create persistent odours, particularly during warmer weather.</p>
+          </article>
+          <article class="card">
+            <h3>Keep the bin more hygienic</h3>
+            <p>Regular washing removes the dirty residue that remains on the inside, lid and contact areas of a wheelie bin.</p>
+          </article>
+          <article class="card">
+            <h3>Make bins less attractive to pests</h3>
+            <p>Removing old waste and residue helps reduce the conditions that attract flies, maggots and other pests.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-black">
+      <div class="wrap">
+        <h2>Domestic Bin Cleaning in Donaghadee</h2>
+        <p class="lead">We clean the common household wheelie bins used across the area, including black, blue, brown and green bins. Whether you want one bin cleaned or want to keep your household bins on a regular cleaning schedule, you can book directly with NI Bin Guy.</p>
+        <div class="cta" style="justify-content:flex-start">
+          <a class="btn" href="/">Book Your Bin Clean</a>
+          <a class="btn secondary" href="https://wa.me/447555178484">WhatsApp NI Bin Guy</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-dark">
+      <div class="wrap">
+        <h2>Donaghadee Bin Cleaning FAQs</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>How much does bin cleaning cost in Donaghadee?</h3>
+            <p>Regular domestic wheelie bin cleaning starts from £5 per bin. One-off cleans are also available.</p>
+          </article>
+          <article class="card">
+            <h3>Do I need to be home?</h3>
+            <p>No. As long as the bin has been emptied and is accessible for cleaning, you do not need to be at the property.</p>
+          </article>
+          <article class="card">
+            <h3>What types of bins do you clean?</h3>
+            <p>We clean domestic black, blue, brown and green wheelie bins, plus larger commercial bins by arrangement.</p>
+          </article>
+          <article class="card">
+            <h3>Can I book regular cleaning?</h3>
+            <p>Yes. Our regular domestic service operates on a 4-weekly cleaning schedule, and one-off cleans are available too.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-black">
+      <div class="wrap">
+        <h2 style="text-align:center">Bin Cleaning Near Donaghadee</h2>
+        <p class="lead" style="text-align:center;margin-left:auto;margin-right:auto">NI Bin Guy also provides wheelie bin cleaning in surrounding parts of County Down. Explore our other local service pages.</p>
+        <nav class="areas" aria-label="Nearby bin cleaning areas">
+          <a href="/bin-cleaning-bangor/">Bangor</a>
+          <a href="/bin-cleaning-newtownards">Newtownards</a>
+          <a href="/bin-cleaning-comber">Comber</a>
+          <a href="/bin-cleaning-millisle">Millisle</a>
+          <a href="/bin-cleaning-ballywalter">Ballywalter</a>
+          <a href="/bin-cleaning-portavogie">Portavogie</a>
+          <a href="/bin-cleaning-cloughey">Cloughey</a>
+          <a href="/bin-cleaning-ballyhalbert">Ballyhalbert</a>
+          <a href="/bin-cleaning-portaferry">Portaferry</a>
+        </nav>
+      </div>
+    </section>
+
+    <section class="section-dark">
+      <div class="wrap" style="text-align:center">
+        <h2>Book Bin Cleaning in Donaghadee</h2>
+        <p class="lead" style="margin-left:auto;margin-right:auto">Ready to get your bin cleaned? Use our online booking form or contact NI Bin Guy directly.</p>
+        <div class="cta">
+          <a class="btn" href="/">Book Online</a>
+          <a class="btn secondary" href="tel:07555178484">07555 178484</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">NI Bin Guy · Bangor, County Down · <a href="mailto:info@nibing.uy">info@nibing.uy</a> · <a href="tel:07555178484">07555 178484</a></footer>
+</body>
+</html>
