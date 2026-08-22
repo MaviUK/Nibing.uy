@@ -28,6 +28,11 @@ function findBookingRoot() {
   return heading.closest(".p-6") || heading.parentElement;
 }
 
+function serviceAreaBlocksLookup(root) {
+  const status = String(root?.dataset?.addressValidation || "");
+  return status === "outside" || status === "invalid";
+}
+
 function findBinSelects(root) {
   return Array.from(root?.querySelectorAll("select") || []).filter((select) => {
     const first = select.options?.[0]?.textContent || "";
@@ -162,6 +167,7 @@ function keepSubmitButtonLabels(root) {
 }
 
 function render(root, state, data = null) {
+  if (serviceAreaBlocksLookup(root)) return;
   const panel = ensurePanel(root);
   if (!panel) return;
   keepSubmitButtonLabels(root);
@@ -188,6 +194,11 @@ function render(root, state, data = null) {
 }
 
 async function runLookup(root) {
+  if (serviceAreaBlocksLookup(root)) {
+    if (activeController) activeController.abort();
+    return;
+  }
+
   const form = getFormData(root);
   if (!form || !form.address || !form.bins.length) {
     validatePostcode(root, false);
@@ -211,10 +222,11 @@ async function runLookup(root) {
       signal: activeController.signal,
     });
     const data = await response.json();
+    if (serviceAreaBlocksLookup(root)) return;
     const matched = response.ok && data?.matched === true && Array.isArray(data.results) && data.results.length > 0 && data.results.every((result) => result?.automatic && result?.assignedCleanDate);
     render(root, matched ? "matched" : "manual", data);
   } catch (error) {
-    if (error?.name !== "AbortError") render(root, "manual");
+    if (error?.name !== "AbortError" && !serviceAreaBlocksLookup(root)) render(root, "manual");
   }
 }
 
@@ -237,13 +249,13 @@ function bindBookingRoot(root) {
   root.addEventListener("click", (event) => {
     const button = event.target?.closest?.("button");
     if (!button || !/send via whatsapp|send via email|confirm booking/i.test(String(button.textContent || ""))) return;
-    if (!validatePostcode(root, true)) {
+    if (serviceAreaBlocksLookup(root) || !validatePostcode(root, true)) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation?.();
       const addressInput = root.querySelector('input[placeholder="Full Address"]');
       addressInput?.focus();
-      addressInput?.reportValidity?.();
+      if (!serviceAreaBlocksLookup(root)) addressInput?.reportValidity?.();
     }
   }, true);
 }
