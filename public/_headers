@@ -1,3 +1,7 @@
+/privacy-link.js
+  Cache-Control: no-cache, no-store, must-revalidate
+/town-page.js
+  Cache-Control: no-cache, no-store, must-revalidate
 /bin-cleaning-donaghadee
   Content-Type: text/html; charset=utf-8
 /bin-cleaning-newtownards
@@ -15,4 +19,8 @@
 /bin-cleaning-cloughey
   Content-Type: text/html; charset=utf-8
 /bin-cleaning-ballyhalbert
+  Content-Type: text/html; charset=utf-8
+/bin-cleaning-greyabbey
+  Content-Type: text/html; charset=utf-8
+/bin-cleaning-groomsport
   Content-Type: text/html; charset=utf-8
