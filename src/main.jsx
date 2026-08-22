@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './index.css';
 import './bookingScheduleBridge.js';
+import './serviceAreaGuard.js';
 
 // Preload reCAPTCHA v3 as soon as the app starts so it is ready by the time
 // a customer submits the booking form. LandingPage also has its own loader,
