@@ -53,6 +53,12 @@ function parseCouncilDates(html, wantedBin) {
       ? ["BLUE BIN"]
       : ["GREEN/BROWN BIN", "GREEN BROWN BIN", "BROWN BIN", "GREEN BIN"];
 
+  const allHeadings = [
+    "GREY BIN", "GRAY BIN", "BLACK BIN", "BLUE BIN",
+    "GREEN/BROWN BIN", "GREEN BROWN BIN", "BROWN BIN", "GREEN BIN",
+    "GLASS COLLECTION BOX", "GLASS BOX", "TRADE"
+  ];
+
   const mn = {
     JAN: 0, JANUARY: 0, FEB: 1, FEBRUARY: 1, MAR: 2, MARCH: 2,
     APR: 3, APRIL: 3, MAY: 4, JUN: 5, JUNE: 5, JUL: 6, JULY: 6,
@@ -60,37 +66,97 @@ function parseCouncilDates(html, wantedBin) {
     OCTOBER: 9, NOV: 10, NOVEMBER: 10, DEC: 11, DECEMBER: 11,
   };
 
+  const weekdayNumber = {
+    SUN: 0, SUNDAY: 0,
+    MON: 1, MONDAY: 1,
+    TUE: 2, TUES: 2, TUESDAY: 2,
+    WED: 3, WEDNESDAY: 3,
+    THU: 4, THUR: 4, THURS: 4, THURSDAY: 4,
+    FRI: 5, FRIDAY: 5,
+    SAT: 6, SATURDAY: 6,
+  };
+
   const lr = /\b(\d{1,2})\s+(JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+(20\d{2})\b/g;
   const sr = /\b(?:MON|TUE|TUES|WED|THU|THUR|THURS|FRI|SAT|SUN)\s+(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)(?:\s+(20\d{2}))?\b/g;
-  const dates = [];
   const now = new Date();
 
-  function add(d, m, y) {
+  function makeDate(d, m, y) {
     const mo = mn[m];
-    if (mo == null) return;
+    if (mo == null) return null;
     let yr = y ? Number(y) : now.getUTCFullYear();
     let dt = new Date(Date.UTC(yr, mo, Number(d)));
     if (!y && dt.getTime() < now.getTime() - 120 * 86400000) {
       yr += 1;
       dt = new Date(Date.UTC(yr, mo, Number(d)));
     }
-    dates.push(dt.toISOString().slice(0, 10));
+    return dt;
+  }
+
+  function nextAlternateDate(firstDate, targetWeekday) {
+    const approx = new Date(firstDate.getTime() + 14 * 86400000);
+    if (!Number.isInteger(targetWeekday)) return approx;
+    const currentWeekday = approx.getUTCDay();
+    let shift = targetWeekday - currentWeekday;
+    if (shift > 3) shift -= 7;
+    if (shift < -3) shift += 7;
+    const adjusted = new Date(approx.getTime() + shift * 86400000);
+    return adjusted.getTime() > firstDate.getTime() ? adjusted : approx;
+  }
+
+  function findSection(alias) {
+    let start = text.indexOf(alias);
+    if (start < 0) return "";
+    start += alias.length;
+    let end = text.length;
+    for (const heading of allHeadings) {
+      let pos = text.indexOf(heading, start);
+      if (pos >= 0 && pos < end) end = pos;
+    }
+    return text.slice(start, end);
   }
 
   for (const alias of aliases) {
-    let pos = text.indexOf(alias);
-    while (pos >= 0) {
-      const win = text.slice(Math.max(0, pos - 260), pos + alias.length + 260);
-      let m;
-      lr.lastIndex = 0;
-      while ((m = lr.exec(win))) add(m[1], m[2], m[3]);
-      sr.lastIndex = 0;
-      while ((m = sr.exec(win))) add(m[1], m[2], m[3]);
-      pos = text.indexOf(alias, pos + alias.length);
+    const section = findSection(alias);
+    if (!section) continue;
+
+    const found = [];
+    let match;
+
+    lr.lastIndex = 0;
+    while ((match = lr.exec(section))) {
+      const date = makeDate(match[1], match[2], match[3]);
+      if (date) found.push(date);
     }
+
+    sr.lastIndex = 0;
+    while ((match = sr.exec(section))) {
+      const date = makeDate(match[1], match[2], match[3]);
+      if (date) found.push(date);
+    }
+
+    const unique = [...new Map(found.map((date) => [date.toISOString().slice(0, 10), date])).values()]
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    if (!unique.length) continue;
+
+    const first = unique[0];
+    const dates = [first];
+
+    if (unique.length > 1) {
+      dates.push(unique[1]);
+    } else {
+      const recurrence = section.match(/EVERY\s+ALTERNATE\s+(MON(?:DAY)?|TUE(?:S|SDAY)?|WED(?:NESDAY)?|THU(?:R|RS|RSDAY)?|FRI(?:DAY)?|SAT(?:URDAY)?|SUN(?:DAY)?)/i);
+      if (recurrence) {
+        const key = recurrence[1].toUpperCase();
+        const targetWeekday = weekdayNumber[key] ?? weekdayNumber[key.slice(0, 3)];
+        dates.push(nextAlternateDate(first, targetWeekday));
+      }
+    }
+
+    return [...new Set(dates.map((date) => date.toISOString().slice(0, 10)))].sort();
   }
 
-  return [...new Set(dates)].sort();
+  return [];
 }
 
 const DAY_MS = 86400000;
