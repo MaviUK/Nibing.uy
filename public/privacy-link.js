@@ -219,3 +219,28 @@
 
   new MutationObserver(addAreasSection).observe(document.documentElement, { childList: true, subtree: true });
 })();
+
+(function () {
+  var params = new URLSearchParams(window.location.search);
+  if (params.get("book") !== "1") return;
+
+  var attempts = 0;
+  var timer = setInterval(function () {
+    attempts += 1;
+    var buttons = Array.prototype.slice.call(document.querySelectorAll("button"));
+    var bookButton = buttons.find(function (button) {
+      return (button.textContent || "").trim() === "Book a Clean";
+    });
+
+    if (bookButton) {
+      clearInterval(timer);
+      bookButton.click();
+      params.delete("book");
+      var query = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (query ? "?" + query : "") + window.location.hash);
+      return;
+    }
+
+    if (attempts >= 40) clearInterval(timer);
+  }, 100);
+})();
