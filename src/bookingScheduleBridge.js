@@ -246,6 +246,7 @@ function bindBookingRoot(root) {
   labelObserver.observe(root, { childList: true, subtree: true, characterData: true });
   root.addEventListener("input", () => scheduleLookup(root));
   root.addEventListener("change", () => scheduleLookup(root));
+  root.addEventListener("nbg-address-value-changed", () => scheduleLookup(root));
   root.addEventListener("click", (event) => {
     const button = event.target?.closest?.("button");
     if (!button || !/send via whatsapp|send via email|confirm booking/i.test(String(button.textContent || ""))) return;
