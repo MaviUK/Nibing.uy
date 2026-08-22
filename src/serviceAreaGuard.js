@@ -14,7 +14,9 @@ const COVERED_TOWNS = [
 const UK_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i;
 const UK_OUTWARD_RE = /\b([A-Z]{1,2}\d[A-Z\d]?)\b/i;
 const validationState = new WeakMap();
+const postcodeTownCache = new Map();
 let validationTimer = null;
+let validationSequence = 0;
 
 function extractPostcode(address) {
   const match = String(address || "").toUpperCase().match(UK_POSTCODE_RE);
@@ -82,6 +84,15 @@ function showOutOfArea(root) {
   );
 }
 
+function showAreaChecking(root) {
+  renderGuardPanel(
+    root,
+    "checking",
+    "mt-3 rounded-xl border px-4 py-3 text-sm border-gray-300 bg-gray-50 text-gray-800",
+    '<div style="display:flex;align-items:center;justify-content:center;min-height:74px;"><div aria-label="Checking service area" role="status" style="width:34px;height:34px;border:4px solid #d1d5db;border-top-color:#16a34a;border-radius:9999px;animation:nbgAreaSpin .8s linear infinite;"></div></div><style>@keyframes nbgAreaSpin{to{transform:rotate(360deg)}}</style>'
+  );
+}
+
 function clearGuardWarning(root) {
   const panel = getPanel(root);
   if (!panel || !panel.dataset.serviceAreaView) return;
@@ -98,6 +109,65 @@ function setState(root, status, extras = {}) {
   root.dataset.outsideServiceArea = status === "outside" ? "true" : "false";
   root.dataset.coveredTown = next.town || "";
   return next;
+}
+
+function componentNames(result) {
+  const names = [];
+  for (const component of result?.address_components || []) {
+    if (component?.long_name) names.push(component.long_name);
+    if (component?.short_name) names.push(component.short_name);
+  }
+  if (result?.formatted_address) names.push(result.formatted_address);
+  return names;
+}
+
+function resolvePostcodeTown(postcode) {
+  if (postcodeTownCache.has(postcode)) return Promise.resolve(postcodeTownCache.get(postcode));
+
+  if (!window.google?.maps?.Geocoder) {
+    const unresolved = { resolved: false, covered: false, town: "" };
+    postcodeTownCache.set(postcode, unresolved);
+    return Promise.resolve(unresolved);
+  }
+
+  return new Promise((resolve) => {
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode(
+      { address: postcode, componentRestrictions: { country: "GB" } },
+      (results, status) => {
+        if (status !== "OK" || !Array.isArray(results) || !results.length) {
+          const unresolved = { resolved: false, covered: false, town: "" };
+          postcodeTownCache.set(postcode, unresolved);
+          resolve(unresolved);
+          return;
+        }
+
+        const names = results.flatMap(componentNames);
+        const coveredTown = names.map(findCoveredTown).find(Boolean) || "";
+        const locality = results
+          .flatMap((result) => result.address_components || [])
+          .find((component) =>
+            component?.types?.some((type) => type === "postal_town" || type === "locality")
+          )?.long_name || "";
+
+        const resolved = {
+          resolved: true,
+          covered: Boolean(coveredTown),
+          town: coveredTown,
+          locality,
+        };
+        postcodeTownCache.set(postcode, resolved);
+        resolve(resolved);
+      }
+    );
+  });
+}
+
+function finishCovered(root, address, postcode, town, manual) {
+  setState(root, "covered", { address, town, postcode, manual });
+  clearGuardWarning(root);
+  root.dispatchEvent(new CustomEvent("nbg-address-validation-finished", { bubbles: false }));
+  return true;
 }
 
 function validateAddress(root, forceMessage = false) {
@@ -129,23 +199,57 @@ function validateAddress(root, forceMessage = false) {
     return false;
   }
 
-  const town = findCoveredTown(address);
+  const townInText = findCoveredTown(address);
   const googleFormattedAddress = /,\s*UK\s*$/i.test(address);
 
-  // Google Places gives us a reliable locality/town in its formatted address.
-  // When a customer chooses a Google suggestion, only accept it if it resolves
-  // to one of the towns we actually cover. Manual entry remains more permissive
-  // so customers in brand-new developments can still type an address that Google
-  // has not indexed yet, provided a valid BT postcode is included.
-  if (googleFormattedAddress && !town) {
-    setState(root, "outside", { address, postcode });
-    showOutOfArea(root);
-    return false;
+  // A Google-selected address already includes a reliable town/locality.
+  if (googleFormattedAddress) {
+    if (!townInText) {
+      setState(root, "outside", { address, postcode });
+      showOutOfArea(root);
+      return false;
+    }
+    return finishCovered(root, address, postcode, townInText, false);
   }
 
-  setState(root, "covered", { address, town, postcode, manual: !googleFormattedAddress });
-  clearGuardWarning(root);
-  return true;
+  // Manual entry is allowed, but we validate the postcode itself to find the
+  // town. This means a brand-new street can be typed manually without Google
+  // knowing the street, while a Belfast/Lisburn/Holywood postcode cannot bypass
+  // the service-area rules simply because it starts with BT.
+  const cached = postcodeTownCache.get(postcode);
+  if (cached) {
+    if (cached.resolved && !cached.covered) {
+      setState(root, "outside", { address, postcode, town: cached.locality || "" });
+      showOutOfArea(root);
+      return false;
+    }
+    if (cached.resolved && cached.covered) {
+      return finishCovered(root, address, postcode, cached.town || townInText, true);
+    }
+    // If postcode geocoding is temporarily unavailable, keep the manual-entry
+    // fallback rather than blocking a genuine new development.
+    return finishCovered(root, address, postcode, townInText, true);
+  }
+
+  const sequence = ++validationSequence;
+  setState(root, "checking", { address, postcode });
+  showAreaChecking(root);
+
+  resolvePostcodeTown(postcode).then((resolved) => {
+    if (sequence !== validationSequence) return;
+    const currentAddress = String(getAddressInput(root)?.value || "").trim();
+    if (currentAddress !== address) return;
+
+    if (resolved.resolved && !resolved.covered) {
+      setState(root, "outside", { address, postcode, town: resolved.locality || "" });
+      showOutOfArea(root);
+    } else {
+      finishCovered(root, address, postcode, resolved.town || townInText, true);
+    }
+    root.dispatchEvent(new CustomEvent("nbg-address-value-changed", { bubbles: false }));
+  });
+
+  return false;
 }
 
 function scheduleValidation(root, delay = 350) {
@@ -190,7 +294,8 @@ function bind(root) {
       const button = event.target?.closest?.("button");
       if (!button || !/send via whatsapp|send via email/i.test(String(button.textContent || ""))) return;
 
-      if (validateAddress(root, true)) return;
+      const state = validationState.get(root);
+      if (state?.status === "covered" || validateAddress(root, true)) return;
 
       event.preventDefault();
       event.stopPropagation();
