@@ -227,7 +227,8 @@
   var attempts = 0;
   var timer = setInterval(function () {
     attempts += 1;
-    var buttons = Array.prototype.slice.call(document.querySelectorAll("button"));
+    var main = document.getElementById("main-content");
+    var buttons = main ? Array.prototype.slice.call(main.querySelectorAll("button")) : [];
     var bookButton = buttons.find(function (button) {
       return (button.textContent || "").trim() === "Book a Clean";
     });
@@ -241,6 +242,6 @@
       return;
     }
 
-    if (attempts >= 40) clearInterval(timer);
+    if (attempts >= 80) clearInterval(timer);
   }, 100);
 })();
