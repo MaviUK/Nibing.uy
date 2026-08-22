@@ -210,7 +210,7 @@ function render(root, state, data = null) {
     }).join("");
     const cycleNote = isOneOffBooking(root) ? "" : '<div class="mt-2 text-xs">Your regular service will continue on the same 4-week cycle.</div>';
     panel.classList.add("border-green-500", "bg-green-50", "text-green-900");
-    panel.innerHTML = `<div class="font-bold">✓ Great! We have Space, your booking will be confirm for the following date;</div>${rows}${cycleNote}`;
+    panel.innerHTML = `<div class="font-bold">✓ Great! We have space, your booking will be confirm for the following date;</div>${rows}${cycleNote}`;
     return;
   }
   panel.classList.add("border-amber-400", "bg-amber-50", "text-amber-900");
