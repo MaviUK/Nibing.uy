@@ -26,3 +26,33 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+// Town landing pages link back with ?book=1. Handle that here in the
+// bundled app so it cannot be missed because of a cached public script.
+if (new URLSearchParams(window.location.search).get('book') === '1') {
+  let attempts = 0;
+  const openBookingWhenReady = window.setInterval(() => {
+    attempts += 1;
+
+    const main = document.getElementById('main-content');
+    const bookingButton = main
+      ? Array.from(main.querySelectorAll('button')).find(
+          (button) => (button.textContent || '').trim() === 'Book a Clean'
+        )
+      : null;
+
+    if (bookingButton) {
+      window.clearInterval(openBookingWhenReady);
+      bookingButton.click();
+
+      const url = new URL(window.location.href);
+      url.searchParams.delete('book');
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+      return;
+    }
+
+    if (attempts >= 150) {
+      window.clearInterval(openBookingWhenReady);
+    }
+  }, 100);
+}
