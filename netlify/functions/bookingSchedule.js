@@ -2,52 +2,357 @@ function normalizePostcode(value) {
   const compact = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   return compact.length > 3 ? `${compact.slice(0, -3)} ${compact.slice(-3)}` : compact;
 }
-function stripHtml(html) { return String(html || "").replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<[^>]+>/g," ").replace(/&nbsp;/gi," ").replace(/&amp;/gi,"&").replace(/\s+/g," ").trim(); }
-function normAddress(value) { return String(value||"").toUpperCase().replace(/\bNORTHERN IRELAND\b/g,"").replace(/[.,'’]/g," ").replace(/\bRD\b/g,"ROAD").replace(/\bST\b/g,"STREET").replace(/\bAVE\b/g,"AVENUE").replace(/\s+/g," ").trim(); }
-function addressScore(wanted,candidate){const a=normAddress(wanted),b=normAddress(candidate);if(a===b)return 100;const house=a.match(/^\d+[A-Z]?\b/)?.[0];let score=house&&b.includes(house)?25:0;const tokens=a.split(" ").filter(t=>t.length>2);score+=tokens.filter(t=>b.includes(t)).length*5;return score;}
-function normalizeBin(value){const s=String(value||"").toUpperCase();if(s.includes("BLACK")||s.includes("GREY")||s.includes("GRAY"))return"GREY";if(s.includes("BLUE"))return"BLUE";if(s.includes("BROWN")||s.includes("GREEN"))return"GREEN/BROWN";return s;}
-function parseCouncilDates(html,wantedBin){const text=stripHtml(html).toUpperCase();const aliases=wantedBin==="GREY"?["GREY BIN","GRAY BIN","BLACK BIN"]:wantedBin==="BLUE"?["BLUE BIN"]:["GREEN/BROWN BIN","GREEN BROWN BIN","BROWN BIN","GREEN BIN"];const mn={JAN:0,JANUARY:0,FEB:1,FEBRUARY:1,MAR:2,MARCH:2,APR:3,APRIL:3,MAY:4,JUN:5,JUNE:5,JUL:6,JULY:6,AUG:7,AUGUST:7,SEP:8,SEPT:8,SEPTEMBER:8,OCT:9,OCTOBER:9,NOV:10,NOVEMBER:10,DEC:11,DECEMBER:11};const lr=/\b(\d{1,2})\s+(JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+(20\d{2})\b/g;const sr=/\b(?:MON|TUE|TUES|WED|THU|THUR|THURS|FRI|SAT|SUN)\s+(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)(?:\s+(20\d{2}))?\b/g;const dates=[],now=new Date();function add(d,m,y){const mo=mn[m];if(mo==null)return;let yr=y?Number(y):now.getUTCFullYear();let dt=new Date(Date.UTC(yr,mo,Number(d)));if(!y&&dt.getTime()<now.getTime()-120*86400000){yr++;dt=new Date(Date.UTC(yr,mo,Number(d)));}dates.push(dt.toISOString().slice(0,10));}for(const alias of aliases){let pos=text.indexOf(alias);while(pos>=0){const win=text.slice(Math.max(0,pos-260),pos+alias.length+260);let m;lr.lastIndex=0;while((m=lr.exec(win)))add(m[1],m[2],m[3]);sr.lastIndex=0;while((m=sr.exec(win)))add(m[1],m[2],m[3]);pos=text.indexOf(alias,pos+alias.length);}}return[...new Set(dates)].sort();}
-const DAY_MS=86400000,ROUND_MS=28*DAY_MS;
-function alignedCouncilDate(anchorDate,councilDates){if(!anchorDate||!Array.isArray(councilDates)||!councilDates.length)return null;const anchor=new Date(`${anchorDate}T12:00:00Z`).getTime();if(!Number.isFinite(anchor))return null;for(const date of councilDates){const t=new Date(`${date}T12:00:00Z`).getTime();if(!Number.isFinite(t)||t<Date.now()-DAY_MS)continue;const delta=t-anchor;if(((delta%ROUND_MS)+ROUND_MS)%ROUND_MS===0)return date;}return null;}
-function nextRoundWorkDate(anchorDate){if(!anchorDate)return null;let t=new Date(`${anchorDate}T12:00:00Z`).getTime();if(!Number.isFinite(t))return null;const today=new Date();const floor=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth(),today.getUTCDate())).getTime();while(t<floor)t+=ROUND_MS;return new Date(t).toISOString().slice(0,10);}
-function isCouncilCollectionDate(date,councilDates){return Boolean(date)&&Array.isArray(councilDates)&&councilDates.includes(date);}
-function isProximityMethod(method){return String(method||"").includes("proximity");}
-function isCustomerScheduleMethod(method){return String(method||"").includes("schedule_proximity");}
-function resolveRoundWithCouncilDates(round,councilDates,method="exact_round"){
-  if(round?.matched&&round.anchorDate){
-    const councilValidationDate=alignedCouncilDate(round.anchorDate,councilDates);
-    if(!councilValidationDate)return null;
-    const assignedCleanDate=round.nextCleanDate||nextRoundWorkDate(round.anchorDate);
-    if(!isCouncilCollectionDate(assignedCleanDate,councilDates))return null;
-    return{round:{...round,resolvedBy:round.resolvedBy||method,councilValidationDate},assignedCleanDate};
-  }
-  if(!round?.ambiguous||!Array.isArray(round.candidates))return null;
-  const proximity=isProximityMethod(method);
-  const customerSchedule=isCustomerScheduleMethod(method);
 
-  // Squeegee availability may decide which council collection we can service,
-  // but it must never move a clean away from the customer's actual bin day.
-  if(customerSchedule){
-    const viable=round.candidates
-      .filter(candidate=>candidate.nextCleanDate&&isCouncilCollectionDate(candidate.nextCleanDate,councilDates)&&Number(candidate.nearestDistanceMeters)<=1800)
-      .sort((a,b)=>Number(a.nearestDistanceMeters??Infinity)-Number(b.nearestDistanceMeters??Infinity));
-    if(!viable.length)return null;
-    const winner=viable[0];
-    return{round:{...round,matched:true,ambiguous:false,resolvedBy:"nearest_existing_customer_schedule_on_council_day",round:winner.round,anchorDate:winner.anchorDate,nextCleanDate:winner.nextCleanDate,councilValidationDate:winner.nextCleanDate,nearestDistanceMeters:winner.nearestDistanceMeters,support:winner.support,candidates:round.candidates},assignedCleanDate:winner.nextCleanDate};
-  }
-
-  const aligned=round.candidates.map(candidate=>({candidate,councilValidationDate:alignedCouncilDate(candidate.anchorDate,councilDates)})).filter(i=>i.councilValidationDate);
-  if(!aligned.length)return null;
-  if(!proximity&&aligned.length!==1)return null;
-  aligned.sort((a,b)=>Number(a.candidate.nearestDistanceMeters??Infinity)-Number(b.candidate.nearestDistanceMeters??Infinity));
-  const winner=aligned[0];
-  if(proximity&&Number(winner.candidate.nearestDistanceMeters)>1800)return null;
-  const assignedCleanDate=winner.candidate.nextCleanDate||nextRoundWorkDate(winner.candidate.anchorDate);
-  if(!isCouncilCollectionDate(assignedCleanDate,councilDates))return null;
-  return{round:{...round,matched:true,ambiguous:false,resolvedBy:proximity?"nearest_valid_area_plus_council_cycle":"council_date_phase",round:winner.candidate.round,anchorDate:winner.candidate.anchorDate,nextCleanDate:assignedCleanDate,councilValidationDate:winner.councilValidationDate,nearestDistanceMeters:winner.candidate.nearestDistanceMeters,support:winner.candidate.support,candidates:round.candidates},assignedCleanDate};
+function stripHtml(html) {
+  return String(html || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
 }
-function normalizeAddressList(payload){let list=payload?.data?.addresses;if(!Array.isArray(list)&&Array.isArray(payload?.addresses))list=payload.addresses;if(!Array.isArray(list)&&payload?.addresses&&typeof payload.addresses==="object")list=Object.values(payload.addresses);return(list||[]).map(item=>{if(!item||typeof item!=="object")return null;const uprn=String(item.uprn||item.UPRN||"").trim(),label=String(item.addressText||item.address||item.label||"").trim();return uprn&&label?{uprn,label}:null;}).filter(Boolean);}
-async function getCouncilAddresses(origin,postcode){const directRes=await fetch(new URL(`/.netlify/functions/binAddresses?postcode=${encodeURIComponent(postcode)}`,origin));const directData=await directRes.json().catch(()=>({}));const directAddresses=directRes.ok?normalizeAddressList(directData):[];if(directAddresses.length)return{source:"binAddresses",addresses:directAddresses};const fallbackRes=await fetch(new URL(`/.netlify/functions/binLookup?postcode=${encodeURIComponent(postcode)}`,origin));const fallbackData=await fallbackRes.json().catch(()=>({}));const fallbackAddresses=Array.isArray(fallbackData.addresses)?fallbackData.addresses.map(i=>({uprn:String(i.uprn||"").trim(),label:String(i.label||"").trim()})).filter(i=>i.uprn&&i.label):[];return{source:"binLookup",addresses:fallbackRes.ok?fallbackAddresses:[]};}
-async function getNearbyRound(origin,postcode,address,bin){const u=new URL("/api/nearby-round-lookup",origin);u.searchParams.set("postcode",postcode);u.searchParams.set("address",address);u.searchParams.set("bin",String(bin));const r=await fetch(u);const data=await r.json().catch(()=>({}));if(!r.ok||!Array.isArray(data.candidates)||!data.candidates.length)return null;return{matched:false,ambiguous:true,confidence:"nearby",method:data.method,locationSource:data.locationSource,candidates:data.candidates};}
-export default async function handler(req){try{const body=req.method==="POST"?await req.json():{},url=new URL(req.url);const address=String(body.address||url.searchParams.get("address")||"").trim();const postcode=normalizePostcode(body.postcode||url.searchParams.get("postcode")||address.match(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i)?.[0]);const bins=(Array.isArray(body.bins)?body.bins:[url.searchParams.get("bin")]).filter(Boolean);if(!address||!postcode||!bins.length)return new Response(JSON.stringify({error:"address, postcode and bins are required"}),{status:400,headers:{"Content-Type":"application/json"}});const origin=new URL(req.url).origin,councilAddressLookup=await getCouncilAddresses(origin,postcode);if(!councilAddressLookup.addresses.length)return new Response(JSON.stringify({matched:false,reason:"council_address_not_found",postcode,addressSource:councilAddressLookup.source}),{status:200,headers:{"Content-Type":"application/json"}});const ranked=councilAddressLookup.addresses.map(a=>({...a,score:addressScore(address,a.label)})).sort((a,b)=>b.score-a.score),chosen=ranked[0];if(!chosen||chosen.score<20)return new Response(JSON.stringify({matched:false,reason:"council_address_ambiguous",addressSource:councilAddressLookup.source,candidates:ranked.slice(0,3)}),{status:200,headers:{"Content-Type":"application/json"}});const calRes=await fetch(new URL(`/.netlify/functions/binCalendar?uprn=${encodeURIComponent(chosen.uprn)}`,origin)),calData=await calRes.json().catch(()=>({}));if(!calRes.ok||!calData.html)return new Response(JSON.stringify({matched:false,reason:"council_calendar_failed",addressSource:councilAddressLookup.source,councilAddress:chosen.label,uprn:chosen.uprn}),{status:200,headers:{"Content-Type":"application/json"}});const results=[];for(const bin of bins){const binName=bin.type||bin,councilBin=normalizeBin(binName),councilDates=parseCouncilDates(calData.html,councilBin);const ru=new URL("/api/round-lookup",origin);ru.searchParams.set("postcode",postcode);ru.searchParams.set("address",address);ru.searchParams.set("bin",String(binName));const rr=await fetch(ru),rawRound=await rr.json().catch(()=>({}));let resolved=resolveRoundWithCouncilDates(rawRound,councilDates),round=resolved?.round||rawRound;if(!resolved&&councilDates.length){const nearbyRound=await getNearbyRound(origin,postcode,chosen.label||address,binName);if(nearbyRound){const nr=resolveRoundWithCouncilDates(nearbyRound,councilDates,nearbyRound.method||"property_proximity");if(nr){resolved=nr;round=nr.round;}else if(!rawRound?.matched)round=nearbyRound;}}const assigned=resolved?.assignedCleanDate||null;results.push({bin:binName,councilBin,councilDates,round,assignedCleanDate:assigned,automatic:Boolean(assigned)});}return new Response(JSON.stringify({matched:results.every(r=>r.automatic),postcode,addressSource:councilAddressLookup.source,councilAddress:chosen.label,uprn:chosen.uprn,results}),{headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});}catch(error){return new Response(JSON.stringify({error:error?.message||"Booking schedule failed"}),{status:500,headers:{"Content-Type":"application/json"}});}}
-export const config={path:"/api/booking-schedule"};
+
+function normAddress(value) {
+  return String(value || "")
+    .toUpperCase()
+    .replace(/\bNORTHERN IRELAND\b/g, "")
+    .replace(/[.,'’]/g, " ")
+    .replace(/\bRD\b/g, "ROAD")
+    .replace(/\bST\b/g, "STREET")
+    .replace(/\bAVE\b/g, "AVENUE")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function addressScore(wanted, candidate) {
+  const a = normAddress(wanted);
+  const b = normAddress(candidate);
+  if (a === b) return 100;
+  const house = a.match(/^\d+[A-Z]?\b/)?.[0];
+  let score = house && b.includes(house) ? 25 : 0;
+  const tokens = a.split(" ").filter((t) => t.length > 2);
+  score += tokens.filter((t) => b.includes(t)).length * 5;
+  return score;
+}
+
+function normalizeBin(value) {
+  const s = String(value || "").toUpperCase();
+  if (s.includes("BLACK") || s.includes("GREY") || s.includes("GRAY")) return "GREY";
+  if (s.includes("BLUE")) return "BLUE";
+  if (s.includes("BROWN") || s.includes("GREEN")) return "GREEN/BROWN";
+  return s;
+}
+
+function parseCouncilDates(html, wantedBin) {
+  const text = stripHtml(html).toUpperCase();
+  const aliases = wantedBin === "GREY"
+    ? ["GREY BIN", "GRAY BIN", "BLACK BIN"]
+    : wantedBin === "BLUE"
+      ? ["BLUE BIN"]
+      : ["GREEN/BROWN BIN", "GREEN BROWN BIN", "BROWN BIN", "GREEN BIN"];
+
+  const mn = {
+    JAN: 0, JANUARY: 0, FEB: 1, FEBRUARY: 1, MAR: 2, MARCH: 2,
+    APR: 3, APRIL: 3, MAY: 4, JUN: 5, JUNE: 5, JUL: 6, JULY: 6,
+    AUG: 7, AUGUST: 7, SEP: 8, SEPT: 8, SEPTEMBER: 8, OCT: 9,
+    OCTOBER: 9, NOV: 10, NOVEMBER: 10, DEC: 11, DECEMBER: 11,
+  };
+
+  const lr = /\b(\d{1,2})\s+(JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+(20\d{2})\b/g;
+  const sr = /\b(?:MON|TUE|TUES|WED|THU|THUR|THURS|FRI|SAT|SUN)\s+(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)(?:\s+(20\d{2}))?\b/g;
+  const dates = [];
+  const now = new Date();
+
+  function add(d, m, y) {
+    const mo = mn[m];
+    if (mo == null) return;
+    let yr = y ? Number(y) : now.getUTCFullYear();
+    let dt = new Date(Date.UTC(yr, mo, Number(d)));
+    if (!y && dt.getTime() < now.getTime() - 120 * 86400000) {
+      yr += 1;
+      dt = new Date(Date.UTC(yr, mo, Number(d)));
+    }
+    dates.push(dt.toISOString().slice(0, 10));
+  }
+
+  for (const alias of aliases) {
+    let pos = text.indexOf(alias);
+    while (pos >= 0) {
+      const win = text.slice(Math.max(0, pos - 260), pos + alias.length + 260);
+      let m;
+      lr.lastIndex = 0;
+      while ((m = lr.exec(win))) add(m[1], m[2], m[3]);
+      sr.lastIndex = 0;
+      while ((m = sr.exec(win))) add(m[1], m[2], m[3]);
+      pos = text.indexOf(alias, pos + alias.length);
+    }
+  }
+
+  return [...new Set(dates)].sort();
+}
+
+const DAY_MS = 86400000;
+const MAX_AREA_DISTANCE_METERS = 1800;
+
+function nextTwoCouncilDates(councilDates) {
+  const today = new Date();
+  const floor = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())).getTime();
+  return (Array.isArray(councilDates) ? councilDates : [])
+    .filter((date) => {
+      const t = new Date(`${date}T12:00:00Z`).getTime();
+      return Number.isFinite(t) && t >= floor - DAY_MS;
+    })
+    .sort()
+    .slice(0, 2);
+}
+
+function candidateDate(candidate) {
+  return candidate?.nextCleanDate || candidate?.assignedCleanDate || null;
+}
+
+function chooseAreaMatchForNextTwo(round, councilDates, method = "round_lookup") {
+  const nextTwo = nextTwoCouncilDates(councilDates);
+  if (!nextTwo.length || !round) return null;
+
+  const candidates = [];
+
+  if (round.matched) {
+    const date = candidateDate(round);
+    if (date) {
+      candidates.push({
+        ...round,
+        nextCleanDate: date,
+        nearestDistanceMeters: Number(round.nearestDistanceMeters ?? 0),
+      });
+    }
+  }
+
+  if (Array.isArray(round.candidates)) {
+    for (const candidate of round.candidates) {
+      const date = candidateDate(candidate);
+      if (!date) continue;
+      candidates.push({ ...candidate, nextCleanDate: date });
+    }
+  }
+
+  for (const councilDate of nextTwo) {
+    const matches = candidates
+      .filter((candidate) => candidate.nextCleanDate === councilDate)
+      .filter((candidate) => Number(candidate.nearestDistanceMeters ?? Infinity) <= MAX_AREA_DISTANCE_METERS)
+      .sort((a, b) => Number(a.nearestDistanceMeters ?? Infinity) - Number(b.nearestDistanceMeters ?? Infinity));
+
+    if (!matches.length) continue;
+
+    const winner = matches[0];
+    return {
+      round: {
+        ...round,
+        matched: true,
+        ambiguous: false,
+        resolvedBy: "next_two_council_dates_area_match",
+        sourceMethod: method,
+        round: winner.round ?? round.round,
+        anchorDate: winner.anchorDate ?? round.anchorDate,
+        nextCleanDate: councilDate,
+        councilValidationDate: councilDate,
+        nearestDistanceMeters: winner.nearestDistanceMeters,
+        support: winner.support,
+        candidates: round.candidates,
+      },
+      assignedCleanDate: councilDate,
+      checkedCouncilDates: nextTwo,
+    };
+  }
+
+  return null;
+}
+
+function normalizeAddressList(payload) {
+  let list = payload?.data?.addresses;
+  if (!Array.isArray(list) && Array.isArray(payload?.addresses)) list = payload.addresses;
+  if (!Array.isArray(list) && payload?.addresses && typeof payload.addresses === "object") list = Object.values(payload.addresses);
+
+  return (list || []).map((item) => {
+    if (!item || typeof item !== "object") return null;
+    const uprn = String(item.uprn || item.UPRN || "").trim();
+    const label = String(item.addressText || item.address || item.label || "").trim();
+    return uprn && label ? { uprn, label } : null;
+  }).filter(Boolean);
+}
+
+async function getCouncilAddresses(origin, postcode) {
+  const directRes = await fetch(new URL(`/.netlify/functions/binAddresses?postcode=${encodeURIComponent(postcode)}`, origin));
+  const directData = await directRes.json().catch(() => ({}));
+  const directAddresses = directRes.ok ? normalizeAddressList(directData) : [];
+  if (directAddresses.length) return { source: "binAddresses", addresses: directAddresses };
+
+  const fallbackRes = await fetch(new URL(`/.netlify/functions/binLookup?postcode=${encodeURIComponent(postcode)}`, origin));
+  const fallbackData = await fallbackRes.json().catch(() => ({}));
+  const fallbackAddresses = Array.isArray(fallbackData.addresses)
+    ? fallbackData.addresses.map((i) => ({
+        uprn: String(i.uprn || "").trim(),
+        label: String(i.label || "").trim(),
+      })).filter((i) => i.uprn && i.label)
+    : [];
+
+  return { source: "binLookup", addresses: fallbackRes.ok ? fallbackAddresses : [] };
+}
+
+async function getNearbyRound(origin, postcode, address, bin) {
+  const u = new URL("/api/nearby-round-lookup", origin);
+  u.searchParams.set("postcode", postcode);
+  u.searchParams.set("address", address);
+  u.searchParams.set("bin", String(bin));
+  const r = await fetch(u);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || !Array.isArray(data.candidates) || !data.candidates.length) return null;
+  return {
+    matched: false,
+    ambiguous: true,
+    confidence: "nearby",
+    method: data.method,
+    locationSource: data.locationSource,
+    candidates: data.candidates,
+  };
+}
+
+export default async function handler(req) {
+  try {
+    const body = req.method === "POST" ? await req.json() : {};
+    const url = new URL(req.url);
+    const address = String(body.address || url.searchParams.get("address") || "").trim();
+    const postcode = normalizePostcode(
+      body.postcode ||
+      url.searchParams.get("postcode") ||
+      address.match(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i)?.[0]
+    );
+    const bins = (Array.isArray(body.bins) ? body.bins : [url.searchParams.get("bin")]).filter(Boolean);
+
+    if (!address || !postcode || !bins.length) {
+      return new Response(JSON.stringify({ error: "address, postcode and bins are required" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const origin = new URL(req.url).origin;
+    const councilAddressLookup = await getCouncilAddresses(origin, postcode);
+
+    if (!councilAddressLookup.addresses.length) {
+      return new Response(JSON.stringify({
+        matched: false,
+        reason: "council_address_not_found",
+        postcode,
+        addressSource: councilAddressLookup.source,
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const ranked = councilAddressLookup.addresses
+      .map((a) => ({ ...a, score: addressScore(address, a.label) }))
+      .sort((a, b) => b.score - a.score);
+    const chosen = ranked[0];
+
+    if (!chosen || chosen.score < 20) {
+      return new Response(JSON.stringify({
+        matched: false,
+        reason: "council_address_ambiguous",
+        addressSource: councilAddressLookup.source,
+        candidates: ranked.slice(0, 3),
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const calRes = await fetch(new URL(`/.netlify/functions/binCalendar?uprn=${encodeURIComponent(chosen.uprn)}`, origin));
+    const calData = await calRes.json().catch(() => ({}));
+
+    if (!calRes.ok || !calData.html) {
+      return new Response(JSON.stringify({
+        matched: false,
+        reason: "council_calendar_failed",
+        addressSource: councilAddressLookup.source,
+        councilAddress: chosen.label,
+        uprn: chosen.uprn,
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const results = [];
+
+    for (const bin of bins) {
+      const binName = bin.type || bin;
+      const councilBin = normalizeBin(binName);
+      const councilDates = parseCouncilDates(calData.html, councilBin);
+      const nextTwo = nextTwoCouncilDates(councilDates);
+
+      const roundUrl = new URL("/api/round-lookup", origin);
+      roundUrl.searchParams.set("postcode", postcode);
+      roundUrl.searchParams.set("address", address);
+      roundUrl.searchParams.set("bin", String(binName));
+
+      const roundResponse = await fetch(roundUrl);
+      const rawRound = await roundResponse.json().catch(() => ({}));
+
+      let resolved = chooseAreaMatchForNextTwo(rawRound, councilDates, rawRound?.method || "round_lookup");
+      let round = resolved?.round || rawRound;
+
+      if (!resolved && nextTwo.length) {
+        const nearbyRound = await getNearbyRound(origin, postcode, chosen.label || address, binName);
+        if (nearbyRound) {
+          const nearbyResolved = chooseAreaMatchForNextTwo(
+            nearbyRound,
+            councilDates,
+            nearbyRound.method || "nearby_round_lookup"
+          );
+          if (nearbyResolved) {
+            resolved = nearbyResolved;
+            round = nearbyResolved.round;
+          } else if (!rawRound?.matched) {
+            round = nearbyRound;
+          }
+        }
+      }
+
+      const assigned = resolved?.assignedCleanDate || null;
+
+      results.push({
+        bin: binName,
+        councilBin,
+        councilDates,
+        nextTwoCouncilDates: nextTwo,
+        round,
+        assignedCleanDate: assigned,
+        automatic: Boolean(assigned),
+      });
+    }
+
+    return new Response(JSON.stringify({
+      matched: results.every((r) => r.automatic),
+      postcode,
+      addressSource: councilAddressLookup.source,
+      councilAddress: chosen.label,
+      uprn: chosen.uprn,
+      results,
+    }), {
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error?.message || "Booking schedule failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+}
+
+export const config = { path: "/api/booking-schedule" };
