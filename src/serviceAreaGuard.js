@@ -11,6 +11,23 @@ const COVERED_TOWNS = [
   "Ballyhalbert",
 ];
 
+// Common nearby towns/cities that are explicitly outside the current service area.
+// This is only an early-rejection aid for manual addresses. Covered towns remain
+// the positive source of truth, and postcode validation still handles addresses
+// that do not name a town clearly.
+const EXPLICIT_UNCOVERED_TOWNS = [
+  "Belfast",
+  "Lisburn",
+  "Holywood",
+  "Dundonald",
+  "Carryduff",
+  "Ballynahinch",
+  "Downpatrick",
+  "Newcastle",
+  "Hillsborough",
+  "Moira",
+];
+
 const UK_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i;
 const UK_OUTWARD_RE = /\b([A-Z]{1,2}\d[A-Z\d]?)\b/i;
 const validationState = new WeakMap();
@@ -41,6 +58,11 @@ function normalise(value) {
 function findCoveredTown(value) {
   const haystack = ` ${normalise(value)} `;
   return COVERED_TOWNS.find((town) => haystack.includes(` ${normalise(town)} `)) || "";
+}
+
+function findExplicitUncoveredTown(value) {
+  const haystack = ` ${normalise(value)} `;
+  return EXPLICIT_UNCOVERED_TOWNS.find((town) => haystack.includes(` ${normalise(town)} `)) || "";
 }
 
 function findBookingRoot() {
@@ -205,7 +227,17 @@ function validateAddress(root, forceMessage = false) {
   }
 
   const townInText = findCoveredTown(address);
+  const uncoveredTownInText = findExplicitUncoveredTown(address);
   const googleFormattedAddress = /,\s*UK\s*$/i.test(address);
+
+  // If the customer has explicitly typed a town that is known to be outside the
+  // current service area, reject it immediately. This avoids showing the generic
+  // "couldn't verify" message when the postcode geocoder is unavailable.
+  if (!townInText && uncoveredTownInText) {
+    setState(root, "outside", { address, postcode, town: uncoveredTownInText });
+    showOutOfArea(root);
+    return false;
+  }
 
   if (googleFormattedAddress) {
     if (!townInText) {
@@ -216,15 +248,10 @@ function validateAddress(root, forceMessage = false) {
     return finishCovered(root, address, postcode, townInText, false);
   }
 
-  // Manual addresses in an explicitly covered town can proceed immediately.
-  // This keeps new developments working even when Google does not know the street.
   if (townInText) {
     return finishCovered(root, address, postcode, townInText, true);
   }
 
-  // Otherwise the postcode must resolve successfully before scheduling starts.
-  // We deliberately do not cache failed geocoder attempts and we no longer
-  // treat an unresolved postcode as covered.
   const cached = postcodeTownCache.get(postcode);
   if (cached?.resolved) {
     if (!cached.covered) {
