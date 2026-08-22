@@ -130,7 +130,20 @@ function validateAddress(root, forceMessage = false) {
   }
 
   const town = findCoveredTown(address);
-  setState(root, "covered", { address, town, postcode, manual: !town });
+  const googleFormattedAddress = /,\s*UK\s*$/i.test(address);
+
+  // Google Places gives us a reliable locality/town in its formatted address.
+  // When a customer chooses a Google suggestion, only accept it if it resolves
+  // to one of the towns we actually cover. Manual entry remains more permissive
+  // so customers in brand-new developments can still type an address that Google
+  // has not indexed yet, provided a valid BT postcode is included.
+  if (googleFormattedAddress && !town) {
+    setState(root, "outside", { address, postcode });
+    showOutOfArea(root);
+    return false;
+  }
+
+  setState(root, "covered", { address, town, postcode, manual: !googleFormattedAddress });
   clearGuardWarning(root);
   return true;
 }
