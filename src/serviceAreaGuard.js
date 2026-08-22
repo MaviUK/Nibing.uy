@@ -11,10 +11,6 @@ const COVERED_TOWNS = [
   "Ballyhalbert",
 ];
 
-// Common nearby towns/cities that are explicitly outside the current service area.
-// This is only an early-rejection aid for manual addresses. Covered towns remain
-// the positive source of truth, and postcode validation still handles addresses
-// that do not name a town clearly.
 const EXPLICIT_UNCOVERED_TOWNS = [
   "Belfast",
   "Lisburn",
@@ -102,7 +98,7 @@ function showAreaUnverified(root) {
     root,
     "invalid",
     "mt-3 rounded-xl border px-4 py-3 text-sm border-amber-400 bg-amber-50 text-amber-900",
-    '<div class="font-bold">We couldn’t verify your service area.</div><div class="mt-1 text-xs leading-5">Please include your town and full postcode in the address, then try again.</div>'
+    '<div class="font-bold">We couldn’t verify your service area.</div><div class="mt-1 text-xs leading-5">Please check the full postcode and try again.</div>'
   );
 }
 
@@ -127,7 +123,6 @@ function showAreaChecking(root) {
 function clearGuardWarning(root) {
   const panel = getPanel(root);
   if (!panel || !panel.dataset.serviceAreaView) return;
-
   delete panel.dataset.serviceAreaView;
   panel.className = "mt-3 rounded-xl border px-4 py-3 text-sm border-gray-200 bg-gray-50 text-gray-800";
   panel.innerHTML = '<div class="font-bold">Next Clean Date</div><div class="mt-1 text-xs leading-5">Please fill in the above to show date.</div>';
@@ -142,52 +137,31 @@ function setState(root, status, extras = {}) {
   return next;
 }
 
-function componentNames(result) {
-  const names = [];
-  for (const component of result?.address_components || []) {
-    if (component?.long_name) names.push(component.long_name);
-    if (component?.short_name) names.push(component.short_name);
-  }
-  if (result?.formatted_address) names.push(result.formatted_address);
-  return names;
-}
+async function resolvePostcodeTown(postcode) {
+  if (postcodeTownCache.has(postcode)) return postcodeTownCache.get(postcode);
 
-function resolvePostcodeTown(postcode) {
-  if (postcodeTownCache.has(postcode)) return Promise.resolve(postcodeTownCache.get(postcode));
-
-  if (!window.google?.maps?.Geocoder) {
-    return Promise.resolve({ resolved: false, covered: false, town: "" });
-  }
-
-  return new Promise((resolve) => {
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode(
-      { address: postcode, componentRestrictions: { country: "GB" } },
-      (results, status) => {
-        if (status !== "OK" || !Array.isArray(results) || !results.length) {
-          resolve({ resolved: false, covered: false, town: "" });
-          return;
-        }
-
-        const names = results.flatMap(componentNames);
-        const coveredTown = names.map(findCoveredTown).find(Boolean) || "";
-        const locality = results
-          .flatMap((result) => result.address_components || [])
-          .find((component) =>
-            component?.types?.some((type) => type === "postal_town" || type === "locality")
-          )?.long_name || "";
-
-        const resolved = {
-          resolved: true,
-          covered: Boolean(coveredTown),
-          town: coveredTown,
-          locality,
-        };
-        postcodeTownCache.set(postcode, resolved);
-        resolve(resolved);
-      }
+  try {
+    const response = await fetch(
+      `/.netlify/functions/serviceAreaPostcode?postcode=${encodeURIComponent(postcode)}`,
+      { headers: { Accept: "application/json" } }
     );
-  });
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok || !data?.valid) {
+      return { resolved: false, covered: false, town: "", locality: "" };
+    }
+
+    const resolved = {
+      resolved: true,
+      covered: data.covered === true,
+      town: data.town || "",
+      locality: data.adminDistrict || data.nearestTown || "",
+    };
+    postcodeTownCache.set(postcode, resolved);
+    return resolved;
+  } catch {
+    return { resolved: false, covered: false, town: "", locality: "" };
+  }
 }
 
 function finishCovered(root, address, postcode, town, manual) {
@@ -230,9 +204,6 @@ function validateAddress(root, forceMessage = false) {
   const uncoveredTownInText = findExplicitUncoveredTown(address);
   const googleFormattedAddress = /,\s*UK\s*$/i.test(address);
 
-  // If the customer has explicitly typed a town that is known to be outside the
-  // current service area, reject it immediately. This avoids showing the generic
-  // "couldn't verify" message when the postcode geocoder is unavailable.
   if (!townInText && uncoveredTownInText) {
     setState(root, "outside", { address, postcode, town: uncoveredTownInText });
     showOutOfArea(root);
@@ -248,6 +219,9 @@ function validateAddress(root, forceMessage = false) {
     return finishCovered(root, address, postcode, townInText, false);
   }
 
+  // Keep new developments usable: if the customer explicitly types one of the
+  // towns we cover and supplies a valid full postcode, do not require Google to
+  // know the street. Otherwise verify the exact postcode server-side.
   if (townInText) {
     return finishCovered(root, address, postcode, townInText, true);
   }
@@ -296,48 +270,32 @@ function bind(root) {
   root.dataset.serviceAreaGuardBound = "true";
   setState(root, "idle");
 
-  root.addEventListener(
-    "input",
-    (event) => {
-      if (event.target === getAddressInput(root)) scheduleValidation(root);
-    },
-    true
-  );
+  root.addEventListener("input", (event) => {
+    if (event.target === getAddressInput(root)) scheduleValidation(root);
+  }, true);
 
-  root.addEventListener(
-    "change",
-    (event) => {
-      if (event.target === getAddressInput(root)) scheduleValidation(root, 50);
-    },
-    true
-  );
+  root.addEventListener("change", (event) => {
+    if (event.target === getAddressInput(root)) scheduleValidation(root, 50);
+  }, true);
 
-  root.addEventListener(
-    "focusout",
-    (event) => {
-      if (event.target === getAddressInput(root)) {
-        window.setTimeout(() => validateAddress(root, false), 50);
-      }
-    },
-    true
-  );
+  root.addEventListener("focusout", (event) => {
+    if (event.target === getAddressInput(root)) {
+      window.setTimeout(() => validateAddress(root, false), 50);
+    }
+  }, true);
 
-  root.addEventListener(
-    "click",
-    (event) => {
-      const button = event.target?.closest?.("button");
-      if (!button || !/send via whatsapp|send via email/i.test(String(button.textContent || ""))) return;
+  root.addEventListener("click", (event) => {
+    const button = event.target?.closest?.("button");
+    if (!button || !/send via whatsapp|send via email/i.test(String(button.textContent || ""))) return;
 
-      const state = validationState.get(root);
-      if (state?.status === "covered" || validateAddress(root, true)) return;
+    const state = validationState.get(root);
+    if (state?.status === "covered" || validateAddress(root, true)) return;
 
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation?.();
-      getAddressInput(root)?.focus();
-    },
-    true
-  );
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+    getAddressInput(root)?.focus();
+  }, true);
 
   let lastAddress = String(getAddressInput(root)?.value || "");
   const valueWatcher = window.setInterval(() => {
@@ -360,16 +318,12 @@ function tryBind() {
   if (root) bind(root);
 }
 
-document.addEventListener(
-  "click",
-  (event) => {
-    const target = event.target?.closest?.("button, a");
-    if (!target) return;
-    const text = String(target.textContent || "").trim();
-    if (/book a clean|book a bin clean/i.test(text) || target.dataset?.openBookingForm === "true") {
-      window.setTimeout(tryBind, 0);
-      window.setTimeout(tryBind, 100);
-    }
-  },
-  true
-);
+document.addEventListener("click", (event) => {
+  const target = event.target?.closest?.("button, a");
+  if (!target) return;
+  const text = String(target.textContent || "").trim();
+  if (/book a clean|book a bin clean/i.test(text) || target.dataset?.openBookingForm === "true") {
+    window.setTimeout(tryBind, 0);
+    window.setTimeout(tryBind, 100);
+  }
+}, true);
