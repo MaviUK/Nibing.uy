@@ -103,7 +103,6 @@
   [headers.values]
     Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
 
-
 [build]
   command = "npm run build"
   publish = "dist"
@@ -111,6 +110,81 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+# Keep one canonical URL for every town page. Without these rules, a trailing
+# slash on an extensionless static town file can fall through to the SPA
+# homepage and create a duplicate/soft-404 URL for search engines.
+[[redirects]]
+  from = "/bin-cleaning-bangor"
+  to = "/bin-cleaning-bangor/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/bin-cleaning-groomsport/"
+  to = "/bin-cleaning-groomsport"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/bin-cleaning-donaghadee/"
+  to = "/bin-cleaning-donaghadee"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/bin-cleaning-newtownards/"
+  to = "/bin-cleaning-newtownards"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/bin-cleaning-greyabbey/"
+  to = "/bin-cleaning-greyabbey"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/bin-cleaning-comber/"
+  to = "/bin-cleaning-comber"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/bin-cleaning-millisle/"
+  to = "/bin-cleaning-millisle"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/bin-cleaning-ballywalter/"
+  to = "/bin-cleaning-ballywalter"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/bin-cleaning-portaferry/"
+  to = "/bin-cleaning-portaferry"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/bin-cleaning-portavogie/"
+  to = "/bin-cleaning-portavogie"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/bin-cleaning-cloughey/"
+  to = "/bin-cleaning-cloughey"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/bin-cleaning-ballyhalbert/"
+  to = "/bin-cleaning-ballyhalbert"
+  status = 301
+  force = true
 
 [[redirects]]
   from = "/*"
