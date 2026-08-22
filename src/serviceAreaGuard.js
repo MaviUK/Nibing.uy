@@ -12,6 +12,7 @@ const COVERED_TOWNS = [
 ];
 
 const UK_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i;
+const UK_OUTWARD_RE = /\b([A-Z]{1,2}\d[A-Z\d]?)\b/i;
 const validationState = new WeakMap();
 let validationTimer = null;
 
@@ -20,6 +21,11 @@ function extractPostcode(address) {
   if (!match) return "";
   const compact = match[1].replace(/\s+/g, "");
   return compact.length > 3 ? `${compact.slice(0, -3)} ${compact.slice(-3)}` : compact;
+}
+
+function extractOutwardCode(address) {
+  const match = String(address || "").toUpperCase().match(UK_OUTWARD_RE);
+  return match?.[1] || "";
 }
 
 function normalise(value) {
@@ -100,6 +106,18 @@ function validateAddress(root, forceMessage = false) {
   const address = String(getAddressInput(root)?.value || "").trim();
   if (!address) {
     setState(root, "idle", { address });
+    return false;
+  }
+
+  // Acceptance is still based on the towns we actually cover. This early
+  // check only rejects addresses that are unquestionably outside Northern
+  // Ireland (for example GU, EN, AL). It means an incomplete but obvious
+  // Guildford address cannot fall through to the generic "full address"
+  // warning or schedule lookup.
+  const outwardCode = extractOutwardCode(address);
+  if (outwardCode && !outwardCode.startsWith("BT")) {
+    setState(root, "outside", { address });
+    showOutOfArea(root);
     return false;
   }
 
