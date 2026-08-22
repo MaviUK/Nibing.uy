@@ -18,7 +18,7 @@
     "@graph": [
       {
         "@type": "LocalBusiness",
-        "@id": "https://nibing.uy/#business",
+        "@id": "https://nibing.uy/#localbusiness",
         "name": "NI Bin Guy",
         "url": "https://nibing.uy/",
         "logo": "https://nibing.uy/logo.png",
@@ -41,7 +41,7 @@
         "@id": "https://nibing.uy/bin-cleaning-donaghadee#service",
         "name": "Wheelie Bin Cleaning in Donaghadee",
         "serviceType": "Wheelie bin cleaning",
-        "provider": {"@id": "https://nibing.uy/#business"},
+        "provider": {"@id": "https://nibing.uy/#localbusiness"},
         "areaServed": {
           "@type": "City",
           "name": "Donaghadee"
