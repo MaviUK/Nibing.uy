@@ -1,4 +1,15 @@
-const SERVICE_OUTCODES = new Set(["BT18", "BT19", "BT20", "BT21", "BT22", "BT23"]);
+const COVERED_TOWNS = [
+  "Bangor",
+  "Newtownards",
+  "Donaghadee",
+  "Comber",
+  "Millisle",
+  "Ballywalter",
+  "Portaferry",
+  "Portavogie",
+  "Cloughey",
+  "Ballyhalbert",
+];
 
 function extractPostcode(address) {
   const match = String(address || "").toUpperCase().match(/\b(BT\d{1,2}[A-Z]?\s*\d[A-Z]{2})\b/i);
@@ -7,9 +18,17 @@ function extractPostcode(address) {
   return compact.length > 3 ? `${compact.slice(0, -3)} ${compact.slice(-3)}` : compact;
 }
 
-function isCoveredPostcode(postcode) {
-  const outcode = String(postcode || "").trim().toUpperCase().split(/\s+/)[0];
-  return SERVICE_OUTCODES.has(outcode);
+function normalise(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[.,'’()-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findCoveredTown(address) {
+  const haystack = ` ${normalise(address)} `;
+  return COVERED_TOWNS.find((town) => haystack.includes(` ${normalise(town)} `)) || "";
 }
 
 function findBookingRoot() {
@@ -31,13 +50,20 @@ function showOutOfArea(root) {
 function currentState(root) {
   const address = String(getAddressInput(root)?.value || "").trim();
   const postcode = extractPostcode(address);
-  return { address, postcode, outside: Boolean(postcode && !isCoveredPostcode(postcode)) };
+  const town = findCoveredTown(address);
+  return {
+    address,
+    postcode,
+    town,
+    outside: Boolean(postcode && !town),
+  };
 }
 
 function enforce(root) {
   if (!root) return;
   const state = currentState(root);
   root.dataset.outsideServiceArea = state.outside ? "true" : "false";
+  root.dataset.coveredTown = state.town || "";
   if (state.outside) showOutOfArea(root);
 }
 
