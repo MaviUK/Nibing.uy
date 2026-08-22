@@ -11,8 +11,13 @@ const COVERED_TOWNS = [
   "Ballyhalbert",
 ];
 
+const UK_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i;
+const validationState = new WeakMap();
+let validationTimer = null;
+let validationSequence = 0;
+
 function extractPostcode(address) {
-  const match = String(address || "").toUpperCase().match(/\b(BT\d{1,2}[A-Z]?\s*\d[A-Z]{2})\b/i);
+  const match = String(address || "").toUpperCase().match(UK_POSTCODE_RE);
   if (!match) return "";
   const compact = match[1].replace(/\s+/g, "");
   return compact.length > 3 ? `${compact.slice(0, -3)} ${compact.slice(-3)}` : compact;
@@ -26,8 +31,8 @@ function normalise(value) {
     .trim();
 }
 
-function findCoveredTown(address) {
-  const haystack = ` ${normalise(address)} `;
+function findCoveredTown(value) {
+  const haystack = ` ${normalise(value)} `;
   return COVERED_TOWNS.find((town) => haystack.includes(` ${normalise(town)} `)) || "";
 }
 
@@ -40,60 +45,164 @@ function getAddressInput(root) {
   return root?.querySelector('input[placeholder="Full Address"]') || null;
 }
 
+function getPanel(root) {
+  return root?.querySelector("[data-auto-schedule-panel]") || null;
+}
+
+function showChecking(root) {
+  const panel = getPanel(root);
+  if (!panel) return;
+  panel.className = "mt-3 rounded-xl border px-4 py-3 text-sm border-gray-300 bg-gray-50 text-gray-800";
+  panel.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:12px;min-height:54px;"><div aria-hidden="true" style="width:26px;height:26px;border:3px solid #d1d5db;border-top-color:#16a34a;border-radius:9999px;animation:nbgAddressSpin .8s linear infinite;"></div><strong>Checking your address…</strong></div><style>@keyframes nbgAddressSpin{to{transform:rotate(360deg)}}</style>';
+}
+
+function showInvalidAddress(root) {
+  const panel = getPanel(root);
+  if (!panel) return;
+  panel.className = "mt-3 rounded-xl border px-4 py-3 text-sm border-amber-400 bg-amber-50 text-amber-900";
+  panel.innerHTML = '<div class="font-bold">Please enter your full address.</div><div class="mt-1 text-xs leading-5">Select your address from the suggestions and make sure the postcode is included.</div>';
+}
+
 function showOutOfArea(root) {
-  const panel = root?.querySelector("[data-auto-schedule-panel]");
+  const panel = getPanel(root);
   if (!panel) return;
   panel.className = "mt-3 rounded-xl border px-4 py-3 text-sm border-red-400 bg-red-50 text-red-900";
   panel.innerHTML = '<div class="font-bold">Sorry, we do not cover your area yet.</div><div class="mt-1 text-xs leading-5">Please check back with us in future as our service area expands.</div>';
 }
 
-function currentState(root) {
-  const address = String(getAddressInput(root)?.value || "").trim();
-  const postcode = extractPostcode(address);
-  const town = findCoveredTown(address);
-  return {
-    address,
-    postcode,
-    town,
-    outside: Boolean(postcode && !town),
-  };
+function setState(root, status, extras = {}) {
+  const next = { status, town: "", address: "", ...extras };
+  validationState.set(root, next);
+  root.dataset.addressValidation = status;
+  root.dataset.outsideServiceArea = status === "outside" ? "true" : "false";
+  root.dataset.coveredTown = next.town || "";
+  return next;
 }
 
-function enforce(root) {
-  if (!root) return;
-  const state = currentState(root);
-  root.dataset.outsideServiceArea = state.outside ? "true" : "false";
-  root.dataset.coveredTown = state.town || "";
-  if (state.outside) showOutOfArea(root);
+function componentNames(result) {
+  return (result?.address_components || []).map((component) => component.long_name).filter(Boolean);
+}
+
+function resolveWithGoogle(address) {
+  return new Promise((resolve) => {
+    if (!window.google?.maps?.Geocoder) {
+      resolve(null);
+      return;
+    }
+    const geocoder = new window.google.maps.Geocoder();
+    geocoder.geocode({ address, componentRestrictions: { country: "GB" } }, (results, status) => {
+      if (status !== "OK" || !Array.isArray(results) || !results.length) {
+        resolve([]);
+        return;
+      }
+      resolve(results);
+    });
+  });
+}
+
+async function validateResolvedAddress(root, forceMessage = false) {
+  if (!root) return false;
+  const address = String(getAddressInput(root)?.value || "").trim();
+  const postcode = extractPostcode(address);
+  const sequence = ++validationSequence;
+
+  if (!address) {
+    setState(root, "idle", { address });
+    return false;
+  }
+
+  if (!postcode) {
+    setState(root, "invalid", { address });
+    if (forceMessage || address.length > 5) showInvalidAddress(root);
+    return false;
+  }
+
+  setState(root, "checking", { address });
+  showChecking(root);
+
+  const results = await resolveWithGoogle(address);
+  if (sequence !== validationSequence) return false;
+
+  if (results === null) {
+    const typedTown = findCoveredTown(address);
+    if (typedTown) {
+      setState(root, "covered", { address, town: typedTown });
+      return true;
+    }
+    setState(root, "invalid", { address });
+    showInvalidAddress(root);
+    return false;
+  }
+
+  if (!results.length) {
+    setState(root, "invalid", { address });
+    showInvalidAddress(root);
+    return false;
+  }
+
+  const resolved = results[0];
+  const resolvedPostcode = componentNames(resolved).find((name) => extractPostcode(name)) || extractPostcode(resolved.formatted_address || "");
+  if (!resolvedPostcode) {
+    setState(root, "invalid", { address });
+    showInvalidAddress(root);
+    return false;
+  }
+
+  const searchable = [resolved.formatted_address || "", ...componentNames(resolved)].join(" ");
+  const town = findCoveredTown(searchable);
+  if (!town) {
+    setState(root, "outside", { address });
+    showOutOfArea(root);
+    return false;
+  }
+
+  setState(root, "covered", { address, town });
+  return true;
+}
+
+function scheduleValidation(root) {
+  window.clearTimeout(validationTimer);
+  validationTimer = window.setTimeout(() => validateResolvedAddress(root, false), 500);
+}
+
+function enforceVisibleState(root) {
+  const state = validationState.get(root);
+  if (!state) return;
+  if (state.status === "outside") showOutOfArea(root);
+  if (state.status === "invalid") showInvalidAddress(root);
+  if (state.status === "checking") showChecking(root);
 }
 
 function bind(root) {
   if (!root || root.dataset.serviceAreaGuardBound === "true") return;
   root.dataset.serviceAreaGuardBound = "true";
+  setState(root, "idle");
 
-  const observer = new MutationObserver(() => {
-    if (root.dataset.outsideServiceArea === "true") showOutOfArea(root);
-  });
+  const observer = new MutationObserver(() => enforceVisibleState(root));
   observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true });
 
-  root.addEventListener("input", () => window.setTimeout(() => enforce(root), 0), true);
-  root.addEventListener("change", () => window.setTimeout(() => enforce(root), 0), true);
+  root.addEventListener("input", (event) => {
+    if (event.target === getAddressInput(root)) scheduleValidation(root);
+  }, true);
+  root.addEventListener("change", (event) => {
+    if (event.target === getAddressInput(root)) scheduleValidation(root);
+  }, true);
 
-  root.addEventListener("click", (event) => {
+  root.addEventListener("click", async (event) => {
     const button = event.target?.closest?.("button");
     if (!button || !/send via whatsapp|send via email/i.test(String(button.textContent || ""))) return;
-    const state = currentState(root);
-    if (!state.outside) return;
+
+    const state = validationState.get(root);
+    if (state?.status === "covered" && state.address === String(getAddressInput(root)?.value || "").trim()) return;
 
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation?.();
-    root.dataset.outsideServiceArea = "true";
-    showOutOfArea(root);
-    getAddressInput(root)?.focus();
+    const valid = await validateResolvedAddress(root, true);
+    if (!valid) getAddressInput(root)?.focus();
   }, true);
 
-  enforce(root);
+  scheduleValidation(root);
 }
 
 function tryBind() {
