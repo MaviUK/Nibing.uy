@@ -54,6 +54,26 @@ function isOneOffBooking(root) {
   return /one[- ]?off/i.test(selectedText);
 }
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    '"': "&quot;",
+  })[character]);
+}
+
+function binLabelColour(bin) {
+  const name = String(bin || "").trim().toLowerCase();
+  if (name.includes("brown")) return "#8b4513";
+  if (name.includes("blue")) return "#2563eb";
+  if (name.includes("green")) return "#15803d";
+  if (name.includes("black")) return "#111827";
+  if (name.includes("grey") || name.includes("gray")) return "#4b5563";
+  return "inherit";
+}
+
 function topLevelChild(container, node) {
   if (!container || !node || !container.contains(node)) return null;
   let current = node;
@@ -183,10 +203,14 @@ function render(root, state, data = null) {
     return;
   }
   if (state === "matched") {
-    const rows = (data?.results || []).map((result) => `<div class="mt-1"><strong>${result.bin || "Bin"}:</strong> ${formatDate(result.assignedCleanDate)}</div>`).join("");
+    const rows = (data?.results || []).map((result) => {
+      const bin = result.bin || "Bin";
+      const label = /\bbin\b/i.test(bin) ? bin : `${bin} Bin`;
+      return `<div class="mt-1"><strong style="color:${binLabelColour(bin)}">${escapeHtml(label)}:</strong> ${escapeHtml(formatDate(result.assignedCleanDate))}</div>`;
+    }).join("");
     const cycleNote = isOneOffBooking(root) ? "" : '<div class="mt-2 text-xs">Your regular service will continue on the same 4-week cycle.</div>';
     panel.classList.add("border-green-500", "bg-green-50", "text-green-900");
-    panel.innerHTML = `<div class="font-bold">✓ We’ve found your clean day</div>${rows}${cycleNote}`;
+    panel.innerHTML = `<div class="font-bold">✓ Great! The next available date for cleaning:</div>${rows}${cycleNote}`;
     return;
   }
   panel.classList.add("border-amber-400", "bg-amber-50", "text-amber-900");
