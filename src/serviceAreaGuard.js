@@ -109,8 +109,6 @@ function validateAddress(root, forceMessage = false) {
     return false;
   }
 
-  // Reject addresses that are clearly outside Northern Ireland as soon as an
-  // outward postcode is visible. Google autocomplete is NOT required.
   const outwardCode = extractOutwardCode(address);
   if (outwardCode && !outwardCode.startsWith("BT")) {
     setState(root, "outside", { address });
@@ -125,11 +123,6 @@ function validateAddress(root, forceMessage = false) {
     return false;
   }
 
-  // Manual addresses are valid. A customer does not have to select a Google
-  // suggestion because new developments may not exist in Google yet. Once a
-  // complete BT postcode is present, allow the normal council/schedule lookup
-  // to continue. Keep the covered-town value when it is present in the text,
-  // but do not require it for manual entry.
   if (!postcode.toUpperCase().startsWith("BT")) {
     setState(root, "outside", { address });
     showOutOfArea(root);
@@ -193,6 +186,22 @@ function bind(root) {
     },
     true
   );
+
+  // Google Places updates the controlled React input programmatically and can
+  // do so without a native input/change event. Poll only the address value (not
+  // the whole DOM) so Google selections are caught without the old observer loop.
+  let lastAddress = String(getAddressInput(root)?.value || "");
+  const valueWatcher = window.setInterval(() => {
+    if (!document.body.contains(root)) {
+      window.clearInterval(valueWatcher);
+      return;
+    }
+    const currentAddress = String(getAddressInput(root)?.value || "");
+    if (currentAddress === lastAddress) return;
+    lastAddress = currentAddress;
+    validateAddress(root, false);
+    root.dispatchEvent(new CustomEvent("nbg-address-value-changed", { bubbles: false }));
+  }, 200);
 
   scheduleValidation(root, 100);
 }
