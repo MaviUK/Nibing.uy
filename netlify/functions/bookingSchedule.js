@@ -10,6 +10,7 @@ function parseCouncilDates(html,wantedBin){const text=stripHtml(html).toUpperCas
 const DAY_MS=86400000,ROUND_MS=28*DAY_MS;
 function alignedCouncilDate(anchorDate,councilDates){if(!anchorDate||!Array.isArray(councilDates)||!councilDates.length)return null;const anchor=new Date(`${anchorDate}T12:00:00Z`).getTime();if(!Number.isFinite(anchor))return null;for(const date of councilDates){const t=new Date(`${date}T12:00:00Z`).getTime();if(!Number.isFinite(t)||t<Date.now()-DAY_MS)continue;const delta=t-anchor;if(((delta%ROUND_MS)+ROUND_MS)%ROUND_MS===0)return date;}return null;}
 function nextRoundWorkDate(anchorDate){if(!anchorDate)return null;let t=new Date(`${anchorDate}T12:00:00Z`).getTime();if(!Number.isFinite(t))return null;const today=new Date();const floor=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth(),today.getUTCDate())).getTime();while(t<floor)t+=ROUND_MS;return new Date(t).toISOString().slice(0,10);}
+function isCouncilCollectionDate(date,councilDates){return Boolean(date)&&Array.isArray(councilDates)&&councilDates.includes(date);}
 function isProximityMethod(method){return String(method||"").includes("proximity");}
 function isCustomerScheduleMethod(method){return String(method||"").includes("schedule_proximity");}
 function resolveRoundWithCouncilDates(round,councilDates,method="exact_round"){
@@ -17,23 +18,22 @@ function resolveRoundWithCouncilDates(round,councilDates,method="exact_round"){
     const councilValidationDate=alignedCouncilDate(round.anchorDate,councilDates);
     if(!councilValidationDate)return null;
     const assignedCleanDate=round.nextCleanDate||nextRoundWorkDate(round.anchorDate);
-    return assignedCleanDate?{round:{...round,resolvedBy:round.resolvedBy||method,councilValidationDate},assignedCleanDate}:null;
+    if(!isCouncilCollectionDate(assignedCleanDate,councilDates))return null;
+    return{round:{...round,resolvedBy:round.resolvedBy||method,councilValidationDate},assignedCleanDate};
   }
   if(!round?.ambiguous||!Array.isArray(round.candidates))return null;
   const proximity=isProximityMethod(method);
   const customerSchedule=isCustomerScheduleMethod(method);
 
-  // Customer schedule candidates come from real Squeegee round_next_visit dates.
-  // For these, the council lookup confirms the property/bin exists, but it must
-  // not force the clean onto a generic council/round phase. Choose the nearest
-  // actual day on which NI Bin Guy already has scheduled work.
+  // Squeegee availability may decide which council collection we can service,
+  // but it must never move a clean away from the customer's actual bin day.
   if(customerSchedule){
     const viable=round.candidates
-      .filter(candidate=>candidate.nextCleanDate&&Number(candidate.nearestDistanceMeters)<=1800)
+      .filter(candidate=>candidate.nextCleanDate&&isCouncilCollectionDate(candidate.nextCleanDate,councilDates)&&Number(candidate.nearestDistanceMeters)<=1800)
       .sort((a,b)=>Number(a.nearestDistanceMeters??Infinity)-Number(b.nearestDistanceMeters??Infinity));
     if(!viable.length)return null;
     const winner=viable[0];
-    return{round:{...round,matched:true,ambiguous:false,resolvedBy:"nearest_existing_customer_schedule",round:winner.round,anchorDate:winner.anchorDate,nextCleanDate:winner.nextCleanDate,nearestDistanceMeters:winner.nearestDistanceMeters,support:winner.support,candidates:round.candidates},assignedCleanDate:winner.nextCleanDate};
+    return{round:{...round,matched:true,ambiguous:false,resolvedBy:"nearest_existing_customer_schedule_on_council_day",round:winner.round,anchorDate:winner.anchorDate,nextCleanDate:winner.nextCleanDate,councilValidationDate:winner.nextCleanDate,nearestDistanceMeters:winner.nearestDistanceMeters,support:winner.support,candidates:round.candidates},assignedCleanDate:winner.nextCleanDate};
   }
 
   const aligned=round.candidates.map(candidate=>({candidate,councilValidationDate:alignedCouncilDate(candidate.anchorDate,councilDates)})).filter(i=>i.councilValidationDate);
@@ -43,7 +43,7 @@ function resolveRoundWithCouncilDates(round,councilDates,method="exact_round"){
   const winner=aligned[0];
   if(proximity&&Number(winner.candidate.nearestDistanceMeters)>1800)return null;
   const assignedCleanDate=winner.candidate.nextCleanDate||nextRoundWorkDate(winner.candidate.anchorDate);
-  if(!assignedCleanDate)return null;
+  if(!isCouncilCollectionDate(assignedCleanDate,councilDates))return null;
   return{round:{...round,matched:true,ambiguous:false,resolvedBy:proximity?"nearest_valid_area_plus_council_cycle":"council_date_phase",round:winner.candidate.round,anchorDate:winner.candidate.anchorDate,nextCleanDate:assignedCleanDate,councilValidationDate:winner.councilValidationDate,nearestDistanceMeters:winner.candidate.nearestDistanceMeters,support:winner.candidate.support,candidates:round.candidates},assignedCleanDate};
 }
 function normalizeAddressList(payload){let list=payload?.data?.addresses;if(!Array.isArray(list)&&Array.isArray(payload?.addresses))list=payload.addresses;if(!Array.isArray(list)&&payload?.addresses&&typeof payload.addresses==="object")list=Object.values(payload.addresses);return(list||[]).map(item=>{if(!item||typeof item!=="object")return null;const uprn=String(item.uprn||item.UPRN||"").trim(),label=String(item.addressText||item.address||item.label||"").trim();return uprn&&label?{uprn,label}:null;}).filter(Boolean);}
