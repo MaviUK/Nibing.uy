@@ -164,18 +164,23 @@ async function validateResolvedAddress(root, forceMessage = false) {
   }
 
   const resolved = results[0];
+  const searchable = [resolved.formatted_address || "", ...componentNames(resolved)].join(" ");
+  const town = findCoveredTown(searchable);
   const resolvedPostcode = componentNames(resolved).find((name) => extractPostcode(name)) || extractPostcode(resolved.formatted_address || "");
-  if (!resolvedPostcode || !hasFullStreetAddress(resolved)) {
-    setState(root, "invalid", { address });
-    showInvalidAddress(root);
+
+  // If Google has resolved a real postcode but the locality is not one of our
+  // covered towns, report it as outside the service area immediately. Do this
+  // before the stricter street-address completeness check so places such as
+  // Potters Bar are never mislabelled as an incomplete local address.
+  if (resolvedPostcode && !town) {
+    setState(root, "outside", { address });
+    showOutOfArea(root);
     return false;
   }
 
-  const searchable = [resolved.formatted_address || "", ...componentNames(resolved)].join(" ");
-  const town = findCoveredTown(searchable);
-  if (!town) {
-    setState(root, "outside", { address });
-    showOutOfArea(root);
+  if (!resolvedPostcode || !hasFullStreetAddress(resolved)) {
+    setState(root, "invalid", { address });
+    showInvalidAddress(root);
     return false;
   }
 
