@@ -10,4 +10,12 @@
 /bin-cleaning-portavogie/ /bin-cleaning-portavogie 301!
 /bin-cleaning-cloughey/ /bin-cleaning-cloughey 301!
 /bin-cleaning-ballyhalbert/ /bin-cleaning-ballyhalbert 301!
-/* /index.html 200
+
+# Explicit SPA routes only. Unknown URLs are intentionally left unmatched so
+# Netlify serves public/404.html with a real HTTP 404 status instead of the
+# homepage with a 200 status (soft 404).
+/street-booking /index.html 200
+/standee/* /index.html 200
+/admin /index.html 200
+/admin/* /index.html 200
+/auth/callback /index.html 200
