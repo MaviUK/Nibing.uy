@@ -122,7 +122,7 @@
           <h1>Bin Cleaning in <span>Donaghadee</span></h1>
           <p class="lead">Keep your wheelie bins clean, sanitised and fresher with NI Bin Guy. We provide regular 4-weekly bin cleaning in Donaghadee, one-off cleans and commercial bin cleaning, with regular domestic cleans starting from £5 per bin.</p>
           <div class="cta">
-            <a class="btn" href="/">Book a Donaghadee Clean</a>
+            <a class="btn" href="/?book=1">Book a Donaghadee Clean</a>
             <a class="btn secondary" href="tel:07555178484">Call 07555 178484</a>
           </div>
         </div>
@@ -196,7 +196,7 @@
         <h2>Domestic Bin Cleaning in Donaghadee</h2>
         <p class="lead">We clean the common household wheelie bins used across the area, including black, blue, brown and green bins. Whether you want one bin cleaned or want to keep your household bins on a regular cleaning schedule, you can book directly with NI Bin Guy.</p>
         <div class="cta" style="justify-content:flex-start">
-          <a class="btn" href="/">Book Your Bin Clean</a>
+          <a class="btn" href="/?book=1">Book Your Bin Clean</a>
           <a class="btn secondary" href="https://wa.me/447555178484">WhatsApp NI Bin Guy</a>
         </div>
       </div>
@@ -249,7 +249,7 @@
         <h2>Book Bin Cleaning in Donaghadee</h2>
         <p class="lead" style="margin-left:auto;margin-right:auto">Ready to get your bin cleaned? Use our online booking form or contact NI Bin Guy directly.</p>
         <div class="cta">
-          <a class="btn" href="/">Book Online</a>
+          <a class="btn" href="/?book=1">Book Online</a>
           <a class="btn secondary" href="tel:07555178484">07555 178484</a>
         </div>
       </div>
