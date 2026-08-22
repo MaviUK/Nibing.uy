@@ -98,6 +98,14 @@ function componentNames(result) {
   return (result?.address_components || []).map((component) => component.long_name).filter(Boolean);
 }
 
+function hasFullStreetAddress(result) {
+  const components = result?.address_components || [];
+  const types = new Set(components.flatMap((component) => component.types || []));
+  const hasNumber = types.has("street_number") || types.has("premise") || types.has("subpremise");
+  const hasStreet = types.has("route");
+  return hasNumber && hasStreet;
+}
+
 function resolveWithGoogle(address) {
   return new Promise((resolve) => {
     if (!window.google?.maps?.Geocoder) {
@@ -118,7 +126,6 @@ function resolveWithGoogle(address) {
 async function validateResolvedAddress(root, forceMessage = false) {
   if (!root) return false;
   const address = String(getAddressInput(root)?.value || "").trim();
-  const postcode = extractPostcode(address);
   const sequence = ++validationSequence;
 
   if (!address) {
@@ -126,7 +133,7 @@ async function validateResolvedAddress(root, forceMessage = false) {
     return false;
   }
 
-  if (!postcode) {
+  if (address.length < 7) {
     setState(root, "invalid", { address });
     if (forceMessage || address.length > 5) showInvalidAddress(root);
     return false;
@@ -139,8 +146,9 @@ async function validateResolvedAddress(root, forceMessage = false) {
   if (sequence !== validationSequence) return false;
 
   if (results === null) {
+    const postcode = extractPostcode(address);
     const typedTown = findCoveredTown(address);
-    if (typedTown) {
+    if (postcode && typedTown) {
       setState(root, "covered", { address, town: typedTown });
       return true;
     }
@@ -157,7 +165,7 @@ async function validateResolvedAddress(root, forceMessage = false) {
 
   const resolved = results[0];
   const resolvedPostcode = componentNames(resolved).find((name) => extractPostcode(name)) || extractPostcode(resolved.formatted_address || "");
-  if (!resolvedPostcode) {
+  if (!resolvedPostcode || !hasFullStreetAddress(resolved)) {
     setState(root, "invalid", { address });
     showInvalidAddress(root);
     return false;
@@ -175,9 +183,9 @@ async function validateResolvedAddress(root, forceMessage = false) {
   return true;
 }
 
-function scheduleValidation(root) {
+function scheduleValidation(root, delay = 700) {
   window.clearTimeout(validationTimer);
-  validationTimer = window.setTimeout(() => validateResolvedAddress(root, false), 700);
+  validationTimer = window.setTimeout(() => validateResolvedAddress(root, false), delay);
 }
 
 function enforceVisibleState(root) {
@@ -186,6 +194,12 @@ function enforceVisibleState(root) {
   if (state.status === "outside") showOutOfArea(root);
   if (state.status === "invalid") showInvalidAddress(root);
   if (state.status === "checking") showChecking(root);
+}
+
+function revalidateIfAddressChanged(root, delay = 50) {
+  const address = String(getAddressInput(root)?.value || "").trim();
+  const state = validationState.get(root);
+  if (!state || state.address !== address) scheduleValidation(root, delay);
 }
 
 function bind(root) {
@@ -200,10 +214,17 @@ function bind(root) {
     if (event.target === getAddressInput(root)) scheduleValidation(root);
   }, true);
   root.addEventListener("change", (event) => {
-    if (event.target === getAddressInput(root)) scheduleValidation(root);
+    if (event.target === getAddressInput(root)) scheduleValidation(root, 100);
+  }, true);
+  root.addEventListener("focusout", (event) => {
+    if (event.target === getAddressInput(root)) {
+      window.setTimeout(() => revalidateIfAddressChanged(root, 0), 50);
+    }
   }, true);
 
   root.addEventListener("click", async (event) => {
+    revalidateIfAddressChanged(root, 50);
+
     const button = event.target?.closest?.("button");
     if (!button || !/send via whatsapp|send via email/i.test(String(button.textContent || ""))) return;
 
