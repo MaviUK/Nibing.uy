@@ -69,7 +69,7 @@ function showInvalidAddress(root) {
     root,
     "invalid",
     "mt-3 rounded-xl border px-4 py-3 text-sm border-amber-400 bg-amber-50 text-amber-900",
-    '<div class="font-bold">Please enter your full address.</div><div class="mt-1 text-xs leading-5">Select your address from the suggestions and make sure the postcode is included.</div>'
+    '<div class="font-bold">Please enter your full address including postcode.</div><div class="mt-1 text-xs leading-5">Google suggestions are optional — you can type your address manually as long as the postcode is included.</div>'
   );
 }
 
@@ -109,11 +109,8 @@ function validateAddress(root, forceMessage = false) {
     return false;
   }
 
-  // Acceptance is still based on the towns we actually cover. This early
-  // check only rejects addresses that are unquestionably outside Northern
-  // Ireland (for example GU, EN, AL). It means an incomplete but obvious
-  // Guildford address cannot fall through to the generic "full address"
-  // warning or schedule lookup.
+  // Reject addresses that are clearly outside Northern Ireland as soon as an
+  // outward postcode is visible. Google autocomplete is NOT required.
   const outwardCode = extractOutwardCode(address);
   if (outwardCode && !outwardCode.startsWith("BT")) {
     setState(root, "outside", { address });
@@ -128,14 +125,19 @@ function validateAddress(root, forceMessage = false) {
     return false;
   }
 
-  const town = findCoveredTown(address);
-  if (!town) {
+  // Manual addresses are valid. A customer does not have to select a Google
+  // suggestion because new developments may not exist in Google yet. Once a
+  // complete BT postcode is present, allow the normal council/schedule lookup
+  // to continue. Keep the covered-town value when it is present in the text,
+  // but do not require it for manual entry.
+  if (!postcode.toUpperCase().startsWith("BT")) {
     setState(root, "outside", { address });
     showOutOfArea(root);
     return false;
   }
 
-  setState(root, "covered", { address, town });
+  const town = findCoveredTown(address);
+  setState(root, "covered", { address, town, postcode, manual: !town });
   clearGuardWarning(root);
   return true;
 }
