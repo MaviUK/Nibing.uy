@@ -49,25 +49,40 @@ function getPanel(root) {
   return root?.querySelector("[data-auto-schedule-panel]") || null;
 }
 
-function showChecking(root) {
+function renderGuardPanel(root, view, className, html) {
   const panel = getPanel(root);
   if (!panel) return;
-  panel.className = "mt-3 rounded-xl border px-4 py-3 text-sm border-gray-300 bg-gray-50 text-gray-800";
-  panel.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:12px;min-height:54px;"><div aria-hidden="true" style="width:26px;height:26px;border:3px solid #d1d5db;border-top-color:#16a34a;border-radius:9999px;animation:nbgAddressSpin .8s linear infinite;"></div><strong>Checking your address…</strong></div><style>@keyframes nbgAddressSpin{to{transform:rotate(360deg)}}</style>';
+  if (panel.dataset.serviceAreaView === view && panel.className === className && panel.innerHTML === html) return;
+  panel.dataset.serviceAreaView = view;
+  if (panel.className !== className) panel.className = className;
+  if (panel.innerHTML !== html) panel.innerHTML = html;
+}
+
+function showChecking(root) {
+  renderGuardPanel(
+    root,
+    "checking",
+    "mt-3 rounded-xl border px-4 py-3 text-sm border-gray-300 bg-gray-50 text-gray-800",
+    '<div style="display:flex;align-items:center;justify-content:center;gap:12px;min-height:54px;"><div aria-hidden="true" style="width:26px;height:26px;border:3px solid #d1d5db;border-top-color:#16a34a;border-radius:9999px;animation:nbgAddressSpin .8s linear infinite;"></div><strong>Checking your address…</strong></div><style>@keyframes nbgAddressSpin{to{transform:rotate(360deg)}}</style>'
+  );
 }
 
 function showInvalidAddress(root) {
-  const panel = getPanel(root);
-  if (!panel) return;
-  panel.className = "mt-3 rounded-xl border px-4 py-3 text-sm border-amber-400 bg-amber-50 text-amber-900";
-  panel.innerHTML = '<div class="font-bold">Please enter your full address.</div><div class="mt-1 text-xs leading-5">Select your address from the suggestions and make sure the postcode is included.</div>';
+  renderGuardPanel(
+    root,
+    "invalid",
+    "mt-3 rounded-xl border px-4 py-3 text-sm border-amber-400 bg-amber-50 text-amber-900",
+    '<div class="font-bold">Please enter your full address.</div><div class="mt-1 text-xs leading-5">Select your address from the suggestions and make sure the postcode is included.</div>'
+  );
 }
 
 function showOutOfArea(root) {
-  const panel = getPanel(root);
-  if (!panel) return;
-  panel.className = "mt-3 rounded-xl border px-4 py-3 text-sm border-red-400 bg-red-50 text-red-900";
-  panel.innerHTML = '<div class="font-bold">Sorry, we do not cover your area yet.</div><div class="mt-1 text-xs leading-5">Please check back with us in future as our service area expands.</div>';
+  renderGuardPanel(
+    root,
+    "outside",
+    "mt-3 rounded-xl border px-4 py-3 text-sm border-red-400 bg-red-50 text-red-900",
+    '<div class="font-bold">Sorry, we do not cover your area yet.</div><div class="mt-1 text-xs leading-5">Please check back with us in future as our service area expands.</div>'
+  );
 }
 
 function setState(root, status, extras = {}) {
@@ -162,7 +177,7 @@ async function validateResolvedAddress(root, forceMessage = false) {
 
 function scheduleValidation(root) {
   window.clearTimeout(validationTimer);
-  validationTimer = window.setTimeout(() => validateResolvedAddress(root, false), 500);
+  validationTimer = window.setTimeout(() => validateResolvedAddress(root, false), 700);
 }
 
 function enforceVisibleState(root) {
@@ -179,7 +194,7 @@ function bind(root) {
   setState(root, "idle");
 
   const observer = new MutationObserver(() => enforceVisibleState(root));
-  observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true });
+  observer.observe(root, { childList: true, subtree: true });
 
   root.addEventListener("input", (event) => {
     if (event.target === getAddressInput(root)) scheduleValidation(root);
