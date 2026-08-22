@@ -75,6 +75,15 @@ function showInvalidAddress(root) {
   );
 }
 
+function showAreaUnverified(root) {
+  renderGuardPanel(
+    root,
+    "invalid",
+    "mt-3 rounded-xl border px-4 py-3 text-sm border-amber-400 bg-amber-50 text-amber-900",
+    '<div class="font-bold">We couldn’t verify your service area.</div><div class="mt-1 text-xs leading-5">Please include your town and full postcode in the address, then try again.</div>'
+  );
+}
+
 function showOutOfArea(root) {
   renderGuardPanel(
     root,
@@ -125,9 +134,7 @@ function resolvePostcodeTown(postcode) {
   if (postcodeTownCache.has(postcode)) return Promise.resolve(postcodeTownCache.get(postcode));
 
   if (!window.google?.maps?.Geocoder) {
-    const unresolved = { resolved: false, covered: false, town: "" };
-    postcodeTownCache.set(postcode, unresolved);
-    return Promise.resolve(unresolved);
+    return Promise.resolve({ resolved: false, covered: false, town: "" });
   }
 
   return new Promise((resolve) => {
@@ -136,9 +143,7 @@ function resolvePostcodeTown(postcode) {
       { address: postcode, componentRestrictions: { country: "GB" } },
       (results, status) => {
         if (status !== "OK" || !Array.isArray(results) || !results.length) {
-          const unresolved = { resolved: false, covered: false, town: "" };
-          postcodeTownCache.set(postcode, unresolved);
-          resolve(unresolved);
+          resolve({ resolved: false, covered: false, town: "" });
           return;
         }
 
@@ -202,7 +207,6 @@ function validateAddress(root, forceMessage = false) {
   const townInText = findCoveredTown(address);
   const googleFormattedAddress = /,\s*UK\s*$/i.test(address);
 
-  // A Google-selected address already includes a reliable town/locality.
   if (googleFormattedAddress) {
     if (!townInText) {
       setState(root, "outside", { address, postcode });
@@ -212,23 +216,23 @@ function validateAddress(root, forceMessage = false) {
     return finishCovered(root, address, postcode, townInText, false);
   }
 
-  // Manual entry is allowed, but we validate the postcode itself to find the
-  // town. This means a brand-new street can be typed manually without Google
-  // knowing the street, while a Belfast/Lisburn/Holywood postcode cannot bypass
-  // the service-area rules simply because it starts with BT.
+  // Manual addresses in an explicitly covered town can proceed immediately.
+  // This keeps new developments working even when Google does not know the street.
+  if (townInText) {
+    return finishCovered(root, address, postcode, townInText, true);
+  }
+
+  // Otherwise the postcode must resolve successfully before scheduling starts.
+  // We deliberately do not cache failed geocoder attempts and we no longer
+  // treat an unresolved postcode as covered.
   const cached = postcodeTownCache.get(postcode);
-  if (cached) {
-    if (cached.resolved && !cached.covered) {
+  if (cached?.resolved) {
+    if (!cached.covered) {
       setState(root, "outside", { address, postcode, town: cached.locality || "" });
       showOutOfArea(root);
       return false;
     }
-    if (cached.resolved && cached.covered) {
-      return finishCovered(root, address, postcode, cached.town || townInText, true);
-    }
-    // If postcode geocoding is temporarily unavailable, keep the manual-entry
-    // fallback rather than blocking a genuine new development.
-    return finishCovered(root, address, postcode, townInText, true);
+    return finishCovered(root, address, postcode, cached.town || "", true);
   }
 
   const sequence = ++validationSequence;
@@ -240,11 +244,14 @@ function validateAddress(root, forceMessage = false) {
     const currentAddress = String(getAddressInput(root)?.value || "").trim();
     if (currentAddress !== address) return;
 
-    if (resolved.resolved && !resolved.covered) {
+    if (!resolved.resolved) {
+      setState(root, "invalid", { address, postcode });
+      showAreaUnverified(root);
+    } else if (!resolved.covered) {
       setState(root, "outside", { address, postcode, town: resolved.locality || "" });
       showOutOfArea(root);
     } else {
-      finishCovered(root, address, postcode, resolved.town || townInText, true);
+      finishCovered(root, address, postcode, resolved.town || "", true);
     }
     root.dispatchEvent(new CustomEvent("nbg-address-value-changed", { bubbles: false }));
   });
@@ -305,9 +312,6 @@ function bind(root) {
     true
   );
 
-  // Google Places updates the controlled React input programmatically and can
-  // do so without a native input/change event. Poll only the address value (not
-  // the whole DOM) so Google selections are caught without the old observer loop.
   let lastAddress = String(getAddressInput(root)?.value || "");
   const valueWatcher = window.setInterval(() => {
     if (!document.body.contains(root)) {
