@@ -98,6 +98,16 @@ function componentNames(result) {
   return (result?.address_components || []).map((component) => component.long_name).filter(Boolean);
 }
 
+function resolvedLocality(result) {
+  const components = result?.address_components || [];
+  const preferredTypes = ["postal_town", "locality", "administrative_area_level_2", "administrative_area_level_3"];
+  for (const type of preferredTypes) {
+    const match = components.find((component) => (component.types || []).includes(type));
+    if (match?.long_name) return match.long_name;
+  }
+  return "";
+}
+
 function hasFullStreetAddress(result) {
   const components = result?.address_components || [];
   const types = new Set(components.flatMap((component) => component.types || []));
@@ -166,13 +176,14 @@ async function validateResolvedAddress(root, forceMessage = false) {
   const resolved = results[0];
   const searchable = [resolved.formatted_address || "", ...componentNames(resolved)].join(" ");
   const town = findCoveredTown(searchable);
+  const locality = resolvedLocality(resolved);
   const resolvedPostcode = componentNames(resolved).find((name) => extractPostcode(name)) || extractPostcode(resolved.formatted_address || "");
 
-  // If Google has resolved a real postcode but the locality is not one of our
-  // covered towns, report it as outside the service area immediately. Do this
-  // before the stricter street-address completeness check so places such as
-  // Potters Bar are never mislabelled as an incomplete local address.
-  if (resolvedPostcode && !town) {
+  // Once Google has identified a real town/locality, reject it immediately if
+  // it is not one of the towns we cover. This deliberately happens before the
+  // full-address/postcode checks so places like St Albans or Potters Bar never
+  // get mislabelled as an incomplete local address.
+  if (locality && !town) {
     setState(root, "outside", { address });
     showOutOfArea(root);
     return false;
@@ -181,6 +192,12 @@ async function validateResolvedAddress(root, forceMessage = false) {
   if (!resolvedPostcode || !hasFullStreetAddress(resolved)) {
     setState(root, "invalid", { address });
     showInvalidAddress(root);
+    return false;
+  }
+
+  if (!town) {
+    setState(root, "outside", { address });
+    showOutOfArea(root);
     return false;
   }
 
