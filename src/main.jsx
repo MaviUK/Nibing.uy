@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './index.css';
 import './bookingScheduleBridge.js';
+import './bookingCommentsBridge.js';
 import './serviceAreaGuard.js';
 import './serviceAreaLinks.js';
 
