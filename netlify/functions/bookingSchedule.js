@@ -169,6 +169,77 @@ function chooseAreaMatchForNextTwo(round, councilDates, method = "round_lookup")
   return null;
 }
 
+function extractTown(councilAddress, postcode) {
+  const postcodeCompact = String(postcode || "").replace(/\s+/g, "");
+  const parts = String(councilAddress || "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => !postcodeCompact || part.replace(/\s+/g, "").toUpperCase() !== postcodeCompact.toUpperCase());
+
+  if (parts.length >= 2) return parts[parts.length - 1];
+  return "";
+}
+
+function totalSupportForDate(rounds, date) {
+  let total = 0;
+  const seen = new Set();
+
+  for (const round of rounds) {
+    for (const candidate of round?.candidates || []) {
+      if (candidateDate(candidate) !== date) continue;
+      const key = `${candidate.round || ""}|${candidate.anchorDate || candidateDate(candidate)}|${round.service || ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      total += Math.max(1, Number(candidate.support || 1));
+    }
+  }
+
+  return total;
+}
+
+async function chooseTownWorkloadMatch(origin, postcode, town, councilDates) {
+  const nextTwo = nextTwoCouncilDates(councilDates);
+  if (!town || !nextTwo.length) return null;
+
+  const services = ["Black", "Blue", "Brown"];
+  const townRounds = [];
+
+  for (const service of services) {
+    const round = await getNearbyRound(origin, postcode, town, service);
+    if (round) townRounds.push({ ...round, service });
+  }
+
+  if (!townRounds.length) return null;
+
+  const scoredDates = nextTwo.map((date) => ({
+    date,
+    support: totalSupportForDate(townRounds, date),
+  }));
+
+  const viable = scoredDates
+    .filter((item) => item.support > 0)
+    .sort((a, b) => (b.support - a.support) || a.date.localeCompare(b.date));
+
+  if (!viable.length) return null;
+
+  const winner = viable[0];
+  return {
+    round: {
+      matched: true,
+      ambiguous: false,
+      resolvedBy: "town_workload_on_next_two_council_dates",
+      town,
+      nextCleanDate: winner.date,
+      councilValidationDate: winner.date,
+      support: winner.support,
+      townDateSupport: scoredDates,
+    },
+    assignedCleanDate: winner.date,
+    checkedCouncilDates: nextTwo,
+  };
+}
+
 function normalizeAddressList(payload) {
   let list = payload?.data?.addresses;
   if (!Array.isArray(list) && Array.isArray(payload?.addresses)) list = payload.addresses;
@@ -285,6 +356,7 @@ export default async function handler(req) {
       });
     }
 
+    const town = extractTown(chosen.label, postcode);
     const results = [];
 
     for (const bin of bins) {
@@ -321,6 +393,14 @@ export default async function handler(req) {
         }
       }
 
+      if (!resolved && nextTwo.length && town) {
+        const townResolved = await chooseTownWorkloadMatch(origin, postcode, town, councilDates);
+        if (townResolved) {
+          resolved = townResolved;
+          round = townResolved.round;
+        }
+      }
+
       const assigned = resolved?.assignedCleanDate || null;
 
       results.push({
@@ -328,6 +408,7 @@ export default async function handler(req) {
         councilBin,
         councilDates,
         nextTwoCouncilDates: nextTwo,
+        town,
         round,
         assignedCleanDate: assigned,
         automatic: Boolean(assigned),
@@ -339,6 +420,7 @@ export default async function handler(req) {
       postcode,
       addressSource: councilAddressLookup.source,
       councilAddress: chosen.label,
+      town,
       uprn: chosen.uprn,
       results,
     }), {
