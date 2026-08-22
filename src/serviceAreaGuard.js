@@ -149,6 +149,18 @@ async function validateResolvedAddress(root, forceMessage = false) {
     return false;
   }
 
+  // Google Autocomplete writes a formatted address into the field. Once that
+  // value already contains a valid UK postcode, use the town in that formatted
+  // address directly. This avoids a second geocode request misclassifying a
+  // perfectly valid outside-area address as incomplete.
+  const typedPostcode = extractPostcode(address);
+  const typedTown = findCoveredTown(address);
+  if (typedPostcode && !typedTown) {
+    setState(root, "outside", { address });
+    showOutOfArea(root);
+    return false;
+  }
+
   setState(root, "checking", { address });
   showChecking(root);
 
@@ -156,9 +168,7 @@ async function validateResolvedAddress(root, forceMessage = false) {
   if (sequence !== validationSequence) return false;
 
   if (results === null) {
-    const postcode = extractPostcode(address);
-    const typedTown = findCoveredTown(address);
-    if (postcode && typedTown) {
+    if (typedPostcode && typedTown) {
       setState(root, "covered", { address, town: typedTown });
       return true;
     }
@@ -179,10 +189,6 @@ async function validateResolvedAddress(root, forceMessage = false) {
   const locality = resolvedLocality(resolved);
   const resolvedPostcode = componentNames(resolved).find((name) => extractPostcode(name)) || extractPostcode(resolved.formatted_address || "");
 
-  // Once Google has identified a real town/locality, reject it immediately if
-  // it is not one of the towns we cover. This deliberately happens before the
-  // full-address/postcode checks so places like St Albans or Potters Bar never
-  // get mislabelled as an incomplete local address.
   if (locality && !town) {
     setState(root, "outside", { address });
     showOutOfArea(root);
