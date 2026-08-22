@@ -14,7 +14,6 @@ const COVERED_TOWNS = [
 const UK_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i;
 const validationState = new WeakMap();
 let validationTimer = null;
-let validationSequence = 0;
 
 function extractPostcode(address) {
   const match = String(address || "").toUpperCase().match(UK_POSTCODE_RE);
@@ -37,7 +36,9 @@ function findCoveredTown(value) {
 }
 
 function findBookingRoot() {
-  const heading = Array.from(document.querySelectorAll("h2")).find((node) => /book a bin clean/i.test(node.textContent || ""));
+  const heading = Array.from(document.querySelectorAll("h2")).find((node) =>
+    /book a bin clean/i.test(node.textContent || "")
+  );
   return heading?.closest(".p-6") || heading?.parentElement || null;
 }
 
@@ -52,19 +53,9 @@ function getPanel(root) {
 function renderGuardPanel(root, view, className, html) {
   const panel = getPanel(root);
   if (!panel) return;
-  if (panel.dataset.serviceAreaView === view && panel.className === className && panel.innerHTML === html) return;
   panel.dataset.serviceAreaView = view;
-  if (panel.className !== className) panel.className = className;
-  if (panel.innerHTML !== html) panel.innerHTML = html;
-}
-
-function showChecking(root) {
-  renderGuardPanel(
-    root,
-    "checking",
-    "mt-3 rounded-xl border px-4 py-3 text-sm border-gray-300 bg-gray-50 text-gray-800",
-    '<div style="display:flex;align-items:center;justify-content:center;gap:12px;min-height:54px;"><div aria-hidden="true" style="width:26px;height:26px;border:3px solid #d1d5db;border-top-color:#16a34a;border-radius:9999px;animation:nbgAddressSpin .8s linear infinite;"></div><strong>Checking your address…</strong></div><style>@keyframes nbgAddressSpin{to{transform:rotate(360deg)}}</style>'
-  );
+  panel.className = className;
+  panel.innerHTML = html;
 }
 
 function showInvalidAddress(root) {
@@ -85,6 +76,15 @@ function showOutOfArea(root) {
   );
 }
 
+function clearGuardWarning(root) {
+  const panel = getPanel(root);
+  if (!panel || !panel.dataset.serviceAreaView) return;
+
+  delete panel.dataset.serviceAreaView;
+  panel.className = "mt-3 rounded-xl border px-4 py-3 text-sm border-gray-200 bg-gray-50 text-gray-800";
+  panel.innerHTML = '<div class="font-bold">Next Clean Date</div><div class="mt-1 text-xs leading-5">Please fill in the above to show date.</div>';
+}
+
 function setState(root, status, extras = {}) {
   const next = { status, town: "", address: "", ...extras };
   validationState.set(root, next);
@@ -94,113 +94,23 @@ function setState(root, status, extras = {}) {
   return next;
 }
 
-function componentNames(result) {
-  return (result?.address_components || []).map((component) => component.long_name).filter(Boolean);
-}
-
-function resolvedLocality(result) {
-  const components = result?.address_components || [];
-  const preferredTypes = ["postal_town", "locality", "administrative_area_level_2", "administrative_area_level_3"];
-  for (const type of preferredTypes) {
-    const match = components.find((component) => (component.types || []).includes(type));
-    if (match?.long_name) return match.long_name;
-  }
-  return "";
-}
-
-function hasFullStreetAddress(result) {
-  const components = result?.address_components || [];
-  const types = new Set(components.flatMap((component) => component.types || []));
-  const hasNumber = types.has("street_number") || types.has("premise") || types.has("subpremise");
-  const hasStreet = types.has("route");
-  return hasNumber && hasStreet;
-}
-
-function resolveWithGoogle(address) {
-  return new Promise((resolve) => {
-    if (!window.google?.maps?.Geocoder) {
-      resolve(null);
-      return;
-    }
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode({ address, componentRestrictions: { country: "GB" } }, (results, status) => {
-      if (status !== "OK" || !Array.isArray(results) || !results.length) {
-        resolve([]);
-        return;
-      }
-      resolve(results);
-    });
-  });
-}
-
-async function validateResolvedAddress(root, forceMessage = false) {
+function validateAddress(root, forceMessage = false) {
   if (!root) return false;
-  const address = String(getAddressInput(root)?.value || "").trim();
-  const sequence = ++validationSequence;
 
+  const address = String(getAddressInput(root)?.value || "").trim();
   if (!address) {
     setState(root, "idle", { address });
     return false;
   }
 
-  if (address.length < 7) {
+  const postcode = extractPostcode(address);
+  if (!postcode) {
     setState(root, "invalid", { address });
-    if (forceMessage || address.length > 5) showInvalidAddress(root);
+    if (forceMessage || address.length >= 7) showInvalidAddress(root);
     return false;
   }
 
-  // Google Autocomplete writes a formatted address into the field. Once that
-  // value already contains a valid UK postcode, use the town in that formatted
-  // address directly. This avoids a second geocode request misclassifying a
-  // perfectly valid outside-area address as incomplete.
-  const typedPostcode = extractPostcode(address);
-  const typedTown = findCoveredTown(address);
-  if (typedPostcode && !typedTown) {
-    setState(root, "outside", { address });
-    showOutOfArea(root);
-    return false;
-  }
-
-  setState(root, "checking", { address });
-  showChecking(root);
-
-  const results = await resolveWithGoogle(address);
-  if (sequence !== validationSequence) return false;
-
-  if (results === null) {
-    if (typedPostcode && typedTown) {
-      setState(root, "covered", { address, town: typedTown });
-      return true;
-    }
-    setState(root, "invalid", { address });
-    showInvalidAddress(root);
-    return false;
-  }
-
-  if (!results.length) {
-    setState(root, "invalid", { address });
-    showInvalidAddress(root);
-    return false;
-  }
-
-  const resolved = results[0];
-  const searchable = [resolved.formatted_address || "", ...componentNames(resolved)].join(" ");
-  const town = findCoveredTown(searchable);
-  const locality = resolvedLocality(resolved);
-  const resolvedPostcode = componentNames(resolved).find((name) => extractPostcode(name)) || extractPostcode(resolved.formatted_address || "");
-
-  if (locality && !town) {
-    setState(root, "outside", { address });
-    showOutOfArea(root);
-    return false;
-  }
-
-  if (!resolvedPostcode || !hasFullStreetAddress(resolved)) {
-    setState(root, "invalid", { address });
-    showInvalidAddress(root);
-    return false;
-  }
-
+  const town = findCoveredTown(address);
   if (!town) {
     setState(root, "outside", { address });
     showOutOfArea(root);
@@ -208,26 +118,13 @@ async function validateResolvedAddress(root, forceMessage = false) {
   }
 
   setState(root, "covered", { address, town });
+  clearGuardWarning(root);
   return true;
 }
 
-function scheduleValidation(root, delay = 700) {
+function scheduleValidation(root, delay = 350) {
   window.clearTimeout(validationTimer);
-  validationTimer = window.setTimeout(() => validateResolvedAddress(root, false), delay);
-}
-
-function enforceVisibleState(root) {
-  const state = validationState.get(root);
-  if (!state) return;
-  if (state.status === "outside") showOutOfArea(root);
-  if (state.status === "invalid") showInvalidAddress(root);
-  if (state.status === "checking") showChecking(root);
-}
-
-function revalidateIfAddressChanged(root, delay = 50) {
-  const address = String(getAddressInput(root)?.value || "").trim();
-  const state = validationState.get(root);
-  if (!state || state.address !== address) scheduleValidation(root, delay);
+  validationTimer = window.setTimeout(() => validateAddress(root, false), delay);
 }
 
 function bind(root) {
@@ -235,38 +132,49 @@ function bind(root) {
   root.dataset.serviceAreaGuardBound = "true";
   setState(root, "idle");
 
-  const observer = new MutationObserver(() => enforceVisibleState(root));
-  observer.observe(root, { childList: true, subtree: true });
+  root.addEventListener(
+    "input",
+    (event) => {
+      if (event.target === getAddressInput(root)) scheduleValidation(root);
+    },
+    true
+  );
 
-  root.addEventListener("input", (event) => {
-    if (event.target === getAddressInput(root)) scheduleValidation(root);
-  }, true);
-  root.addEventListener("change", (event) => {
-    if (event.target === getAddressInput(root)) scheduleValidation(root, 100);
-  }, true);
-  root.addEventListener("focusout", (event) => {
-    if (event.target === getAddressInput(root)) {
-      window.setTimeout(() => revalidateIfAddressChanged(root, 0), 50);
-    }
-  }, true);
+  root.addEventListener(
+    "change",
+    (event) => {
+      if (event.target === getAddressInput(root)) scheduleValidation(root, 50);
+    },
+    true
+  );
 
-  root.addEventListener("click", async (event) => {
-    revalidateIfAddressChanged(root, 50);
+  root.addEventListener(
+    "focusout",
+    (event) => {
+      if (event.target === getAddressInput(root)) {
+        window.setTimeout(() => validateAddress(root, false), 50);
+      }
+    },
+    true
+  );
 
-    const button = event.target?.closest?.("button");
-    if (!button || !/send via whatsapp|send via email/i.test(String(button.textContent || ""))) return;
+  root.addEventListener(
+    "click",
+    (event) => {
+      const button = event.target?.closest?.("button");
+      if (!button || !/send via whatsapp|send via email/i.test(String(button.textContent || ""))) return;
 
-    const state = validationState.get(root);
-    if (state?.status === "covered" && state.address === String(getAddressInput(root)?.value || "").trim()) return;
+      if (validateAddress(root, true)) return;
 
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation?.();
-    const valid = await validateResolvedAddress(root, true);
-    if (!valid) getAddressInput(root)?.focus();
-  }, true);
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      getAddressInput(root)?.focus();
+    },
+    true
+  );
 
-  scheduleValidation(root);
+  scheduleValidation(root, 100);
 }
 
 function tryBind() {
@@ -274,12 +182,16 @@ function tryBind() {
   if (root) bind(root);
 }
 
-document.addEventListener("click", (event) => {
-  const target = event.target?.closest?.("button, a");
-  if (!target) return;
-  const text = String(target.textContent || "").trim();
-  if (/book a clean|book a bin clean/i.test(text) || target.dataset?.openBookingForm === "true") {
-    window.setTimeout(tryBind, 0);
-    window.setTimeout(tryBind, 100);
-  }
-}, true);
+document.addEventListener(
+  "click",
+  (event) => {
+    const target = event.target?.closest?.("button, a");
+    if (!target) return;
+    const text = String(target.textContent || "").trim();
+    if (/book a clean|book a bin clean/i.test(text) || target.dataset?.openBookingForm === "true") {
+      window.setTimeout(tryBind, 0);
+      window.setTimeout(tryBind, 100);
+    }
+  },
+  true
+);
