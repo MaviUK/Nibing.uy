@@ -21,13 +21,18 @@ if (DEBUG_ENABLED) {
     return panel;
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[character]);
+  }
+
   function row(label, value) {
     const safe = value === undefined || value === null || value === '' ? '—' : value;
-    return `<div><strong>${label}:</strong> ${String(safe)}</div>`;
+    return `<div><strong>${escapeHtml(label)}:</strong> ${escapeHtml(safe)}</div>`;
   }
 
   function renderDebug(requestBody, data, status) {
-    // The normal scheduler may still be rendering when fetch resolves.
     window.setTimeout(() => {
       const panel = ensureDebugPanel();
       if (!panel) return;
@@ -38,6 +43,8 @@ if (DEBUG_ENABLED) {
       html += row('Entered address', requestBody?.address);
       html += row('Postcode', data?.postcode || requestBody?.postcode);
       html += row('Address source', data?.addressSource);
+      html += row('Requested property number', data?.requestedPropertyNumber);
+      html += row('Address match method', data?.addressMatchMethod);
       html += row('Council address', data?.councilAddress);
       html += row('UPRN', data?.uprn);
       html += row('Town', data?.town);
@@ -45,6 +52,14 @@ if (DEBUG_ENABLED) {
       html += row('Overall matched', data?.matched);
       if (data?.reason) html += row('FAIL reason', data.reason);
       if (data?.error) html += row('ERROR', data.error);
+
+      const candidates = Array.isArray(data?.candidates) ? data.candidates : [];
+      if (candidates.length) {
+        html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #c4b5fd"><strong>Council candidates</strong></div>';
+        candidates.forEach((candidate, index) => {
+          html += row(`Candidate ${index + 1}`, `${candidate?.label || '—'} | score ${candidate?.score ?? '—'} | UPRN ${candidate?.uprn || '—'}`);
+        });
+      }
 
       results.forEach((result, index) => {
         html += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #c4b5fd"><strong>Bin ${index + 1}</strong></div>`;
