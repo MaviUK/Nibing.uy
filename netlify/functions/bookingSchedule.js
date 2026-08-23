@@ -1,3 +1,5 @@
+import townSchedule from "./data/townScheduleData.js";
+
 function normalizePostcode(value) {
   const compact = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   return compact.length > 3 ? `${compact.slice(0, -3)} ${compact.slice(-3)}` : compact;
@@ -109,7 +111,7 @@ function parseCouncilDates(html, wantedBin) {
     start += alias.length;
     let end = text.length;
     for (const heading of allHeadings) {
-      let pos = text.indexOf(heading, start);
+      const pos = text.indexOf(heading, start);
       if (pos >= 0 && pos < end) end = pos;
     }
     return text.slice(start, end);
@@ -160,7 +162,6 @@ function parseCouncilDates(html, wantedBin) {
 }
 
 const DAY_MS = 86400000;
-const MAX_AREA_DISTANCE_METERS = 1800;
 
 function nextTwoCouncilDates(councilDates) {
   const today = new Date();
@@ -174,113 +175,42 @@ function nextTwoCouncilDates(councilDates) {
     .slice(0, 2);
 }
 
-function candidateDate(candidate) {
-  return candidate?.nextCleanDate || candidate?.assignedCleanDate || null;
+function normalizeTown(value) {
+  return String(value || "")
+    .toUpperCase()
+    .replace(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b.*$/i, "")
+    .replace(/\b[A-Z]{1,2}\d[A-Z\d]?\b.*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-function chooseAreaMatchForNextTwo(round, councilDates, method = "round_lookup") {
-  const nextTwo = nextTwoCouncilDates(councilDates);
-  if (!nextTwo.length || !round) return null;
-
-  const candidates = [];
-
-  if (round.matched) {
-    const date = candidateDate(round);
-    if (date) {
-      candidates.push({
-        ...round,
-        nextCleanDate: date,
-        nearestDistanceMeters: Number(round.nearestDistanceMeters ?? 0),
-      });
-    }
-  }
-
-  if (Array.isArray(round.candidates)) {
-    for (const candidate of round.candidates) {
-      const date = candidateDate(candidate);
-      if (!date) continue;
-      candidates.push({ ...candidate, nextCleanDate: date });
-    }
-  }
-
-  for (const councilDate of nextTwo) {
-    const matches = candidates
-      .filter((candidate) => candidate.nextCleanDate === councilDate)
-      .filter((candidate) => Number(candidate.nearestDistanceMeters ?? Infinity) <= MAX_AREA_DISTANCE_METERS)
-      .sort((a, b) => Number(a.nearestDistanceMeters ?? Infinity) - Number(b.nearestDistanceMeters ?? Infinity));
-
-    if (!matches.length) continue;
-
-    const winner = matches[0];
-    return {
-      round: {
-        ...round,
-        matched: true,
-        ambiguous: false,
-        resolvedBy: "next_two_council_dates_area_match",
-        sourceMethod: method,
-        round: winner.round ?? round.round,
-        anchorDate: winner.anchorDate ?? round.anchorDate,
-        nextCleanDate: councilDate,
-        councilValidationDate: councilDate,
-        nearestDistanceMeters: winner.nearestDistanceMeters,
-        support: winner.support,
-        candidates: round.candidates,
-      },
-      assignedCleanDate: councilDate,
-      checkedCouncilDates: nextTwo,
-    };
-  }
-
-  return null;
+function extractTown(address) {
+  const parts = String(address || "").split(",").map((part) => part.trim()).filter(Boolean);
+  return parts.length >= 2 ? normalizeTown(parts[1]) : "";
 }
 
-function extractTown(councilAddress, postcode) {
-  const postcodeCompact = String(postcode || "").replace(/\s+/g, "");
-  const parts = String(councilAddress || "")
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .filter((part) => !postcodeCompact || part.replace(/\s+/g, "").toUpperCase() !== postcodeCompact.toUpperCase());
+function scheduledTownCount(town, date) {
+  const rows = townSchedule[normalizeTown(town)] || [];
+  const target = new Date(`${date}T12:00:00Z`).getTime();
+  if (!Number.isFinite(target)) return 0;
 
-  if (parts.length >= 2) return parts[parts.length - 1];
-  return "";
-}
-
-function totalSupportForDate(rounds, date) {
   let total = 0;
-  const seen = new Set();
-
-  for (const round of rounds) {
-    for (const candidate of round?.candidates || []) {
-      if (candidateDate(candidate) !== date) continue;
-      const key = `${candidate.round || ""}|${candidate.anchorDate || candidateDate(candidate)}|${round.service || ""}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      total += Math.max(1, Number(candidate.support || 1));
-    }
+  for (const [anchorDate, frequencyWeeks, support] of rows) {
+    const anchor = new Date(`${anchorDate}T12:00:00Z`).getTime();
+    const period = Math.max(1, Number(frequencyWeeks) || 4) * 7 * DAY_MS;
+    if (!Number.isFinite(anchor) || target < anchor) continue;
+    if ((target - anchor) % period === 0) total += Math.max(1, Number(support) || 1);
   }
-
   return total;
 }
 
-async function chooseTownWorkloadMatch(origin, postcode, town, councilDates) {
+function chooseTownWorkloadMatch(town, councilDates) {
   const nextTwo = nextTwoCouncilDates(councilDates);
   if (!town || !nextTwo.length) return null;
 
-  const services = ["Black", "Blue", "Brown"];
-  const townRounds = [];
-
-  for (const service of services) {
-    const round = await getNearbyRound(origin, postcode, town, service);
-    if (round) townRounds.push({ ...round, service });
-  }
-
-  if (!townRounds.length) return null;
-
   const scoredDates = nextTwo.map((date) => ({
     date,
-    support: totalSupportForDate(townRounds, date),
+    support: scheduledTownCount(town, date),
   }));
 
   const viable = scoredDates
@@ -294,8 +224,8 @@ async function chooseTownWorkloadMatch(origin, postcode, town, councilDates) {
     round: {
       matched: true,
       ambiguous: false,
-      resolvedBy: "town_workload_on_next_two_council_dates",
-      town,
+      resolvedBy: "exact_town_workload_on_next_two_council_dates",
+      town: normalizeTown(town),
       nextCleanDate: winner.date,
       councilValidationDate: winner.date,
       support: winner.support,
@@ -335,24 +265,6 @@ async function getCouncilAddresses(origin, postcode) {
     : [];
 
   return { source: "binLookup", addresses: fallbackRes.ok ? fallbackAddresses : [] };
-}
-
-async function getNearbyRound(origin, postcode, address, bin) {
-  const u = new URL("/api/nearby-round-lookup", origin);
-  u.searchParams.set("postcode", postcode);
-  u.searchParams.set("address", address);
-  u.searchParams.set("bin", String(bin));
-  const r = await fetch(u);
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok || !Array.isArray(data.candidates) || !data.candidates.length) return null;
-  return {
-    matched: false,
-    ambiguous: true,
-    confidence: "nearby",
-    method: data.method,
-    locationSource: data.locationSource,
-    candidates: data.candidates,
-  };
 }
 
 export default async function handler(req) {
@@ -422,7 +334,10 @@ export default async function handler(req) {
       });
     }
 
-    const town = extractTown(chosen.label, postcode);
+    // The Squeegee export stores the town/locality immediately after the first comma.
+    // Use the same rule against the council-selected address so Portaferry remains
+    // Portaferry rather than being widened to Newtownards, Bangor, etc.
+    const town = extractTown(chosen.label || address) || extractTown(address);
     const results = [];
 
     for (const bin of bins) {
@@ -430,43 +345,7 @@ export default async function handler(req) {
       const councilBin = normalizeBin(binName);
       const councilDates = parseCouncilDates(calData.html, councilBin);
       const nextTwo = nextTwoCouncilDates(councilDates);
-
-      const roundUrl = new URL("/api/round-lookup", origin);
-      roundUrl.searchParams.set("postcode", postcode);
-      roundUrl.searchParams.set("address", address);
-      roundUrl.searchParams.set("bin", String(binName));
-
-      const roundResponse = await fetch(roundUrl);
-      const rawRound = await roundResponse.json().catch(() => ({}));
-
-      let resolved = chooseAreaMatchForNextTwo(rawRound, councilDates, rawRound?.method || "round_lookup");
-      let round = resolved?.round || rawRound;
-
-      if (!resolved && nextTwo.length) {
-        const nearbyRound = await getNearbyRound(origin, postcode, chosen.label || address, binName);
-        if (nearbyRound) {
-          const nearbyResolved = chooseAreaMatchForNextTwo(
-            nearbyRound,
-            councilDates,
-            nearbyRound.method || "nearby_round_lookup"
-          );
-          if (nearbyResolved) {
-            resolved = nearbyResolved;
-            round = nearbyResolved.round;
-          } else if (!rawRound?.matched) {
-            round = nearbyRound;
-          }
-        }
-      }
-
-      if (!resolved && nextTwo.length && town) {
-        const townResolved = await chooseTownWorkloadMatch(origin, postcode, town, councilDates);
-        if (townResolved) {
-          resolved = townResolved;
-          round = townResolved.round;
-        }
-      }
-
+      const resolved = chooseTownWorkloadMatch(town, councilDates);
       const assigned = resolved?.assignedCleanDate || null;
 
       results.push({
@@ -475,7 +354,12 @@ export default async function handler(req) {
         councilDates,
         nextTwoCouncilDates: nextTwo,
         town,
-        round,
+        round: resolved?.round || {
+          matched: false,
+          resolvedBy: "no_exact_town_work_on_next_two_council_dates",
+          town,
+          townDateSupport: nextTwo.map((date) => ({ date, support: scheduledTownCount(town, date) })),
+        },
         assignedCleanDate: assigned,
         automatic: Boolean(assigned),
       });
