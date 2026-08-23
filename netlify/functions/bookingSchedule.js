@@ -58,10 +58,53 @@ function parseCouncilDates(html, wantedBin) {
   const lr = /\b(\d{1,2})\s+(JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\s+(20\d{2})\b/g;
   const sr = /\b(?:MON|TUE|TUES|WED|THU|THUR|THURS|FRI|SAT|SUN)\s+(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)(?:\s+(20\d{2}))?\b/g;
   const now = new Date();
+
+  function ukToday() {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/London",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day)));
+  }
+
   function makeDate(d,m,y){ const mo=mn[m]; if(mo==null)return null; let yr=y?Number(y):now.getUTCFullYear(); let dt=new Date(Date.UTC(yr,mo,Number(d))); if(!y&&dt.getTime()<now.getTime()-120*86400000){yr+=1;dt=new Date(Date.UTC(yr,mo,Number(d)));} return dt; }
   function nextAlternateDate(firstDate,targetWeekday){ const approx=new Date(firstDate.getTime()+14*86400000); if(!Number.isInteger(targetWeekday))return approx; const currentWeekday=approx.getUTCDay(); let shift=targetWeekday-currentWeekday; if(shift>3)shift-=7;if(shift<-3)shift+=7; const adjusted=new Date(approx.getTime()+shift*86400000); return adjusted.getTime()>firstDate.getTime()?adjusted:approx; }
   function findSection(alias){ let start=text.indexOf(alias);if(start<0)return "";start+=alias.length;let end=text.length;for(const heading of allHeadings){const pos=text.indexOf(heading,start);if(pos>=0&&pos<end)end=pos;}return text.slice(start,end); }
-  for(const alias of aliases){ const section=findSection(alias);if(!section)continue;const found=[];let match;lr.lastIndex=0;while((match=lr.exec(section))){const date=makeDate(match[1],match[2],match[3]);if(date)found.push(date);}sr.lastIndex=0;while((match=sr.exec(section))){const date=makeDate(match[1],match[2],match[3]);if(date)found.push(date);}const unique=[...new Map(found.map((date)=>[date.toISOString().slice(0,10),date])).values()].sort((a,b)=>a.getTime()-b.getTime());if(!unique.length)continue;const first=unique[0];const dates=[first];if(unique.length>1){dates.push(unique[1]);}else{const recurrence=section.match(/EVERY\s+ALTERNATE\s+(MON(?:DAY)?|TUE(?:S|SDAY)?|WED(?:NESDAY)?|THU(?:R|RS|RSDAY)?|FRI(?:DAY)?|SAT(?:URDAY)?|SUN(?:DAY)?)/i);if(recurrence){const key=recurrence[1].toUpperCase();const targetWeekday=weekdayNumber[key]??weekdayNumber[key.slice(0,3)];dates.push(nextAlternateDate(first,targetWeekday));}}return [...new Set(dates.map((date)=>date.toISOString().slice(0,10)))].sort(); }
+
+  for(const alias of aliases){
+    const section=findSection(alias);
+    if(!section)continue;
+    const found=[];
+    let match;
+
+    const today = ukToday();
+    if (/\bTODAY\b/.test(section)) found.push(new Date(today.getTime()));
+    if (/\bTOMORROW\b/.test(section)) found.push(new Date(today.getTime() + 86400000));
+
+    lr.lastIndex=0;
+    while((match=lr.exec(section))){const date=makeDate(match[1],match[2],match[3]);if(date)found.push(date);}
+    sr.lastIndex=0;
+    while((match=sr.exec(section))){const date=makeDate(match[1],match[2],match[3]);if(date)found.push(date);}
+
+    const unique=[...new Map(found.map((date)=>[date.toISOString().slice(0,10),date])).values()].sort((a,b)=>a.getTime()-b.getTime());
+    if(!unique.length)continue;
+    const first=unique[0];
+    const dates=[first];
+    if(unique.length>1){
+      dates.push(unique[1]);
+    }else{
+      const recurrence=section.match(/EVERY\s+ALTERNATE\s+(MON(?:DAY)?|TUE(?:S|SDAY)?|WED(?:NESDAY)?|THU(?:R|RS|RSDAY)?|FRI(?:DAY)?|SAT(?:URDAY)?|SUN(?:DAY)?)/i);
+      if(recurrence){
+        const key=recurrence[1].toUpperCase();
+        const targetWeekday=weekdayNumber[key]??weekdayNumber[key.slice(0,3)];
+        dates.push(nextAlternateDate(first,targetWeekday));
+      }
+    }
+    return [...new Set(dates.map((date)=>date.toISOString().slice(0,10)))].sort();
+  }
   return [];
 }
 
