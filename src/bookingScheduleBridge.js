@@ -213,8 +213,14 @@ function render(root, state, data = null) {
     panel.innerHTML = `<div class="font-bold">✓ Great! We have space, your booking will be confirm for the following date;</div>${rows}${cycleNote}`;
     return;
   }
+
+  const councilAddressMissing = data?.reason === "council_address_not_found" || data?.reason === "council_address_ambiguous";
   panel.classList.add("border-amber-400", "bg-amber-50", "text-amber-900");
-  panel.innerHTML = '<div class="font-bold">We need to confirm your first clean date</div><div class="mt-1 text-xs leading-5">You can still submit your booking. We’ll confirm the date manually rather than risk giving you the wrong one.</div>';
+  if (councilAddressMissing) {
+    panel.innerHTML = '<div class="font-bold">We couldn’t find this exact address on the council system</div><div class="mt-1 text-xs leading-5">That’s okay — you can still send your booking through. We’ll check the address and confirm your first clean date manually.</div>';
+  } else {
+    panel.innerHTML = '<div class="font-bold">We need to confirm your first clean date</div><div class="mt-1 text-xs leading-5">You can still submit your booking. We’ll confirm the date manually rather than risk giving you the wrong one.</div>';
+  }
 }
 
 async function runLookup(root) {
