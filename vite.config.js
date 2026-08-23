@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
@@ -109,6 +110,14 @@ function niBinGuyLcpLogoDiscovery() {
 }
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        streetBooking: resolve(__dirname, 'street-booking.html')
+      }
+    }
+  },
   plugins: [
     niBinGuyPriceOverrides(),
     niBinGuyLayoutStability(),
