@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Street Signup | Ni Bin Guy</title>
+  <meta name="description" content="Ni Bin Guy street customer signup" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#050505" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="Street Signup" />
+
+  <link rel="manifest" href="/street-signup.webmanifest?v=20260823-1" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/street-signup-192.png?v=20260823-1" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/street-signup-512.png?v=20260823-1" />
+  <link rel="shortcut icon" type="image/png" href="/street-signup-192.png?v=20260823-1" />
+  <link rel="apple-touch-icon" sizes="192x192" href="/street-signup-192.png?v=20260823-1" />
+  <link rel="preload" as="image" href="/logo.webp" type="image/webp" fetchpriority="high" />
+
+  <style>
+    html { background: #050505; }
+    body { margin: 0; background: #050505; }
+    #site-menu-toggle { position: fixed; top: 14px; right: 14px; z-index: 40; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.28); border-radius: 14px; background: rgba(24,24,27,0.92); color: white; cursor: pointer; box-shadow: 0 12px 30px rgba(0,0,0,0.35); }
+    #site-menu-toggle span, #site-menu-toggle span::before, #site-menu-toggle span::after { display: block; width: 22px; height: 2px; background: #4ade80; border-radius: 999px; content: ""; position: relative; }
+    #site-menu-toggle span::before { position: absolute; top: -7px; left: 0; }
+    #site-menu-toggle span::after { position: absolute; top: 7px; left: 0; }
+    #site-section-menu { position: fixed; top: 68px; right: 14px; z-index: 39; width: max-content; max-width: calc(100vw - 28px); padding: 12px; border: 1px solid rgba(255,255,255,0.22); border-radius: 18px; background: rgba(24,24,27,0.97); box-shadow: 0 18px 42px rgba(0,0,0,0.44); text-align: right; display: none; }
+    #site-section-menu[data-open="true"] { display: block; }
+    #site-section-menu a { display: block; padding: 12px 13px; border-radius: 12px; color: white; text-decoration: none; font: 700 16px/1.2 system-ui, sans-serif; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <button id="site-menu-toggle" type="button" aria-label="Open website menu" aria-controls="site-section-menu" aria-expanded="false"><span aria-hidden="true"></span></button>
+  <nav id="site-section-menu" aria-label="Website sections" data-open="false">
+    <a href="/">Main website</a>
+  </nav>
+
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+  <script src="/site-tracking.js?v=20260823-1" defer></script>
+  <script>
+    (function () {
+      var button = document.getElementById('site-menu-toggle');
+      var menu = document.getElementById('site-section-menu');
+      if (!button || !menu) return;
+      button.addEventListener('click', function () {
+        var open = menu.getAttribute('data-open') !== 'true';
+        menu.setAttribute('data-open', open ? 'true' : 'false');
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      document.addEventListener('click', function (event) {
+        if (!menu.contains(event.target) && !button.contains(event.target)) {
+          menu.setAttribute('data-open', 'false');
+          button.setAttribute('aria-expanded', 'false');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
