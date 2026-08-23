@@ -28,6 +28,10 @@ function normAddress(value) {
     .trim();
 }
 
+function propertyNumber(value) {
+  return String(value || "").trim().toUpperCase().match(/^(\d+[A-Z]?)(?:\b|\s)/)?.[1] || "";
+}
+
 function addressScore(wanted, candidate) {
   const a = normAddress(wanted);
   const b = normAddress(candidate);
@@ -124,14 +128,34 @@ export default async function handler(req){
   if(!address||!postcode||!bins.length)return new Response(JSON.stringify({error:"address, postcode and bins are required"}),{status:400,headers:{"Content-Type":"application/json"}});
   const origin=new URL(req.url).origin;const councilAddressLookup=await getCouncilAddresses(origin,postcode);
   if(!councilAddressLookup.addresses.length)return new Response(JSON.stringify({matched:false,reason:"council_address_not_found",postcode,addressSource:councilAddressLookup.source}),{status:200,headers:{"Content-Type":"application/json"}});
-  const ranked=councilAddressLookup.addresses.map((a)=>({...a,score:addressScore(address,a.label)})).sort((a,b)=>b.score-a.score);const chosen=ranked[0];const runnerUp=ranked[1];
-  const confidentMatch=chosen&&(chosen.score>=20||(chosen.score>=5&&(!runnerUp||chosen.score>runnerUp.score)));
-  if(!confidentMatch)return new Response(JSON.stringify({matched:false,reason:"council_address_ambiguous",addressSource:councilAddressLookup.source,candidates:ranked.slice(0,3)}),{status:200,headers:{"Content-Type":"application/json"}});
+
+  const requestedNumber=propertyNumber(address);
+  const numberMatches=requestedNumber?councilAddressLookup.addresses.filter((candidate)=>propertyNumber(candidate.label)===requestedNumber):[];
+  let ranked=[];
+  let chosen=null;
+  let confidentMatch=false;
+  let addressMatchMethod="fuzzy_address";
+
+  if(numberMatches.length===1){
+    chosen={...numberMatches[0],score:100};
+    ranked=[chosen];
+    confidentMatch=true;
+    addressMatchMethod="house_number_plus_postcode";
+  }else{
+    const pool=numberMatches.length>1?numberMatches:councilAddressLookup.addresses;
+    ranked=pool.map((candidate)=>({...candidate,score:addressScore(address,candidate.label)})).sort((a,b)=>b.score-a.score);
+    chosen=ranked[0];
+    const runnerUp=ranked[1];
+    confidentMatch=Boolean(chosen&&(chosen.score>=20||(chosen.score>=5&&(!runnerUp||chosen.score>runnerUp.score))));
+    addressMatchMethod=numberMatches.length>1?"house_number_postcode_then_street_tiebreak":"fuzzy_address";
+  }
+
+  if(!confidentMatch)return new Response(JSON.stringify({matched:false,reason:"council_address_ambiguous",postcode,addressSource:councilAddressLookup.source,requestedPropertyNumber:requestedNumber,addressMatchMethod,candidates:ranked.slice(0,5)}),{status:200,headers:{"Content-Type":"application/json"}});
   const calRes=await fetch(new URL(`/.netlify/functions/binCalendar?uprn=${encodeURIComponent(chosen.uprn)}`,origin));const calData=await calRes.json().catch(()=>({}));
   if(!calRes.ok||!calData.html)return new Response(JSON.stringify({matched:false,reason:"council_calendar_failed",addressSource:councilAddressLookup.source,councilAddress:chosen.label,uprn:chosen.uprn}),{status:200,headers:{"Content-Type":"application/json"}});
   const postcodeTown=inferTownFromPostcodeAddresses(councilAddressLookup.addresses);const town=extractTown(chosen.label)||postcodeTown||extractTown(address);const results=[];
   for(const bin of bins){const binName=bin.type||bin;const councilBin=normalizeBin(binName);const councilDates=parseCouncilDates(calData.html,councilBin);const nextTwo=nextTwoCouncilDates(councilDates);const resolved=chooseTownWorkloadMatch(town,councilDates);const assigned=resolved?.assignedCleanDate||null;results.push({bin:binName,councilBin,councilDates,nextTwoCouncilDates:nextTwo,town,round:resolved?.round||{matched:false,resolvedBy:"no_exact_town_work_on_next_two_council_dates",town,townDateSupport:nextTwo.map((date)=>({date,support:scheduledTownCount(town,date)}))},assignedCleanDate:assigned,automatic:Boolean(assigned)});}
-  return new Response(JSON.stringify({matched:results.every((r)=>r.automatic),postcode,addressSource:councilAddressLookup.source,councilAddress:chosen.label,town,townSource:extractTown(chosen.label)?"matched_council_address":"postcode_council_addresses",uprn:chosen.uprn,results}),{headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
+  return new Response(JSON.stringify({matched:results.every((r)=>r.automatic),postcode,addressSource:councilAddressLookup.source,addressMatchMethod,requestedPropertyNumber:requestedNumber,councilAddress:chosen.label,town,townSource:extractTown(chosen.label)?"matched_council_address":"postcode_council_addresses",uprn:chosen.uprn,results}),{headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
  }catch(error){return new Response(JSON.stringify({error:error?.message||"Booking schedule failed"}),{status:500,headers:{"Content-Type":"application/json"}});}
 }
 export const config={path:"/api/booking-schedule"};
