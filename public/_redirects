@@ -14,7 +14,7 @@
 # Explicit SPA routes only. Unknown URLs are intentionally left unmatched so
 # Netlify serves public/404.html with a real HTTP 404 status instead of the
 # homepage with a 200 status (soft 404).
-/street-booking /street-booking.html 200
+/street-booking /street-booking/ 301!
 /street-booking/ /street-booking.html 200
 /standee/* /index.html 200
 /admin /index.html 200
