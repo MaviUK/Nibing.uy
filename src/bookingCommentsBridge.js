@@ -29,55 +29,24 @@ function getComments() {
   return String(document.querySelector('[data-booking-comments-input]')?.value || '').trim();
 }
 
-function bookingDetailsFromDom() {
-  const root = findBookingRoot();
-  if (!root) return {};
-  return {
-    name: root.querySelector('input[placeholder="Your Name"]')?.value || '',
-    address: root.querySelector('input[placeholder="Full Address"]')?.value || '',
-    phone: root.querySelector('input[placeholder="Contact Number"]')?.value || '',
-    email: root.querySelector('input[placeholder="Email Address"]')?.value || '',
-  };
-}
-
 const originalFetch = window.fetch.bind(window);
 window.fetch = async (input, init = {}) => {
   const url = typeof input === 'string' ? input : input?.url || '';
   const isBookingEmail = /sendBookingEmail/i.test(url);
   let nextInit = init;
-  let parsedBody = null;
 
   if (isBookingEmail && typeof init?.body === 'string') {
     try {
-      parsedBody = JSON.parse(init.body);
+      const parsedBody = JSON.parse(init.body);
       const comments = getComments();
       if (comments) parsedBody.comments = comments;
       nextInit = { ...init, body: JSON.stringify(parsedBody) };
     } catch (_) {}
   }
 
-  const response = await originalFetch(input, nextInit);
-
-  if (isBookingEmail && response.ok) {
-    const comments = getComments();
-    if (comments) {
-      const details = parsedBody || bookingDetailsFromDom();
-      originalFetch('/.netlify/functions/sendBookingComment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        keepalive: true,
-        body: JSON.stringify({
-          name: details.name || '',
-          address: details.address || '',
-          phone: details.phone || '',
-          email: details.email || '',
-          comments,
-        }),
-      }).catch(() => {});
-    }
-  }
-
-  return response;
+  // Comments are now carried in the main booking payload. Do not send the
+  // old separate admin comment email after the booking succeeds.
+  return originalFetch(input, nextInit);
 };
 
 const originalOpen = window.open.bind(window);
