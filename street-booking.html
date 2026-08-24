@@ -7,16 +7,18 @@
   <meta name="description" content="Ni Bin Guy street customer signup" />
   <meta name="robots" content="noindex, nofollow" />
   <meta name="theme-color" content="#050505" />
+  <meta name="application-name" content="Street Signup" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black" />
   <meta name="apple-mobile-web-app-title" content="Street Signup" />
 
-  <link rel="manifest" href="/street-signup.webmanifest?v=20260823-1" />
-  <link rel="icon" type="image/png" sizes="192x192" href="/street-signup-192.png?v=20260823-1" />
-  <link rel="icon" type="image/png" sizes="512x512" href="/street-signup-512.png?v=20260823-1" />
-  <link rel="shortcut icon" type="image/png" href="/street-signup-192.png?v=20260823-1" />
-  <link rel="apple-touch-icon" sizes="192x192" href="/street-signup-192.png?v=20260823-1" />
+  <link rel="icon" href="/street-signup-192.png" />
+  <link rel="shortcut icon" href="/street-signup-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/street-signup-192.png" />
+  <link rel="icon" type="image/png" sizes="512x512" href="/street-signup-512.png" />
+  <link rel="apple-touch-icon" sizes="192x192" href="/street-signup-192.png" />
+  <link rel="manifest" href="/street-signup.webmanifest" />
   <link rel="preload" as="image" href="/logo.webp" type="image/webp" fetchpriority="high" />
 
   <style>
@@ -39,8 +41,15 @@
 
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
-  <script src="/site-tracking.js?v=20260823-1" defer></script>
+  <script src="/site-tracking.js?v=20260824-2" defer></script>
   <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/street-signup-sw.js', { scope: '/street-booking/' })
+          .catch(function (error) { console.warn('Street Signup service worker registration failed:', error); });
+      });
+    }
+
     (function () {
       var button = document.getElementById('site-menu-toggle');
       var menu = document.getElementById('site-section-menu');
