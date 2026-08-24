@@ -7,37 +7,44 @@
     icon.rel = "icon";
     icon.type = "image/png";
     icon.sizes = "192x192";
-    icon.href = "/street-signup-192.png?v=20260819-2";
+    icon.href = "/street-signup-192.png?v=20260824-1";
     document.head.appendChild(icon);
 
     var largeIcon = document.createElement("link");
     largeIcon.rel = "icon";
     largeIcon.type = "image/png";
     largeIcon.sizes = "512x512";
-    largeIcon.href = "/street-signup-512.png?v=20260819-2";
+    largeIcon.href = "/street-signup-512.png?v=20260824-1";
     document.head.appendChild(largeIcon);
 
     var shortcut = document.createElement("link");
     shortcut.rel = "shortcut icon";
     shortcut.type = "image/png";
-    shortcut.href = "/street-signup-192.png?v=20260819-2";
+    shortcut.href = "/street-signup-192.png?v=20260824-1";
     document.head.appendChild(shortcut);
 
     var apple = document.createElement("link");
     apple.rel = "apple-touch-icon";
     apple.sizes = "192x192";
-    apple.href = "/street-signup-192.png?v=20260819-2";
+    apple.href = "/street-signup-192.png?v=20260824-1";
     document.head.appendChild(apple);
 
     var manifest = document.createElement("link");
     manifest.rel = "manifest";
-    manifest.href = "/street-signup.webmanifest?v=20260819-2";
+    manifest.href = "/street-signup.webmanifest?v=20260824-1";
     document.head.appendChild(manifest);
 
     var theme = document.querySelector('meta[name="theme-color"]') || document.createElement("meta");
     theme.name = "theme-color";
     theme.content = "#050505";
     if (!theme.parentNode) document.head.appendChild(theme);
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("/street-signup-sw.js", { scope: "/street-booking" })
+          .catch(function (error) { console.warn("Street Signup service worker registration failed:", error); });
+      });
+    }
   }
 
   // Keep the normal booking endpoint protected by reCAPTCHA, while routing
