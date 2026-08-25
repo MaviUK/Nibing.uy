@@ -16,7 +16,8 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.RESEND_FROM || "Ni Bin Guy <noreply@nibing.uy>";
 const TO_ADMIN = process.env.BOOKINGS_TO || "info@nibing.uy";
 const ALLOWED_HOSTS = new Set(["nibing.uy", "www.nibing.uy"]);
-const LOGO_URL = "https://nibing.uy/logo.webp";
+const SITE_ORIGIN = "https://nibing.uy";
+const LOGO_URL = `${SITE_ORIGIN}/logo.webp`;
 const BRAND_GREEN = "#0b6b44";
 const YELLOW = "#ffd400";
 
@@ -51,6 +52,68 @@ function requestHost(event) {
   return "";
 }
 
+function extractPostcode(address) {
+  const match = String(address || "").toUpperCase().match(/\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i);
+  if (!match) return "";
+  const compact = match[1].replace(/\s+/g, "");
+  return compact.length > 3 ? `${compact.slice(0, -3)} ${compact.slice(-3)}` : compact;
+}
+
+function formatCleanDate(value) {
+  if (!value) return "";
+  const date = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+async function getAutomaticSchedule(address, binType) {
+  const postcode = extractPostcode(address);
+  if (!postcode) return { matched: false, reason: "postcode_missing" };
+
+  try {
+    const response = await fetch(`${SITE_ORIGIN}/api/booking-schedule`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        address,
+        postcode,
+        bins: [{ type: binType }],
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    const result = Array.isArray(data?.results) ? data.results[0] : null;
+    const assignedCleanDate = result?.automatic && result?.assignedCleanDate
+      ? String(result.assignedCleanDate)
+      : null;
+
+    if (!response.ok || !assignedCleanDate) {
+      return {
+        matched: false,
+        reason: data?.reason || result?.reason || "no_automatic_match",
+        raw: data,
+      };
+    }
+
+    return {
+      matched: true,
+      assignedCleanDate,
+      formattedCleanDate: formatCleanDate(assignedCleanDate),
+      round: result?.round || null,
+      councilDates: result?.councilDates || [],
+    };
+  } catch (error) {
+    console.warn("Challenge winner schedule lookup failed:", error.message);
+    return { matched: false, reason: "schedule_lookup_failed" };
+  }
+}
+
 async function enforceDailyLimit(event) {
   if (!getStoreSafe) return true;
 
@@ -71,72 +134,54 @@ async function enforceDailyLimit(event) {
   return true;
 }
 
-function buildWinnerEmailHtml({ name, binType, preferredDate }) {
+function buildWinnerEmailHtml({ name, binType, schedule }) {
   const firstName = escapeHtml(String(name || "there").trim().split(/\s+/)[0] || "there");
   const safeBin = escapeHtml(binType);
-  const safeDate = escapeHtml(preferredDate || "We'll arrange this with you");
+  const dateHeading = schedule.matched ? "YOUR CLEAN DATE" : "YOUR CLEAN DATE";
+  const dateValue = schedule.matched
+    ? escapeHtml(schedule.formattedCleanDate)
+    : "We'll confirm this with you shortly";
+  const dateNote = schedule.matched
+    ? "Your free clean has been matched to the next suitable round in your area."
+    : "We couldn't safely auto-match the council schedule, so we'll confirm the date manually.";
 
   return `
   <div style="margin:0;padding:0;background:#050505;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#050505;margin:0;padding:0;">
       <tr><td align="center" style="padding:22px 10px;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;background:#ffffff;border-radius:18px;overflow:hidden;">
-
-          <tr><td style="background:#050505;padding:28px 28px 24px;text-align:center;">
+          <tr><td style="background:#050505;padding:28px;text-align:center;">
             <img src="${LOGO_URL}" width="180" alt="Ni Bin Guy" style="display:block;margin:0 auto 18px;max-width:180px;width:100%;height:auto;border:0;">
-            <div style="font-family:Arial Black,Arial,sans-serif;color:#ffffff;font-size:34px;line-height:1.05;font-weight:900;text-transform:uppercase;">YOU ONLY WENT</div>
-            <div style="font-family:Arial Black,Arial,sans-serif;color:${YELLOW};font-size:42px;line-height:1.05;font-weight:900;text-transform:uppercase;margin-top:4px;">AND DID IT.</div>
-            <div style="font-family:Arial,sans-serif;color:#ffffff;font-size:17px;line-height:1.5;margin-top:14px;">Nice one, ${firstName} — you nailed the 10 Second Challenge.</div>
+            <div style="font-family:Arial Black,Arial,sans-serif;color:#ffffff;font-size:32px;font-weight:900;text-transform:uppercase;">YOU ONLY WENT</div>
+            <div style="font-family:Arial Black,Arial,sans-serif;color:${YELLOW};font-size:40px;font-weight:900;text-transform:uppercase;">AND DID IT.</div>
+            <div style="font-family:Arial,sans-serif;color:#ffffff;font-size:17px;line-height:1.5;margin-top:12px;">Nice one, ${firstName} — you nailed the 10 Second Challenge.</div>
           </td></tr>
-
           <tr><td style="background:${YELLOW};padding:20px 24px;text-align:center;">
             <div style="font-family:Arial Black,Arial,sans-serif;color:#050505;font-size:25px;font-weight:900;text-transform:uppercase;">🏆 YOU WON A FREE BIN CLEAN</div>
-            <div style="font-family:Arial,sans-serif;color:#050505;font-size:14px;margin-top:5px;font-weight:700;">Stopped bang on 10.00 seconds.</div>
           </td></tr>
-
           <tr><td style="padding:26px 26px 0;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${BRAND_GREEN};border-radius:14px;border:1px solid #14865b;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${BRAND_GREEN};border-radius:14px;">
               <tr><td style="padding:24px;text-align:center;">
                 <div style="font-family:Arial Black,Arial,sans-serif;color:${YELLOW};font-size:15px;font-weight:900;text-transform:uppercase;">YOUR PRIZE</div>
-                <div style="font-family:Arial Black,Arial,sans-serif;color:#ffffff;font-size:31px;font-weight:900;line-height:1.2;margin-top:8px;">1 × FREE ${safeBin.toUpperCase()} CLEAN</div>
-                <div style="font-family:Arial,sans-serif;color:#ffffff;font-size:14px;line-height:1.5;margin-top:10px;">Absolutely free. No catch. Just one very lucky bin.</div>
+                <div style="font-family:Arial Black,Arial,sans-serif;color:#ffffff;font-size:30px;font-weight:900;margin-top:8px;">1 × FREE ${safeBin.toUpperCase()} CLEAN</div>
               </td></tr>
             </table>
           </td></tr>
-
-          <tr><td style="padding:26px 26px 4px;text-align:center;">
-            <div style="font-family:Arial Black,Arial,sans-serif;color:#111111;font-size:23px;font-weight:900;text-transform:uppercase;">WHAT HAPPENS NEXT?</div>
-          </td></tr>
-
-          <tr><td style="padding:12px 22px 4px;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
-              <td width="33%" valign="top" align="center" style="padding:6px;"><div style="width:32px;height:32px;line-height:32px;background:${YELLOW};border-radius:50%;font-family:Arial,sans-serif;font-weight:900;">1</div><div style="font-family:Arial,sans-serif;font-size:13px;font-weight:800;margin-top:8px;">WE'VE GOT YOUR DETAILS</div></td>
-              <td width="33%" valign="top" align="center" style="padding:6px;"><div style="width:32px;height:32px;line-height:32px;background:${YELLOW};border-radius:50%;font-family:Arial,sans-serif;font-weight:900;">2</div><div style="font-family:Arial,sans-serif;font-size:13px;font-weight:800;margin-top:8px;">WE'LL CONTACT YOU</div></td>
-              <td width="33%" valign="top" align="center" style="padding:6px;"><div style="width:32px;height:32px;line-height:32px;background:${YELLOW};border-radius:50%;font-family:Arial,sans-serif;font-weight:900;">3</div><div style="font-family:Arial,sans-serif;font-size:13px;font-weight:800;margin-top:8px;">YOUR BIN GETS THE VIP TREATMENT</div></td>
-            </tr></table>
-          </td></tr>
-
-          <tr><td style="padding:18px 26px 0;">
+          <tr><td style="padding:20px 26px 0;">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#090909;border-radius:14px;">
-              <tr><td style="padding:20px;text-align:center;">
-                <div style="font-family:Arial Black,Arial,sans-serif;color:#ffffff;font-size:21px;font-weight:900;text-transform:uppercase;">PREFERRED DATE</div>
-                <div style="font-family:Arial,sans-serif;color:${YELLOW};font-size:18px;font-weight:700;margin-top:7px;">${safeDate}</div>
-                <div style="font-family:Arial,sans-serif;color:#d8d8d8;font-size:13px;line-height:1.5;margin-top:7px;">We'll be in touch to get your free clean arranged.</div>
+              <tr><td style="padding:22px;text-align:center;">
+                <div style="font-family:Arial Black,Arial,sans-serif;color:#ffffff;font-size:21px;font-weight:900;text-transform:uppercase;">${dateHeading}</div>
+                <div style="font-family:Arial,sans-serif;color:${YELLOW};font-size:20px;font-weight:800;margin-top:8px;">${dateValue}</div>
+                <div style="font-family:Arial,sans-serif;color:#d8d8d8;font-size:13px;line-height:1.5;margin-top:8px;">${escapeHtml(dateNote)}</div>
               </td></tr>
             </table>
           </td></tr>
-
-          <tr><td style="padding:22px 26px 26px;text-align:center;">
-            <div style="font-family:Arial Black,Arial,sans-serif;color:#111111;font-size:22px;font-weight:900;text-transform:uppercase;">TEN SECONDS. ONE FREE CLEAN. <span style="color:${BRAND_GREEN};">SORTED.</span></div>
-            <div style="font-family:Arial,sans-serif;color:#555555;font-size:14px;line-height:1.6;margin-top:8px;">Thanks for having a go — and congratulations again.</div>
+          <tr><td style="padding:24px 26px;text-align:center;">
+            <div style="font-family:Arial Black,Arial,sans-serif;color:#111;font-size:21px;font-weight:900;">TEN SECONDS. ONE FREE CLEAN. <span style="color:${BRAND_GREEN};">SORTED.</span></div>
           </td></tr>
-
           <tr><td style="background:#050505;padding:20px;text-align:center;">
-            <img src="${LOGO_URL}" width="105" alt="Ni Bin Guy" style="display:block;margin:0 auto 10px;max-width:105px;width:100%;height:auto;border:0;">
-            <div style="font-family:Arial,sans-serif;color:#ffffff;font-size:12px;line-height:1.8;">nibing.uy &nbsp; • &nbsp; 07555 178484 &nbsp; • &nbsp; info@nibing.uy</div>
-            <div style="font-family:Arial,sans-serif;color:${YELLOW};font-size:13px;margin-top:7px;font-weight:700;">DIRTY BINS. SORTED.</div>
+            <div style="font-family:Arial,sans-serif;color:#ffffff;font-size:12px;">nibing.uy &nbsp; • &nbsp; 07555 178484 &nbsp; • &nbsp; info@nibing.uy</div>
           </td></tr>
-
         </table>
       </td></tr>
     </table>
@@ -168,7 +213,6 @@ exports.handler = async (event) => {
   const phone = clean(payload.phone, 80);
   const address = clean(payload.address, 300);
   const binType = clean(payload?.bins?.[0]?.type || "Black Bin", 80);
-  const preferredDate = clean(payload.preferred_date, 40);
 
   if (!name || !email || !phone || !address || !email.includes("@")) {
     return json(400, { error: "Missing required details" });
@@ -178,8 +222,15 @@ exports.handler = async (event) => {
     return json(429, { error: "Winner details have already been submitted from this connection today" });
   }
 
-  const subject = "Ten Second Challenge winner";
-  const text = `A customer won the Ten Second Challenge.\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\nBin: ${binType}\nPreferred date: ${preferredDate || "Not supplied"}`;
+  const schedule = await getAutomaticSchedule(address, binType);
+  const cleanDateText = schedule.matched ? schedule.formattedCleanDate : "Manual confirmation required";
+
+  const subject = schedule.matched
+    ? `Ten Second Challenge winner — ${cleanDateText}`
+    : "Ten Second Challenge winner — date needs checked";
+
+  const text = `A customer won the Ten Second Challenge.\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\nBin: ${binType}\nClean date: ${cleanDateText}\nAutomatic schedule: ${schedule.matched ? "yes" : "no"}\n${schedule.reason ? `Reason: ${schedule.reason}\n` : ""}`;
+
   const html = `
     <h2>Ten Second Challenge winner</h2>
     <p><strong>Name:</strong> ${escapeHtml(name)}</p>
@@ -187,7 +238,8 @@ exports.handler = async (event) => {
     <p><strong>Phone:</strong> ${escapeHtml(phone)}</p>
     <p><strong>Address:</strong> ${escapeHtml(address)}</p>
     <p><strong>Bin:</strong> ${escapeHtml(binType)}</p>
-    <p><strong>Preferred date:</strong> ${escapeHtml(preferredDate || "Not supplied")}</p>
+    <p><strong>Clean date:</strong> ${escapeHtml(cleanDateText)}</p>
+    <p><strong>Automatic schedule:</strong> ${schedule.matched ? "Yes" : "No — please check manually"}</p>
   `;
 
   try {
@@ -202,19 +254,31 @@ exports.handler = async (event) => {
 
     if (adminResult?.error) throw new Error(adminResult.error.message || "Admin email failed");
 
+    const customerText = schedule.matched
+      ? `Hi ${name},\n\nCongratulations — you stopped the timer at exactly 10.00 seconds and won a free ${binType} clean. Your free clean has been booked for ${cleanDateText}.\n\nNi Bin Guy`
+      : `Hi ${name},\n\nCongratulations — you stopped the timer at exactly 10.00 seconds and won a free ${binType} clean. We have your details and will contact you shortly to confirm the clean date.\n\nNi Bin Guy`;
+
     const customerResult = await resend.emails.send({
       from: FROM,
       to: email,
-      subject: "You won a free bin clean! 🏆",
-      text: `Hi ${name},\n\nCongratulations — you stopped the timer at exactly 10.00 seconds and won a free ${binType} clean. We have your details and will contact you to arrange it.\n\nNi Bin Guy`,
-      html: buildWinnerEmailHtml({ name, binType, preferredDate }),
+      subject: schedule.matched
+        ? `Your free bin clean is booked for ${cleanDateText} 🏆`
+        : "You won a free bin clean! 🏆",
+      text: customerText,
+      html: buildWinnerEmailHtml({ name, binType, schedule }),
     });
 
     if (customerResult?.error) {
       console.warn("Winner customer confirmation failed:", customerResult.error);
     }
 
-    return json(200, { ok: true });
+    return json(200, {
+      ok: true,
+      scheduleMatched: schedule.matched,
+      assignedCleanDate: schedule.assignedCleanDate || null,
+      formattedCleanDate: schedule.formattedCleanDate || null,
+      customerConfirmationSent: !customerResult?.error,
+    });
   } catch (error) {
     console.error("Challenge winner email failed:", error);
     return json(500, { error: "Unable to send winner email" });
