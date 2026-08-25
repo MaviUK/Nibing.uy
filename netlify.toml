@@ -204,6 +204,11 @@
   status = 200
 
 [[redirects]]
+  from = "/challenge-email-test-0825"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
   from = "/standee/*"
   to = "/index.html"
   status = 200
