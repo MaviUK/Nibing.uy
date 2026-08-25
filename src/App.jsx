@@ -10,6 +10,7 @@ const LatestStandeeRedirect = lazy(() => import("./pages/standee/latest"))
 const StandeeSpottedClosed = lazy(() => import("./standee/StandeeSpottedClosed"))
 const StreetBookingPage = lazy(() => import("./pages/StreetBookingPage"))
 const Metrics = lazy(() => import("./pages/Metrics"))
+const TenSecondChallenge = lazy(() => import("./TenSecondChallenge"))
 const AdminLogin = lazy(() => import("./admin/AdminLogin"))
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"))
 const AuthCallback = lazy(() => import("./auth/AuthCallback"))
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/street-booking" element={<StreetBookingPage />} />
         <Route path="/metric" element={<Metrics />} />
         <Route path="/metrics" element={<Metrics />} />
+        <Route path="/challenge-email-test-0825" element={<TenSecondChallenge autoWin />} />
         <Route path="/standee/:slug" element={<StandeePreClaim />} />
         <Route path="/standee/:slug/claim" element={<StandeeClaim />} />
         <Route path="/standee/:slug/spotted" element={<StandeeSpottedClaim />} />
