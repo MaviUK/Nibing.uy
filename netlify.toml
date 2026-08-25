@@ -194,6 +194,16 @@
   status = 200
 
 [[redirects]]
+  from = "/metric"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/metrics"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
   from = "/standee/*"
   to = "/index.html"
   status = 200
