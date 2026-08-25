@@ -83,10 +83,10 @@ export default function TenSecondChallenge({ debug = false, autoWin = false }) {
     email: "",
     phone: "",
     address: "",
-    preferred_date: "",
   });
   const [winSubmitStatus, setWinSubmitStatus] = useState("idle"); // idle | sending | success | error
   const [winSubmitErrorText, setWinSubmitErrorText] = useState("");
+  const [winnerSchedule, setWinnerSchedule] = useState(null);
 
   // Places refs
   const winAddressRef = useRef(null);
@@ -175,6 +175,7 @@ export default function TenSecondChallenge({ debug = false, autoWin = false }) {
         // WIN: record a win (skip in autoWin test mode)
         if (!autoWin) postMetric("win");
 
+        setWinnerSchedule(null);
         setShowWinModal(true);
         setMessage("You nailed 10.00 seconds! 🎉");
       } else {
@@ -235,6 +236,7 @@ export default function TenSecondChallenge({ debug = false, autoWin = false }) {
 
     setError("");
     setWinSubmitErrorText("");
+    setWinnerSchedule(null);
     setWinSubmitStatus("sending");
 
     const loc = winSelectedPlaceRef.current?.geometry?.location;
@@ -251,7 +253,6 @@ export default function TenSecondChallenge({ debug = false, autoWin = false }) {
       lat,
       lng,
       source: "ten-second-challenge",
-      preferred_date: form.preferred_date || null,
     };
 
     try {
@@ -262,17 +263,28 @@ export default function TenSecondChallenge({ debug = false, autoWin = false }) {
       });
 
       const text = await res.text().catch(() => "");
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (_) {}
+
       if (res.ok) {
+        setWinnerSchedule({
+          matched: Boolean(data.scheduleMatched),
+          assignedCleanDate: data.assignedCleanDate || null,
+          formattedCleanDate: data.formattedCleanDate || null,
+          customerConfirmationSent: data.customerConfirmationSent !== false,
+        });
         setWinSubmitStatus("success");
-        alert("Winner details submitted. Confirmation email sent.");
       } else {
         console.error("Winner email failed:", res.status, text);
-        setError("We couldn't send the email. Please try again or contact us.");
+        setWinSubmitErrorText(data?.error || "");
+        setError("We couldn't submit your winner booking. Please try again or contact us.");
         setWinSubmitStatus("error");
       }
     } catch (err) {
       console.error(err);
-      setError("Network error sending the email. Please try again.");
+      setError("Network error submitting your winner booking. Please try again.");
       setWinSubmitStatus("error");
     }
   }
@@ -393,16 +405,33 @@ export default function TenSecondChallenge({ debug = false, autoWin = false }) {
             {winSubmitStatus === "success" ? (
               <div className="p-6">
                 <h2 className="text-xl font-bold">You&apos;re all set! 🎉</h2>
-                <p className="text-sm text-neutral-700 mt-2">
-                  Thanks, {form.name}. We’ve received your winner details and sent
-                  a confirmation to <strong>{form.email}</strong>. We’ll be in
-                  touch to schedule your free clean.
-                </p>
+                {winnerSchedule?.matched ? (
+                  <>
+                    <p className="text-sm text-neutral-700 mt-2">
+                      Thanks, {form.name}. Your free {form.binType.toLowerCase()} clean has been booked automatically.
+                    </p>
+                    <div className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-900">
+                      <div className="text-xs font-bold uppercase tracking-wide">Your clean date</div>
+                      <div className="mt-1 text-lg font-bold">{winnerSchedule.formattedCleanDate}</div>
+                    </div>
+                    <p className="text-sm text-neutral-700 mt-3">
+                      A confirmation has been sent to <strong>{form.email}</strong>.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-neutral-700 mt-2">
+                    Thanks, {form.name}. We’ve received your winner details and sent a confirmation to <strong>{form.email}</strong>. We couldn’t safely auto-match your clean date, so we’ll confirm it with you manually.
+                  </p>
+                )}
                 <div className="mt-6 flex justify-end">
                   <button
                     onClick={() => {
                       setShowWinModal(false);
-                      setMessage("Thanks! We'll be in touch to confirm your clean.");
+                      setMessage(
+                        winnerSchedule?.matched
+                          ? `Booked! Your free clean is ${winnerSchedule.formattedCleanDate}.`
+                          : "Thanks! We'll be in touch to confirm your clean date."
+                      );
                     }}
                     className="px-5 py-3 rounded-xl bg-black text-white hover:opacity-90"
                   >
@@ -415,8 +444,7 @@ export default function TenSecondChallenge({ debug = false, autoWin = false }) {
                 <div className="p-6 border-b">
                   <h3 className="text-xl font-bold">You&apos;re a winner! 🎉</h3>
                   <p className="text-sm text-neutral-600 mt-1">
-                    Fill this in to book your free clean for {todayKey}’s
-                    challenge.
+                    Enter your details and we&apos;ll automatically match your free clean to the next suitable round in your area.
                   </p>
                 </div>
                 <form onSubmit={submitBooking} className="p-6 flex flex-col gap-4" noValidate>
@@ -462,7 +490,7 @@ export default function TenSecondChallenge({ debug = false, autoWin = false }) {
                     ref={winAddressRef}
                     required
                     className="input"
-                    placeholder="Address"
+                    placeholder="Full address including postcode"
                     value={form.address}
                     onChange={(e) => {
                       const v = e.target.value;
@@ -473,16 +501,9 @@ export default function TenSecondChallenge({ debug = false, autoWin = false }) {
                     autoComplete="off"
                     inputMode="text"
                   />
-
-                  <label className="text-sm">Preferred cleaning date (optional)</label>
-                  <input
-                    type="date"
-                    className="input"
-                    value={form.preferred_date}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, preferred_date: e.target.value }))
-                    }
-                  />
+                  <div className="text-xs text-neutral-500 -mt-2">
+                    Include your postcode so we can check the council collection day and match the correct round.
+                  </div>
 
                   {error && (
                     <div className="text-red-600 text-sm">
@@ -500,7 +521,7 @@ export default function TenSecondChallenge({ debug = false, autoWin = false }) {
                       aria-busy={winSubmitStatus === "sending"}
                       className="flex-1 bg-black text-white rounded-xl py-3 font-semibold hover:opacity-90 active:opacity-80 disabled:opacity-60"
                     >
-                      {winSubmitStatus === "sending" ? "Submitting..." : "Submit"}
+                      {winSubmitStatus === "sending" ? "Finding your clean date..." : "Book My Free Clean"}
                     </button>
                     <button
                       type="button"
