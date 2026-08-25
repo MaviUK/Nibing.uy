@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from "react"
 import { Routes, Route } from "react-router-dom"
 import NiBinGuyLandingPage from "./LandingPage"
+import HomepageServiceSchema from "./HomepageServiceSchema"
 
 const StandeeClaim = lazy(() => import("./standee/StandeeClaim"))
 const StandeeSpottedClaim = lazy(() => import("./standee/StandeeSpottedClaim"))
@@ -12,11 +13,20 @@ const AdminLogin = lazy(() => import("./admin/AdminLogin"))
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"))
 const AuthCallback = lazy(() => import("./auth/AuthCallback"))
 
+function HomePage() {
+  return (
+    <>
+      <HomepageServiceSchema />
+      <NiBinGuyLandingPage />
+    </>
+  )
+}
+
 export default function App() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">Loading page…</div>}>
       <Routes>
-        <Route path="/" element={<NiBinGuyLandingPage />} />
+        <Route path="/" element={<HomePage />} />
         <Route path="/street-booking" element={<StreetBookingPage />} />
         <Route path="/standee/:slug" element={<StandeePreClaim />} />
         <Route path="/standee/:slug/claim" element={<StandeeClaim />} />
