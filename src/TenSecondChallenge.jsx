@@ -255,7 +255,7 @@ export default function TenSecondChallenge({ debug = false, autoWin = false }) {
     };
 
     try {
-      const res = await fetch("/.netlify/functions/sendBookingEmail", {
+      const res = await fetch("/.netlify/functions/sendChallengeWinnerEmail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
