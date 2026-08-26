@@ -9,7 +9,10 @@ function niBinGuyPriceOverrides() {
     enforce: 'pre',
     transform(code, id) {
       const normalisedId = id.replace(/\\/g, '/')
-      if (!normalisedId.endsWith('/src/LandingPage.jsx')) return null
+      const isPricingPage =
+        normalisedId.endsWith('/src/LandingPage.jsx') ||
+        normalisedId.endsWith('/src/pages/StreetBookingPage.jsx')
+      if (!isPricingPage) return null
 
       const updatedCode = code
         .replace(/({ id: "domestic_oneoff", label: "One-off", price: )12\.5( })/, '$115$2')
