@@ -14,7 +14,8 @@ function niBinGuyPriceOverrides() {
       const updatedCode = code
         .replace(/({ id: "domestic_oneoff", label: "One-off", price: )12\.5( })/, '$115$2')
         .replace(/({ id: "comm_lt360_oneoff", label: "Commercial <360L One-Off", price: )12\.5( })/, '$115$2')
-        .replace(/({ id: "comm_gt660_oneoff", label: "Commercial >660L One-Off", price: )30( })/, '$135$2')
+        .replace(/({ id: "comm_gt660_4w", label: "Commercial >660L 4 Weekly", price: )12\.5( })/, '$115$2')
+        .replace(/({ id: "comm_gt660_oneoff", label: "Commercial >660L One-Off", price: )35( })/, '$145$2')
         .replace(
           '{ src: "/bins/120L.webp", alt: "120 litre wheelie bin", size: "120L", h: "h-32" }',
           '{ src: "/bins/120L.webp", alt: "120 litre wheelie bin", size: "120L", h: "h-32", width: 384, height: 286 }'
