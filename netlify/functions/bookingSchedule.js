@@ -64,12 +64,7 @@ function parseCouncilDates(html, wantedBin) {
   const now = new Date();
 
   function ukToday() {
-    const parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Europe/London",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(new Date());
+    const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
     const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
     return new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day)));
   }
@@ -83,29 +78,20 @@ function parseCouncilDates(html, wantedBin) {
     if(!section)continue;
     const found=[];
     let match;
-
     const today = ukToday();
     if (/\bTODAY\b/.test(section)) found.push(new Date(today.getTime()));
     if (/\bTOMORROW\b/.test(section)) found.push(new Date(today.getTime() + 86400000));
-
     lr.lastIndex=0;
     while((match=lr.exec(section))){const date=makeDate(match[1],match[2],match[3]);if(date)found.push(date);}
     sr.lastIndex=0;
     while((match=sr.exec(section))){const date=makeDate(match[1],match[2],match[3]);if(date)found.push(date);}
-
     const unique=[...new Map(found.map((date)=>[date.toISOString().slice(0,10),date])).values()].sort((a,b)=>a.getTime()-b.getTime());
     if(!unique.length)continue;
     const first=unique[0];
     const dates=[first];
-    if(unique.length>1){
-      dates.push(unique[1]);
-    }else{
+    if(unique.length>1){dates.push(unique[1]);}else{
       const recurrence=section.match(/EVERY\s+ALTERNATE\s+(MON(?:DAY)?|TUE(?:S|SDAY)?|WED(?:NESDAY)?|THU(?:R|RS|RSDAY)?|FRI(?:DAY)?|SAT(?:URDAY)?|SUN(?:DAY)?)/i);
-      if(recurrence){
-        const key=recurrence[1].toUpperCase();
-        const targetWeekday=weekdayNumber[key]??weekdayNumber[key.slice(0,3)];
-        dates.push(nextAlternateDate(first,targetWeekday));
-      }
+      if(recurrence){const key=recurrence[1].toUpperCase();const targetWeekday=weekdayNumber[key]??weekdayNumber[key.slice(0,3)];dates.push(nextAlternateDate(first,targetWeekday));}
     }
     return [...new Set(dates.map((date)=>date.toISOString().slice(0,10)))].sort();
   }
@@ -113,7 +99,12 @@ function parseCouncilDates(html, wantedBin) {
 }
 
 const DAY_MS=86400000;
-function nextTwoCouncilDates(councilDates){const today=new Date();const floor=new Date(Date.UTC(today.getUTCFullYear(),today.getUTCMonth(),today.getUTCDate())).getTime();return(Array.isArray(councilDates)?councilDates:[]).filter((date)=>{const t=new Date(`${date}T12:00:00Z`).getTime();return Number.isFinite(t)&&t>=floor-DAY_MS;}).sort().slice(0,2);}
+function ukBookingCutoff() {
+  const parts = new Intl.DateTimeFormat("en-GB", {timeZone:"Europe/London",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",hourCycle:"h23"}).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part)=>[part.type,part.value]));
+  return {date:`${values.year}-${values.month}-${values.day}`,afterCutoff:Number(values.hour)>=10};
+}
+function nextTwoCouncilDates(councilDates){const cutoff=ukBookingCutoff();return(Array.isArray(councilDates)?councilDates:[]).filter((date)=>{const t=new Date(`${date}T12:00:00Z`).getTime();if(!Number.isFinite(t))return false;if(date<cutoff.date)return false;if(date===cutoff.date&&cutoff.afterCutoff)return false;return true;}).sort().slice(0,2);}
 function normalizeTown(value){return String(value||"").toUpperCase().replace(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b.*$/i,"").replace(/\b[A-Z]{1,2}\d[A-Z\d]?\b.*$/i,"").replace(/\s+/g," ").trim();}
 function extractTown(address){const parts=String(address||"").split(",").map((part)=>part.trim()).filter(Boolean);return parts.length>=2?normalizeTown(parts[1]):"";}
 function inferTownFromPostcodeAddresses(addresses){const counts=new Map();for(const item of addresses||[]){const town=extractTown(item?.label);if(!town)continue;counts.set(town,(counts.get(town)||0)+1);}return [...counts.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0]||"";}
@@ -128,28 +119,12 @@ export default async function handler(req){
   if(!address||!postcode||!bins.length)return new Response(JSON.stringify({error:"address, postcode and bins are required"}),{status:400,headers:{"Content-Type":"application/json"}});
   const origin=new URL(req.url).origin;const councilAddressLookup=await getCouncilAddresses(origin,postcode);
   if(!councilAddressLookup.addresses.length)return new Response(JSON.stringify({matched:false,reason:"council_address_not_found",postcode,addressSource:councilAddressLookup.source}),{status:200,headers:{"Content-Type":"application/json"}});
-
   const requestedNumber=propertyNumber(address);
   const numberMatches=requestedNumber?councilAddressLookup.addresses.filter((candidate)=>propertyNumber(candidate.label)===requestedNumber):[];
-  let ranked=[];
-  let chosen=null;
-  let confidentMatch=false;
-  let addressMatchMethod="fuzzy_address";
-
-  if(numberMatches.length===1){
-    chosen={...numberMatches[0],score:100};
-    ranked=[chosen];
-    confidentMatch=true;
-    addressMatchMethod="house_number_plus_postcode";
-  }else{
-    const pool=numberMatches.length>1?numberMatches:councilAddressLookup.addresses;
-    ranked=pool.map((candidate)=>({...candidate,score:addressScore(address,candidate.label)})).sort((a,b)=>b.score-a.score);
-    chosen=ranked[0];
-    const runnerUp=ranked[1];
-    confidentMatch=Boolean(chosen&&(chosen.score>=20||(chosen.score>=5&&(!runnerUp||chosen.score>runnerUp.score))));
-    addressMatchMethod=numberMatches.length>1?"house_number_postcode_then_street_tiebreak":"fuzzy_address";
+  let ranked=[];let chosen=null;let confidentMatch=false;let addressMatchMethod="fuzzy_address";
+  if(numberMatches.length===1){chosen={...numberMatches[0],score:100};ranked=[chosen];confidentMatch=true;addressMatchMethod="house_number_plus_postcode";}else{
+    const pool=numberMatches.length>1?numberMatches:councilAddressLookup.addresses;ranked=pool.map((candidate)=>({...candidate,score:addressScore(address,candidate.label)})).sort((a,b)=>b.score-a.score);chosen=ranked[0];const runnerUp=ranked[1];confidentMatch=Boolean(chosen&&(chosen.score>=20||(chosen.score>=5&&(!runnerUp||chosen.score>runnerUp.score))));addressMatchMethod=numberMatches.length>1?"house_number_postcode_then_street_tiebreak":"fuzzy_address";
   }
-
   if(!confidentMatch)return new Response(JSON.stringify({matched:false,reason:"council_address_ambiguous",postcode,addressSource:councilAddressLookup.source,requestedPropertyNumber:requestedNumber,addressMatchMethod,candidates:ranked.slice(0,5)}),{status:200,headers:{"Content-Type":"application/json"}});
   const calRes=await fetch(new URL(`/.netlify/functions/binCalendar?uprn=${encodeURIComponent(chosen.uprn)}`,origin));const calData=await calRes.json().catch(()=>({}));
   if(!calRes.ok||!calData.html)return new Response(JSON.stringify({matched:false,reason:"council_calendar_failed",addressSource:councilAddressLookup.source,councilAddress:chosen.label,uprn:chosen.uprn}),{status:200,headers:{"Content-Type":"application/json"}});
