@@ -1,31 +1,142 @@
-function normalizePostcode(value){const c=String(value||"").toUpperCase().replace(/[^A-Z0-9]/g,"");if(c.length<5||c.length>7)return null;return `${c.slice(0,-3)} ${c.slice(-3)}`;}
-function dec(v){return String(v||"").replace(/&nbsp;/gi," ").replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,"<").replace(/&gt;/gi,">");}
-function strip(h){return dec(String(h||"").replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<br\s*\/?\s*>/gi,"\n").replace(/<\/p>|<\/div>|<\/li>|<\/tr>|<\/h\d>/gi,"\n").replace(/<[^>]+>/g," ")).replace(/[ \t]+/g," ").replace(/\n\s*\n+/g,"\n").trim();}
-function abs(h,b){try{return new URL(dec(h),b).href}catch{return null}}
-function links(html,base){const a=[];const re=/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;let m;while((m=re.exec(html))){const u=abs(m[1],base);if(u)a.push({url:u,label:strip(m[2])});}return a;}
-function attr(tag,name){return tag.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:["']([^"']*)["']|([^\\s>]+))`,`i`))?.slice(1).find(Boolean)||"";}
-function cookieHeader(headers){const raw=headers.get("set-cookie")||"";return raw.split(/,(?=\s*[^;,]+=)/).map(x=>x.split(";")[0].trim()).filter(Boolean).join("; ");}
-async function fetchPage(url,opts={}){const headers={"User-Agent":"Mozilla/5.0 (compatible; NI-Bin-Guy-NMD-test/3.0)",Accept:"text/html,application/xhtml+xml,*/*;q=0.8","Accept-Language":"en-GB,en;q=0.9",...(opts.headers||{})};const r=await fetch(url,{redirect:"follow",...opts,headers});return {r,html:await r.text(),cookies:cookieHeader(r.headers)};}
-function findForm(html){const forms=[...html.matchAll(/<form\b[^>]*>[\s\S]*?<\/form>/gi)].map(x=>x[0]);return forms.find(f=>{const text=strip(f);return /postcode/i.test(f)&&(/BT24|BT30|BT31|BT33|BT34|BT35/i.test(f)||/weekly bin collection/i.test(text));})||forms.find(f=>/postcode|BT24/i.test(f))||null;}
-function parseControls(form,pc1,pc2){const params=new URLSearchParams();const diagnostics=[];let postcodeSelectName="";let remainderInputName="";
- for(const sm of form.matchAll(/<select\b[^>]*>([\s\S]*?)<\/select>/gi)){const tag=sm[0].match(/<select\b[^>]*>/i)?.[0]||"",name=attr(tag,"name"),body=sm[1];if(!name)continue;let chosen="",containsPostcode=false;for(const o of body.matchAll(/<option\b[^>]*>([\s\S]*?)<\/option>/gi)){const ot=o[0].match(/<option\b[^>]*>/i)?.[0]||"",value=attr(ot,"value"),label=strip(o[1]).trim();if(label.toUpperCase()===pc1||value.toUpperCase()===pc1){chosen=value||label;containsPostcode=true;break;}if(/BT\d{2}/i.test(label)||/BT\d{2}/i.test(value))containsPostcode=true;}
-   if(containsPostcode){postcodeSelectName=name;if(!chosen){for(const o of body.matchAll(/<option\b[^>]*>([\s\S]*?)<\/option>/gi)){const ot=o[0].match(/<option\b[^>]*>/i)?.[0]||"",value=attr(ot,"value"),label=strip(o[1]).trim();if(label.toUpperCase()===pc1){chosen=value||label;break;}}}params.set(name,chosen||pc1);}else{const selected=body.match(/<option\b[^>]*selected[^>]*>[\s\S]*?<\/option>/i)?.[0];if(selected){const ot=selected.match(/<option\b[^>]*>/i)?.[0]||"";params.set(name,attr(ot,"value")||strip(selected));}}
-   diagnostics.push({type:"select",name,postcodeSelect:containsPostcode});
- }
- const visible=[];
- for(const m of form.matchAll(/<input\b[^>]*>/gi)){const tag=m[0],name=attr(tag,"name");if(!name)continue;const type=(attr(tag,"type")||"text").toLowerCase(),value=attr(tag,"value");diagnostics.push({type,name});if(type==="hidden"){params.set(name,value);continue;}if(["text","search","tel"].includes(type)){visible.push({name,value});continue;}if(["checkbox","radio"].includes(type)){if(/\bchecked\b/i.test(tag))params.append(name,value||"on");continue;}if(["submit","image"].includes(type)){if(value)params.set(name,value);continue;}}
- const namedRemainder=visible.find(x=>/pc2|post.?code.*(2|last|remain)|remain.*post/i.test(x.name));const namedFirst=visible.find(x=>/pc1|post.?code.*(1|first)/i.test(x.name));if(namedFirst&&!postcodeSelectName)params.set(namedFirst.name,pc1);if(namedRemainder){remainderInputName=namedRemainder.name;params.set(namedRemainder.name,pc2);}else if(visible.length){const candidate=visible.find(x=>x.name!==namedFirst?.name)||visible[0];remainderInputName=candidate.name;params.set(candidate.name,pc2);}
- if(!postcodeSelectName&&!namedFirst)params.set("pc1",pc1);if(!remainderInputName)params.set("pc2",pc2);
- return {params,diagnostics,postcodeSelectName,remainderInputName};}
-function buildSubmission(form,base,pc1,pc2){const open=form.match(/<form\b[^>]*>/i)?.[0]||"",action=abs(attr(open,"action")||base,base)||base,method=(attr(open,"method")||"GET").toUpperCase();const parsed=parseControls(form,pc1,pc2);return {action,method,...parsed};}
-function calendarRef(url){const m=String(url||"").match(/(?:\/|%2F)(MON|TUE|WED|THU|FRI|SAT|SUN)[-_]?Z([12])(?:\.pdf|%2Epdf)/i);return m?{weekday:m[1].toUpperCase(),zone:Number(m[2])}:null;}
-function findCalendarLink(allLinks,html){let hit=allLinks.find(x=>calendarRef(x.url));if(hit)return hit;const raw=String(html||"").match(/https?:[^"'<>\s]+(?:MON|TUE|WED|THU|FRI|SAT|SUN)[-_]?Z[12]\.pdf[^"'<>\s]*/i)?.[0];return raw?{url:dec(raw),label:"Council bin calendar"}:null;}
-const wd={SUN:0,MON:1,TUE:2,WED:3,THU:4,FRI:5,SAT:6};
-function iso(d){return d.toISOString().slice(0,10)}
-function nextDates(ref,bin){if(!ref)return[];const target=wd[ref.weekday],parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/London",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date()),p=Object.fromEntries(parts.map(x=>[x.type,x.value]));let d=new Date(Date.UTC(+p.year,+p.month-1,+p.day));d=new Date(d.getTime()+((target-d.getUTCDay()+7)%7)*86400000);
- // NMD calendars use two alternating zones on a fixed weekday. Black and blue alternate fortnightly; brown is collected weekly where the household has the service.
- // Zone 1 / Zone 2 parity is anchored to the council's published 2026/27 cycle. If the PDF itself later exposes explicit dates, those will replace this parity fallback.
- const anchorByDay={MON:"2026-03-30",TUE:"2026-03-31",WED:"2026-04-01",THU:"2026-04-02",FRI:"2026-04-03",SAT:"2026-04-04",SUN:"2026-04-05"},anchor=new Date(`${anchorByDay[ref.weekday]}T12:00:00Z`),kind=String(bin||"BLACK").toUpperCase(),out=[];for(let i=0;i<10&&out.length<2;i++){const x=new Date(d.getTime()+i*7*86400000);if(kind==="BROWN"){out.push(iso(x));continue;}const weeks=Math.round((x-anchor)/604800000),zone1Black=((weeks%2)+2)%2===0,black=ref.zone===1?zone1Black:!zone1Black,matches=kind==="BLUE"?!black:black;if(matches)out.push(iso(x));}return out;}
-export default async function handler(req){try{const u=new URL(req.url),postcode=normalizePostcode(u.searchParams.get("postcode")),bin=String(u.searchParams.get("bin")||"BLACK").toUpperCase();if(!postcode)return new Response(JSON.stringify({error:"Enter a valid Northern Ireland postcode."}),{status:400,headers:{"Content-Type":"application/json"}});const compact=postcode.replace(/\s/g,""),pc1=compact.slice(0,-3),pc2=compact.slice(-3),base="https://www.newrymournedown.org/weekly-bin-collection-and-calendar";
- const first=await fetchPage(base),form=findForm(first.html);let html=first.html,finalUrl=first.r.url||base,submission=null,submitStatus=null;if(form){submission=buildSubmission(form,finalUrl,pc1,pc2);const common={Referer:finalUrl,...(first.cookies?{Cookie:first.cookies}:{})};if(submission.method==="POST"){const res=await fetchPage(submission.action,{method:"POST",headers:{...common,"Content-Type":"application/x-www-form-urlencoded","Origin":"https://www.newrymournedown.org"},body:submission.params.toString()});html=res.html;finalUrl=res.r.url||submission.action;submitStatus=res.r.status;}else{const q=new URL(submission.action);for(const [k,v] of submission.params)q.searchParams.set(k,v);const res=await fetchPage(q.href,{headers:common});html=res.html;finalUrl=res.r.url||q.href;submitStatus=res.r.status;}}
- const allLinks=links(html,finalUrl);let pdf=findCalendarLink(allLinks,html);const ref=calendarRef(pdf?.url),dates=nextDates(ref,bin);return new Response(JSON.stringify({matched:Boolean(ref&&dates.length===2),postcode,bin,council:"Newry, Mourne and Down District Council",calendar:pdf||null,calendarRef:ref,nextTwoCollectionDates:dates,source:finalUrl,note:ref?"Postcode matched to the council weekday/zone calendar.":"Council page returned, but the postcode-specific calendar link was not found yet.",diagnostic:{formFound:Boolean(form),method:submission?.method||null,action:submission?.action||null,submitStatus,postcodeSelectName:submission?.postcodeSelectName||null,remainderInputName:submission?.remainderInputName||null,controls:submission?.diagnostics||[],submittedKeys:submission?[...submission.params.keys()]:[],linkCount:allLinks.length}}),{status:200,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});}catch(e){return new Response(JSON.stringify({error:e?.message||"Server error"}),{status:500,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}})}}
+function normalizePostcode(value) {
+  const compact = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (compact.length < 5 || compact.length > 7) return null;
+  return `${compact.slice(0, -3)} ${compact.slice(-3)}`;
+}
+
+function normalizeBin(value) {
+  const bin = String(value || "BLACK").toUpperCase();
+  return ["BLACK", "BLUE", "BROWN"].includes(bin) ? bin : "BLACK";
+}
+
+function dateOnly(value) {
+  const match = String(value || "").match(/\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : null;
+}
+
+function isFutureOrToday(value) {
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  return value >= today;
+}
+
+function matchesBin(type, wanted) {
+  const text = String(type || "").toUpperCase();
+  if (wanted === "BLACK") return /BLACK|GENERAL|RESIDUAL/.test(text);
+  if (wanted === "BLUE") return /BLUE|RECYCL/.test(text);
+  return /BROWN|GARDEN|FOOD/.test(text);
+}
+
+async function jsonFetch(url) {
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "NI-Bin-Guy/1.0 (nibing.uy)",
+    },
+  });
+  const text = await response.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch {}
+  if (!response.ok) {
+    throw new Error(`Bin data service returned ${response.status}${data?.detail ? `: ${data.detail}` : ""}`);
+  }
+  return data;
+}
+
+async function lookupViaUkBinDay(postcode, wantedBin) {
+  const compact = postcode.replace(/\s/g, "");
+  const base = "https://ukbinday.co.uk/api/v1";
+
+  const councilData = await jsonFetch(`${base}/council/${encodeURIComponent(compact)}`);
+  const councilId = councilData?.council_id;
+  const councilName = councilData?.council_name || "";
+  if (!councilId || !/newry|mourne|down/i.test(councilName)) {
+    return { matched: false, reason: "postcode_not_nmd", councilData };
+  }
+
+  const addressData = await jsonFetch(`${base}/addresses/${encodeURIComponent(compact)}`);
+  const addresses = Array.isArray(addressData?.addresses) ? addressData.addresses : [];
+  if (!addresses.length) return { matched: false, reason: "no_addresses", councilData };
+
+  // NMD's own calendar lookup is postcode based. Use the first UPRN in the postcode
+  // to access the same live council-backed schedule through the open UK Bin Day API.
+  const address = addresses[0];
+  const uprn = String(address?.uprn || "");
+  if (!uprn) return { matched: false, reason: "no_uprn", councilData };
+
+  const addressLabel = address?.address || address?.label || address?.formatted_address || "";
+  const query = new URLSearchParams({ council: councilId, postcode: compact });
+  if (addressLabel) query.set("address", addressLabel);
+  const lookup = await jsonFetch(`${base}/lookup/${encodeURIComponent(uprn)}?${query.toString()}`);
+  const collections = Array.isArray(lookup?.collections) ? lookup.collections : [];
+
+  const allDates = collections
+    .map(item => ({ date: dateOnly(item?.date), type: item?.type || "" }))
+    .filter(item => item.date && isFutureOrToday(item.date))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const selected = [...new Set(allDates.filter(item => matchesBin(item.type, wantedBin)).map(item => item.date))].slice(0, 2);
+
+  return {
+    matched: selected.length >= 2,
+    dates: selected,
+    councilData,
+    addressCount: addresses.length,
+    sampleAddress: addressLabel,
+    uprn,
+    collections: allDates.slice(0, 12),
+    cached: lookup?.cached ?? null,
+    reason: selected.length >= 2 ? null : "selected_bin_dates_not_found",
+  };
+}
+
+export default async function handler(req) {
+  try {
+    const url = new URL(req.url);
+    const postcode = normalizePostcode(url.searchParams.get("postcode"));
+    const bin = normalizeBin(url.searchParams.get("bin"));
+    if (!postcode) {
+      return new Response(JSON.stringify({ error: "Enter a valid Northern Ireland postcode." }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+      });
+    }
+
+    const result = await lookupViaUkBinDay(postcode, bin);
+    return new Response(JSON.stringify({
+      matched: result.matched,
+      postcode,
+      bin,
+      council: result.councilData?.council_name || "Newry, Mourne and Down District Council",
+      nextTwoCollectionDates: result.dates || [],
+      source: "UK Bin Day live council-backed lookup",
+      note: result.matched
+        ? "Live collection dates found for the selected bin."
+        : "The live lookup responded, but two future dates for the selected bin were not returned.",
+      diagnostic: {
+        reason: result.reason || null,
+        councilId: result.councilData?.council_id || null,
+        addressCount: result.addressCount || 0,
+        sampleAddress: result.sampleAddress || null,
+        uprn: result.uprn || null,
+        cached: result.cached ?? null,
+        collectionsSeen: result.collections || [],
+      },
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      matched: false,
+      error: error?.message || "Bin lookup failed",
+    }), {
+      status: 502,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    });
+  }
+}
