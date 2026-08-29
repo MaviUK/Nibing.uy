@@ -1,173 +1,22 @@
-function normalizePostcode(value) {
-  const compact = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  if (compact.length < 5 || compact.length > 7) return null;
-  return `${compact.slice(0, -3)} ${compact.slice(-3)}`;
-}
-
-function decodeEntities(value) {
-  return String(value || "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">");
-}
-
-function stripHtml(html) {
-  return decodeEntities(
-    String(html || "")
-      .replace(/<script[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<br\s*\/?\s*>/gi, "\n")
-      .replace(/<\/p>|<\/div>|<\/li>|<\/tr>|<\/h\d>/gi, "\n")
-      .replace(/<[^>]+>/g, " ")
-  )
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n\s*\n+/g, "\n")
-    .trim();
-}
-
-function absoluteUrl(href, base) {
-  try {
-    return new URL(decodeEntities(href), base).href;
-  } catch {
-    return null;
-  }
-}
-
-function extractLinks(html, base) {
-  const links = [];
-  const re = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-  let match;
-  while ((match = re.exec(html))) {
-    const url = absoluteUrl(match[1], base);
-    if (!url) continue;
-    const label = stripHtml(match[2]);
-    links.push({ url, label });
-  }
-  return links;
-}
-
-function usefulLines(text) {
-  const interesting = /\b(black|blue|brown|bin|collection|calendar|schedule|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i;
-  const boilerplate = /^(residents|business|council|about us|information|contact details|search)$/i;
-  return text
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter((line) => line && line.length < 500 && interesting.test(line) && !boilerplate.test(line))
-    .slice(0, 80);
-}
-
-function scoreResponse(html, text, links) {
-  let score = 0;
-  if (/weekly bin collection schedule/i.test(text)) score += 4;
-  if (/\bblack bin\b/i.test(text)) score += 2;
-  if (/\bblue bin\b/i.test(text)) score += 2;
-  if (/\bbrown bin\b/i.test(text)) score += 2;
-  if (/\b(mon|tue|wed|thu|fri|sat|sun)(day)?\b/i.test(text)) score += 2;
-  if (/\b\d{1,2}[\/\-.]\d{1,2}[\/\-.](?:20)?\d{2}\b/.test(text)) score += 2;
-  if (links.some((link) => /\.pdf(?:$|\?)/i.test(link.url))) score += 2;
-  if (/pc1|pc2/i.test(html)) score += 1;
-  return score;
-}
-
-async function fetchCandidate(url) {
-  const response = await fetch(url, {
-    redirect: "follow",
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; NI-Bin-Guy-NMD-test/1.0)",
-      Accept: "text/html,application/xhtml+xml,application/pdf;q=0.9,*/*;q=0.8",
-    },
-  });
-  const contentType = response.headers.get("content-type") || "";
-  const html = /text|html|xml/i.test(contentType) ? await response.text() : "";
-  const text = stripHtml(html);
-  const links = extractLinks(html, response.url || url);
-  return {
-    requestedUrl: url,
-    finalUrl: response.url || url,
-    status: response.status,
-    ok: response.ok,
-    contentType,
-    html,
-    text,
-    links,
-    score: scoreResponse(html, text, links),
-  };
-}
-
-export default async function handler(req) {
-  try {
-    const url = new URL(req.url);
-    const postcode = normalizePostcode(url.searchParams.get("postcode"));
-    if (!postcode) {
-      return new Response(JSON.stringify({ error: "Enter a valid Northern Ireland postcode." }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    const compact = postcode.replace(/\s/g, "");
-    const pc1 = compact.slice(0, -3);
-    const pc2 = compact.slice(-3);
-    const base = "https://www.newrymournedown.org/weekly-bin-collection-and-calendar";
-
-    // The council CMS has historically exposed these form values as pc1/pc2.
-    // Test both URL styles because its routing has used an ampersand path form as well as query strings.
-    const candidates = [
-      `${base}&pc1=${encodeURIComponent(pc1)}&pc2=${encodeURIComponent(pc2)}`,
-      `${base}?pc1=${encodeURIComponent(pc1)}&pc2=${encodeURIComponent(pc2)}`,
-    ];
-
-    const attempts = [];
-    for (const candidate of candidates) {
-      try {
-        attempts.push(await fetchCandidate(candidate));
-      } catch (error) {
-        attempts.push({ requestedUrl: candidate, ok: false, status: 0, score: -1, error: error?.message || String(error) });
-      }
-    }
-
-    const best = attempts.slice().sort((a, b) => (b.score || 0) - (a.score || 0))[0];
-    if (!best || !best.ok) {
-      return new Response(JSON.stringify({
-        matched: false,
-        postcode,
-        reason: "council_request_failed",
-        attempts: attempts.map(({ html, text, links, ...rest }) => rest),
-      }), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
-    }
-
-    const pdfLinks = (best.links || [])
-      .filter((link) => /\.pdf(?:$|\?)/i.test(link.url) || /calendar|schedule/i.test(link.label))
-      .slice(0, 20);
-
-    const lines = usefulLines(best.text || "");
-    const hasReturnedSchedule = best.score >= 5 || pdfLinks.length > 0;
-
-    return new Response(JSON.stringify({
-      matched: hasReturnedSchedule,
-      postcode,
-      postcodeParts: { pc1, pc2 },
-      council: "Newry, Mourne and Down District Council",
-      source: best.finalUrl,
-      httpStatus: best.status,
-      score: best.score,
-      scheduleLines: lines,
-      pdfLinks,
-      note: hasReturnedSchedule
-        ? "Council response contains schedule/calendar data. This is suitable for the next parsing step."
-        : "The council page responded, but no postcode-specific schedule was detected yet. The diagnostic lines below show what it returned.",
-      attempts: attempts.map(({ html, text, links, ...rest }) => rest),
-    }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error?.message || "Server error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-    });
-  }
-}
+function normalizePostcode(value){const c=String(value||"").toUpperCase().replace(/[^A-Z0-9]/g,"");if(c.length<5||c.length>7)return null;return `${c.slice(0,-3)} ${c.slice(-3)}`;}
+function dec(v){return String(v||"").replace(/&nbsp;/gi," ").replace(/&amp;/gi,"&").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,"<").replace(/&gt;/gi,">");}
+function strip(h){return dec(String(h||"").replace(/<script[\s\S]*?<\/script>/gi," ").replace(/<style[\s\S]*?<\/style>/gi," ").replace(/<br\s*\/?\s*>/gi,"\n").replace(/<\/p>|<\/div>|<\/li>|<\/tr>|<\/h\d>/gi,"\n").replace(/<[^>]+>/g," ")).replace(/[ \t]+/g," ").replace(/\n\s*\n+/g,"\n").trim();}
+function abs(h,b){try{return new URL(dec(h),b).href}catch{return null}}
+function links(html,base){const a=[];const re=/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;let m;while((m=re.exec(html))){const u=abs(m[1],base);if(u)a.push({url:u,label:strip(m[2])});}return a;}
+async function get(url,opts={}){const r=await fetch(url,{redirect:"follow",headers:{"User-Agent":"Mozilla/5.0 (compatible; NI-Bin-Guy-NMD-test/2.0)",Accept:"text/html,application/xhtml+xml,*/*;q=0.8",...(opts.headers||{})},...opts});return {r,html:await r.text()};}
+function findForm(html){const forms=[...html.matchAll(/<form\b[^>]*>[\s\S]*?<\/form>/gi)].map(x=>x[0]);return forms.find(f=>/postcode|pc1|pc2/i.test(f))||null;}
+function attr(tag,name){return tag.match(new RegExp(`${name}\\s*=\\s*["']([^"']*)["']`,`i`))?.[1]||"";}
+function buildFormSubmission(form,base,pc1,pc2){const open=form.match(/<form\b[^>]*>/i)?.[0]||"";const action=abs(attr(open,"action")||base,base)||base;const method=(attr(open,"method")||"GET").toUpperCase();const params=new URLSearchParams();
+ for(const m of form.matchAll(/<input\b[^>]*>/gi)){const tag=m[0],name=attr(tag,"name");if(!name)continue;const type=(attr(tag,"type")||"text").toLowerCase();if(["submit","button","image","reset"].includes(type))continue;let val=attr(tag,"value");if(/pc2|remaining|postcode2|postcode.*last/i.test(name))val=pc2;else if(/pc1|postcode1|postcode.*first/i.test(name))val=pc1;params.set(name,val);}
+ for(const m of form.matchAll(/<select\b[^>]*name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/select>/gi)){const name=m[1],body=m[2];let val="";for(const o of body.matchAll(/<option\b[^>]*value=["']([^"']*)["'][^>]*>([\s\S]*?)<\/option>/gi)){if(o[1].toUpperCase()===pc1||strip(o[2]).toUpperCase()===pc1){val=o[1];break;}}if(!val&&/pc1|postcode|select/i.test(name))val=pc1;params.set(name,val);}
+ if(![...params.keys()].some(k=>/pc1|postcode.*first/i.test(k)))params.set("pc1",pc1);if(![...params.keys()].some(k=>/pc2|remaining|postcode.*last/i.test(k)))params.set("pc2",pc2);
+ return {action,method,params};}
+function calendarRef(url){const m=String(url||"").match(/\/(MON|TUE|WED|THU|FRI|SAT|SUN)-Z([12])\.pdf/i);return m?{weekday:m[1].toUpperCase(),zone:Number(m[2])}:null;}
+const wd={SUN:0,MON:1,TUE:2,WED:3,THU:4,FRI:5,SAT:6};
+function iso(d){return d.toISOString().slice(0,10)}
+function nextDates(ref,bin){if(!ref)return[];const target=wd[ref.weekday];const today=new Date();const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/London",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(today);const p=Object.fromEntries(parts.map(x=>[x.type,x.value]));let d=new Date(Date.UTC(+p.year,+p.month-1,+p.day));let shift=(target-d.getUTCDay()+7)%7;d=new Date(d.getTime()+shift*86400000);
+ const anchorByDay={MON:"2025-03-31",TUE:"2025-04-01",WED:"2025-04-02",THU:"2025-04-03",FRI:"2025-04-04",SAT:"2025-04-05",SUN:"2025-04-06"};const anchor=new Date(`${anchorByDay[ref.weekday]}T12:00:00Z`);const wantedBlue=String(bin).toUpperCase()==="BLUE";const out=[];for(let i=0;i<8&&out.length<2;i++){const x=new Date(d.getTime()+i*7*86400000);const weeks=Math.round((x-anchor)/604800000);const z1BlackBrown=((weeks%2)+2)%2===0;const blackBrown=ref.zone===1?z1BlackBrown:!z1BlackBrown;const matches=wantedBlue?!blackBrown:blackBrown;if(matches)out.push(iso(x));}return out;}
+export default async function handler(req){try{const u=new URL(req.url),postcode=normalizePostcode(u.searchParams.get("postcode")),bin=String(u.searchParams.get("bin")||"BLACK").toUpperCase();if(!postcode)return new Response(JSON.stringify({error:"Enter a valid Northern Ireland postcode."}),{status:400,headers:{"Content-Type":"application/json"}});const compact=postcode.replace(/\s/g,""),pc1=compact.slice(0,-3),pc2=compact.slice(-3),base="https://www.newrymournedown.org/weekly-bin-collection-and-calendar";
+ const first=await get(base);const form=findForm(first.html);let html=first.html,finalUrl=first.r.url||base,submission=null;if(form){submission=buildFormSubmission(form,finalUrl,pc1,pc2);if(submission.method==="POST"){const res=await get(submission.action,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:submission.params.toString()});html=res.html;finalUrl=res.r.url||submission.action;}else{const q=new URL(submission.action);for(const [k,v] of submission.params)q.searchParams.set(k,v);const res=await get(q.href);html=res.html;finalUrl=res.r.url||q.href;}}
+ const allLinks=links(html,finalUrl);let pdf=allLinks.find(x=>/\/bin-collections\/(MON|TUE|WED|THU|FRI|SAT|SUN)-Z[12]\.pdf/i.test(x.url));if(!pdf){for(const c of [`${base}&pc1=${encodeURIComponent(pc1)}&pc2=${encodeURIComponent(pc2)}`,`${base}?pc1=${encodeURIComponent(pc1)}&pc2=${encodeURIComponent(pc2)}`]){try{const r=await get(c);const ls=links(r.html,r.r.url||c);pdf=ls.find(x=>/\/bin-collections\/(MON|TUE|WED|THU|FRI|SAT|SUN)-Z[12]\.pdf/i.test(x.url));if(pdf){html=r.html;finalUrl=r.r.url||c;break;}}catch{}}}
+ const ref=calendarRef(pdf?.url);const dates=nextDates(ref,bin);return new Response(JSON.stringify({matched:Boolean(ref&&dates.length===2),postcode,bin,council:"Newry, Mourne and Down District Council",calendar:pdf||null,calendarRef:ref,nextTwoCollectionDates:dates,source:finalUrl,note:ref?"Postcode matched to the council calendar. Dates are calculated from the council weekday/zone cycle.":"Council page returned, but the postcode-specific calendar link was not found yet.",diagnostic:{formFound:Boolean(form),method:submission?.method||null,action:submission?.action||null,linkCount:allLinks.length}}),{status:200,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});}catch(e){return new Response(JSON.stringify({error:e?.message||"Server error"}),{status:500,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}})}}
