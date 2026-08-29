@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>NMD Bin Lookup Test | NI Bin Guy</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #f5f7f6; color: #13221a; }
+    main { width: min(760px, calc(100% - 32px)); margin: 42px auto; }
+    .card { background: white; border-radius: 22px; padding: 26px; box-shadow: 0 16px 44px rgba(15, 45, 30, .09); }
+    h1 { margin: 0 0 10px; font-size: clamp(28px, 5vw, 42px); }
+    p { line-height: 1.55; }
+    .tag { display: inline-flex; background: #e8f4ec; color: #176238; border-radius: 999px; padding: 7px 11px; font-size: 13px; font-weight: 700; margin-bottom: 14px; }
+    form { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin: 22px 0 8px; }
+    input { min-width: 0; border: 1px solid #b9c7bf; border-radius: 12px; padding: 14px 16px; font-size: 18px; text-transform: uppercase; }
+    button { border: 0; border-radius: 12px; padding: 14px 20px; background: #14723e; color: white; font-weight: 800; font-size: 16px; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: wait; }
+    #status { margin-top: 18px; border-radius: 14px; padding: 16px; background: #f0f3f1; display: none; }
+    #status.good { display: block; background: #e9f7ee; border: 1px solid #9ed7b5; }
+    #status.warn { display: block; background: #fff6dd; border: 1px solid #efd17a; }
+    #status.bad { display: block; background: #feecec; border: 1px solid #efaaaa; }
+    .results { margin-top: 18px; display: none; }
+    .results.visible { display: block; }
+    .line { background: #f7f8f7; border-radius: 10px; padding: 10px 12px; margin: 8px 0; font-size: 14px; }
+    .small { color: #5d6b63; font-size: 13px; }
+    a { color: #116437; }
+    details { margin-top: 16px; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #101915; color: #d9e7df; padding: 14px; border-radius: 12px; overflow: auto; font-size: 12px; }
+    @media (max-width: 560px) { form { grid-template-columns: 1fr; } button { width: 100%; } }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <div class="tag">Temporary council test</div>
+      <h1>Newry, Mourne &amp; Down booking lookup</h1>
+      <p>This page does not create a booking or send any emails. It only checks whether we can retrieve the council bin schedule from a postcode so it is safe to test.</p>
+      <form id="lookupForm">
+        <input id="postcode" name="postcode" autocomplete="postal-code" placeholder="e.g. BT33 0HB" required />
+        <button id="lookupButton" type="submit">Test postcode</button>
+      </form>
+      <p class="small">Use a real residential postcode from the Newry, Mourne &amp; Down council area.</p>
+      <div id="status"></div>
+      <div id="results" class="results">
+        <h2>What the council returned</h2>
+        <div id="scheduleLines"></div>
+        <div id="pdfLinks"></div>
+        <details><summary>Technical details</summary><pre id="raw"></pre></details>
+      </div>
+    </section>
+  </main>
+  <script>
+    const form=document.getElementById('lookupForm'),postcodeInput=document.getElementById('postcode'),button=document.getElementById('lookupButton'),status=document.getElementById('status'),results=document.getElementById('results'),scheduleLines=document.getElementById('scheduleLines'),pdfLinks=document.getElementById('pdfLinks'),raw=document.getElementById('raw');
+    function setStatus(kind,html){status.className=kind;status.innerHTML=html;}
+    form.addEventListener('submit',async(event)=>{event.preventDefault();const postcode=postcodeInput.value.trim();if(!postcode)return;button.disabled=true;button.textContent='Checking council…';results.classList.remove('visible');setStatus('warn','<strong>Checking the council lookup…</strong>');scheduleLines.innerHTML='';pdfLinks.innerHTML='';try{const response=await fetch(`/.netlify/functions/nmdBinLookup?postcode=${encodeURIComponent(postcode)}`,{cache:'no-store'});const data=await response.json();raw.textContent=JSON.stringify(data,null,2);if(!response.ok||data.error){setStatus('bad',`<strong>Lookup error:</strong> ${data.error||'Unknown error'}`);results.classList.add('visible');return;}if(data.matched){setStatus('good',`<strong>Success:</strong> the Newry, Mourne & Down council response contains postcode-specific calendar/schedule data for <strong>${data.postcode}</strong>.`);}else{setStatus('warn',`<strong>Partial result:</strong> the council responded for <strong>${data.postcode}</strong>, but the test has not yet identified usable schedule data automatically.`);}const lines=Array.isArray(data.scheduleLines)?data.scheduleLines:[];scheduleLines.innerHTML=lines.length?lines.map(line=>`<div class="line">${String(line).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</div>`).join(''):'<p class="small">No schedule text detected in the returned HTML.</p>';const links=Array.isArray(data.pdfLinks)?data.pdfLinks:[];if(links.length){pdfLinks.innerHTML='<h3>Calendar/schedule links</h3>'+links.map(link=>`<p><a href="${link.url}" target="_blank" rel="noopener noreferrer">${link.label||'Open calendar'}</a></p>`).join('');}results.classList.add('visible');}catch(error){setStatus('bad',`<strong>Test failed:</strong> ${error.message}`);}finally{button.disabled=false;button.textContent='Test postcode';}});
+  </script>
+</body>
+</html>
