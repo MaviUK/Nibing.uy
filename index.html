@@ -168,8 +168,13 @@
     <a href="#customer-portal">Customer Portal</a>
   </nav>
 
-  <!-- React Root -->
-  <div id="root"></div>
+  <!-- Crawlable homepage fallback. React replaces this content when the app loads. -->
+  <div id="root">
+    <main id="crawler-homepage-content">
+      <h1>Domestic &amp; Commercial Wheelie Bin Cleaning in Bangor &amp; County Down</h1>
+      <p>NI Bin Guy provides regular and one-off domestic wheelie bin cleaning plus commercial bin cleaning in Bangor and nearby County Down towns.</p>
+    </main>
+  </div>
   <script type="module" src="/src/main.jsx"></script>
   <script src="/privacy-link.js?v=20260704-3" defer></script>
   <script>
