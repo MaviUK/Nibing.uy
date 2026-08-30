@@ -7,7 +7,7 @@
   <title>Ni Bin Guy | Wheelie Bin Cleaning in County Down</title>
 
   <!-- SEO Meta Tags -->
-  <meta name="description" content="Professional wheelie bin cleaning across County Down. Covering Bangor, Groomsport, Donaghadee, Newtownards, Greyabbey, Comber, Millisle, Ballywalter, Portaferry, Portavogie, Cloughey and Ballyhalbert. Regular cleans from £5 per bin.">
+  <meta name="description" content="Domestic and commercial wheelie bin cleaning in Bangor and nearby County Down towns. Regular cleans from £5 per bin. Book with NI Bin Guy.">
   <meta name="robots" content="index, follow">
   <meta name="author" content="Ni Bin Guy">
   <link rel="canonical" href="https://nibing.uy/" />
@@ -187,75 +187,12 @@
     (function () {
       const button = document.getElementById("site-menu-toggle");
       const menu = document.getElementById("site-section-menu");
-      const root = document.getElementById("root");
-      const sectionIds = { "What We Do": "what-we-do", "The Bins We Clean": "bins-we-clean", "Why Clean Your Bin?": "why-clean-your-bin", "Why Ni Bin Guy?": "why-ni-bin-guy" };
-      function setMenuOpen(open) { menu.dataset.open = open ? "true" : "false"; button.setAttribute("aria-expanded", open ? "true" : "false"); button.setAttribute("aria-label", open ? "Close website menu" : "Open website menu"); }
-      function assignSectionIds() { document.querySelectorAll("h2").forEach((heading) => { const text = (heading.textContent || "").trim(); const id = sectionIds[text]; const section = heading.closest("section"); if (id && section && !section.id) section.id = id; }); }
-      function openBookingForm() { const bookingButton = Array.from(document.querySelectorAll("button")).find((candidate) => { const label = (candidate.textContent || "").trim(); return label === "Book a Clean" && candidate.id !== "site-menu-toggle" && !candidate.closest("#site-section-menu"); }); if (bookingButton) { bookingButton.click(); return; } document.getElementById("main-content")?.scrollIntoView({ behavior: "smooth", block: "start" }); }
-      button.addEventListener("click", function (event) { event.stopPropagation(); setMenuOpen(menu.dataset.open !== "true"); });
-      menu.addEventListener("click", function (event) { const bookingTrigger = event.target.closest("[data-open-booking-form='true']"); if (bookingTrigger) { event.preventDefault(); setMenuOpen(false); openBookingForm(); return; } if (event.target.closest("a")) setMenuOpen(false); });
-      document.addEventListener("click", function (event) { if (!menu.contains(event.target) && !button.contains(event.target)) setMenuOpen(false); });
-      document.addEventListener("keydown", function (event) { if (event.key === "Escape") setMenuOpen(false); });
-      assignSectionIds(); if (root) { new MutationObserver(assignSectionIds).observe(root, { childList: true, subtree: true }); }
+      const closeMenu = () => { menu.dataset.open = "false"; button.setAttribute("aria-expanded", "false"); };
+      button.addEventListener("click", () => { const open = menu.dataset.open !== "true"; menu.dataset.open = String(open); button.setAttribute("aria-expanded", String(open)); });
+      menu.addEventListener("click", (event) => { const bookingButton = event.target.closest("[data-open-booking-form]"); if (bookingButton) { closeMenu(); const bookingTrigger = document.querySelector("#root button"); if (bookingTrigger) bookingTrigger.click(); return; } if (event.target.closest("a")) closeMenu(); });
+      document.addEventListener("click", (event) => { if (!menu.contains(event.target) && !button.contains(event.target)) closeMenu(); });
+      document.addEventListener("keydown", (event) => { if (event.key === "Escape") closeMenu(); });
     })();
   </script>
-
-  <!-- Customer reviews and trust signals -->
-  <section id="customer-reviews" style="padding: 64px 16px; background: linear-gradient(180deg, #000000 0%, #18181b 16%, #18181b 84%, #000000 100%); color: white;">
-    <div style="max-width: 1050px; margin: 0 auto;">
-      <h2 style="font-size: 1.875rem; font-weight: bold; color: #4ade80; margin: 0 0 18px; text-align: center;">Customer Reviews</h2>
-      <p style="max-width: 760px; margin: 0 auto 30px; color: #d4d4d8; line-height: 1.7; text-align: center;">See what local customers are saying about Ni Bin Guy on Google and Facebook.</p>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; align-items: stretch;">
-        <div style="background: rgba(39, 39, 42, 0.82); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 22px; box-shadow: 0 14px 36px rgba(0,0,0,0.26); display: flex; flex-direction: column; justify-content: space-between;">
-          <div>
-            <h3 style="margin: 0 0 10px; color: #4ade80; font-size: 1.15rem;">Google Reviews</h3>
-            <p id="google-rating-summary" style="margin: 0 0 14px; color: #facc15; font-weight: 800;"></p>
-            <div id="google-reviews-list" style="margin: 0 0 18px;"><p style="margin: 0; color: #a1a1aa; line-height: 1.65;">Reviews load as you reach this section.</p></div>
-          </div>
-          <a id="google-reviews-button" data-track="google_reviews_click" href="https://share.google/hE0fuZuoDjknpdsjF" target="_blank" rel="noopener noreferrer" style="display: inline-block; align-self: center; margin: 0 auto; text-align: center; background: #22c55e; color: #000; font-weight: 800; padding: 12px 20px; border-radius: 14px; text-decoration: none; box-shadow: 0 10px 24px rgba(34,197,94,0.22);">View More Google Reviews</a>
-        </div>
-        <div style="background: rgba(39, 39, 42, 0.82); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 22px; box-shadow: 0 14px 36px rgba(0,0,0,0.26);">
-          <h3 style="margin: 0 0 14px; color: #4ade80; font-size: 1.15rem;">Facebook Reviews & Updates</h3>
-          <div style="overflow: hidden; border-radius: 14px; background: #000; min-height: 500px;"><iframe title="Ni Bin Guy Facebook page" loading="lazy" width="100%" height="500" style="border:none; overflow:hidden; display:block;" scrolling="no" frameborder="0" allowfullscreen="true" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"></iframe></div>
-          <a data-track="facebook_click" href="https://www.facebook.com/profile.php?id=100064103796752" target="_blank" rel="noopener noreferrer" style="display: block; width: fit-content; margin: 14px auto 0; background: #22c55e; color: #000; font-weight: 800; padding: 12px 20px; border-radius: 14px; text-decoration: none; box-shadow: 0 10px 24px rgba(34,197,94,0.22); text-align: center;">View Facebook Page</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Search-friendly customer questions -->
-  <section id="wheelie-bin-cleaning-questions" style="padding: 64px 16px; background: linear-gradient(180deg, #000000 0%, #18181b 16%, #18181b 84%, #000000 100%); color: white;">
-    <div style="max-width: 950px; margin: 0 auto;">
-      <h2 style="font-size: 1.875rem; font-weight: bold; color: #4ade80; margin: 0 0 28px; text-align: center;">Customer Questions</h2>
-      <div style="display: grid; gap: 14px;">
-        <details open style="background: rgba(39, 39, 42, 0.82); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 18px 20px; box-shadow: 0 14px 36px rgba(0,0,0,0.28);"><summary style="cursor: pointer; color: white; font-size: 1.18rem; font-weight: 800;">How much does wheelie bin cleaning cost?</summary><p style="margin: 14px 0 0; color: #d4d4d8; line-height: 1.7;">Regular domestic bin cleaning starts from <strong style="color: #4ade80;">£5 per bin</strong>. One-off domestic cleans are available from <strong style="color: #4ade80;">£15</strong>, with commercial prices based on bin size and frequency.</p></details>
-        <details style="background: rgba(39, 39, 42, 0.82); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 18px 20px; box-shadow: 0 14px 36px rgba(0,0,0,0.28);"><summary style="cursor: pointer; color: white; font-size: 1.18rem; font-weight: 800;">Do you charge extra for first cleans?</summary><p style="margin: 14px 0 0; color: #d4d4d8; line-height: 1.7;"><strong style="color: #4ade80;">No.</strong> We do not charge an extra first-clean fee. Your first regular clean is charged at the normal regular-clean price, and one-off domestic cleans start from £15.</p></details>
-        <details style="background: rgba(39, 39, 42, 0.82); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 18px 20px; box-shadow: 0 14px 36px rgba(0,0,0,0.28);"><summary style="cursor: pointer; color: white; font-size: 1.18rem; font-weight: 800;">What areas do you cover?</summary><p style="margin: 14px 0 14px; color: #d4d4d8; line-height: 1.7;">Ni Bin Guy is based in Bangor and covers nearby County Down towns and coastal areas. If you are close to these areas, just ask and we will confirm whether you are on our round.</p><div style="display: flex; flex-wrap: wrap; gap: 8px;"><span style="background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.28); color: #bbf7d0; border-radius: 999px; padding: 7px 11px; font-weight: 800; font-size: 0.9rem;">Bangor</span><span style="background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.28); color: #bbf7d0; border-radius: 999px; padding: 7px 11px; font-weight: 800; font-size: 0.9rem;">Groomsport</span><span style="background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.28); color: #bbf7d0; border-radius: 999px; padding: 7px 11px; font-weight: 800; font-size: 0.9rem;">Donaghadee</span><span style="background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.28); color: #bbf7d0; border-radius: 999px; padding: 7px 11px; font-weight: 800; font-size: 0.9rem;">Newtownards</span><span style="background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.28); color: #bbf7d0; border-radius: 999px; padding: 7px 11px; font-weight: 800; font-size: 0.9rem;">Greyabbey</span><span style="background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.28); color: #bbf7d0; border-radius: 999px; padding: 7px 11px; font-weight: 800; font-size: 0.9rem;">Comber</span><span style="background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.28); color: #bbf7d0; border-radius: 999px; padding: 7px 11px; font-weight: 800; font-size: 0.9rem;">Millisle</span><span style="background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.28); color: #bbf7d0; border-radius: 999px; padding: 7px 11px; font-weight: 800; font-size: 0.9rem;">Ballywalter</span><span style="background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.28); color: #bbf7d0; border-radius: 999px; padding: 7px 11px; font-weight: 800; font-size: 0.9rem;">Portaferry</span><span style="background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.28); color: #bbf7d0; border-radius: 999px; padding: 7px 11px; font-weight: 800; font-size: 0.9rem;">Portavogie</span><span style="background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.28); color: #bbf7d0; border-radius: 999px; padding: 7px 11px; font-weight: 800; font-size: 0.9rem;">Cloughey</span><span style="background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.28); color: #bbf7d0; border-radius: 999px; padding: 7px 11px; font-weight: 800; font-size: 0.9rem;">Ballyhalbert</span></div></details>
-        <details style="background: rgba(39, 39, 42, 0.82); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 18px 20px; box-shadow: 0 14px 36px rgba(0,0,0,0.28);"><summary style="cursor: pointer; color: white; font-size: 1.18rem; font-weight: 800;">How often should I clean my bin?</summary><p style="margin: 14px 0 0; color: #d4d4d8; line-height: 1.7;">A 4-weekly clean works well for most homes because the bin is cleaned after collection before smells, bacteria and flies build back up. One-off cleans are available when a bin needs a fresh start.</p></details>
-        <details style="background: rgba(39, 39, 42, 0.82); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 18px 20px; box-shadow: 0 14px 36px rgba(0,0,0,0.28);"><summary style="cursor: pointer; color: white; font-size: 1.18rem; font-weight: 800;">Can bin cleaning help with maggots and bad smells?</summary><p style="margin: 14px 0 0; color: #d4d4d8; line-height: 1.7;">Yes. We remove leftover waste where safe, wash the inside and outside, then sanitise and deodorise the bin to help reduce rotten smells, flies, maggots and bacteria.</p></details>
-        <details style="background: rgba(39, 39, 42, 0.82); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 18px 20px; box-shadow: 0 14px 36px rgba(0,0,0,0.28);"><summary style="cursor: pointer; color: white; font-size: 1.18rem; font-weight: 800;">What bins do you clean?</summary><p style="margin: 14px 0 0; color: #d4d4d8; line-height: 1.7;">We clean common domestic wheelie bins including black, blue, brown and green bins, plus larger commercial containers where required.</p></details>
-        <details style="background: rgba(39, 39, 42, 0.82); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 18px 20px; box-shadow: 0 14px 36px rgba(0,0,0,0.28);"><summary style="cursor: pointer; color: white; font-size: 1.18rem; font-weight: 800;">Do you clean commercial bins?</summary><p style="margin: 14px 0 0; color: #d4d4d8; line-height: 1.7;">Yes. We clean domestic wheelie bins and commercial bins, including 360L, 660L and 1100L containers for businesses that need regular bin cleaning.</p></details>
-        <details style="background: rgba(39, 39, 42, 0.82); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 18px 20px; box-shadow: 0 14px 36px rgba(0,0,0,0.28);"><summary style="cursor: pointer; color: white; font-size: 1.18rem; font-weight: 800;">When is the best time to clean a wheelie bin?</summary><p style="margin: 14px 0 0; color: #d4d4d8; line-height: 1.7;">The best time is usually after your bin collection, when the bin is empty and ready to be washed, sanitised and returned fresh for the next cycle.</p></details>
-        <details style="background: rgba(39, 39, 42, 0.82); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 18px 20px; box-shadow: 0 14px 36px rgba(0,0,0,0.28);"><summary style="cursor: pointer; color: white; font-size: 1.18rem; font-weight: 800;">Do I need to be home for a bin clean?</summary><p style="margin: 14px 0 0; color: #d4d4d8; line-height: 1.7;">No. As long as the bin is out and accessible after collection, we can clean it and return it to its usual spot.</p></details>
-        <details style="background: rgba(39, 39, 42, 0.82); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 18px 20px; box-shadow: 0 14px 36px rgba(0,0,0,0.28);"><summary style="cursor: pointer; color: white; font-size: 1.18rem; font-weight: 800;">What happens if there is loose waste left in the bin?</summary><p style="margin: 14px 0 0; color: #d4d4d8; line-height: 1.7;">Where it is safe to do so, leftover waste can be removed before cleaning. Excessive, unsafe or heavy waste may need to be cleared before the bin can be cleaned properly.</p></details>
-        <details style="background: rgba(39, 39, 42, 0.82); border: 1px solid rgba(255,255,255,0.2); border-radius: 18px; padding: 18px 20px; box-shadow: 0 14px 36px rgba(0,0,0,0.28);"><summary style="cursor: pointer; color: white; font-size: 1.18rem; font-weight: 800;">How do I book a wheelie bin clean?</summary><p style="margin: 14px 0 0; color: #d4d4d8; line-height: 1.7;">Use the Book a Clean button on the website, or contact Ni Bin Guy by WhatsApp, phone or email. We will reply with your price and next available clean date.</p></details>
-      </div>
-      <div style="text-align: center; margin-top: 34px;"><button type="button" data-open-booking-form="true" data-track="customer_questions_book_click" style="display: inline-block; background: #22c55e; color: #000; font-weight: 800; padding: 14px 24px; border: 0; border-radius: 14px; text-decoration: none; box-shadow: 0 10px 24px rgba(34,197,94,0.22); cursor: pointer; font-family: Arial, Helvetica, sans-serif; font-size: 1rem; line-height: 1.2;">Book a Clean</button></div>
-    </div>
-  </section>
-
-  <!-- Static Squeegee Portal -->
-  <section id="customer-portal" style="padding: 40px; background: linear-gradient(180deg, #000000 0%, #000000 100%); text-align: center; color: white;">
-    <h2 style="font-size: 1.875rem; font-weight: bold; color: #4ade80; margin-bottom: 20px;">Customer Portal</h2>
-    <div data-sqc="layout" data-sqa="25a031e7-75af-4a0e-9f3a-d308fd9b2e3a" data-sqe="https://sqgee.com" style="width: 100%; max-width: 800px; min-height: 700px; margin: 0 auto; display: block; background: #18181b; border: 1px solid rgba(255,255,255,0.3); border-radius: 1rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3); overflow: visible; padding: 20px; box-sizing: border-box;"></div>
-  </section>
-
-  <!-- Footer -->
-  <footer style="background: black; color: #a1a1aa; text-align: center; padding: 24px 16px;">
-    <p style="margin: 0; font-size: 0.9rem;">© 2025 Ni Bin Guy. All rights reserved.</p>
-    <p style="margin-top: 4px; font-size: 0.9rem;">Bangor, BT20 5NF · 07555178484 · nibing.uy · info@nibing.uy</p>
-    <p style="margin-top: 8px; font-size: 0.9rem;"><button type="button" data-open-privacy-policy="true" style="background: none; border: 0; padding: 0; color: #4ade80; text-decoration: underline; cursor: pointer; font: inherit;">Privacy Policy</button></p>
-  </footer>
-
 </body>
 </html>
