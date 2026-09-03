@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/updateBookingTerms.cjs && node scripts/updateAutomaticBookingTerms.cjs && vite build",
+    "build": "node scripts/updateBookingTerms.cjs && node scripts/updateAutomaticBookingTerms.cjs && node scripts/hardenBookingSubmissions.cjs && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
