@@ -8,7 +8,12 @@ try {
   getStoreSafe = function (name) {
     const siteID = process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID;
     const token = process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN;
-    return siteID && token ? getStore({ name, siteID, token }) : getStore({ name });
+    const options = { name, consistency: "strong" };
+    if (siteID && token) {
+      options.siteID = siteID;
+      options.token = token;
+    }
+    return getStore(options);
   };
 } catch (_) {
   // Netlify Blobs is expected in production. Freshness validation still works if unavailable.
