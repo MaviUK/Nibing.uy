@@ -189,11 +189,6 @@
 # Only real client-side application routes are rewritten to index.html.
 # Unknown URLs are left unmatched so Netlify serves 404.html with HTTP 404.
 [[redirects]]
-  from = "/terms"
-  to = "/index.html"
-  status = 200
-
-[[redirects]]
   from = "/street-booking"
   to = "/index.html"
   status = 200
