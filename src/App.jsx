@@ -9,7 +9,6 @@ const StandeePreClaim = lazy(() => import("./standee/StandeePreClaim"))
 const LatestStandeeRedirect = lazy(() => import("./pages/standee/latest"))
 const StandeeSpottedClosed = lazy(() => import("./standee/StandeeSpottedClosed"))
 const StreetBookingPage = lazy(() => import("./pages/StreetBookingPage"))
-const TermsPage = lazy(() => import("./pages/TermsPage"))
 const Metrics = lazy(() => import("./pages/Metrics"))
 const TenSecondChallenge = lazy(() => import("./TenSecondChallenge"))
 const AdminLogin = lazy(() => import("./admin/AdminLogin"))
@@ -30,7 +29,6 @@ export default function App() {
     <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">Loading page…</div>}>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/terms" element={<TermsPage />} />
         <Route path="/street-booking" element={<StreetBookingPage />} />
         <Route path="/metric" element={<Metrics />} />
         <Route path="/metrics" element={<Metrics />} />
