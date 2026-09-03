@@ -170,7 +170,7 @@ async function tryEmbedLogo(pdfDoc) {
 
 async function buildTermsAcceptancePdfAttachment(data) {
   const termsBody = data.termsBody || DEFAULT_TERMS_BODY;
-  const verificationHash = buildHash({ ...data, termsBody });
+  const verificationHash = data.verificationHash || buildHash({ ...data, termsBody });
 
   const pdfDoc = await PDFDocument.create();
   pdfDoc.setTitle("Ni Bin Guy Terms Acceptance Certificate");
