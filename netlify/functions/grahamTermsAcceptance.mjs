@@ -1,4 +1,9 @@
+import * as pdfLib from "pdf-lib";
 import termsPdfModule from "./lib/termsPdf.js";
+
+// Keep pdf-lib as a direct dependency of this ESM function so Netlify's bundler
+// includes it in the function package. termsPdf.js is CommonJS and also uses it.
+void pdfLib.PDFDocument;
 
 const { buildTermsAcceptancePdfAttachment } = termsPdfModule;
 
