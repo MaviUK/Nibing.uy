@@ -128,11 +128,9 @@ function isNorthernIrelandMondayBankHoliday(monday){
   holidays.push(lastWeekdayUtc(year,4,1));
   holidays.push(observedFixedUtc(year,6,12));
   holidays.push(lastWeekdayUtc(year,7,1));
-  const christmas=new Date(Date.UTC(year,11,25));
-  const boxing=new Date(Date.UTC(year,11,26));
-  if(christmas.getUTCDay()===6){holidays.push(new Date(Date.UTC(year,11,27)));holidays.push(new Date(Date.UTC(year,11,28)));}
-  else if(christmas.getUTCDay()===0){holidays.push(boxing);holidays.push(new Date(Date.UTC(year,11,27)));}
-  else {holidays.push(christmas);holidays.push(observedFixedUtc(year,11,26));}
+  // Christmas/Boxing Day substitute Mondays are deliberately excluded.
+  // The council operates its Monday collection on those substitute dates,
+  // so NI Bin Guy's Squeegee rounds must remain on their normal weekdays.
   return holidays.some((d)=>d.getUTCDay()===1&&d.toISOString().slice(0,10)===key);
 }
 function mondayOfWeekUtc(date){const d=new Date(date.getTime());const day=d.getUTCDay();const diff=day===0?-6:1-day;return new Date(d.getTime()+diff*DAY_MS);}
