@@ -1,7 +1,7 @@
 const SITE_ORIGIN = "https://nibing.uy";
 const SITEMAP_URL = `${SITE_ORIGIN}/sitemap.xml`;
 const INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow";
-const INDEXNOW_KEY = "d7c5b4a0-58fe-4d9e-a6d2-4be4986c238a";
+const INDEXNOW_KEY = "938d30d0d59e4b5fa2ca657b23fcd63d";
 const KEY_LOCATION = `${SITE_ORIGIN}/${INDEXNOW_KEY}.txt`;
 const LOOKBACK_DAYS = 2;
 
