@@ -108,7 +108,54 @@ function nextTwoCouncilDates(councilDates){const cutoff=ukBookingCutoff();return
 function normalizeTown(value){return String(value||"").toUpperCase().replace(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b.*$/i,"").replace(/\b[A-Z]{1,2}\d[A-Z\d]?\b.*$/i,"").replace(/\s+/g," ").trim();}
 function extractTown(address){const parts=String(address||"").split(",").map((part)=>part.trim()).filter(Boolean);return parts.length>=2?normalizeTown(parts[1]):"";}
 function inferTownFromPostcodeAddresses(addresses){const counts=new Map();for(const item of addresses||[]){const town=extractTown(item?.label);if(!town)continue;counts.set(town,(counts.get(town)||0)+1);}return [...counts.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0]||"";}
-function scheduledTownCount(town,date){const rows=townSchedule[normalizeTown(town)]||[];const target=new Date(`${date}T12:00:00Z`).getTime();if(!Number.isFinite(target))return 0;let total=0;for(const [anchorDate,frequencyWeeks,support] of rows){const anchor=new Date(`${anchorDate}T12:00:00Z`).getTime();const period=Math.max(1,Number(frequencyWeeks)||4)*7*DAY_MS;if(!Number.isFinite(anchor)||target<anchor)continue;if((target-anchor)%period===0)total+=Math.max(1,Number(support)||1);}return total;}
+
+function easterSundayUtc(year){
+  const a=year%19,b=Math.floor(year/100),c=year%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),month=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1;
+  return new Date(Date.UTC(year,month-1,day));
+}
+function nthWeekdayUtc(year,month,weekday,n){const first=new Date(Date.UTC(year,month,1));const offset=(weekday-first.getUTCDay()+7)%7;return new Date(Date.UTC(year,month,1+offset+(n-1)*7));}
+function lastWeekdayUtc(year,month,weekday){const last=new Date(Date.UTC(year,month+1,0));const offset=(last.getUTCDay()-weekday+7)%7;return new Date(Date.UTC(year,month,last.getUTCDate()-offset));}
+function observedFixedUtc(year,month,day){const d=new Date(Date.UTC(year,month,day));if(d.getUTCDay()===6)return new Date(d.getTime()+2*DAY_MS);if(d.getUTCDay()===0)return new Date(d.getTime()+DAY_MS);return d;}
+function isNorthernIrelandMondayBankHoliday(monday){
+  if(!(monday instanceof Date)||monday.getUTCDay()!==1)return false;
+  const year=monday.getUTCFullYear();
+  const key=monday.toISOString().slice(0,10);
+  const holidays=[];
+  holidays.push(observedFixedUtc(year,0,1));
+  holidays.push(observedFixedUtc(year,2,17));
+  holidays.push(new Date(easterSundayUtc(year).getTime()+DAY_MS));
+  holidays.push(nthWeekdayUtc(year,4,1,1));
+  holidays.push(lastWeekdayUtc(year,4,1));
+  holidays.push(observedFixedUtc(year,6,12));
+  holidays.push(lastWeekdayUtc(year,7,1));
+  const christmas=new Date(Date.UTC(year,11,25));
+  const boxing=new Date(Date.UTC(year,11,26));
+  if(christmas.getUTCDay()===6){holidays.push(new Date(Date.UTC(year,11,27)));holidays.push(new Date(Date.UTC(year,11,28)));}
+  else if(christmas.getUTCDay()===0){holidays.push(boxing);holidays.push(new Date(Date.UTC(year,11,27)));}
+  else {holidays.push(christmas);holidays.push(observedFixedUtc(year,11,26));}
+  return holidays.some((d)=>d.getUTCDay()===1&&d.toISOString().slice(0,10)===key);
+}
+function mondayOfWeekUtc(date){const d=new Date(date.getTime());const day=d.getUTCDay();const diff=day===0?-6:1-day;return new Date(d.getTime()+diff*DAY_MS);}
+function scheduledTownCount(town,date){
+  const rows=townSchedule[normalizeTown(town)]||[];
+  const targetDate=new Date(`${date}T12:00:00Z`);
+  const target=targetDate.getTime();
+  if(!Number.isFinite(target))return 0;
+  const weekMonday=mondayOfWeekUtc(targetDate);
+  const bankHolidayShift=isNorthernIrelandMondayBankHoliday(weekMonday);
+  const scheduledTarget=bankHolidayShift?target-DAY_MS:target;
+  const scheduledDate=new Date(scheduledTarget);
+  const scheduledWeekday=scheduledDate.getUTCDay();
+  if(bankHolidayShift&&(targetDate.getUTCDay()<2||targetDate.getUTCDay()>5||scheduledWeekday<1||scheduledWeekday>4))return 0;
+  let total=0;
+  for(const [anchorDate,frequencyWeeks,support] of rows){
+    const anchor=new Date(`${anchorDate}T12:00:00Z`).getTime();
+    const period=Math.max(1,Number(frequencyWeeks)||4)*7*DAY_MS;
+    if(!Number.isFinite(anchor)||scheduledTarget<anchor)continue;
+    if((scheduledTarget-anchor)%period===0)total+=Math.max(1,Number(support)||1);
+  }
+  return total;
+}
 function chooseTownWorkloadMatch(town,councilDates){const nextTwo=nextTwoCouncilDates(councilDates);if(!town||!nextTwo.length)return null;const scoredDates=nextTwo.map((date)=>({date,support:scheduledTownCount(town,date)}));const viable=scoredDates.filter((item)=>item.support>0).sort((a,b)=>(b.support-a.support)||a.date.localeCompare(b.date));if(!viable.length)return null;const winner=viable[0];return{round:{matched:true,ambiguous:false,resolvedBy:"exact_town_workload_on_next_two_council_dates",town:normalizeTown(town),nextCleanDate:winner.date,councilValidationDate:winner.date,support:winner.support,townDateSupport:scoredDates},assignedCleanDate:winner.date,checkedCouncilDates:nextTwo};}
 function normalizeAddressList(payload){let list=payload?.data?.addresses;if(!Array.isArray(list)&&Array.isArray(payload?.addresses))list=payload.addresses;if(!Array.isArray(list)&&payload?.addresses&&typeof payload.addresses==="object")list=Object.values(payload.addresses);return(list||[]).map((item)=>{if(!item||typeof item!=="object")return null;const uprn=String(item.uprn||item.UPRN||"").trim();const label=String(item.addressText||item.address||item.label||"").trim();return uprn&&label?{uprn,label}:null;}).filter(Boolean);}
 async function getCouncilAddresses(origin,postcode){const directRes=await fetch(new URL(`/.netlify/functions/binAddresses?postcode=${encodeURIComponent(postcode)}`,origin));const directData=await directRes.json().catch(()=>({}));const directAddresses=directRes.ok?normalizeAddressList(directData):[];if(directAddresses.length)return{source:"binAddresses",addresses:directAddresses};const fallbackRes=await fetch(new URL(`/.netlify/functions/binLookup?postcode=${encodeURIComponent(postcode)}`,origin));const fallbackData=await fallbackRes.json().catch(()=>({}));const fallbackAddresses=Array.isArray(fallbackData.addresses)?fallbackData.addresses.map((i)=>({uprn:String(i.uprn||"").trim(),label:String(i.label||"").trim()})).filter((i)=>i.uprn&&i.label):[];return{source:"binLookup",addresses:fallbackRes.ok?fallbackAddresses:[]};}
