@@ -11,6 +11,9 @@
 /bin-cleaning-cloughey/ /bin-cleaning-cloughey 301!
 /bin-cleaning-ballyhalbert/ /bin-cleaning-ballyhalbert 301!
 
+# Stored street-signup Terms & Conditions certificates.
+/customer-documents/street-terms/:id.pdf /.netlify/functions/streetTermsDocument?id=:id 200
+
 # Explicit SPA routes only. Unknown URLs are intentionally left unmatched so
 # Netlify serves public/404.html with a real HTTP 404 status instead of the
 # homepage with a 200 status (soft 404).
