@@ -47,12 +47,16 @@
     }
   }
 
-  // Keep the normal booking endpoint protected by reCAPTCHA, while routing
-  // genuine 10-second challenge winner forms to their dedicated endpoint.
   var originalFetch = window.fetch;
   window.fetch = function (input, init) {
     try {
       var url = typeof input === "string" ? input : input && input.url;
+
+      if (url && url.indexOf("/.netlify/functions/sendStreetBookingEmail") !== -1) {
+        input = "/.netlify/functions/sendStreetBookingEmailV2";
+        url = input;
+      }
+
       if (url && url.indexOf("/.netlify/functions/sendBookingEmail") !== -1 && init && typeof init.body === "string") {
         var body = JSON.parse(init.body);
         if (body && body.source === "ten-second-challenge") {
