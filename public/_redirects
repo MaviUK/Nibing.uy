@@ -12,7 +12,9 @@
 /bin-cleaning-ballyhalbert/ /bin-cleaning-ballyhalbert 301!
 
 # Stored street-signup Terms & Conditions certificates.
-/customer-documents/street-terms/:id.pdf /.netlify/functions/streetTermsDocument?id=:id 200
+# Use a splat because Netlify does not reliably capture a named parameter when
+# an extension is appended to it (e.g. :id.pdf).
+/customer-documents/street-terms/* /.netlify/functions/streetTermsDocument?id=:splat 200
 
 # Explicit SPA routes only. Unknown URLs are intentionally left unmatched so
 # Netlify serves public/404.html with a real HTTP 404 status instead of the
