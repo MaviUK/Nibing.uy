@@ -82,6 +82,23 @@ function friendlyPlan(bin) {
   return bin?.planId || "Bin clean";
 }
 
+function randomShortCode(length = 6) {
+  const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const bytes = crypto.randomBytes(length);
+  let code = "";
+  for (let i = 0; i < length; i += 1) code += alphabet[bytes[i] % alphabet.length];
+  return code;
+}
+
+async function generateUniqueShortCode(store) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const code = randomShortCode(6);
+    const existing = await store.get(code, { type: "json" });
+    if (!existing) return code;
+  }
+  throw new Error("Unable to allocate unique short certificate code");
+}
+
 async function verifyRecaptcha(token, expectedAction) {
   if (!RECAPTCHA_SECRET || !token) return false;
   const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
@@ -138,9 +155,9 @@ exports.handler = async (event) => {
       termsVersion, termsAcceptanceText, termsTimestamp, termsBody: TERMS_BODY, source: "street-signup",
     });
 
-    const documentId = `${Date.now().toString(36)}-${crypto.randomBytes(10).toString("hex")}`;
-    const termsUrl = `${SITE_ORIGIN}/customer-documents/street-terms/${documentId}.pdf`;
     const store = getStoreSafe("street-terms-documents");
+    const documentId = await generateUniqueShortCode(store);
+    const termsUrl = `${SITE_ORIGIN}/${documentId}`;
     await store.setJSON(documentId, {
       filename: termsPdfAttachment.filename,
       contentType: "application/pdf",
