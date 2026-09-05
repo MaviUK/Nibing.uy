@@ -16,12 +16,27 @@ const AdminLogin = lazy(() => import("./admin/AdminLogin"))
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"))
 const AuthCallback = lazy(() => import("./auth/AuthCallback"))
 
+function SiteFooter() {
+  return (
+    <footer className="bg-black text-zinc-400 text-center px-4 py-6">
+      <p className="m-0 text-sm">© 2026 NI Bin Guy. All rights reserved.</p>
+      <p className="mt-1 text-sm">
+        Bangor, BT20 5NF · <a className="text-green-400 hover:underline" href="tel:07555178484">07555 178484</a> · <a className="text-green-400 hover:underline" href="https://nibing.uy/">nibing.uy</a> · <a className="text-green-400 hover:underline" href="mailto:info@nibing.uy">info@nibing.uy</a>
+      </p>
+      <p className="mt-2 text-sm">
+        <a className="text-green-400 underline" href="/privacy-policy.html">Privacy Policy</a>
+      </p>
+    </footer>
+  )
+}
+
 function HomePage() {
   return (
     <>
       <HomepageServiceSchema />
       <NiBinGuyLandingPage />
       <CustomerPortalLoader />
+      <SiteFooter />
     </>
   )
 }
