@@ -12,7 +12,8 @@ exports.handler = async (event) => {
   }
 
   try {
-    const id = String(event.queryStringParameters?.id || "").trim();
+    const rawId = String(event.queryStringParameters?.id || "").trim();
+    const id = decodeURIComponent(rawId).replace(/\.pdf$/i, "").trim();
     if (!/^[a-z0-9-]{8,80}$/i.test(id)) {
       return { statusCode: 400, body: "Invalid document id" };
     }
