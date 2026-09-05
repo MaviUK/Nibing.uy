@@ -6,15 +6,48 @@ function getStoreSafe(name) {
   return siteID && token ? getStore({ name, siteID, token }) : getStore({ name });
 }
 
+function extractDocumentId(event) {
+  const candidates = [];
+  if (event?.queryStringParameters?.id) candidates.push(String(event.queryStringParameters.id));
+  if (event?.rawUrl) candidates.push(String(event.rawUrl));
+  if (event?.path) candidates.push(String(event.path));
+  if (event?.rawPath) candidates.push(String(event.rawPath));
+
+  for (const candidate of candidates) {
+    let value = candidate;
+    try { value = decodeURIComponent(value); } catch (_) {}
+
+    const queryMatch = value.match(/[?&]id=([^&#]+)/i);
+    if (queryMatch) value = queryMatch[1];
+
+    const pathMatch = value.match(/\/customer-documents\/street-terms\/([^/?#]+)/i);
+    if (pathMatch) value = pathMatch[1];
+
+    value = String(value)
+      .replace(/^.*\//, "")
+      .replace(/\.pdf$/i, "")
+      .trim();
+
+    if (/^[a-z0-9_-]{8,120}$/i.test(value)) return value;
+  }
+
+  return "";
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== "GET" && event.httpMethod !== "HEAD") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
 
   try {
-    const rawId = String(event.queryStringParameters?.id || "").trim();
-    const id = decodeURIComponent(rawId).replace(/\.pdf$/i, "").trim();
-    if (!/^[a-z0-9-]{8,80}$/i.test(id)) {
+    const id = extractDocumentId(event);
+    if (!id) {
+      console.warn("streetTermsDocument: no valid id", {
+        query: event.queryStringParameters || null,
+        path: event.path || null,
+        rawPath: event.rawPath || null,
+        rawUrl: event.rawUrl || null,
+      });
       return { statusCode: 400, body: "Invalid document id" };
     }
 
