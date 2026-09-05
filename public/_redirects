@@ -11,9 +11,7 @@
 /bin-cleaning-cloughey/ /bin-cleaning-cloughey 301!
 /bin-cleaning-ballyhalbert/ /bin-cleaning-ballyhalbert 301!
 
-# Stored street-signup Terms & Conditions certificates.
-# Use a splat because Netlify does not reliably capture a named parameter when
-# an extension is appended to it (e.g. :id.pdf).
+# Stored street-signup Terms & Conditions certificates (legacy long URLs).
 /customer-documents/street-terms/* /.netlify/functions/streetTermsDocument?id=:splat 200
 
 # Explicit SPA routes only. Unknown URLs are intentionally left unmatched so
@@ -25,3 +23,7 @@
 /admin /index.html 200
 /admin/* /index.html 200
 /auth/callback /index.html 200
+
+# Short certificate links, e.g. nibing.uy/ef34gs.
+# This is deliberately last so all normal site routes and static files win first.
+/:shortcode /.netlify/functions/streetTermsDocument?code=:shortcode 200
