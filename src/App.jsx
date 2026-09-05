@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from "react"
 import { Routes, Route } from "react-router-dom"
 import NiBinGuyLandingPage from "./LandingPage"
 import HomepageServiceSchema from "./HomepageServiceSchema"
+import CustomerPortalLoader from "./components/CustomerPortalLoader"
 
 const StandeeClaim = lazy(() => import("./standee/StandeeClaim"))
 const StandeeSpottedClaim = lazy(() => import("./standee/StandeeSpottedClaim"))
@@ -20,6 +21,7 @@ function HomePage() {
     <>
       <HomepageServiceSchema />
       <NiBinGuyLandingPage />
+      <CustomerPortalLoader />
     </>
   )
 }
