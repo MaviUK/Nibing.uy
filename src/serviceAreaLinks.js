@@ -8,6 +8,16 @@
     { name: 'Greyabbey', href: '/bin-cleaning-greyabbey' },
   ];
 
+  const BRAND_YELLOW = '#ffd400';
+
+  function styleAreaLinks(linkContainer) {
+    Array.from(linkContainer.querySelectorAll('a')).forEach((link) => {
+      link.style.setProperty('color', BRAND_YELLOW, 'important');
+      link.style.setProperty('background', 'rgba(255,212,0,.10)', 'important');
+      link.style.setProperty('border', '1px solid rgba(255,212,0,.45)', 'important');
+    });
+  }
+
   function sync() {
     const section = document.getElementById('areas-we-cover');
     if (!section) return false;
@@ -24,10 +34,11 @@
       const link = document.createElement('a');
       link.href = href;
       link.textContent = name;
-      link.style.cssText = 'display:inline-block;color:#bbf7d0;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.28);border-radius:999px;padding:9px 13px;text-decoration:none;font-weight:800;';
+      link.style.cssText = 'display:inline-block;color:#ffd400;background:rgba(255,212,0,.10);border:1px solid rgba(255,212,0,.45);border-radius:999px;padding:9px 13px;text-decoration:none;font-weight:800;';
       linkContainer.appendChild(link);
     });
 
+    styleAreaLinks(linkContainer);
     return true;
   }
 
