@@ -8,6 +8,7 @@ function getStoreSafe(name) {
 
 function extractDocumentId(event) {
   const candidates = [];
+  if (event?.queryStringParameters?.code) candidates.push(String(event.queryStringParameters.code));
   if (event?.queryStringParameters?.id) candidates.push(String(event.queryStringParameters.id));
   if (event?.rawUrl) candidates.push(String(event.rawUrl));
   if (event?.path) candidates.push(String(event.path));
@@ -17,18 +18,18 @@ function extractDocumentId(event) {
     let value = candidate;
     try { value = decodeURIComponent(value); } catch (_) {}
 
-    const queryMatch = value.match(/[?&]id=([^&#]+)/i);
+    const queryMatch = value.match(/[?&](?:id|code)=([^&#]+)/i);
     if (queryMatch) value = queryMatch[1];
 
-    const pathMatch = value.match(/\/customer-documents\/street-terms\/([^/?#]+)/i);
-    if (pathMatch) value = pathMatch[1];
+    const longPathMatch = value.match(/\/customer-documents\/street-terms\/([^/?#]+)/i);
+    if (longPathMatch) value = longPathMatch[1];
 
     value = String(value)
       .replace(/^.*\//, "")
       .replace(/\.pdf$/i, "")
       .trim();
 
-    if (/^[a-z0-9_-]{8,120}$/i.test(value)) return value;
+    if (/^[a-z0-9_-]{6,120}$/i.test(value)) return value;
   }
 
   return "";
