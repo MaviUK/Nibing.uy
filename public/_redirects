@@ -12,6 +12,7 @@
 /bin-cleaning-portavogie/ /bin-cleaning-portavogie 301!
 /bin-cleaning-cloughey/ /bin-cleaning-cloughey 301!
 /bin-cleaning-ballyhalbert/ /bin-cleaning-ballyhalbert 301!
+/commercial-bin-cleaning /commercial-bin-cleaning/ 301!
 
 # Stored street-signup Terms & Conditions certificates (legacy long URLs).
 /customer-documents/street-terms/* /.netlify/functions/streetTermsDocument?id=:splat 200
