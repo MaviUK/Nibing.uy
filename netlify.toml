@@ -186,6 +186,13 @@
   status = 301
   force = true
 
+# Commercial page is a directory index, so its canonical URL has a trailing slash.
+[[redirects]]
+  from = "/commercial-bin-cleaning"
+  to = "/commercial-bin-cleaning/"
+  status = 301
+  force = true
+
 # Only real client-side application routes are rewritten to index.html.
 # Unknown URLs are left unmatched so Netlify serves 404.html with HTTP 404.
 [[redirects]]
