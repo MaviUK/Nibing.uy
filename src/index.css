@@ -105,3 +105,13 @@ textarea {
 button {
   border: 1px solid transparent;
 }
+
+/* Keep the homepage "Today's Area" value inside its stats card at every width.
+   The type scales with the viewport and long place names can wrap safely. */
+div.w-full.max-w-4xl.mt-2.grid.grid-cols-3 > div:nth-child(2) > div:last-child {
+  max-width: 100%;
+  font-size: clamp(0.65rem, 3.2vw, 1.875rem);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
