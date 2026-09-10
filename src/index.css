@@ -115,3 +115,75 @@ div.w-full.max-w-4xl.mt-2.grid.grid-cols-3 > div:nth-child(2) > div:last-child {
   overflow-wrap: anywhere;
   word-break: normal;
 }
+
+/* Homepage colour treatment based on the customer booking email.
+   This deliberately changes colour only — no spacing, sizing or layout. */
+#main-content {
+  --nbg-yellow: #ffd400;
+  --nbg-yellow-hover: #e9bd00;
+  --nbg-green: #0f7d50;
+  --nbg-green-bright: #22c55e;
+  --nbg-red: #d81232;
+  --nbg-panel: #0d0d0d;
+  --nbg-border: #343434;
+}
+
+/* Use the email's yellow as the main highlight while retaining green as a
+   supporting brand colour in glows, badges and informational panels. */
+#main-content .text-green-400 {
+  color: var(--nbg-yellow) !important;
+}
+
+#main-content .bg-green-500 {
+  background-color: var(--nbg-yellow) !important;
+  color: #090909 !important;
+  border-color: rgba(255, 212, 0, 0.7) !important;
+}
+
+#main-content .bg-green-500:hover {
+  background-color: var(--nbg-yellow-hover) !important;
+}
+
+#main-content .bg-green-900 {
+  background-color: var(--nbg-green) !important;
+}
+
+/* Dark card treatment to mirror the email's near-black content blocks. */
+#main-content .bg-zinc-800\/70 {
+  background-color: rgba(13, 13, 13, 0.94) !important;
+}
+
+#main-content .border-white\/30 {
+  border-color: var(--nbg-border) !important;
+}
+
+/* Give the three hero stats a little of the email palette without altering
+   their structure or dimensions. */
+#main-content div.w-full.max-w-4xl.mt-2.grid.grid-cols-3 > div:nth-child(1),
+#main-content div.w-full.max-w-4xl.mt-2.grid.grid-cols-3 > div:nth-child(3) {
+  background: linear-gradient(180deg, rgba(255, 212, 0, 0.09), rgba(255, 255, 255, 0.025)) !important;
+  border-color: rgba(255, 212, 0, 0.38) !important;
+}
+
+#main-content div.w-full.max-w-4xl.mt-2.grid.grid-cols-3 > div:nth-child(2) {
+  background: linear-gradient(180deg, rgba(15, 125, 80, 0.22), rgba(255, 255, 255, 0.025)) !important;
+  border-color: rgba(34, 197, 94, 0.42) !important;
+}
+
+/* Match the red accent used in the email's change/correction panel. */
+#main-content button.bg-\[\#9b111e\] {
+  background-color: var(--nbg-red) !important;
+}
+
+#main-content button.bg-\[\#9b111e\]:hover {
+  background-color: #bd0f2b !important;
+}
+
+/* Homepage focus ring follows the new primary yellow accent. */
+#main-content button:focus-visible,
+#main-content a:focus-visible,
+#main-content input:focus-visible,
+#main-content select:focus-visible,
+#main-content textarea:focus-visible {
+  outline-color: var(--nbg-yellow);
+}
