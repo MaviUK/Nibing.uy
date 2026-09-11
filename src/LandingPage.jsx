@@ -659,9 +659,10 @@ function BookingForm({ onClose }) {
     });
   };
 
-  // Pricing breakdown
+  // Pricing breakdown. Every complete group of 7 bins gets 1 bin free automatically.
+  // With mixed prices/plans, the cheapest billable bin in each group is the free one.
   const pricing = useMemo(() => {
-    const lines = bins
+    const baseLines = bins
       .filter((b) => b.type)
       .map((b, idx) => {
         const plan = getPlanById(b.planId);
@@ -681,17 +682,46 @@ function BookingForm({ onClose }) {
           baseUnit,
           unitPrice,
           discounted,
+          freeCount: 0,
+          multiBuyDiscount: 0,
           lineTotal,
         };
       });
 
-    const subtotal = lines.reduce((acc, l) => acc + l.baseUnit * l.count, 0);
+    const subtotal = baseLines.reduce((acc, l) => acc + l.baseUnit * l.count, 0);
+    const totalBinCount = baseLines.reduce((acc, l) => acc + l.count, 0);
+    let freeBinsRemaining = Math.floor(totalBinCount / 7);
+
+    const lines = baseLines.map((line) => ({ ...line }));
+    const cheapestFirst = lines
+      .map((line, lineIndex) => ({ lineIndex, unitPrice: line.unitPrice }))
+      .filter((entry) => entry.unitPrice > 0)
+      .sort((a, b) => a.unitPrice - b.unitPrice || a.lineIndex - b.lineIndex);
+
+    for (const { lineIndex } of cheapestFirst) {
+      if (freeBinsRemaining <= 0) break;
+      const line = lines[lineIndex];
+      const freeCount = Math.min(line.count, freeBinsRemaining);
+      if (freeCount <= 0) continue;
+
+      const multiBuyDiscount = Math.round(line.unitPrice * freeCount * 100) / 100;
+      line.freeCount = freeCount;
+      line.multiBuyDiscount = multiBuyDiscount;
+      line.lineTotal = Math.max(0, Math.round((line.lineTotal - multiBuyDiscount) * 100) / 100);
+      line.planLabel = `${line.planLabel} — 7 for 6 offer (${freeCount} free)`;
+      freeBinsRemaining -= freeCount;
+    }
+
     const total = lines.reduce((acc, l) => acc + l.lineTotal, 0);
+    const multiBuyFreeBins = lines.reduce((acc, l) => acc + l.freeCount, 0);
+    const multiBuyDiscount = lines.reduce((acc, l) => acc + l.multiBuyDiscount, 0);
 
     return {
       lines,
       subtotal: Math.round(subtotal * 100) / 100,
       total: Math.round(total * 100) / 100,
+      multiBuyFreeBins,
+      multiBuyDiscount: Math.round(multiBuyDiscount * 100) / 100,
     };
   }, [bins, discountCode]);
 
