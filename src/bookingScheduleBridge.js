@@ -210,12 +210,39 @@ function render(root, state, data = null) {
     }).join("");
     const cycleNote = isOneOffBooking(root) ? "" : '<div class="mt-2 text-xs">Your regular service will continue on the same 4-week cycle.</div>';
     panel.classList.add("border-green-500", "bg-green-50", "text-green-900");
-    panel.innerHTML = `<div class="font-bold">✓ Great! We have space, your booking will be confirm for the following date;</div>${rows}${cycleNote}`;
+    panel.innerHTML = `<div class="font-bold">✓ Great! We have space, your booking will be confirmed for the following date;</div>${rows}${cycleNote}`;
     return;
   }
 
   const councilAddressMissing = data?.reason === "council_address_not_found" || data?.reason === "council_address_ambiguous";
+  const results = Array.isArray(data?.results) ? data.results : [];
+  const confirmedResults = results.filter((result) => result?.automatic && result?.assignedCleanDate);
+  const pendingResults = results.filter((result) => !result?.automatic || !result?.assignedCleanDate);
   panel.classList.add("border-amber-400", "bg-amber-50", "text-amber-900");
+
+  if (confirmedResults.length) {
+    const confirmedRows = confirmedResults.map((result) => {
+      const bin = result.bin || "Bin";
+      const label = /\bbin\b/i.test(bin) ? bin : `${bin} Bin`;
+      return `<div class="mt-1"><strong style="color:${binLabelColour(bin)}">${escapeHtml(label)}:</strong> ${escapeHtml(formatDate(result.assignedCleanDate))}</div>`;
+    }).join("");
+    const pendingRows = pendingResults.map((result) => {
+      const bin = result.bin || "Bin";
+      const label = /\bbin\b/i.test(bin) ? bin : `${bin} Bin`;
+      return `<div class="mt-1"><strong style="color:${binLabelColour(bin)}">${escapeHtml(label)}:</strong> To be confirmed</div>`;
+    }).join("");
+    const pendingLabels = pendingResults.map((result) => {
+      const bin = result.bin || "Bin";
+      return /\bbin\b/i.test(bin) ? bin : `${bin} Bin`;
+    });
+    const heading = pendingLabels.length === 1
+      ? `We need to confirm your ${escapeHtml(pendingLabels[0])} first clean date`
+      : "We need to confirm some of your first clean dates";
+    const cycleNote = isOneOffBooking(root) ? "" : '<div class="mt-2 text-xs">Any confirmed dates above will continue on the same 4-week cycle. We’ll confirm the remaining bin date manually.</div>';
+    panel.innerHTML = `<div class="font-bold">${heading}</div><div class="mt-1 text-xs leading-5">The dates we could match are still shown below, so you don’t lose the confirmed dates for your other bins.</div>${confirmedRows}${pendingRows}${cycleNote}`;
+    return;
+  }
+
   if (councilAddressMissing) {
     panel.innerHTML = '<div class="font-bold">We couldn’t find this exact address on the council system</div><div class="mt-1 text-xs leading-5">That’s okay — you can still send your booking through. We’ll check the address and confirm your first clean date manually.</div>';
   } else {
