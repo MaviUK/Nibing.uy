@@ -54,23 +54,24 @@ export default async (req: Request, context: Context) => {
       schedule,
     });
 
-    if (automatic) {
-      const confirmationUrl = new URL("/.netlify/functions/sendAutomaticBookingConfirmation", origin);
-      const confirmation = await fetch(confirmationUrl, {
-        method: "POST",
+    const confirmationUrl = new URL("/.netlify/functions/sendAutomaticBookingConfirmation", origin);
+    const confirmation = await fetch(confirmationUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, schedule }),
+    });
+
+    if (confirmation.ok) {
+      return new Response(await confirmation.text(), {
+        status: confirmation.status,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, schedule }),
       });
-
-      if (confirmation.ok) {
-        return new Response(await confirmation.text(), {
-          status: confirmation.status,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      console.warn("[round-audit] automatic confirmation failed; falling back to existing booking flow", confirmation.status);
     }
+
+    console.warn(
+      `[round-audit] ${automatic ? "automatic" : "manual-date"} confirmation failed; falling back to existing booking flow`,
+      confirmation.status
+    );
   } catch (error) {
     console.warn("[round-audit] middleware error", error instanceof Error ? error.message : error);
   }
