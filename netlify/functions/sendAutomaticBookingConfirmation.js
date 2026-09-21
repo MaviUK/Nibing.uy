@@ -53,6 +53,10 @@ function friendlyPlan(bin) {
   return bin?.planLabel || bin?.frequency || "Bin clean";
 }
 
+function normaliseBinName(value) {
+  return String(value || "").toLowerCase().replace(/\s+bin\b/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }) };
@@ -75,18 +79,68 @@ exports.handler = async (event) => {
       schedule = null,
     } = payload;
 
-    if (!email || !schedule?.matched || !Array.isArray(schedule?.results) || !schedule.results.length || !schedule.results.every((r) => r.automatic && r.assignedCleanDate)) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Automatic schedule not confirmed" }) };
+    if (!email) {
+      return { statusCode: 400, body: JSON.stringify({ error: "Customer email is required" }) };
     }
 
     const filteredBins = (Array.isArray(bins) ? bins : []).filter((bin) => bin?.type);
-    const scheduleRows = schedule.results.map((result) => ({
-      bin: result.bin,
-      date: result.assignedCleanDate,
-      round: result.round?.round || "",
-    }));
+    if (!filteredBins.length) {
+      return { statusCode: 400, body: JSON.stringify({ error: "At least one bin is required" }) };
+    }
+
+    const scheduleResults = Array.isArray(schedule?.results) ? schedule.results : [];
+    const scheduleRows = filteredBins.map((bin, index) => {
+      const wanted = normaliseBinName(bin.type);
+      const result =
+        scheduleResults[index] ||
+        scheduleResults.find((item) => normaliseBinName(item?.bin) === wanted) ||
+        scheduleResults.find((item) => {
+          const candidate = normaliseBinName(item?.bin);
+          return candidate && wanted && (candidate.includes(wanted) || wanted.includes(candidate));
+        }) ||
+        null;
+
+      return {
+        bin: result?.bin || bin.type,
+        date: result?.assignedCleanDate || null,
+        automatic: Boolean(result?.automatic && result?.assignedCleanDate),
+        round: result?.round?.round || "",
+      };
+    });
+
+    const automatic = scheduleRows.length > 0 && scheduleRows.every((row) => row.automatic && row.date);
+    const confirmedCount = scheduleRows.filter((row) => row.date).length;
+    const someConfirmed = confirmedCount > 0 && !automatic;
+    const bookingStatusHeading = automatic ? "✓ BOOKING CONFIRMED" : "✓ BOOKING RECEIVED";
+    const bookingStatusText = automatic
+      ? "Your clean date has been allocated and your booking is secured."
+      : someConfirmed
+        ? "Some clean dates have been allocated. We'll confirm the remaining date or dates manually."
+        : "We couldn't automatically match your clean date. We'll confirm it manually.";
+    const introHeading = automatic ? "Your clean is booked." : "We've got your booking.";
+    const introText = automatic
+      ? "We'll send you a reminder before your clean. Please put your bin out for collection as normal and leave it accessible for us afterwards."
+      : someConfirmed
+        ? "The dates we could match are shown below. We'll confirm the remaining clean date manually, so you don't need to submit the booking again."
+        : "We'll check your bin collection day and our round, then confirm your clean date manually. You don't need to submit the booking again.";
+    const preheader = automatic
+      ? `${String(name).trim().split(/\s+/)[0] || "Your"} NI Bin Guy booking and clean date are confirmed.`
+      : `${String(name).trim().split(/\s+/)[0] || "Your"} NI Bin Guy booking has been received. We'll confirm the clean date manually.`;
+    const adminHeading = automatic ? "Automatically scheduled booking" : "Booking received — date confirmation needed";
+    const adminStatusText = automatic
+      ? "AUTO MATCH — customer was sent the confirmed date automatically."
+      : someConfirmed
+        ? "PARTIAL MATCH — customer was shown the confirmed date(s) and told the remaining date(s) will be confirmed manually."
+        : "MANUAL DATE CONFIRMATION — booking was received successfully and the customer was told the clean date will be confirmed manually.";
+    const adminSubject = automatic
+      ? `✅ Auto-booked: ${name || address}`
+      : `🕒 Booking received — date to confirm: ${name || address}`;
+    const customerSubject = automatic
+      ? "🗑️ Booking confirmed — your first clean is scheduled"
+      : "🗑️ Booking received — clean date to be confirmed";
+
     const binsText = filteredBins.map((bin) => `${bin.count || 1} x ${bin.type} — ${friendlyPlan(bin)}`).join("\n") || "(none provided)";
-    const scheduleText = scheduleRows.map((row) => `${row.bin}: ${prettyDate(row.date)}${row.round ? ` (Round ${row.round})` : ""}`).join("\n");
+    const scheduleText = scheduleRows.map((row) => `${row.bin}: ${row.date ? prettyDate(row.date) : "Date to be confirmed"}${row.round ? ` (Round ${row.round})` : ""}`).join("\n");
     const total = fmtGBP(pricing?.total || 0);
     const subtotal = fmtGBP(pricing?.subtotal || pricing?.total || 0);
     const firstName = escapeHtml(String(name).trim().split(/\s+/)[0] || "there");
@@ -104,27 +158,29 @@ exports.handler = async (event) => {
       termsAcceptanceText,
       termsTimestamp,
       termsBody: TERMS_BODY,
-      source: "website-auto",
+      source: automatic ? "website-auto" : "website-manual-date",
     }).catch(() => null);
     const attachments = termsPdfAttachment ? [termsPdfAttachment] : undefined;
 
-    const bookingRows = filteredBins.length ? filteredBins.map((bin, index) => {
-      const row = scheduleRows[index] || scheduleRows.find((item) => String(item.bin).toLowerCase().includes(String(bin.type).toLowerCase()));
+    const bookingRows = filteredBins.map((bin, index) => {
+      const row = scheduleRows[index];
+      const cleanDateText = row?.date ? prettyDate(row.date) : "To be confirmed";
+      const cleanDateColour = row?.date ? "#fff" : "#ffd400";
       return `
         <tr><td style="padding:13px 0;border-bottom:1px solid #292929;">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
             <td style="font-family:Arial,sans-serif;color:#fff;font-size:16px;font-weight:700;">${escapeHtml(bin.count || 1)} × ${escapeHtml(bin.type)}</td>
             <td align="right" style="font-family:Arial,sans-serif;color:#ffd400;font-size:14px;font-weight:700;">${escapeHtml(friendlyPlan(bin))}</td>
-          </tr>${row ? `<tr><td colspan="2" style="padding-top:7px;font-family:Arial,sans-serif;color:#bdbdbd;font-size:13px;">Clean date: <strong style="color:#fff;">${escapeHtml(prettyDate(row.date))}</strong></td></tr>` : ""}</table>
+          </tr><tr><td colspan="2" style="padding-top:7px;font-family:Arial,sans-serif;color:#bdbdbd;font-size:13px;">Clean date: <strong style="color:${cleanDateColour};">${escapeHtml(cleanDateText)}</strong></td></tr></table>
         </td></tr>`;
-    }).join("") : scheduleRows.map((row) => `<tr><td style="padding:13px 0;color:#fff;font-family:Arial,sans-serif;"><strong>${escapeHtml(row.bin)}</strong><br><span style="color:#bdbdbd;">${escapeHtml(prettyDate(row.date))}</span></td></tr>`).join("");
+    }).join("");
 
     const priceRows = priceLines.length ? priceLines.map((line) => `
       <tr><td style="padding:7px 0;font-family:Arial,sans-serif;color:#fff;font-size:14px;">${escapeHtml(line.count || 1)} × ${escapeHtml(String(line.type || "").replace(" Bin", ""))} — ${escapeHtml(line.planLabel || "")}</td><td align="right" style="padding:7px 0;font-family:Arial,sans-serif;color:#fff;font-size:14px;font-weight:700;">${escapeHtml(fmtGBP(line.lineTotal))}</td></tr>`).join("") : `<tr><td style="padding:7px 0;color:#fff;font-family:Arial,sans-serif;">Booking total</td><td align="right" style="color:#fff;font-family:Arial,sans-serif;font-weight:700;">${escapeHtml(total)}</td></tr>`;
 
     const customerHtml = `
       <div style="margin:0;padding:0;background:#050505;">
-        <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${firstName}, your NI Bin Guy booking and clean date are confirmed.</div>
+        <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preheader)}</div>
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#050505;margin:0;padding:0;"><tr><td align="center" style="padding:22px 10px;">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:680px;background:#111;border-radius:18px;overflow:hidden;">
             <tr><td style="background:#050505;padding:26px 28px 18px;text-align:center;">
@@ -135,13 +191,13 @@ exports.handler = async (event) => {
             </td></tr>
 
             <tr><td style="background:#ffd400;padding:18px 24px;text-align:center;">
-              <div style="font-family:Arial Black,Arial,sans-serif;color:#050505;font-size:24px;font-weight:900;text-transform:uppercase;">✓ BOOKING CONFIRMED</div>
-              <div style="font-family:Arial,sans-serif;color:#050505;font-size:14px;margin-top:4px;font-weight:700;">Your clean date has been allocated and your booking is secured.</div>
+              <div style="font-family:Arial Black,Arial,sans-serif;color:#050505;font-size:24px;font-weight:900;text-transform:uppercase;">${escapeHtml(bookingStatusHeading)}</div>
+              <div style="font-family:Arial,sans-serif;color:#050505;font-size:14px;margin-top:4px;font-weight:700;">${escapeHtml(bookingStatusText)}</div>
             </td></tr>
 
             <tr><td style="padding:24px 26px 6px;">
-              <div style="font-family:Arial,sans-serif;color:#fff;font-size:20px;font-weight:800;">Your clean is booked.</div>
-              <div style="font-family:Arial,sans-serif;color:#d1d1d1;font-size:15px;line-height:1.6;margin-top:8px;">We'll send you a reminder before your clean. Please put your bin out for collection as normal and leave it accessible for us afterwards.</div>
+              <div style="font-family:Arial,sans-serif;color:#fff;font-size:20px;font-weight:800;">${escapeHtml(introHeading)}</div>
+              <div style="font-family:Arial,sans-serif;color:#d1d1d1;font-size:15px;line-height:1.6;margin-top:8px;">${escapeHtml(introText)}</div>
             </td></tr>
 
             <tr><td style="padding:16px 26px 0;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#090909;border-radius:14px;">
@@ -157,7 +213,7 @@ exports.handler = async (event) => {
 
             <tr><td style="padding:28px 26px 8px;text-align:center;"><div style="font-family:Arial Black,Arial,sans-serif;color:#fff;font-size:23px;font-weight:900;text-transform:uppercase;">WHAT HAPPENS NEXT?</div></td></tr>
             <tr><td style="padding:8px 22px 4px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
-              <td width="25%" valign="top" align="center" style="padding:7px;"><div style="width:30px;height:30px;line-height:30px;background:#ffd400;border-radius:50%;font-family:Arial,sans-serif;font-weight:900;color:#050505;">1</div><div style="font-family:Arial,sans-serif;color:#fff;font-size:13px;font-weight:700;margin-top:8px;">REMINDER</div><div style="font-family:Arial,sans-serif;font-size:11px;line-height:1.4;color:#aaa;margin-top:4px;">We'll remind you before your clean.</div></td>
+              <td width="25%" valign="top" align="center" style="padding:7px;"><div style="width:30px;height:30px;line-height:30px;background:#ffd400;border-radius:50%;font-family:Arial,sans-serif;font-weight:900;color:#050505;">1</div><div style="font-family:Arial,sans-serif;color:#fff;font-size:13px;font-weight:700;margin-top:8px;">${automatic ? "REMINDER" : "DATE CONFIRMATION"}</div><div style="font-family:Arial,sans-serif;font-size:11px;line-height:1.4;color:#aaa;margin-top:4px;">${automatic ? "We'll remind you before your clean." : "We'll confirm your clean date shortly."}</div></td>
               <td width="25%" valign="top" align="center" style="padding:7px;"><div style="width:30px;height:30px;line-height:30px;background:#ffd400;border-radius:50%;font-family:Arial,sans-serif;font-weight:900;color:#050505;">2</div><div style="font-family:Arial,sans-serif;color:#fff;font-size:13px;font-weight:700;margin-top:8px;">PUT BIN OUT</div><div style="font-family:Arial,sans-serif;font-size:11px;line-height:1.4;color:#aaa;margin-top:4px;">Put your bin out as normal.</div></td>
               <td width="25%" valign="top" align="center" style="padding:7px;"><div style="width:30px;height:30px;line-height:30px;background:#ffd400;border-radius:50%;font-family:Arial,sans-serif;font-weight:900;color:#050505;">3</div><div style="font-family:Arial,sans-serif;color:#fff;font-size:13px;font-weight:700;margin-top:8px;">BIN EMPTIED</div><div style="font-family:Arial,sans-serif;font-size:11px;line-height:1.4;color:#aaa;margin-top:4px;">Leave it out once the council empties it.</div></td>
               <td width="25%" valign="top" align="center" style="padding:7px;"><div style="width:30px;height:30px;line-height:30px;background:#ffd400;border-radius:50%;font-family:Arial,sans-serif;font-weight:900;color:#050505;">4</div><div style="font-family:Arial,sans-serif;color:#fff;font-size:13px;font-weight:700;margin-top:8px;">BIN CLEANED</div><div style="font-family:Arial,sans-serif;font-size:11px;line-height:1.4;color:#aaa;margin-top:4px;">We'll clean, disinfect and deodorise it.</div></td>
@@ -188,33 +244,33 @@ exports.handler = async (event) => {
       </div>`;
 
     const adminHtml = `
-      <h2>Automatically scheduled booking</h2>
+      <h2>${escapeHtml(adminHeading)}</h2>
       <p><strong>Name:</strong> ${escapeHtml(name)}</p>
       <p><strong>Email:</strong> ${escapeHtml(email)}</p>
       <p><strong>Phone:</strong> ${escapeHtml(phone)}</p>
       <p><strong>Address:</strong> ${escapeHtml(address)}</p>
-      <p><strong>Council address:</strong> ${escapeHtml(schedule.councilAddress || "")}</p>
-      <p><strong>Schedule:</strong><br>${scheduleRows.map((r) => `${escapeHtml(r.bin)} — ${escapeHtml(prettyDate(r.date))}${r.round ? ` — Round ${escapeHtml(r.round)}` : ""}`).join("<br>")}</p>
+      <p><strong>Council address:</strong> ${escapeHtml(schedule?.councilAddress || "Not confirmed")}</p>
+      <p><strong>Schedule:</strong><br>${scheduleRows.map((r) => `${escapeHtml(r.bin)} — ${escapeHtml(r.date ? prettyDate(r.date) : "Date to be confirmed")}${r.round ? ` — Round ${escapeHtml(r.round)}` : ""}`).join("<br>")}</p>
       <p><strong>Bins:</strong><br>${filteredBins.map((bin) => `${escapeHtml(bin.count || 1)} × ${escapeHtml(bin.type)} — ${escapeHtml(friendlyPlan(bin))}`).join("<br>")}</p>
       <p><strong>Total:</strong> ${escapeHtml(total)}</p>
-      <p style="color:#0b6b44;font-weight:700;">AUTO MATCH — customer was sent the confirmed date automatically.</p>`;
+      <p style="color:${automatic ? "#0b6b44" : "#b45309"};font-weight:700;">${escapeHtml(adminStatusText)}</p>`;
 
     const [adminResult, customerResult] = await Promise.all([
       resend.emails.send({
         from: FROM_DEFAULT,
         to: TO_ADMIN,
-        subject: `✅ Auto-booked: ${name || address}`,
+        subject: adminSubject,
         html: adminHtml,
-        text: `Automatically scheduled booking\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\n\nBins:\n${binsText}\n\n${scheduleText}\n\nTotal: ${total}`,
+        text: `${adminHeading}\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\n\nBins:\n${binsText}\n\n${scheduleText}\n\nTotal: ${total}\n\n${adminStatusText}`,
         replyTo: email,
         attachments,
       }),
       resend.emails.send({
         from: FROM_DEFAULT,
         to: email,
-        subject: `🗑️ Booking confirmed — your first clean is scheduled`,
+        subject: customerSubject,
         html: customerHtml,
-        text: `Thanks ${name},\n\nYour NI Bin Guy booking is confirmed.\n\nBins:\n${binsText}\n\n${scheduleText}\n\nAddress: ${address}\nTotal: ${total}\n\nWhat happens next:\n1. Reminder\n2. Put bin out\n3. Bin emptied\n4. Bin cleaned\n\nReply to this email if you need to change anything.`,
+        text: `Thanks ${name},\n\n${automatic ? "Your NI Bin Guy booking is confirmed." : "Your NI Bin Guy booking has been received. We’ll confirm any outstanding clean date manually."}\n\nBins:\n${binsText}\n\n${scheduleText}\n\nAddress: ${address}\nTotal: ${total}\n\nWhat happens next:\n1. ${automatic ? "Reminder" : "Date confirmation"}\n2. Put bin out\n3. Bin emptied\n4. Bin cleaned\n\nReply to this email if you need to change anything.`,
         replyTo: TO_ADMIN,
         attachments,
       }),
@@ -223,7 +279,7 @@ exports.handler = async (event) => {
     if (adminResult?.error) return { statusCode: 502, body: JSON.stringify({ error: "Failed to send admin email" }) };
     if (customerResult?.error) return { statusCode: 502, body: JSON.stringify({ error: "Failed to send customer confirmation" }) };
 
-    return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ success: true, automatic: true, schedule }) };
+    return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ success: true, automatic, schedule }) };
   } catch (error) {
     console.error("Automatic booking confirmation failed", error);
     return { statusCode: 500, body: JSON.stringify({ error: "Automatic confirmation failed" }) };
