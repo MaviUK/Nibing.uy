@@ -211,23 +211,27 @@ updateFile("netlify/functions/sendAutomaticBookingConfirmation.js", (text) => {
   if (!text.includes('<strong>Booking reference:</strong> ${escapeHtml(submission.bookingId)}')) {
     text = mustReplace(
       text,
-      '    const adminHtml = `\n      <h2>Automatically scheduled booking</h2>\n      <p><strong>Name:</strong> ${escapeHtml(name)}</p>',
-      '    const adminHtml = `\n      <h2>Automatically scheduled booking</h2>\n      <div style="background:#ecfdf5;border:1px solid #34d399;border-radius:8px;padding:12px;margin:0 0 16px"><p style="margin:0 0 4px"><strong>Booking reference:</strong> ${escapeHtml(submission.bookingId)}</p><p style="margin:0 0 4px"><strong>Submitted by customer:</strong> ${escapeHtml(submission.submittedAt)}</p><p style="margin:0"><strong>Received by server:</strong> ${escapeHtml(submission.serverReceivedAt)}</p></div>\n      <p><strong>Name:</strong> ${escapeHtml(name)}</p>',
-      "automatic admin html timestamps"
+      '    const adminHtml = `\n      <h2>${escapeHtml(adminHeading)}</h2>\n      <p><strong>Name:</strong> ${escapeHtml(name)}</p>',
+      '    const adminHtml = `\n      <h2>${escapeHtml(adminHeading)}</h2>\n      <div style="background:${automatic ? "#ecfdf5" : "#fff7ed"};border:1px solid ${automatic ? "#34d399" : "#fb923c"};border-radius:8px;padding:12px;margin:0 0 16px"><p style="margin:0 0 4px"><strong>Booking reference:</strong> ${escapeHtml(submission.bookingId)}</p><p style="margin:0 0 4px"><strong>Submitted by customer:</strong> ${escapeHtml(submission.submittedAt)}</p><p style="margin:0"><strong>Received by server:</strong> ${escapeHtml(submission.serverReceivedAt)}</p></div>\n      <p><strong>Name:</strong> ${escapeHtml(name)}</p>',
+      "unified admin html timestamps"
     );
   }
 
-  text = text.replace(
-    '        subject: `✅ Auto-booked: ${name || address}`,',
-    '        subject: `✅ Auto-booked: ${name || address} — ${submission.bookingId}`,'
-  );
+  if (!text.includes('subject: `${adminSubject} — ${submission.bookingId}`')) {
+    text = mustReplace(
+      text,
+      '        subject: adminSubject,',
+      '        subject: `${adminSubject} — ${submission.bookingId}`,',
+      "unified admin subject booking reference"
+    );
+  }
 
   if (!text.includes('Booking reference: ${submission.bookingId}\\nSubmitted by customer: ${submission.submittedAt}')) {
     text = mustReplace(
       text,
-      '        text: `Automatically scheduled booking\\n\\nName: ${name}',
-      '        text: `Automatically scheduled booking\\n\\nBooking reference: ${submission.bookingId}\\nSubmitted by customer: ${submission.submittedAt}\\nReceived by server: ${submission.serverReceivedAt}\\n\\nName: ${name}',
-      "automatic admin text timestamps"
+      '        text: `${adminHeading}\\n\\nName: ${name}',
+      '        text: `${adminHeading}\\n\\nBooking reference: ${submission.bookingId}\\nSubmitted by customer: ${submission.submittedAt}\\nReceived by server: ${submission.serverReceivedAt}\\n\\nName: ${name}',
+      "unified admin text timestamps"
     );
   }
 
