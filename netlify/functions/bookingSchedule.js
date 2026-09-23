@@ -87,11 +87,14 @@ function parseCouncilDates(html, wantedBin) {
     while((match=sr.exec(section))){const date=makeDate(match[1],match[2],match[3]);if(date)found.push(date);}
     const unique=[...new Map(found.map((date)=>[date.toISOString().slice(0,10),date])).values()].sort((a,b)=>a.getTime()-b.getTime());
     if(!unique.length)continue;
-    const first=unique[0];
-    const dates=[first];
-    if(unique.length>1){dates.push(unique[1]);}else{
-      const recurrence=section.match(/EVERY\s+ALTERNATE\s+(MON(?:DAY)?|TUE(?:S|SDAY)?|WED(?:NESDAY)?|THU(?:R|RS|RSDAY)?|FRI(?:DAY)?|SAT(?:URDAY)?|SUN(?:DAY)?)/i);
-      if(recurrence){const key=recurrence[1].toUpperCase();const targetWeekday=weekdayNumber[key]??weekdayNumber[key.slice(0,3)];dates.push(nextAlternateDate(first,targetWeekday));}
+    const dates=[...unique];
+    const recurrence=section.match(/EVERY\s+ALTERNATE\s+(MON(?:DAY)?|TUE(?:S|SDAY)?|WED(?:NESDAY)?|THU(?:R|RS|RSDAY)?|FRI(?:DAY)?|SAT(?:URDAY)?|SUN(?:DAY)?)/i);
+    if(recurrence){
+      const key=recurrence[1].toUpperCase();
+      const targetWeekday=weekdayNumber[key]??weekdayNumber[key.slice(0,3)];
+      while(dates.length<6){
+        dates.push(nextAlternateDate(dates[dates.length-1],targetWeekday));
+      }
     }
     return [...new Set(dates.map((date)=>date.toISOString().slice(0,10)))].sort();
   }
