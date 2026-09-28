@@ -83,7 +83,7 @@ updateFile("src/LandingPage.jsx", (text) => {
     );
   }
 
-  if (!text.includes("const [isWhatsAppSubmitting, setIsWhatsAppSubmitting]")) {
+  if (!text.includes("whatsAppSendStage") && !text.includes("const [isWhatsAppSubmitting, setIsWhatsAppSubmitting]")) {
     text = text.replace(
       '  const [agreeToTerms, setAgreeToTerms] = useState(false);',
       '  const [agreeToTerms, setAgreeToTerms] = useState(false);\n  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);'
@@ -114,6 +114,9 @@ updateFile("src/LandingPage.jsx", (text) => {
     '<button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60 disabled:cursor-not-allowed" disabled={!agreeToTerms || isEmailSubmitting}>\n        {isEmailSubmitting ? "Sending booking…" : "Send via Email"}\n      </button>\n\n      {isEmailSubmitting && (\n        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] bg-neutral-950 text-white border border-green-500 rounded-full shadow-2xl px-5 py-3 flex items-center gap-3" role="status" aria-live="polite">\n          <span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-green-400 animate-spin" aria-hidden="true" />\n          <span className="text-sm font-semibold whitespace-nowrap">Your booking is being sent…</span>\n        </div>\n      )}'
   );
 
+  // Legacy WhatsApp upgrade path. Newer source already uses the polished
+  // stage-based sending overlay and direct mobile-app handoff.
+  if (!text.includes("whatsAppSendStage")) {
   // WhatsApp bookings must wait for the receipt email to be accepted before
   // switching to WhatsApp. Fire-and-forget sendBeacon requests can be lost.
   const unreliableWhatsappSend = `    try {
@@ -189,6 +192,7 @@ updateFile("src/LandingPage.jsx", (text) => {
     'disabled={!agreeToTerms}>\n        Send via Email',
     'disabled={!agreeToTerms || isWhatsAppSubmitting}>\n        Send via Email'
   );
+  }
 
   if (!text.includes('window.scrollTo({ top: 0, behavior: "smooth" });')) {
     text = text.replace(
