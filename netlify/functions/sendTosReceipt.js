@@ -233,6 +233,14 @@ exports.handler = async (event) => {
         automatic: Boolean(confirmationBody?.automatic),
         schedule: confirmationBody?.schedule || schedule || null,
       });
+    } else if (
+      confirmationResponse?.statusCode === 409 &&
+      confirmationBody?.reason === "duplicate_submission"
+    ) {
+      // A second copy of the same WhatsApp submission can arrive while the
+      // first request is still finishing. The first request owns the booking
+      // status, so never overwrite its pending/confirmed state with an error.
+      console.warn("Duplicate WhatsApp booking submission ignored for status:", payload.bookingId);
     } else {
       await setBookingStatus(payload.bookingId, "error", {
         error: confirmationBody?.error || "Booking confirmation emails failed",
