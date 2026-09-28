@@ -177,7 +177,10 @@ updateFile("netlify/functions/sendTosReceipt.js", (text) => {
     );
   }
 
-  if (!text.includes('const claim = await claimBookingSubmission({ ...submission, channel: "whatsapp-manual" });')) {
+  if (
+    !text.includes('const claim = await claimBookingSubmission({ ...submission, channel: "whatsapp-manual" });') &&
+    text.includes('    if (!automatic) {')
+  ) {
     text = mustReplace(
       text,
       '    if (!automatic) {\n      return await sendManualBookingOwnerEmail(payload, bins, schedule);\n    }',
