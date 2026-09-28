@@ -83,7 +83,7 @@ updateFile("src/LandingPage.jsx", (text) => {
     );
   }
 
-  if (!text.includes("whatsAppSendStage") && !text.includes("const [isWhatsAppSubmitting, setIsWhatsAppSubmitting]")) {
+  if (!text.includes("const backgroundUrl = \"/.netlify/functions/sendTosReceipt\";") && !text.includes("whatsAppSendStage") && !text.includes("const [isWhatsAppSubmitting, setIsWhatsAppSubmitting]")) {
     text = text.replace(
       '  const [agreeToTerms, setAgreeToTerms] = useState(false);',
       '  const [agreeToTerms, setAgreeToTerms] = useState(false);\n  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);'
@@ -116,7 +116,7 @@ updateFile("src/LandingPage.jsx", (text) => {
 
   // Legacy WhatsApp upgrade path. Newer source already uses the polished
   // stage-based sending overlay and direct mobile-app handoff.
-  if (!text.includes("whatsAppSendStage")) {
+  if (!text.includes("const backgroundUrl = \"/.netlify/functions/sendTosReceipt\";") && !text.includes("whatsAppSendStage")) {
   // WhatsApp bookings must wait for the receipt email to be accepted before
   // switching to WhatsApp. Fire-and-forget sendBeacon requests can be lost.
   const unreliableWhatsappSend = `    try {
