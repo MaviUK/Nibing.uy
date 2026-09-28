@@ -605,6 +605,8 @@ function BookingForm({ onClose }) {
   const [showTerms, setShowTerms] = useState(false);
   const [termsViewed, setTermsViewed] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [whatsAppBookingStatus, setWhatsAppBookingStatus] = useState("idle");
+  const [whatsAppConfirmation, setWhatsAppConfirmation] = useState(null);
 
 
   const canToggleAgree = termsViewed;
@@ -759,6 +761,9 @@ function BookingForm({ onClose }) {
       return;
     }
 
+    setWhatsAppBookingStatus("sending");
+    setWhatsAppConfirmation(null);
+
     const payload = {
       source: "whatsapp",
       name,
@@ -774,28 +779,31 @@ function BookingForm({ onClose }) {
       termsTimestamp: new Date().toISOString(),
     };
 
-    // Queue the booking emails server-side, then hand the customer straight
-    // to WhatsApp. The background function continues even after the browser
-    // moves into the WhatsApp app.
+    // Start the email/booking request without waiting for it. WhatsApp opens
+    // immediately, while this request continues in the original browser tab.
+    // When both booking emails have been sent, the page switches to the
+    // confirmation screen ready for the customer when they come back.
     const backgroundUrl = "/.netlify/functions/sendTosReceipt";
     const backgroundBody = JSON.stringify(payload);
-    let queued = false;
 
-    try {
-      if (navigator.sendBeacon) {
-        const blob = new Blob([backgroundBody], { type: "application/json" });
-        queued = navigator.sendBeacon(backgroundUrl, blob);
-      }
-    } catch (_) {}
-
-    if (!queued) {
-      fetch(backgroundUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: backgroundBody,
-        keepalive: true,
-      }).catch((error) => console.error("Background booking queue failed:", error));
-    }
+    fetch(backgroundUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: backgroundBody,
+      keepalive: true,
+    })
+      .then(async (response) => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(result?.error || `Booking confirmation failed (${response.status})`);
+        }
+        setWhatsAppConfirmation(result);
+        setWhatsAppBookingStatus("confirmed");
+      })
+      .catch((error) => {
+        console.error("WhatsApp booking email confirmation failed:", error);
+        setWhatsAppBookingStatus("error");
+      });
 
     const schedulePanel = document.querySelector("[data-auto-schedule-panel]");
     const scheduleLines = Array.from(schedulePanel?.querySelectorAll(".mt-1") || [])
@@ -920,6 +928,91 @@ function BookingForm({ onClose }) {
   alert("Error sending booking.");
 }
   };
+
+  if (whatsAppBookingStatus === "confirmed") {
+    const scheduleResults = Array.isArray(whatsAppConfirmation?.schedule?.results)
+      ? whatsAppConfirmation.schedule.results
+      : [];
+
+    const cleanDateRows = scheduleResults
+      .filter((result) => result?.assignedCleanDate)
+      .map((result) => {
+        const date = new Date(`${result.assignedCleanDate}T12:00:00`);
+        const formatted = Number.isNaN(date.getTime())
+          ? result.assignedCleanDate
+          : date.toLocaleDateString("en-GB", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            });
+        return {
+          bin: String(result?.bin || "Bin").replace(/\s+Bin$/i, ""),
+          date: formatted,
+        };
+      });
+
+    return (
+      <div className="p-7 text-center space-y-5">
+        <button onClick={onClose} className="absolute top-3 right-4 text-gray-500 hover:text-red-500 text-2xl z-10" aria-label="Close booking">
+          &times;
+        </button>
+
+        <div className="mx-auto w-16 h-16 rounded-full bg-green-500 text-white flex items-center justify-center text-3xl font-black">
+          ✓
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-extrabold text-gray-900">Booking confirmed</h2>
+          <p className="mt-2 text-gray-600">
+            Your booking has been sent to NI Bin Guy and we've emailed your confirmation to <strong>{email}</strong>.
+          </p>
+        </div>
+
+        {cleanDateRows.length > 0 ? (
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-left">
+            <div className="text-sm font-bold uppercase tracking-wide text-green-800">Your clean date{cleanDateRows.length > 1 ? "s" : ""}</div>
+            <div className="mt-2 space-y-2">
+              {cleanDateRows.map((row, index) => (
+                <div key={`${row.bin}-${row.date}-${index}`} className="flex items-start justify-between gap-4">
+                  <span className="font-semibold text-gray-800">{row.bin}</span>
+                  <span className="text-right font-bold text-gray-900">{row.date}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            Your booking is confirmed. We'll confirm your clean date separately if it could not be allocated automatically.
+          </div>
+        )}
+
+        <button onClick={onClose} className="w-full rounded-lg bg-neutral-900 px-5 py-3 font-bold text-white hover:bg-neutral-800">
+          Done
+        </button>
+      </div>
+    );
+  }
+
+  if (whatsAppBookingStatus === "error") {
+    return (
+      <div className="p-7 text-center space-y-5">
+        <button onClick={onClose} className="absolute top-3 right-4 text-gray-500 hover:text-red-500 text-2xl z-10" aria-label="Close booking">
+          &times;
+        </button>
+        <div className="mx-auto w-16 h-16 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-3xl font-black">!</div>
+        <div>
+          <h2 className="text-2xl font-extrabold text-gray-900">WhatsApp opened</h2>
+          <p className="mt-2 text-gray-600">
+            We couldn't verify that the confirmation emails were sent. If you don't receive an email shortly, please contact us on WhatsApp.
+          </p>
+        </div>
+        <button onClick={onClose} className="w-full rounded-lg bg-neutral-900 px-5 py-3 font-bold text-white hover:bg-neutral-800">
+          Close
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-4">
@@ -1056,8 +1149,8 @@ function BookingForm({ onClose }) {
         </div>
       </div>
 
-      <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>
-        Send via WhatsApp
+      <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms || whatsAppBookingStatus === "sending"}>
+        {whatsAppBookingStatus === "sending" ? "Confirming booking…" : "Send via WhatsApp"}
       </button>
       <button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>
         Send via Email
