@@ -7,6 +7,9 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
 
 let lookupTimer = null;
 let activeController = null;
+let latestLookupPromise = null;
+let latestLookupKey = "";
+let latestLookupData = null;
 
 function formatDate(value) {
   if (!value) return "";
@@ -154,6 +157,16 @@ function getFormData(root) {
   return { address, postcode: extractPostcode(address), bins };
 }
 
+function lookupKey(form) {
+  return JSON.stringify({
+    address: String(form?.address || "").trim().toUpperCase().replace(/\s+/g, " "),
+    postcode: String(form?.postcode || "").trim().toUpperCase(),
+    bins: (Array.isArray(form?.bins) ? form.bins : [])
+      .map((bin) => String(bin?.type || bin || "").trim().toUpperCase())
+      .sort(),
+  });
+}
+
 function positionPanel(root, panel) {
   const addressInput = root?.querySelector('input[placeholder="Full Address"]');
   const firstBinSelect = findBinSelects(root)[0];
@@ -253,44 +266,85 @@ function render(root, state, data = null) {
 async function runLookup(root) {
   if (serviceAreaBlocksLookup(root)) {
     if (activeController) activeController.abort();
-    return;
+    return null;
   }
 
   const form = getFormData(root);
   if (!form || !form.address || !form.bins.length) {
     validatePostcode(root, false);
     render(root, "idle");
-    return;
+    return null;
   }
   if (!form.postcode) {
     validatePostcode(root, true);
     render(root, "idle");
-    return;
+    return null;
   }
+
   validatePostcode(root, false);
+  const key = lookupKey(form);
+
   if (activeController) activeController.abort();
-  activeController = new AbortController();
+  const controller = new AbortController();
+  activeController = controller;
+  latestLookupKey = key;
+  latestLookupData = null;
   render(root, "loading");
-  try {
-    const response = await fetch("/api/booking-schedule", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-      signal: activeController.signal,
-    });
-    const data = await response.json();
-    if (serviceAreaBlocksLookup(root)) return;
-    const matched = response.ok && data?.matched === true && Array.isArray(data.results) && data.results.length > 0 && data.results.every((result) => result?.automatic && result?.assignedCleanDate);
-    render(root, matched ? "matched" : "manual", data);
-  } catch (error) {
-    if (error?.name !== "AbortError" && !serviceAreaBlocksLookup(root)) render(root, "manual");
-  }
+
+  const lookupPromise = (async () => {
+    try {
+      const response = await fetch("/api/booking-schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+        signal: controller.signal,
+      });
+      const data = await response.json();
+      if (controller !== activeController || serviceAreaBlocksLookup(root)) return data;
+
+      latestLookupData = data;
+      const matched = response.ok && data?.matched === true && Array.isArray(data.results) && data.results.length > 0 && data.results.every((result) => result?.automatic && result?.assignedCleanDate);
+      render(root, matched ? "matched" : "manual", data);
+      return data;
+    } catch (error) {
+      if (error?.name !== "AbortError" && controller === activeController && !serviceAreaBlocksLookup(root)) {
+        latestLookupData = null;
+        render(root, "manual");
+      }
+      return null;
+    } finally {
+      if (controller === activeController) activeController = null;
+      if (latestLookupPromise === lookupPromise) latestLookupPromise = null;
+    }
+  })();
+
+  latestLookupPromise = lookupPromise;
+  return lookupPromise;
 }
 
 function scheduleLookup(root) {
   window.clearTimeout(lookupTimer);
   lookupTimer = window.setTimeout(() => runLookup(root), 450);
 }
+
+async function ensureBookingSchedule(root = findBookingRoot()) {
+  if (!root || serviceAreaBlocksLookup(root)) return null;
+
+  const form = getFormData(root);
+  if (!form || !form.address || !form.postcode || !form.bins.length) return null;
+
+  window.clearTimeout(lookupTimer);
+  const key = lookupKey(form);
+
+  if (latestLookupKey === key) {
+    if (latestLookupPromise) return latestLookupPromise;
+    if (latestLookupData) return latestLookupData;
+  }
+
+  return runLookup(root);
+}
+
+window.nbgEnsureBookingSchedule = ensureBookingSchedule;
 
 function bindBookingRoot(root) {
   if (!root || root.dataset.autoScheduleBound === "true") return;
