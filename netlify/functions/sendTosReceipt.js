@@ -5,6 +5,36 @@ const { Resend } = require("resend");
 const { handler: sendAutomaticBookingConfirmation } = require("./sendAutomaticBookingConfirmation");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 
+let getStatusStore = null;
+try {
+  const { getStore } = require("@netlify/blobs");
+  getStatusStore = function () {
+    const siteID = process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID;
+    const token = process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN;
+    const options = { name: "booking-submission-status", consistency: "strong" };
+    if (siteID && token) {
+      options.siteID = siteID;
+      options.token = token;
+    }
+    return getStore(options);
+  };
+} catch (_) {}
+
+async function setBookingStatus(bookingId, status, extra = {}) {
+  if (!bookingId || !getStatusStore) return;
+  try {
+    const store = getStatusStore();
+    await store.setJSON(String(bookingId), {
+      bookingId: String(bookingId),
+      status,
+      updatedAt: new Date().toISOString(),
+      ...extra,
+    });
+  } catch (error) {
+    console.warn("Could not save booking status:", error.message);
+  }
+}
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_DEFAULT = process.env.RESEND_FROM || "Ni Bin Guy <noreply@nibing.uy>";
 const TO_ADMIN = process.env.BOOKINGS_TO || "info@nibing.uy";
@@ -157,6 +187,7 @@ exports.handler = async (event) => {
 
   try {
     const payload = JSON.parse(event.body || "{}");
+    await setBookingStatus(payload.bookingId, "pending");
     const bins = (Array.isArray(payload.bins) ? payload.bins : []).filter((bin) => bin?.type);
 
     if (!payload.address || !payload.email || !bins.length) {
@@ -181,7 +212,7 @@ exports.handler = async (event) => {
       schedule.results.every((result) => result?.automatic && result?.assignedCleanDate)
     );
 
-    return await sendAutomaticBookingConfirmation({
+    const confirmationResponse = await sendAutomaticBookingConfirmation({
       ...event,
       httpMethod: "POST",
       body: JSON.stringify({
@@ -191,8 +222,33 @@ exports.handler = async (event) => {
         schedule,
       }),
     });
+
+    let confirmationBody = {};
+    try {
+      confirmationBody = JSON.parse(confirmationResponse?.body || "{}");
+    } catch (_) {}
+
+    if (confirmationResponse?.statusCode >= 200 && confirmationResponse?.statusCode < 300) {
+      await setBookingStatus(payload.bookingId, "confirmed", {
+        automatic: Boolean(confirmationBody?.automatic),
+        schedule: confirmationBody?.schedule || schedule || null,
+      });
+    } else {
+      await setBookingStatus(payload.bookingId, "error", {
+        error: confirmationBody?.error || "Booking confirmation emails failed",
+      });
+    }
+
+    return confirmationResponse;
   } catch (error) {
     console.error("sendTosReceipt parity error:", error);
+    let failedPayload = {};
+    try {
+      failedPayload = JSON.parse(event.body || "{}");
+    } catch (_) {}
+    await setBookingStatus(failedPayload.bookingId, "error", {
+      error: "Failed to send booking confirmation",
+    });
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Failed to send booking confirmation" }),
