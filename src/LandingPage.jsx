@@ -1743,6 +1743,13 @@ export default function NiBinGuyLandingPage() {
   const [showChallenge, setShowChallenge] = useState(false);
   const [showBinChecker, setShowBinChecker] = useState(false);
 
+  const closeBookingAndReturnTop = () => {
+    setShowBooking(false);
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    });
+  };
+
   // Snow toggle (persisted)
   const [snowEnabled, setSnowEnabled] = useState(false);
 
@@ -1772,8 +1779,8 @@ export default function NiBinGuyLandingPage() {
       <Hero onBook={() => setShowBooking(true)} onContact={() => setShowContact(true)} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} />
 
       {/* Booking Modal */}
-      <Modal open={showBooking} onClose={() => setShowBooking(false)} maxWidth="max-w-md" labelledBy="booking-title">
-        <BookingForm onClose={() => setShowBooking(false)} />
+      <Modal open={showBooking} onClose={closeBookingAndReturnTop} maxWidth="max-w-md" labelledBy="booking-title">
+        <BookingForm onClose={closeBookingAndReturnTop} />
       </Modal>
 
       {/* Contact Modal */}
