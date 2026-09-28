@@ -584,6 +584,16 @@ function TermsModal({ open, onClose, onConfirm, version, title, body }) {
 /* ────────────────────────────────────────────────────────────────────────────
    Booking Form
    ──────────────────────────────────────────────────────────────────────────── */
+function createBookingSubmissionMeta() {
+  const now = new Date();
+  const randomSource = globalThis.crypto?.randomUUID?.().replace(/-/g, "") || Math.random().toString(36).slice(2);
+  const randomPart = String(randomSource).replace(/[^a-z0-9]/gi, "").slice(0, 10).padEnd(8, "0").toUpperCase();
+  return {
+    bookingId: `NBG-${Date.now().toString(36).toUpperCase()}-${randomPart}`,
+    submittedAt: now.toISOString(),
+  };
+}
+
 const DEFAULT_BIN = { type: "", count: 1, planId: "domestic_4w" };
 
 function BookingForm({ onClose }) {
@@ -607,6 +617,7 @@ function BookingForm({ onClose }) {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [whatsAppBookingStatus, setWhatsAppBookingStatus] = useState("idle");
   const [whatsAppConfirmation, setWhatsAppConfirmation] = useState(null);
+  const [whatsAppBookingId, setWhatsAppBookingId] = useState("");
 
 
   const canToggleAgree = termsViewed;
@@ -643,6 +654,62 @@ function BookingForm({ onClose }) {
   useEffect(() => {
     setDiscountStatus(validateCodeAgainstSelection(bins, discountCode));
   }, [bins, discountCode]);
+
+  useEffect(() => {
+    if (!whatsAppBookingId || whatsAppBookingStatus !== "sending") return;
+
+    let cancelled = false;
+    let attempts = 0;
+    let timer = null;
+
+    const checkStatus = async () => {
+      if (cancelled) return;
+      attempts += 1;
+      try {
+        const response = await fetch(`/.netlify/functions/bookingStatus?bookingId=${encodeURIComponent(whatsAppBookingId)}`, {
+          cache: "no-store",
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (response.ok && result?.status === "confirmed") {
+          setWhatsAppConfirmation(result);
+          setWhatsAppBookingStatus("confirmed");
+          return;
+        }
+
+        if (response.ok && result?.status === "error") {
+          setWhatsAppConfirmation(result);
+          setWhatsAppBookingStatus("error");
+          return;
+        }
+      } catch (error) {
+        console.warn("Booking status check failed:", error);
+      }
+
+      if (!cancelled && attempts < 12) {
+        timer = window.setTimeout(checkStatus, 1500);
+      }
+    };
+
+    const onReturn = () => {
+      if (document.visibilityState === "visible") {
+        attempts = 0;
+        window.clearTimeout(timer);
+        checkStatus();
+      }
+    };
+
+    document.addEventListener("visibilitychange", onReturn);
+    window.addEventListener("focus", onReturn);
+    timer = window.setTimeout(checkStatus, 1200);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onReturn);
+      window.removeEventListener("focus", onReturn);
+    };
+  }, [whatsAppBookingId, whatsAppBookingStatus]);
 
   const missingFields = useMemo(() => !name || !email || !address || !phone || bins.some((b) => !b.type), [name, email, address, phone, bins]);
 
@@ -761,10 +828,13 @@ function BookingForm({ onClose }) {
       return;
     }
 
+    const submissionMeta = createBookingSubmissionMeta();
     setWhatsAppBookingStatus("sending");
     setWhatsAppConfirmation(null);
+    setWhatsAppBookingId(submissionMeta.bookingId);
 
     const payload = {
+      ...submissionMeta,
       source: "whatsapp",
       name,
       email,
@@ -779,31 +849,28 @@ function BookingForm({ onClose }) {
       termsTimestamp: new Date().toISOString(),
     };
 
-    // Start the email/booking request without waiting for it. WhatsApp opens
-    // immediately, while this request continues in the original browser tab.
-    // When both booking emails have been sent, the page switches to the
-    // confirmation screen ready for the customer when they come back.
+    // Hand the request to the browser without waiting for the response. Chrome
+    // may suspend this tab while WhatsApp is open, so confirmation is checked
+    // separately from the server when the customer returns.
     const backgroundUrl = "/.netlify/functions/sendTosReceipt";
     const backgroundBody = JSON.stringify(payload);
+    let queued = false;
 
-    fetch(backgroundUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: backgroundBody,
-      keepalive: true,
-    })
-      .then(async (response) => {
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(result?.error || `Booking confirmation failed (${response.status})`);
-        }
-        setWhatsAppConfirmation(result);
-        setWhatsAppBookingStatus("confirmed");
-      })
-      .catch((error) => {
-        console.error("WhatsApp booking email confirmation failed:", error);
-        setWhatsAppBookingStatus("error");
-      });
+    try {
+      if (navigator.sendBeacon) {
+        const blob = new Blob([backgroundBody], { type: "application/json" });
+        queued = navigator.sendBeacon(backgroundUrl, blob);
+      }
+    } catch (_) {}
+
+    if (!queued) {
+      fetch(backgroundUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: backgroundBody,
+        keepalive: true,
+      }).catch((error) => console.error("WhatsApp booking request failed to queue:", error));
+    }
 
     const schedulePanel = document.querySelector("[data-auto-schedule-panel]");
     const scheduleLines = Array.from(schedulePanel?.querySelectorAll(".mt-1") || [])
@@ -1004,7 +1071,7 @@ function BookingForm({ onClose }) {
         <div>
           <h2 className="text-2xl font-extrabold text-gray-900">WhatsApp opened</h2>
           <p className="mt-2 text-gray-600">
-            We couldn't verify that the confirmation emails were sent. If you don't receive an email shortly, please contact us on WhatsApp.
+            We couldn't complete the confirmation emails for this booking. Please contact us on WhatsApp and we'll check it for you.
           </p>
         </div>
         <button onClick={onClose} className="w-full rounded-lg bg-neutral-900 px-5 py-3 font-bold text-white hover:bg-neutral-800">
