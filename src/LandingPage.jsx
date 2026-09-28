@@ -830,8 +830,7 @@ function BookingForm({ onClose }) {
     ].join("\n");
 
     const url = `https://wa.me/${PHONE_E164}?text=${encodeURIComponent(messageText)}`;
-    window.open(url, "_blank");
-    onClose?.();
+    window.location.assign(url);
   };
 
   const handleSendEmail = async () => {
