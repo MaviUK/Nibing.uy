@@ -656,6 +656,15 @@ function BookingForm({ onClose }) {
   }, [bins, discountCode]);
 
   useEffect(() => {
+    const panel = document.querySelector("[data-auto-schedule-panel]");
+    if (!panel) return;
+    panel.style.display = whatsAppBookingStatus === "idle" ? "" : "none";
+    return () => {
+      panel.style.display = "";
+    };
+  }, [whatsAppBookingStatus]);
+
+  useEffect(() => {
     if (!whatsAppBookingId || whatsAppBookingStatus !== "sending") return;
 
     let cancelled = false;
