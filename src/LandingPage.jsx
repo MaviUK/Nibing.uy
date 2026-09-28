@@ -1030,10 +1030,6 @@ function BookingForm({ onClose }) {
 
     return (
       <div className="p-7 text-center space-y-5">
-        <button onClick={onClose} className="absolute top-3 right-4 text-gray-500 hover:text-red-500 text-2xl z-10" aria-label="Close booking">
-          &times;
-        </button>
-
         <div className="mx-auto w-16 h-16 rounded-full bg-green-500 text-white flex items-center justify-center text-3xl font-black">
           ✓
         </div>
@@ -1041,7 +1037,7 @@ function BookingForm({ onClose }) {
         <div>
           <h2 className="text-2xl font-extrabold text-gray-900">Booking confirmed</h2>
           <p className="mt-2 text-gray-600">
-            Your booking has been sent to NI Bin Guy and we've emailed your confirmation to <strong>{email}</strong>.
+            Your booking has been received and the confirmation has been emailed to <strong>{email}</strong>.
           </p>
         </div>
 
