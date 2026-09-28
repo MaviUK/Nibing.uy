@@ -29,7 +29,10 @@ updateFile("src/LandingPage.jsx", (text) => {
     );
   }
 
-  if (!text.includes('const submissionMeta = createBookingSubmissionMeta();\n\n    const payload = {\n      ...submissionMeta,\n      source: "whatsapp",')) {
+  if (
+    !text.includes('const submissionMeta = createBookingSubmissionMeta();') ||
+    !text.includes('      ...submissionMeta,\n      source: "whatsapp",')
+  ) {
     text = mustReplace(
       text,
       '    const payload = {\n      source: "whatsapp",',
