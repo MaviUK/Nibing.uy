@@ -6,6 +6,34 @@ const FROM_DEFAULT = process.env.RESEND_FROM || "Ni Bin Guy <noreply@nibing.uy>"
 const TO_ADMIN = process.env.BOOKINGS_TO || "info@nibing.uy";
 const TERMS_VERSION_DEFAULT = "July 2026";
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function sendEmailWithRetry(message, label) {
+  let lastResult = null;
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    lastResult = await resend.emails.send(message);
+
+    if (!lastResult?.error) return lastResult;
+
+    const statusCode = Number(lastResult?.error?.statusCode || lastResult?.error?.status || 0);
+    const messageText = String(lastResult?.error?.message || "").toLowerCase();
+    const retryable =
+      statusCode === 429 ||
+      statusCode >= 500 ||
+      messageText.includes("rate limit") ||
+      messageText.includes("too many requests") ||
+      messageText.includes("temporarily unavailable");
+
+    console.warn(`${label} email attempt ${attempt} failed`, lastResult.error);
+
+    if (!retryable || attempt === 3) break;
+    await sleep(attempt * 800);
+  }
+
+  return lastResult;
+}
+
 const TERMS_BODY = `
 Ni Bin Guy – Terms of Service
 
@@ -255,7 +283,7 @@ exports.handler = async (event) => {
       <p><strong>Total:</strong> ${escapeHtml(total)}</p>
       <p style="color:${automatic ? "#0b6b44" : "#b45309"};font-weight:700;">${escapeHtml(adminStatusText)}</p>`;
 
-    const adminResult = await resend.emails.send({
+    const adminResult = await sendEmailWithRetry({
       from: FROM_DEFAULT,
       to: TO_ADMIN,
       subject: adminSubject,
@@ -263,9 +291,9 @@ exports.handler = async (event) => {
       text: `${adminHeading}\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\n\nBins:\n${binsText}\n\n${scheduleText}\n\nTotal: ${total}\n\n${adminStatusText}`,
       replyTo: email,
       attachments,
-    });
+    }, "Admin booking");
 
-    const customerResult = await resend.emails.send({
+    const customerResult = await sendEmailWithRetry({
       from: FROM_DEFAULT,
       to: email,
       subject: customerSubject,
@@ -273,10 +301,26 @@ exports.handler = async (event) => {
       text: `Thanks ${name},\n\n${automatic ? "Your NI Bin Guy booking is confirmed." : "Your NI Bin Guy booking has been received. We’ll confirm any outstanding clean date manually."}\n\nBins:\n${binsText}\n\n${scheduleText}\n\nAddress: ${address}\nTotal: ${total}\n\nWhat happens next:\n1. ${automatic ? "Reminder" : "Date confirmation"}\n2. Put bin out\n3. Bin emptied\n4. Bin cleaned\n\nReply to this email if you need to change anything.`,
       replyTo: TO_ADMIN,
       attachments,
-    });
+    }, "Customer confirmation");
 
-    if (adminResult?.error) return { statusCode: 502, body: JSON.stringify({ error: "Failed to send admin email" }) };
-    if (customerResult?.error) return { statusCode: 502, body: JSON.stringify({ error: "Failed to send customer confirmation" }) };
+    if (adminResult?.error) {
+      return {
+        statusCode: 502,
+        body: JSON.stringify({
+          error: "Failed to send admin email",
+          details: adminResult.error?.message || adminResult.error,
+        }),
+      };
+    }
+    if (customerResult?.error) {
+      return {
+        statusCode: 502,
+        body: JSON.stringify({
+          error: "Failed to send customer confirmation",
+          details: customerResult.error?.message || customerResult.error,
+        }),
+      };
+    }
 
     return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ success: true, automatic, schedule }) };
   } catch (error) {
