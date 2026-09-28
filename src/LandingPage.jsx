@@ -831,21 +831,18 @@ function BookingForm({ onClose }) {
     ].join("\n");
 
     setWhatsAppSendStage("opening");
-    await new Promise((resolve) => window.setTimeout(resolve, 550));
+    await new Promise((resolve) => window.setTimeout(resolve, 450));
 
-    const encodedText = encodeURIComponent(messageText);
-    const fallbackUrl = `https://wa.me/${PHONE_E164}?text=${encodedText}`;
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    // Move to a dedicated handoff screen before launching WhatsApp. This keeps
+    // the customer from briefly seeing the homepage/"Areas We Cover" section
+    // while the browser hands control over to the WhatsApp app.
+    try {
+      sessionStorage.setItem("nbgWhatsAppPhone", String(PHONE_E164).replace(/\D/g, ""));
+      sessionStorage.setItem("nbgWhatsAppText", messageText);
+      sessionStorage.removeItem("nbgWhatsAppLaunchStarted");
+    } catch (_) {}
 
-    if (isAndroid) {
-      const intentUrl = `intent://send?phone=${PHONE_E164}&text=${encodedText}#Intent;scheme=whatsapp;package=com.whatsapp;S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
-      window.location.href = intentUrl;
-    } else if (isIOS) {
-      window.location.href = `whatsapp://send?phone=${PHONE_E164}&text=${encodedText}`;
-    } else {
-      window.location.href = fallbackUrl;
-    }
+    window.location.replace("/whatsapp-handoff.html");
   };
 
   const handleSendEmail = async () => {
