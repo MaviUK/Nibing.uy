@@ -3,6 +3,10 @@ function findBookingRoot() {
   return heading?.closest('.p-6') || heading?.parentElement || null;
 }
 
+function removeCommentsField() {
+  document.querySelectorAll('[data-booking-comments]').forEach((node) => node.remove());
+}
+
 function ensureCommentsField(root) {
   if (!root || root.querySelector('[data-booking-comments]')) return;
 
@@ -66,11 +70,19 @@ window.open = (url, target, features) => {
 
 const observer = new MutationObserver(() => {
   const root = findBookingRoot();
-  if (root) ensureCommentsField(root);
+  if (root) {
+    ensureCommentsField(root);
+  } else {
+    removeCommentsField();
+  }
 });
 observer.observe(document.documentElement, { childList: true, subtree: true });
 
 window.setTimeout(() => {
   const root = findBookingRoot();
-  if (root) ensureCommentsField(root);
+  if (root) {
+    ensureCommentsField(root);
+  } else {
+    removeCommentsField();
+  }
 }, 0);
