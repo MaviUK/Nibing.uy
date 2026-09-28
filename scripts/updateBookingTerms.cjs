@@ -83,6 +83,13 @@ updateFile("src/LandingPage.jsx", (text) => {
     );
   }
 
+  if (!text.includes("const [isWhatsAppSubmitting, setIsWhatsAppSubmitting]")) {
+    text = text.replace(
+      '  const [agreeToTerms, setAgreeToTerms] = useState(false);',
+      '  const [agreeToTerms, setAgreeToTerms] = useState(false);\n  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);'
+    );
+  }
+
   if (!text.includes('setIsEmailSubmitting(true);\n\n    // ✅ reCAPTCHA token')) {
     text = text.replace(
       '    // ✅ reCAPTCHA token (v3)\n    const recaptchaAction = "booking_submit";',
@@ -105,6 +112,55 @@ updateFile("src/LandingPage.jsx", (text) => {
   text = text.replace(
     '<button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>\n        Send via Email\n      </button>',
     '<button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60 disabled:cursor-not-allowed" disabled={!agreeToTerms || isEmailSubmitting}>\n        {isEmailSubmitting ? "Sending booking…" : "Send via Email"}\n      </button>\n\n      {isEmailSubmitting && (\n        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] bg-neutral-950 text-white border border-green-500 rounded-full shadow-2xl px-5 py-3 flex items-center gap-3" role="status" aria-live="polite">\n          <span className="w-5 h-5 rounded-full border-2 border-white/30 border-t-green-400 animate-spin" aria-hidden="true" />\n          <span className="text-sm font-semibold whitespace-nowrap">Your booking is being sent…</span>\n        </div>\n      )}'
+  );
+
+  // WhatsApp bookings must wait for the receipt email to be accepted before
+  // switching to WhatsApp. Fire-and-forget sendBeacon requests can be lost.
+  const unreliableWhatsappSend = `    try {
+      const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+      if (!navigator.sendBeacon("/.netlify/functions/sendTosReceipt", blob)) {
+        throw new Error("sendBeacon not sent");
+      }
+    } catch {
+      fetch("/.netlify/functions/sendTosReceipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    }`;
+
+  const reliableWhatsappSend = `    setIsWhatsAppSubmitting(true);
+
+    try {
+      const response = await fetch("/.netlify/functions/sendTosReceipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        let details = "";
+        try {
+          const result = await response.json();
+          details = result?.error ? \`: \${result.error}\` : "";
+        } catch (_) {}
+        throw new Error(\`Booking receipt failed\${details}\`);
+      }
+    } catch (error) {
+      setIsWhatsAppSubmitting(false);
+      console.error("WhatsApp booking receipt failed:", error);
+      alert("We couldn't register your booking yet. Please check your connection and try again. WhatsApp has not been opened.");
+      return;
+    }`;
+
+  if (text.includes(unreliableWhatsappSend)) {
+    text = text.replace(unreliableWhatsappSend, reliableWhatsappSend);
+  }
+
+  text = text.replace(
+    '<button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>\n        Send via WhatsApp\n      </button>',
+    '<button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2" disabled={!agreeToTerms || isWhatsAppSubmitting}>\n        {isWhatsAppSubmitting && <span className="inline-block h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" aria-hidden="true" />}\n        {isWhatsAppSubmitting ? "Registering booking..." : "Send via WhatsApp"}\n      </button>'
   );
 
   if (!text.includes('window.scrollTo({ top: 0, behavior: "smooth" });')) {
