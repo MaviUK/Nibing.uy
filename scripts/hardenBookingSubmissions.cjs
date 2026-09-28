@@ -223,8 +223,8 @@ updateFile("netlify/functions/sendAutomaticBookingConfirmation.js", (text) => {
   if (!text.includes('subject: `${adminSubject} — ${submission.bookingId}`')) {
     text = mustReplace(
       text,
-      '        subject: adminSubject,',
-      '        subject: `${adminSubject} — ${submission.bookingId}`,',
+      '      subject: adminSubject,',
+      '      subject: `${adminSubject} — ${submission.bookingId}`,',
       "unified admin subject booking reference"
     );
   }
@@ -232,8 +232,8 @@ updateFile("netlify/functions/sendAutomaticBookingConfirmation.js", (text) => {
   if (!text.includes('Booking reference: ${submission.bookingId}\\nSubmitted by customer: ${submission.submittedAt}')) {
     text = mustReplace(
       text,
-      '        text: `${adminHeading}\\n\\nName: ${name}',
-      '        text: `${adminHeading}\\n\\nBooking reference: ${submission.bookingId}\\nSubmitted by customer: ${submission.submittedAt}\\nReceived by server: ${submission.serverReceivedAt}\\n\\nName: ${name}',
+      '      text: `${adminHeading}\\n\\nName: ${name}',
+      '      text: `${adminHeading}\\n\\nBooking reference: ${submission.bookingId}\\nSubmitted by customer: ${submission.submittedAt}\\nReceived by server: ${submission.serverReceivedAt}\\n\\nName: ${name}',
       "unified admin text timestamps"
     );
   }
