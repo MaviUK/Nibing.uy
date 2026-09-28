@@ -777,7 +777,7 @@ function BookingForm({ onClose }) {
     // Queue the booking emails server-side, then hand the customer straight
     // to WhatsApp. The background function continues even after the browser
     // moves into the WhatsApp app.
-    const backgroundUrl = "/.netlify/functions/sendTosReceipt-background";
+    const backgroundUrl = "/.netlify/functions/sendTosReceipt";
     const backgroundBody = JSON.stringify(payload);
     let queued = false;
 
