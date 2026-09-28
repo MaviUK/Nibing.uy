@@ -181,10 +181,6 @@ exports.handler = async (event) => {
       schedule.results.every((result) => result?.automatic && result?.assignedCleanDate)
     );
 
-    if (!automatic) {
-      return await sendManualBookingOwnerEmail(payload, bins, schedule);
-    }
-
     return await sendAutomaticBookingConfirmation({
       ...event,
       httpMethod: "POST",
