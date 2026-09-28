@@ -759,6 +759,8 @@ function BookingForm({ onClose }) {
       return;
     }
 
+    setIsWhatsAppSubmitting(true);
+
     if (typeof window.nbgEnsureBookingSchedule === "function") {
       await window.nbgEnsureBookingSchedule();
     }
@@ -777,8 +779,6 @@ function BookingForm({ onClose }) {
       termsAcceptanceText: TOS_PREFIX,
       termsTimestamp: new Date().toISOString(),
     };
-
-    setIsWhatsAppSubmitting(true);
 
     try {
       const response = await fetch("/.netlify/functions/sendTosReceipt", {
@@ -1042,9 +1042,20 @@ function BookingForm({ onClose }) {
 
       <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2" disabled={!agreeToTerms || isWhatsAppSubmitting}>
         {isWhatsAppSubmitting && <span className="inline-block h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" aria-hidden="true" />}
-        {isWhatsAppSubmitting ? "Registering booking..." : "Send via WhatsApp"}
+        {isWhatsAppSubmitting ? "Sending booking..." : "Send via WhatsApp"}
       </button>
-      <button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>
+
+      {isWhatsAppSubmitting && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-2rem)] max-w-sm rounded-2xl bg-neutral-950 text-white border border-green-500 shadow-2xl px-5 py-4 flex items-center gap-3" role="status" aria-live="polite">
+          <span className="w-6 h-6 shrink-0 rounded-full border-2 border-white/30 border-t-green-400 animate-spin" aria-hidden="true" />
+          <div>
+            <div className="text-sm font-bold">Sending your booking…</div>
+            <div className="text-xs text-white/70 mt-0.5">Please wait — WhatsApp will open automatically when it’s ready.</div>
+          </div>
+        </div>
+      )}
+
+      <button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms || isWhatsAppSubmitting}>
         Send via Email
       </button>
 
