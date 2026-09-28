@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#050505" />
+  <title>Opening WhatsApp — NI Bin Guy</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #050505; font-family: Arial, Helvetica, sans-serif; }
+    body {
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: #fff;
+    }
+    .card {
+      width: min(100%, 360px);
+      background: #111;
+      border: 1px solid #2b2b2b;
+      border-radius: 22px;
+      padding: 28px 24px;
+      text-align: center;
+      box-shadow: 0 18px 50px rgba(0,0,0,.45);
+    }
+    .check {
+      width: 58px;
+      height: 58px;
+      margin: 0 auto 16px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #22c55e;
+      color: #07130a;
+      font-size: 30px;
+      font-weight: 900;
+    }
+    h1 { margin: 0; font-size: 23px; line-height: 1.15; }
+    p { margin: 10px 0 0; color: #bdbdbd; font-size: 14px; line-height: 1.5; }
+    .spinner {
+      width: 26px;
+      height: 26px;
+      margin: 20px auto 0;
+      border-radius: 50%;
+      border: 3px solid #333;
+      border-top-color: #22c55e;
+      animation: spin .75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .open {
+      display: none;
+      width: 100%;
+      margin-top: 20px;
+      border: 0;
+      border-radius: 12px;
+      background: #22c55e;
+      color: #07130a;
+      font-size: 16px;
+      font-weight: 800;
+      padding: 13px 16px;
+      text-decoration: none;
+    }
+    .open.show { display: block; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="check">✓</div>
+    <h1>Booking sent</h1>
+    <p id="status">Opening WhatsApp…</p>
+    <div class="spinner" id="spinner" aria-hidden="true"></div>
+    <a class="open" id="openBtn" href="#">Open WhatsApp</a>
+  </main>
+
+  <script>
+    (function () {
+      var phone = "";
+      var text = "";
+      try {
+        phone = sessionStorage.getItem("nbgWhatsAppPhone") || "";
+        text = sessionStorage.getItem("nbgWhatsAppText") || "";
+      } catch (_) {}
+
+      var status = document.getElementById("status");
+      var spinner = document.getElementById("spinner");
+      var openBtn = document.getElementById("openBtn");
+
+      if (!phone || !text) {
+        status.textContent = "Your booking was sent, but WhatsApp could not be opened automatically.";
+        spinner.style.display = "none";
+        openBtn.href = "https://wa.me/";
+        openBtn.classList.add("show");
+        return;
+      }
+
+      var encodedText = encodeURIComponent(text);
+      var fallbackUrl = "https://wa.me/" + phone + "?text=" + encodedText;
+      var isAndroid = /Android/i.test(navigator.userAgent);
+      var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      var launchUrl = fallbackUrl;
+
+      if (isAndroid) {
+        launchUrl =
+          "intent://send?phone=" + phone +
+          "&text=" + encodedText +
+          "#Intent;scheme=whatsapp;package=com.whatsapp;S.browser_fallback_url=" +
+          encodeURIComponent(fallbackUrl) +
+          ";end";
+      } else if (isIOS) {
+        launchUrl = "whatsapp://send?phone=" + phone + "&text=" + encodedText;
+      }
+
+      openBtn.href = launchUrl;
+
+      var alreadyStarted = false;
+      try {
+        alreadyStarted = sessionStorage.getItem("nbgWhatsAppLaunchStarted") === "1";
+        sessionStorage.setItem("nbgWhatsAppLaunchStarted", "1");
+      } catch (_) {}
+
+      if (!alreadyStarted) {
+        window.setTimeout(function () {
+          window.location.href = launchUrl;
+        }, 180);
+      } else {
+        status.textContent = "Tap below to open WhatsApp.";
+        spinner.style.display = "none";
+        openBtn.classList.add("show");
+      }
+
+      window.setTimeout(function () {
+        status.textContent = "If WhatsApp did not open, tap below.";
+        spinner.style.display = "none";
+        openBtn.classList.add("show");
+      }, 2500);
+    })();
+  </script>
+</body>
+</html>
