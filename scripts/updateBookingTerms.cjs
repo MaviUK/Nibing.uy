@@ -178,6 +178,13 @@ updateFile("src/LandingPage.jsx", (text) => {
     text = text.replace(oldWhatsappMessage, newWhatsappMessage);
   }
 
+  // Navigating the current tab is not treated as a popup after async booking
+  // checks, so mobile browsers can reliably hand off to WhatsApp.
+  text = text.replace(
+    '    window.open(url, "_blank");\n    onClose?.();',
+    '    window.location.assign(url);'
+  );
+
   return text;
 });
 
