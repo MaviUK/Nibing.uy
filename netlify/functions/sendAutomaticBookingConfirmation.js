@@ -265,8 +265,6 @@ exports.handler = async (event) => {
       attachments,
     });
 
-    if (adminResult?.error) return { statusCode: 502, body: JSON.stringify({ error: "Failed to send admin email" }) };
-
     const customerResult = await resend.emails.send({
       from: FROM_DEFAULT,
       to: email,
@@ -277,6 +275,7 @@ exports.handler = async (event) => {
       attachments,
     });
 
+    if (adminResult?.error) return { statusCode: 502, body: JSON.stringify({ error: "Failed to send admin email" }) };
     if (customerResult?.error) return { statusCode: 502, body: JSON.stringify({ error: "Failed to send customer confirmation" }) };
 
     return { statusCode: 200, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ success: true, automatic, schedule }) };
