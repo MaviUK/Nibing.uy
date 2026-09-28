@@ -605,7 +605,8 @@ function BookingForm({ onClose }) {
   const [showTerms, setShowTerms] = useState(false);
   const [termsViewed, setTermsViewed] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
-  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);
+  const [whatsAppSendStage, setWhatsAppSendStage] = useState("idle");
+  const isWhatsAppSubmitting = whatsAppSendStage !== "idle";
 
   const canToggleAgree = termsViewed;
 
@@ -759,7 +760,7 @@ function BookingForm({ onClose }) {
       return;
     }
 
-    setIsWhatsAppSubmitting(true);
+    setWhatsAppSendStage("sending");
 
     if (typeof window.nbgEnsureBookingSchedule === "function") {
       await window.nbgEnsureBookingSchedule();
@@ -796,7 +797,7 @@ function BookingForm({ onClose }) {
         throw new Error(`Booking receipt failed${details}`);
       }
     } catch (error) {
-      setIsWhatsAppSubmitting(false);
+      setWhatsAppSendStage("idle");
       console.error("WhatsApp booking receipt failed:", error);
       alert("We couldn't register your booking yet. Please check your connection and try again. WhatsApp has not been opened.");
       return;
@@ -829,8 +830,22 @@ function BookingForm({ onClose }) {
       TOS_PREFIX,
     ].join("\n");
 
-    const url = `https://wa.me/${PHONE_E164}?text=${encodeURIComponent(messageText)}`;
-    window.location.assign(url);
+    setWhatsAppSendStage("opening");
+    await new Promise((resolve) => window.setTimeout(resolve, 550));
+
+    const encodedText = encodeURIComponent(messageText);
+    const fallbackUrl = `https://wa.me/${PHONE_E164}?text=${encodedText}`;
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (isAndroid) {
+      const intentUrl = `intent://send?phone=${PHONE_E164}&text=${encodedText}#Intent;scheme=whatsapp;package=com.whatsapp;S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
+      window.location.href = intentUrl;
+    } else if (isIOS) {
+      window.location.href = `whatsapp://send?phone=${PHONE_E164}&text=${encodedText}`;
+    } else {
+      window.location.href = fallbackUrl;
+    }
   };
 
   const handleSendEmail = async () => {
@@ -907,7 +922,7 @@ function BookingForm({ onClose }) {
 
   return (
     <div className="p-6 space-y-4">
-      <button onClick={onClose} className="absolute top-3 right-4 text-gray-500 hover:text-red-500 text-2xl z-10" aria-label="Close booking">
+      <button onClick={onClose} disabled={isWhatsAppSubmitting} className="absolute top-3 right-4 text-gray-500 hover:text-red-500 text-2xl z-10 disabled:opacity-30 disabled:cursor-not-allowed" aria-label="Close booking">
         &times;
       </button>
 
@@ -1042,15 +1057,25 @@ function BookingForm({ onClose }) {
 
       <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2" disabled={!agreeToTerms || isWhatsAppSubmitting}>
         {isWhatsAppSubmitting && <span className="inline-block h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" aria-hidden="true" />}
-        {isWhatsAppSubmitting ? "Sending booking..." : "Send via WhatsApp"}
+        {isWhatsAppSubmitting ? "Sending…" : "Send via WhatsApp"}
       </button>
 
       {isWhatsAppSubmitting && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-2rem)] max-w-sm rounded-2xl bg-neutral-950 text-white border border-green-500 shadow-2xl px-5 py-4 flex items-center gap-3" role="status" aria-live="polite">
-          <span className="w-6 h-6 shrink-0 rounded-full border-2 border-white/30 border-t-green-400 animate-spin" aria-hidden="true" />
-          <div>
-            <div className="text-sm font-bold">Sending your booking…</div>
-            <div className="text-xs text-white/70 mt-0.5">Please wait — WhatsApp will open automatically when it’s ready.</div>
+        <div className="fixed inset-0 z-[100] bg-black/55 backdrop-blur-[2px] flex items-center justify-center p-5" role="status" aria-live="polite" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-xs rounded-2xl bg-white text-neutral-950 shadow-2xl p-6 text-center border border-neutral-200">
+            {whatsAppSendStage === "opening" ? (
+              <>
+                <div className="mx-auto w-12 h-12 rounded-full bg-green-500 text-white flex items-center justify-center text-2xl font-black">✓</div>
+                <div className="mt-4 text-lg font-extrabold">Booking sent</div>
+                <div className="mt-1 text-sm text-neutral-600">Opening WhatsApp…</div>
+              </>
+            ) : (
+              <>
+                <span className="mx-auto block w-10 h-10 rounded-full border-4 border-neutral-200 border-t-green-500 animate-spin" aria-hidden="true" />
+                <div className="mt-4 text-lg font-extrabold">Sending your booking…</div>
+                <div className="mt-1 text-sm text-neutral-600">Confirming your clean date and sending the booking email.</div>
+              </>
+            )}
           </div>
         </div>
       )}
