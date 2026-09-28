@@ -255,26 +255,26 @@ exports.handler = async (event) => {
       <p><strong>Total:</strong> ${escapeHtml(total)}</p>
       <p style="color:${automatic ? "#0b6b44" : "#b45309"};font-weight:700;">${escapeHtml(adminStatusText)}</p>`;
 
-    const [adminResult, customerResult] = await Promise.all([
-      resend.emails.send({
-        from: FROM_DEFAULT,
-        to: TO_ADMIN,
-        subject: adminSubject,
-        html: adminHtml,
-        text: `${adminHeading}\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\n\nBins:\n${binsText}\n\n${scheduleText}\n\nTotal: ${total}\n\n${adminStatusText}`,
-        replyTo: email,
-        attachments,
-      }),
-      resend.emails.send({
-        from: FROM_DEFAULT,
-        to: email,
-        subject: customerSubject,
-        html: customerHtml,
-        text: `Thanks ${name},\n\n${automatic ? "Your NI Bin Guy booking is confirmed." : "Your NI Bin Guy booking has been received. We’ll confirm any outstanding clean date manually."}\n\nBins:\n${binsText}\n\n${scheduleText}\n\nAddress: ${address}\nTotal: ${total}\n\nWhat happens next:\n1. ${automatic ? "Reminder" : "Date confirmation"}\n2. Put bin out\n3. Bin emptied\n4. Bin cleaned\n\nReply to this email if you need to change anything.`,
-        replyTo: TO_ADMIN,
-        attachments,
-      }),
-    ]);
+    const adminResult = await resend.emails.send({
+      from: FROM_DEFAULT,
+      to: TO_ADMIN,
+      subject: adminSubject,
+      html: adminHtml,
+      text: `${adminHeading}\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\n\nBins:\n${binsText}\n\n${scheduleText}\n\nTotal: ${total}\n\n${adminStatusText}`,
+      replyTo: email,
+      attachments,
+    });
+
+
+    const customerResult = await resend.emails.send({
+      from: FROM_DEFAULT,
+      to: email,
+      subject: customerSubject,
+      html: customerHtml,
+      text: `Thanks ${name},\n\n${automatic ? "Your NI Bin Guy booking is confirmed." : "Your NI Bin Guy booking has been received. We’ll confirm any outstanding clean date manually."}\n\nBins:\n${binsText}\n\n${scheduleText}\n\nAddress: ${address}\nTotal: ${total}\n\nWhat happens next:\n1. ${automatic ? "Reminder" : "Date confirmation"}\n2. Put bin out\n3. Bin emptied\n4. Bin cleaned\n\nReply to this email if you need to change anything.`,
+      replyTo: TO_ADMIN,
+      attachments,
+    });
 
     if (adminResult?.error) return { statusCode: 502, body: JSON.stringify({ error: "Failed to send admin email" }) };
     if (customerResult?.error) return { statusCode: 502, body: JSON.stringify({ error: "Failed to send customer confirmation" }) };
