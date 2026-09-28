@@ -830,16 +830,23 @@ function BookingForm({ onClose }) {
     const isAndroid = /Android/i.test(navigator.userAgent);
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-    if (isAndroid) {
-      const intentUrl =
-        `intent://send?phone=${phoneDigits}&text=${encodedText}` +
-        `#Intent;scheme=whatsapp;package=com.whatsapp;S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
-      window.location.href = intentUrl;
-    } else if (isIOS) {
-      window.location.href = `whatsapp://send?phone=${phoneDigits}&text=${encodedText}`;
-    } else {
-      window.location.href = fallbackUrl;
-    }
+    const launchUrl = isAndroid
+      ? `intent://send?phone=${phoneDigits}&text=${encodedText}#Intent;scheme=whatsapp;package=com.whatsapp;S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`
+      : isIOS
+        ? `whatsapp://send?phone=${phoneDigits}&text=${encodedText}`
+        : fallbackUrl;
+
+    // Open WhatsApp in a separate browsing context so the booking form stays
+    // exactly where it is in the original tab. Because this happens directly
+    // inside the customer's tap, Chrome treats it as a user-initiated launch.
+    const whatsappLink = document.createElement("a");
+    whatsappLink.href = launchUrl;
+    whatsappLink.target = "_blank";
+    whatsappLink.rel = "noopener noreferrer";
+    whatsappLink.style.display = "none";
+    document.body.appendChild(whatsappLink);
+    whatsappLink.click();
+    whatsappLink.remove();
   };
 
   const handleSendEmail = async () => {
