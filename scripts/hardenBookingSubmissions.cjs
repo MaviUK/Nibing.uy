@@ -169,12 +169,22 @@ updateFile("netlify/functions/sendTosReceipt.js", (text) => {
   }
 
   if (!text.includes('const submission = validateBookingSubmission(payload);')) {
-    text = mustReplace(
-      text,
-      '    const payload = JSON.parse(event.body || "{}");\n    const bins =',
-      '    const payload = JSON.parse(event.body || "{}");\n    const submission = validateBookingSubmission(payload);\n    if (!submission.ok) return submissionErrorResponse(submission);\n\n    const bins =',
-      "sendTosReceipt validation"
-    );
+    const plainPayloadAnchor = '    const payload = JSON.parse(event.body || "{}");\n    const bins =';
+    const statusPayloadAnchor = '    const payload = JSON.parse(event.body || "{}");\n    await setBookingStatus(payload.bookingId, "pending");\n    const bins =';
+
+    if (text.includes(statusPayloadAnchor)) {
+      text = text.replace(
+        statusPayloadAnchor,
+        '    const payload = JSON.parse(event.body || "{}");\n    const submission = validateBookingSubmission(payload);\n    if (!submission.ok) return submissionErrorResponse(submission);\n    await setBookingStatus(payload.bookingId, "pending");\n    const bins ='
+      );
+    } else {
+      text = mustReplace(
+        text,
+        plainPayloadAnchor,
+        '    const payload = JSON.parse(event.body || "{}");\n    const submission = validateBookingSubmission(payload);\n    if (!submission.ok) return submissionErrorResponse(submission);\n\n    const bins =',
+        "sendTosReceipt validation"
+      );
+    }
   }
 
   if (
