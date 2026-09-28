@@ -605,6 +605,7 @@ function BookingForm({ onClose }) {
   const [showTerms, setShowTerms] = useState(false);
   const [termsViewed, setTermsViewed] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [isWhatsAppSubmitting, setIsWhatsAppSubmitting] = useState(false);
 
   const canToggleAgree = termsViewed;
 
@@ -777,18 +778,28 @@ function BookingForm({ onClose }) {
       termsTimestamp: new Date().toISOString(),
     };
 
+    setIsWhatsAppSubmitting(true);
+
     try {
-      const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-      if (!navigator.sendBeacon("/.netlify/functions/sendTosReceipt", blob)) {
-        throw new Error("sendBeacon not sent");
-      }
-    } catch {
-      fetch("/.netlify/functions/sendTosReceipt", {
+      const response = await fetch("/.netlify/functions/sendTosReceipt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        keepalive: true,
         body: JSON.stringify(payload),
-      }).catch(() => {});
+      });
+
+      if (!response.ok) {
+        let details = "";
+        try {
+          const result = await response.json();
+          details = result?.error ? `: ${result.error}` : "";
+        } catch (_) {}
+        throw new Error(`Booking receipt failed${details}`);
+      }
+    } catch (error) {
+      setIsWhatsAppSubmitting(false);
+      console.error("WhatsApp booking receipt failed:", error);
+      alert("We couldn't register your booking yet. Please check your connection and try again. WhatsApp has not been opened.");
+      return;
     }
 
     const schedulePanel = document.querySelector("[data-auto-schedule-panel]");
@@ -1030,8 +1041,9 @@ function BookingForm({ onClose }) {
         </div>
       </div>
 
-      <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>
-        Send via WhatsApp
+      <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2" disabled={!agreeToTerms || isWhatsAppSubmitting}>
+        {isWhatsAppSubmitting && <span className="inline-block h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin" aria-hidden="true" />}
+        {isWhatsAppSubmitting ? "Registering booking..." : "Send via WhatsApp"}
       </button>
       <button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>
         Send via Email
