@@ -744,7 +744,7 @@ function BookingForm({ onClose }) {
     return `${codeLine}%0A` + `Subtotal: £${money(pricing.subtotal)}%0A` + `Total: £${money(pricing.total)}`;
   };
 
-  const handleSendWhatsApp = () => {
+  const handleSendWhatsApp = async () => {
     if (missingFields) {
       alert("Please complete all fields before sending.");
       return;
@@ -756,6 +756,10 @@ function BookingForm({ onClose }) {
     if (normalizeCode(discountCode) && discountStatus.state !== "valid") {
       alert("That discount code isn’t valid for your selected clean(s).");
       return;
+    }
+
+    if (typeof window.nbgEnsureBookingSchedule === "function") {
+      await window.nbgEnsureBookingSchedule();
     }
 
     const payload = {
@@ -787,12 +791,34 @@ function BookingForm({ onClose }) {
       }).catch(() => {});
     }
 
-    const message =
-      `${encodeURIComponent(TOS_PREFIX)}%0A%0AHi my name is ${encodeURIComponent(name)}. I'd like to book a bin clean, please.` +
-      `%0A%0A${buildBinDetails()}%0A%0A${buildPricingSummary()}` +
-      `%0A%0AAddress: ${encodeURIComponent(address)}%0AEmail: ${encodeURIComponent(email)}%0APhone: ${encodeURIComponent(phone)}`;
+    const schedulePanel = document.querySelector("[data-auto-schedule-panel]");
+    const scheduleLines = Array.from(schedulePanel?.querySelectorAll(".mt-1") || [])
+      .map((node) => String(node.textContent || "").trim())
+      .filter(Boolean);
+    const scheduleSummary = scheduleLines.length
+      ? scheduleLines.join("\n")
+      : "Clean date: To be confirmed";
 
-    const url = `https://wa.me/${PHONE_E164}?text=${message}`;
+    const messageText = [
+      "✅ BOOKING CONFIRMED",
+      "",
+      `Hi, my name is ${name}. I'd like to book the following bin clean:`,
+      "",
+      buildBinDetails().replace(/%0A/g, "\n"),
+      "",
+      "NEXT CLEAN DATE",
+      scheduleSummary,
+      "",
+      buildPricingSummary().replace(/%0A/g, "\n"),
+      "",
+      `Address: ${address}`,
+      `Email: ${email}`,
+      `Phone: ${phone}`,
+      "",
+      TOS_PREFIX,
+    ].join("\n");
+
+    const url = `https://wa.me/${PHONE_E164}?text=${encodeURIComponent(messageText)}`;
     window.open(url, "_blank");
     onClose?.();
   };
@@ -809,6 +835,10 @@ function BookingForm({ onClose }) {
     if (normalizeCode(discountCode) && discountStatus.state !== "valid") {
       alert("That discount code isn’t valid for your selected clean(s).");
       return;
+    }
+
+    if (typeof window.nbgEnsureBookingSchedule === "function") {
+      await window.nbgEnsureBookingSchedule();
     }
 
     // ✅ reCAPTCHA token (v3)
