@@ -6,6 +6,7 @@ const areas = [
   ["Donaghadee", "https://nibing.uy/bin-cleaning-donaghadee"],
   ["Newtownards", "https://nibing.uy/bin-cleaning-newtownards"],
   ["Holywood", "https://nibing.uy/bin-cleaning-holywood/"],
+  ["Carrowdore", "https://nibing.uy/bin-cleaning-carrowdore/"],
   ["Comber", "https://nibing.uy/bin-cleaning-comber"],
   ["Millisle", "https://nibing.uy/bin-cleaning-millisle"],
   ["Portaferry", "https://nibing.uy/bin-cleaning-portaferry"],

@@ -3,6 +3,7 @@ const COVERED_TOWNS = [
   "Holywood",
   "Newtownards",
   "Donaghadee",
+  "Carrowdore",
   "Comber",
   "Millisle",
   "Portaferry",

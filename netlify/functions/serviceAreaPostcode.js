@@ -3,6 +3,7 @@ const COVERED_TOWNS = [
   { name: "Holywood", lat: 54.6408, lon: -5.8344, radiusKm: 4.0 },
   { name: "Newtownards", lat: 54.5924, lon: -5.6909, radiusKm: 6.5 },
   { name: "Donaghadee", lat: 54.6414, lon: -5.5354, radiusKm: 5.0 },
+  { name: "Carrowdore", lat: 54.575347, lon: -5.556056, radiusKm: 3.0 },
   { name: "Comber", lat: 54.5494, lon: -5.7441, radiusKm: 5.0 },
   { name: "Millisle", lat: 54.6079, lon: -5.5299, radiusKm: 4.5 },
   { name: "Portaferry", lat: 54.3812, lon: -5.5455, radiusKm: 5.0 },

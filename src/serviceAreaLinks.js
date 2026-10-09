@@ -9,6 +9,7 @@
     { name: 'Donaghadee', href: '/bin-cleaning-donaghadee' },
     { name: 'Newtownards', href: '/bin-cleaning-newtownards' },
     { name: 'Holywood', href: '/bin-cleaning-holywood/' },
+    { name: 'Carrowdore', href: '/bin-cleaning-carrowdore/' },
     { name: 'Comber', href: '/bin-cleaning-comber' },
     { name: 'Millisle', href: '/bin-cleaning-millisle' },
     { name: 'Portaferry', href: '/bin-cleaning-portaferry' },

@@ -33,3 +33,6 @@
 /bin-cleaning-holywood/*
   X-Robots-Tag: index, follow
   Cache-Control: no-cache, max-age=0, must-revalidate
+/bin-cleaning-carrowdore/*
+  X-Robots-Tag: index, follow
+  Cache-Control: no-cache, max-age=0, must-revalidate
