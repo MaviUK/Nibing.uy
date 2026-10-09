@@ -1,5 +1,6 @@
 const COVERED_TOWNS = [
   { name: "Bangor", lat: 54.6608, lon: -5.6680, radiusKm: 7.0 },
+  { name: "Holywood", lat: 54.6408, lon: -5.8344, radiusKm: 4.0 },
   { name: "Newtownards", lat: 54.5924, lon: -5.6909, radiusKm: 6.5 },
   { name: "Donaghadee", lat: 54.6414, lon: -5.5354, radiusKm: 5.0 },
   { name: "Comber", lat: 54.5494, lon: -5.7441, radiusKm: 5.0 },

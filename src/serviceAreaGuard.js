@@ -1,5 +1,6 @@
 const COVERED_TOWNS = [
   "Bangor",
+  "Holywood",
   "Newtownards",
   "Donaghadee",
   "Comber",
@@ -14,7 +15,6 @@ const COVERED_TOWNS = [
 const EXPLICIT_UNCOVERED_TOWNS = [
   "Belfast",
   "Lisburn",
-  "Holywood",
   "Dundonald",
   "Carryduff",
   "Ballynahinch",
