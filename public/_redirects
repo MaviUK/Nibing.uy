@@ -1,17 +1,24 @@
+# Retired service areas return a real 404 before the certificate catch-all.
+/bin-cleaning-greyabbey /404.html 404!
+/bin-cleaning-greyabbey/* /404.html 404!
+/bin-cleaning-ballywalter /404.html 404!
+/bin-cleaning-ballywalter/* /404.html 404!
+/bin-cleaning-portavogie /404.html 404!
+/bin-cleaning-portavogie/* /404.html 404!
+/bin-cleaning-cloughey /404.html 404!
+/bin-cleaning-cloughey/* /404.html 404!
+/bin-cleaning-ballyhalbert /404.html 404!
+/bin-cleaning-ballyhalbert/* /404.html 404!
+
 /favicon.ico /logo.png 301!
 
 /bin-cleaning-bangor /bin-cleaning-bangor/ 301!
 /bin-cleaning-groomsport/ /bin-cleaning-groomsport 301!
 /bin-cleaning-donaghadee/ /bin-cleaning-donaghadee 301!
 /bin-cleaning-newtownards/ /bin-cleaning-newtownards 301!
-/bin-cleaning-greyabbey/ /bin-cleaning-greyabbey 301!
 /bin-cleaning-comber/ /bin-cleaning-comber 301!
 /bin-cleaning-millisle/ /bin-cleaning-millisle 301!
-/bin-cleaning-ballywalter/ /bin-cleaning-ballywalter 301!
 /bin-cleaning-portaferry/ /bin-cleaning-portaferry 301!
-/bin-cleaning-portavogie/ /bin-cleaning-portavogie 301!
-/bin-cleaning-cloughey/ /bin-cleaning-cloughey 301!
-/bin-cleaning-ballyhalbert/ /bin-cleaning-ballyhalbert 301!
 /commercial-bin-cleaning /commercial-bin-cleaning/ 301!
 
 # Stored street-signup Terms & Conditions certificates (legacy long URLs).

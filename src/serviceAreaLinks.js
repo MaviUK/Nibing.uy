@@ -8,14 +8,10 @@
     { name: 'Groomsport', href: '/bin-cleaning-groomsport' },
     { name: 'Donaghadee', href: '/bin-cleaning-donaghadee' },
     { name: 'Newtownards', href: '/bin-cleaning-newtownards' },
-    { name: 'Greyabbey', href: '/bin-cleaning-greyabbey' },
+    { name: 'Holywood', href: '/bin-cleaning-holywood/' },
     { name: 'Comber', href: '/bin-cleaning-comber' },
     { name: 'Millisle', href: '/bin-cleaning-millisle' },
-    { name: 'Ballywalter', href: '/bin-cleaning-ballywalter' },
     { name: 'Portaferry', href: '/bin-cleaning-portaferry' },
-    { name: 'Portavogie', href: '/bin-cleaning-portavogie' },
-    { name: 'Cloughey', href: '/bin-cleaning-cloughey' },
-    { name: 'Ballyhalbert', href: '/bin-cleaning-ballyhalbert' },
   ];
 
   const linkStyle = 'display:inline-block;color:#ffd400;background:rgba(255,212,0,.12);border:1px solid rgba(255,212,0,.42);border-radius:999px;padding:9px 13px;text-decoration:none;font-weight:800;';
@@ -26,6 +22,13 @@
 
     const linkContainer = section.querySelector('div[style*="flex-wrap"]') || section.querySelector('.areas');
     if (!linkContainer) return false;
+
+    // A cached helper may have created the old area links. Reconcile them
+    // before adding the current list so removed towns cannot reappear.
+    const coveredNames = new Set(areas.map(({ name }) => name.toLowerCase()));
+    Array.from(linkContainer.querySelectorAll('a')).forEach((link) => {
+      if (!coveredNames.has((link.textContent || '').trim().toLowerCase())) link.remove();
+    });
 
     areas.forEach(({ name, href }) => {
       let link = Array.from(linkContainer.querySelectorAll('a')).find(

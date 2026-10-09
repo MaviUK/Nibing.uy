@@ -139,12 +139,6 @@
   force = true
 
 [[redirects]]
-  from = "/bin-cleaning-greyabbey/"
-  to = "/bin-cleaning-greyabbey"
-  status = 301
-  force = true
-
-[[redirects]]
   from = "/bin-cleaning-comber/"
   to = "/bin-cleaning-comber"
   status = 301
@@ -157,32 +151,8 @@
   force = true
 
 [[redirects]]
-  from = "/bin-cleaning-ballywalter/"
-  to = "/bin-cleaning-ballywalter"
-  status = 301
-  force = true
-
-[[redirects]]
   from = "/bin-cleaning-portaferry/"
   to = "/bin-cleaning-portaferry"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "/bin-cleaning-portavogie/"
-  to = "/bin-cleaning-portavogie"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "/bin-cleaning-cloughey/"
-  to = "/bin-cleaning-cloughey"
-  status = 301
-  force = true
-
-[[redirects]]
-  from = "/bin-cleaning-ballyhalbert/"
-  to = "/bin-cleaning-ballyhalbert"
   status = 301
   force = true
 

@@ -16,17 +16,7 @@
   Content-Type: text/html; charset=utf-8
 /bin-cleaning-millisle
   Content-Type: text/html; charset=utf-8
-/bin-cleaning-ballywalter
-  Content-Type: text/html; charset=utf-8
 /bin-cleaning-portaferry
-  Content-Type: text/html; charset=utf-8
-/bin-cleaning-portavogie
-  Content-Type: text/html; charset=utf-8
-/bin-cleaning-cloughey
-  Content-Type: text/html; charset=utf-8
-/bin-cleaning-ballyhalbert
-  Content-Type: text/html; charset=utf-8
-/bin-cleaning-greyabbey
   Content-Type: text/html; charset=utf-8
 /bin-cleaning-groomsport
   Content-Type: text/html; charset=utf-8
@@ -40,3 +30,6 @@
   Content-Type: text/html; charset=utf-8
 /guides/how-often-should-commercial-bins-be-cleaned
   Content-Type: text/html; charset=utf-8
+/bin-cleaning-holywood/*
+  X-Robots-Tag: index, follow
+  Cache-Control: no-cache, max-age=0, must-revalidate

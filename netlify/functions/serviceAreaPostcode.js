@@ -5,11 +5,7 @@ const COVERED_TOWNS = [
   { name: "Donaghadee", lat: 54.6414, lon: -5.5354, radiusKm: 5.0 },
   { name: "Comber", lat: 54.5494, lon: -5.7441, radiusKm: 5.0 },
   { name: "Millisle", lat: 54.6079, lon: -5.5299, radiusKm: 4.5 },
-  { name: "Ballywalter", lat: 54.5432, lon: -5.4841, radiusKm: 4.5 },
   { name: "Portaferry", lat: 54.3812, lon: -5.5455, radiusKm: 5.0 },
-  { name: "Portavogie", lat: 54.4607, lon: -5.4426, radiusKm: 4.5 },
-  { name: "Cloughey", lat: 54.4314, lon: -5.5450, radiusKm: 4.5 },
-  { name: "Ballyhalbert", lat: 54.5037, lon: -5.4849, radiusKm: 4.5 },
 ];
 
 function distanceKm(lat1, lon1, lat2, lon2) {

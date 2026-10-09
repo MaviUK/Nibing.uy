@@ -1,7 +1,7 @@
 (function(){
 var p=window.NBG_TOWN_PAGE||{};
 var town=p.town||"County Down";
-var links=p.links||[["Bangor","/bin-cleaning-bangor/"],["Groomsport","/bin-cleaning-groomsport"],["Donaghadee","/bin-cleaning-donaghadee"],["Newtownards","/bin-cleaning-newtownards"],["Greyabbey","/bin-cleaning-greyabbey"],["Holywood","/bin-cleaning-holywood"],["Comber","/bin-cleaning-comber"],["Dundonald","/bin-cleaning-dundonald"],["Millisle","/bin-cleaning-millisle"],["Ballywalter","/bin-cleaning-ballywalter"],["Portaferry","/bin-cleaning-portaferry"],["Ballyhalbert","/bin-cleaning-ballyhalbert"]];
+var links=p.links||[["Bangor","/bin-cleaning-bangor/"],["Groomsport","/bin-cleaning-groomsport"],["Donaghadee","/bin-cleaning-donaghadee"],["Newtownards","/bin-cleaning-newtownards"],["Holywood","/bin-cleaning-holywood/"],["Comber","/bin-cleaning-comber"],["Millisle","/bin-cleaning-millisle"],["Portaferry","/bin-cleaning-portaferry"]];
 function esc(s){return String(s).replace(/[&<>\"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]})}
 function areaLinks(){return links.map(function(a){return '<a href="'+a[1]+'">'+a[0]+'</a>'}).join('')}
 function card(t,x){return '<div class="card"><h3>'+t+'</h3><p>'+x+'</p></div>'}

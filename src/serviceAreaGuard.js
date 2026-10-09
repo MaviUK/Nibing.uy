@@ -5,14 +5,15 @@ const COVERED_TOWNS = [
   "Donaghadee",
   "Comber",
   "Millisle",
-  "Ballywalter",
   "Portaferry",
-  "Portavogie",
-  "Cloughey",
-  "Ballyhalbert",
 ];
 
 const EXPLICIT_UNCOVERED_TOWNS = [
+  "Greyabbey",
+  "Ballywalter",
+  "Portavogie",
+  "Cloughey",
+  "Ballyhalbert",
   "Belfast",
   "Lisburn",
   "Dundonald",
