@@ -54,7 +54,7 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? "" : dateFormatter.format(date);
 }
 
-export default function CoverageChecker({ onBook }) {
+export default function CoverageChecker({ onBook, compact = false, onClose }) {
   const [postcode, setPostcode] = useState("");
   const [status, setStatus] = useState("idle");
   const [checkedPostcode, setCheckedPostcode] = useState("");
@@ -245,8 +245,18 @@ export default function CoverageChecker({ onBook }) {
   }
 
   return (
-    <section aria-label="Check bin cleaning coverage" className="w-full max-w-2xl mt-5 rounded-2xl border border-green-500/40 bg-zinc-900/95 p-4 sm:p-5 shadow-2xl text-left">
-      <h2 className="text-lg sm:text-xl font-extrabold text-white">Do we cover your area?</h2>
+    <section aria-label="Check bin cleaning coverage" className={compact ? "relative w-full rounded-xl bg-zinc-900 p-4 sm:p-5 text-left" : "relative w-full max-w-2xl mt-5 rounded-2xl border border-green-500/40 bg-zinc-900/95 p-4 sm:p-5 shadow-2xl text-left"}>
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close coverage checker"
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg text-2xl leading-none text-zinc-300 hover:bg-zinc-800 hover:text-white"
+        >
+          ×
+        </button>
+      )}
+      <h2 id="coverage-checker-title" className="pr-9 text-lg sm:text-xl font-extrabold text-white">Do we cover your area?</h2>
       <p className="text-sm text-zinc-300 mt-1">
         Enter your postcode to check coverage and our next black, brown/green and blue bin cleaning dates.
       </p>

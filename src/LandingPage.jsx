@@ -494,7 +494,7 @@ function SnowCanvas({ enabled = true }) {
 /* ────────────────────────────────────────────────────────────────────────────
    Generic UI (Modal shell)
    ──────────────────────────────────────────────────────────────────────────── */
-function Modal({ open, onClose, children, maxWidth = "max-w-md", labelledBy }) {
+function Modal({ open, onClose, children, maxWidth = "max-w-md", labelledBy, dark = false }) {
   if (!open) return null;
   return (
     <div
@@ -507,7 +507,7 @@ function Modal({ open, onClose, children, maxWidth = "max-w-md", labelledBy }) {
     >
       <div className="min-h-[100svh] flex justify-center items-center p-4">
         <div
-          className={`bg-white text-black rounded-xl shadow-xl w-11/12 ${maxWidth} overflow-auto relative`}
+          className={`${dark ? "bg-zinc-900 text-white border border-zinc-700" : "bg-white text-black"} rounded-xl shadow-xl w-11/12 ${maxWidth} overflow-auto relative`}
           onClick={(e) => e.stopPropagation()}
           style={{ maxHeight: "min(90dvh, 820px)" }}
         >
@@ -1572,8 +1572,6 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker }) {
           <span className="text-green-400">County Down</span>. Sparkling clean &amp; fresh smelling bins without any drama.
         </p>
 
-        <CoverageChecker onBook={onBook} />
-
       <div className="mt-6 flex flex-col sm:flex-row gap-4">
           <button onClick={onBook} className="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition">
             Book a Clean
@@ -1751,6 +1749,7 @@ export default function NiBinGuyLandingPage() {
   const [showContact, setShowContact] = useState(false);
   const [showChallenge, setShowChallenge] = useState(false);
   const [showBinChecker, setShowBinChecker] = useState(false);
+  const [showCoverageChecker, setShowCoverageChecker] = useState(false);
 
   const closeBookingAndReturnTop = () => {
     setShowBooking(false);
@@ -1786,6 +1785,38 @@ export default function NiBinGuyLandingPage() {
       <SnowCanvas enabled={snowEnabled} />
 
       <Hero onBook={openBooking} onContact={() => setShowContact(true)} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} />
+
+      {/* Compact coverage control aligns with the existing fixed site menu. */}
+      <button
+        type="button"
+        onClick={() => setShowCoverageChecker(true)}
+        aria-label="Check whether we cover your postcode"
+        aria-haspopup="dialog"
+        className="fixed right-[72px] top-[14px] z-40 flex h-[46px] max-w-[calc(100vw-94px)] items-center justify-center gap-2 rounded-[14px] border border-white/30 bg-zinc-900/95 px-3 text-xs sm:text-sm font-bold text-white shadow-lg transition hover:border-green-400 hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"
+      >
+        <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+          <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
+          <circle cx="12" cy="10" r="2.5" />
+        </svg>
+        <span className="whitespace-nowrap">Check Your Area</span>
+      </button>
+
+      <Modal
+        open={showCoverageChecker}
+        onClose={() => setShowCoverageChecker(false)}
+        maxWidth="max-w-lg"
+        labelledBy="coverage-checker-title"
+        dark
+      >
+        <CoverageChecker
+          compact
+          onClose={() => setShowCoverageChecker(false)}
+          onBook={(address) => {
+            setShowCoverageChecker(false);
+            openBooking(address);
+          }}
+        />
+      </Modal>
 
       {/* Booking Modal */}
       <Modal open={showBooking} onClose={closeBookingAndReturnTop} maxWidth="max-w-md" labelledBy="booking-title">
