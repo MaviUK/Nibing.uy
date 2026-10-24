@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useLiveCounters } from "./data/statsPlan";
+import CoverageChecker from "./CoverageChecker.jsx";
 
 const TenSecondChallenge = lazy(() => import("./TenSecondChallenge.jsx"));
 const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
@@ -596,9 +597,9 @@ function createBookingSubmissionMeta() {
 
 const DEFAULT_BIN = { type: "", count: 1, planId: "domestic_4w" };
 
-function BookingForm({ onClose }) {
+function BookingForm({ onClose, initialAddress = "" }) {
   const [bins, setBins] = useState([DEFAULT_BIN]);
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState(initialAddress);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -1571,7 +1572,9 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker }) {
           <span className="text-green-400">County Down</span>. Sparkling clean &amp; fresh smelling bins without any drama.
         </p>
 
-        <div className="mt-6 flex flex-col sm:flex-row gap-4">
+        <CoverageChecker onBook={onBook} />
+
+      <div className="mt-6 flex flex-col sm:flex-row gap-4">
           <button onClick={onBook} className="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition">
             Book a Clean
           </button>
@@ -1739,6 +1742,12 @@ function WhyNiBinGuy() {
    ──────────────────────────────────────────────────────────────────────────── */
 export default function NiBinGuyLandingPage() {
   const [showBooking, setShowBooking] = useState(false);
+  const [bookingPrefillAddress, setBookingPrefillAddress] = useState("");
+
+  const openBooking = (addressOrEvent) => {
+    setBookingPrefillAddress(typeof addressOrEvent === "string" ? addressOrEvent : "");
+    setShowBooking(true);
+  };
   const [showContact, setShowContact] = useState(false);
   const [showChallenge, setShowChallenge] = useState(false);
   const [showBinChecker, setShowBinChecker] = useState(false);
@@ -1776,11 +1785,11 @@ export default function NiBinGuyLandingPage() {
       {/* Snow overlay */}
       <SnowCanvas enabled={snowEnabled} />
 
-      <Hero onBook={() => setShowBooking(true)} onContact={() => setShowContact(true)} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} />
+      <Hero onBook={openBooking} onContact={() => setShowContact(true)} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} />
 
       {/* Booking Modal */}
       <Modal open={showBooking} onClose={closeBookingAndReturnTop} maxWidth="max-w-md" labelledBy="booking-title">
-        <BookingForm onClose={closeBookingAndReturnTop} />
+        <BookingForm onClose={closeBookingAndReturnTop} initialAddress={bookingPrefillAddress} />
       </Modal>
 
       {/* Contact Modal */}
@@ -1798,7 +1807,7 @@ export default function NiBinGuyLandingPage() {
       <ChallengeModal open={showChallenge} onClose={() => setShowChallenge(false)} />
 
       <WhatWeDo />
-      <TheProcess onBook={() => setShowBooking(true)} />
+      <TheProcess onBook={openBooking} />
       <BinsWeClean />
       <WhyCleanYourBin />
       <WhyNiBinGuy />
