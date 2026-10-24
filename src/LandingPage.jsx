@@ -1792,7 +1792,7 @@ export default function NiBinGuyLandingPage() {
         onClick={() => setShowCoverageChecker(true)}
         aria-label="Check whether we cover your postcode"
         aria-haspopup="dialog"
-        className="fixed right-[72px] top-[14px] z-40 flex h-[46px] max-w-[calc(100vw-94px)] items-center justify-center gap-2 rounded-[14px] border border-white/30 bg-zinc-900/95 px-3 text-xs sm:text-sm font-bold text-white shadow-lg transition hover:border-green-400 hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"
+        className="fixed left-[14px] top-[14px] z-40 flex h-[46px] max-w-[calc(100vw-94px)] items-center justify-center gap-2 rounded-[14px] border border-white/30 bg-zinc-900/95 px-3 text-xs sm:text-sm font-bold text-white shadow-lg transition hover:border-green-400 hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"
       >
         <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
           <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
