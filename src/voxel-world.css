@@ -1,0 +1,622 @@
+/*
+  NI BIN GUY - VOXEL WORLD / VERSION 2
+  Preview branch: preview/voxel-arcade-v2
+  Inspired by blocky 3D videogame art, with original character illustration.
+  Cosmetic changes only; all existing forms, API calls and payment flows remain.
+*/
+:root { --vx-sky:#126af0; --vx-navy:#11243f; --vx-ink:#091e32; --vx-green:#087c51; --vx-lime:#d1ff39; --vx-yellow:#ffe02e; --vx-offwhite:#fffcee; }
+html,body,#root { background:#112a58; }
+#main-content.n64-world.voxel-world {
+  color:var(--vx-offwhite);
+  background:#112956 !important;
+  font-family:"Trebuchet MS",Verdana,Arial,sans-serif;
+  --nbg-yellow:#ffe02e;
+  --nbg-green:#169b60;
+  --nbg-border:#0b1d37;
+}
+#main-content.n64-world.voxel-world button,
+#main-content.n64-world.voxel-world a {
+  -webkit-tap-highlight-color:transparent;
+}
+#main-content.n64-world.voxel-world .voxel-hero {
+  position:relative;
+  isolation:isolate;
+  min-height:0;
+  padding:83px 20px 56px !important;
+  border:0 !important;
+  border-bottom:13px solid #153d28 !important;
+  overflow:hidden;
+  color:#fff !important;
+  background:
+    linear-gradient(0deg,rgba(11,66,55,.12),transparent 58%),
+    linear-gradient(180deg,#0d5df1 0%,#1685f8 62%,#54c5ff 100%) !important;
+}
+#main-content.n64-world.voxel-world .voxel-hero::before {
+  content:"";
+  position:absolute;
+  top:158px;left:-26px;
+  width:34px;height:18px;
+  background:#f7fcff;
+  box-shadow:33px 0 #f7fcff,66px -18px #f7fcff,99px -18px #f7fcff,
+   132px 0 #f7fcff,165px 0 #f7fcff,66px 18px #d7ecff,
+   99px 18px #d7ecff,132px 18px #d7ecff,
+   670px 60px #f7fcff,703px 42px #f7fcff,736px 42px #f7fcff,
+   769px 60px #f7fcff,802px 60px #f7fcff;
+  opacity:.67;
+  z-index:0;
+  pointer-events:none;
+}
+#main-content.n64-world.voxel-world .voxel-hero::after{
+  content:""; position:absolute;bottom:0;left:0;right:0;height:33px;
+  background:repeating-linear-gradient(90deg,#44b64c 0 22px,#50c552 22px 44px,#389f47 44px 66px);
+  border-top:8px solid #81d53a;z-index:0;pointer-events:none;
+}
+.voxel-hero-shell { position:relative;z-index:2;max-width:1270px;margin:0 auto; }
+.voxel-topbar {display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 23px;}
+.voxel-mini-brand {
+  display:flex;align-items:center;gap:10px;
+  padding:6px 15px 6px 6px;
+  background:#053b32;
+  border:4px solid #102c29;
+  box-shadow:6px 6px 0 #032429;
+  color:#fff;
+  max-width:100%;
+}
+.voxel-mini-brand img {width:50px;height:50px;object-fit:contain;background:#142f32;border:2px solid #3c926f;}
+.voxel-mini-brand strong {display:block;font:1000 clamp(1.08rem,2vw,1.35rem)/1 "Arial Black","Trebuchet MS",sans-serif;letter-spacing:-.06em;color:#fff;}
+.voxel-mini-brand small {display:block;font:900 .56rem/1.5 Verdana,sans-serif;letter-spacing:.12em;color:#b1efc9;margin-top:4px;}
+.voxel-level-chip {
+  display:inline-flex;gap:12px;align-items:center;
+  padding:11px 15px;
+  color:#092138;background:#fbd632;
+  border:4px solid #273b27;
+  box-shadow:6px 6px 0 #0c305c;
+  font:1000 .75rem/1.3 Verdana,sans-serif;letter-spacing:.06em;
+  transform:rotate(1.7deg);white-space:nowrap;
+}
+.voxel-level-chip span{font-size:1.2rem;color:#0c6653;}
+.voxel-hero-grid {display:grid;grid-template-columns:minmax(0,49%) minmax(0,51%);align-items:center;gap:0;min-height:590px;}
+.voxel-title-panel {position:relative;z-index:4;min-width:0;padding:35px 0 36px 6px;}
+.voxel-eyebrow {
+  display:table;
+  margin:0 0 23px;
+  color:#0c293a;
+  background:#ffe02f;
+  border:4px solid #1b3432;
+  box-shadow:5px 5px 0 #175174;
+  padding:9px 13px;
+  font:900 clamp(.56rem,1vw,.75rem)/1.35 Verdana,sans-serif;
+  letter-spacing:.065em;
+}
+#main-content.n64-world.voxel-world .voxel-game-title {
+  margin:0 0 24px;
+  font:1000 clamp(4.4rem,8.1vw,8.7rem)/.94 "Arial Black",Impact,"Trebuchet MS",sans-serif;
+  letter-spacing:-.09em;
+  color:#fff;
+  text-shadow:none;
+  text-align:left;
+  max-width:650px;
+}
+.voxel-game-title > span{
+  display:table;
+  position:relative;
+  padding:0 .16em .12em .10em;
+  border:5px solid #092922;
+  color:#fff;
+  background:
+    linear-gradient(135deg,#129966 0 18%,#037a4c 18% 45%,#09623e 45% 82%,#03462d 82%);
+  -webkit-text-stroke:2px #e8f1ee;
+  text-shadow:3px 3px 0 #8b9998,7px 8px 0 #162521;
+  box-shadow:
+    9px 0 0 #013b2b,9px 9px 0 #002f29,
+    16px 16px 0 rgba(0,18,28,.55);
+  transform:rotate(-2deg);
+}
+.voxel-game-title .voxel-title-first {white-space:nowrap;}
+.voxel-game-title .voxel-title-last {margin:16px 0 0 72px;transform:rotate(2deg);}
+#main-content.n64-world.voxel-world .voxel-stage-tagline {
+  color:#fff !important;
+  font:1000 clamp(1.1rem,2.35vw,2.1rem)/1.24 "Arial Black","Trebuchet MS",sans-serif;
+  letter-spacing:-.04em;
+  text-shadow:3px 3px 0 #0a3c6b;
+  margin:34px 0 12px;
+}
+.voxel-stage-tagline strong{color:#ffe94e;}
+#main-content.n64-world.voxel-world .voxel-stage-description {
+  color:#f8fdff !important;
+  font-weight:850;
+  font-size:clamp(.97rem,1.35vw,1.15rem);
+  line-height:1.56;max-width:500px;
+  text-shadow:1px 2px 2px #0051a3;
+  margin:0;
+}
+.voxel-price-flag {
+  display:inline-flex;
+  align-items:center;gap:11px;
+  margin:24px 0 0;
+  padding:9px 19px 10px;
+  background:#ffe03b;color:#112b34;
+  border:5px solid #183429;
+  box-shadow:7px 7px 0 #064b54;
+  transform:rotate(-2deg);
+}
+.voxel-price-flag strong{font:1000 clamp(2.7rem,4.2vw,4.1rem)/1 "Arial Black","Trebuchet MS",sans-serif;letter-spacing:-.06em;}
+.voxel-price-flag span{font:1000 .76rem/1.28 Verdana,sans-serif;letter-spacing:.025em;}
+.voxel-character {position:relative;z-index:3;min-width:0;align-self:stretch;display:grid;align-content:center;filter:drop-shadow(0 14px 6px rgba(0,46,86,.17));}
+.voxel-character > img {display:block;width:116%;max-width:none;height:auto;margin:0 -8% -18px -4%;image-rendering:auto;}
+.voxel-art-label {
+  position:absolute;right:0;bottom:17px;
+  padding:8px 14px;
+  color:#142b37;background:#fee654;
+  border:4px solid #203c33;
+  font:1000 clamp(.59rem,1vw,.73rem)/1.2 Verdana,sans-serif;
+  box-shadow:5px 5px 0 #064b51;
+  transform:rotate(2deg);
+}
+.voxel-action-deck {
+  display:grid;
+  grid-template-columns:1.1fr 1fr 1fr;
+  gap:16px;position:relative;z-index:5;
+  margin:1px auto 22px;max-width:1030px;
+}
+#main-content.n64-world.voxel-world .voxel-action {
+  min-height:69px;
+  padding:14px 18px;
+  border-radius:2px !important;
+  border:5px solid #152d30 !important;
+  background:#b5fb3c !important;
+  color:#102c2b !important;
+  font:1000 clamp(.9rem,1.45vw,1.18rem)/1.15 "Arial Black","Trebuchet MS",sans-serif;
+  letter-spacing:-.04em;
+  box-shadow:0 9px 0 #13632c,0 14px 0 #07344d !important;
+  text-align:center;
+  cursor:pointer;
+  transform:translateY(0);
+  transition:transform .12s ease,filter .12s ease,box-shadow .12s ease;
+}
+#main-content.n64-world.voxel-world .voxel-action--primary{
+  background:#ffe333 !important;
+  box-shadow:0 9px 0 #b78011,0 14px 0 #07344d !important;
+}
+#main-content.n64-world.voxel-world .voxel-action--prize{
+  background:#ff7394 !important;
+  box-shadow:0 9px 0 #9d2b59,0 14px 0 #07344d !important;
+}
+#main-content.n64-world.voxel-world .voxel-action:hover{filter:brightness(1.09);transform:translateY(-3px);}
+#main-content.n64-world.voxel-world .voxel-action:active{transform:translateY(7px);box-shadow:0 2px 0 #062f3d !important;}
+#main-content.n64-world.voxel-world .voxel-action:focus-visible{outline:4px solid #fff;outline-offset:6px;}
+.voxel-links {
+  display:flex;
+  align-items:center;justify-content:center;flex-wrap:wrap;
+  gap:13px 26px;margin:31px auto 24px;
+}
+#main-content.n64-world.voxel-world .voxel-links a,
+#main-content.n64-world.voxel-world .voxel-links button {
+  background:transparent;
+  color:#fff !important;
+  border:0;border-bottom:3px solid #c6f47a;
+  border-radius:0;
+  padding:5px 0;
+  font:900 .8rem/1.3 Verdana,sans-serif;
+  letter-spacing:.06em;
+  text-decoration:none;cursor:pointer;
+  text-shadow:1px 2px 0 #085391;
+}
+.voxel-links a:hover,.voxel-links button:hover{color:#fff37e !important;}
+.voxel-stat-deck {
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:13px;max-width:1030px;margin:22px auto 0;
+}
+.voxel-stat {
+  min-width:0;
+  padding:17px 13px;
+  background:#0a462e;
+  color:#fff;
+  border:5px solid #082c2b;
+  box-shadow:6px 6px 0 #073d6e;
+  text-align:center;
+}
+.voxel-stat:nth-child(2){background:#0c5b66;}
+.voxel-stat:nth-child(3){background:#694171;}
+.voxel-stat > span {display:block;color:#d5ffd3;font:900 .63rem/1.5 Verdana,sans-serif;letter-spacing:.08em;}
+.voxel-stat > strong {
+  display:block;color:#fff;
+  margin-top:7px;
+  font:1000 clamp(1.15rem,2.3vw,2rem)/1.17 "Arial Black","Trebuchet MS",sans-serif;
+  text-shadow:2px 3px 0 rgba(0,0,0,.3);
+  overflow-wrap:anywhere;
+}
+#main-content.n64-world.voxel-world .voxel-scroll{
+  font:900 .62rem/1.4 Verdana,sans-serif;
+  letter-spacing:.15em;text-align:center;color:#e8fffd !important;
+  margin:29px auto 12px;text-shadow:1px 2px #004776;
+}
+
+/* "Levels" on the existing homepage, including real service descriptions. */
+#main-content.n64-world.voxel-world > section:not(.voxel-hero) {
+  position:relative;
+  background:#082952 !important;
+  color:#fff !important;
+  border-top:10px solid #0e5738 !important;
+  padding:83px max(20px,calc((100vw - 1170px)/2)) !important;
+  overflow:hidden;
+}
+#main-content.n64-world.voxel-world > section:not(.voxel-hero)::after {
+  content:"";
+  position:absolute;left:0;right:0;bottom:0;height:19px;
+  background:repeating-linear-gradient(90deg,#2b9446 0 25px,#3cb64f 25px 50px,#20793e 50px 75px);
+  opacity:.8;pointer-events:none;
+}
+#main-content.n64-world.voxel-world > section:nth-of-type(2) {background:linear-gradient(135deg,#082747,#0b3973) !important;}
+#main-content.n64-world.voxel-world > section:nth-of-type(3) {background:linear-gradient(135deg,#173b30,#145c47) !important;}
+#main-content.n64-world.voxel-world > section:nth-of-type(4) {background:linear-gradient(135deg,#152652,#363270) !important;}
+#main-content.n64-world.voxel-world > section:nth-of-type(5) {background:linear-gradient(135deg,#073c55,#105d75) !important;}
+#main-content.n64-world.voxel-world > section:nth-of-type(6) {background:linear-gradient(135deg,#263453,#552b65) !important;}
+#main-content.n64-world.voxel-world > section:not(.voxel-hero) > h2 {
+  color:#fff !important;
+  font:1000 clamp(2rem,4.1vw,3.6rem)/1.12 "Arial Black","Trebuchet MS",sans-serif !important;
+  letter-spacing:-.065em;
+  text-shadow:4px 5px 0 #001a27,7px 9px 0 rgba(0,0,0,.2) !important;
+  margin:0 0 42px !important;
+  overflow-wrap:anywhere;
+}
+#main-content.n64-world.voxel-world > section:not(.voxel-hero) > h2::before{
+  display:block;
+  margin:0 auto 14px;
+  color:#ffe449;
+  font:900 .66rem/1.35 Verdana,sans-serif;
+  letter-spacing:.14em;
+  text-shadow:2px 2px #001e28;
+}
+#main-content.n64-world.voxel-world > section:nth-of-type(2) > h2::before{content:"LEVEL 01  /  WHAT WE DO";}
+#main-content.n64-world.voxel-world > section:nth-of-type(3) > h2::before{content:"LEVEL 02  /  HOW WE CLEAN";}
+#main-content.n64-world.voxel-world > section:nth-of-type(4) > h2::before{content:"LEVEL 03  /  SELECT A BIN";}
+#main-content.n64-world.voxel-world > section:nth-of-type(5) > h2::before{content:"LEVEL 04  /  DEFEAT THE GRIME";}
+#main-content.n64-world.voxel-world > section:nth-of-type(6) > h2::before{content:"LEVEL 05  /  WHY CHOOSE US";}
+#main-content.n64-world.voxel-world > section .bg-zinc-800\/70,
+#main-content.n64-world.voxel-world > section:nth-of-type(5) .grid > div,
+#main-content.n64-world.voxel-world > section:nth-of-type(6) .grid > div {
+  background:#fcfae5 !important;
+  color:#172a42 !important;
+  border:5px solid #071c2e !important;
+  border-radius:3px !important;
+  box-shadow:8px 9px 0 #05192a !important;
+  padding:26px !important;
+}
+#main-content.n64-world.voxel-world > section:nth-of-type(2) .bg-zinc-800\/70:nth-child(1){background:#d8ffad !important;}
+#main-content.n64-world.voxel-world > section:nth-of-type(2) .bg-zinc-800\/70:nth-child(2){background:#b8e9ff !important;}
+#main-content.n64-world.voxel-world > section:nth-of-type(2) .bg-zinc-800\/70:nth-child(3){background:#f8d7ff !important;}
+#main-content.n64-world.voxel-world > section:nth-of-type(3) .bg-zinc-800\/70:nth-child(2){background:#e2f5cf !important;}
+#main-content.n64-world.voxel-world > section:not(.voxel-hero) h3 {
+  font:1000 clamp(1.12rem,2.1vw,1.4rem)/1.2 "Arial Black","Trebuchet MS",sans-serif;
+  color:#142b41 !important;
+  letter-spacing:-.05em;
+}
+#main-content.n64-world.voxel-world > section:not(.voxel-hero) p{
+  color:#304255 !important;line-height:1.68;
+}
+#main-content.n64-world.voxel-world > section:nth-of-type(3) li > span {
+  background:#ffe333 !important;
+  border:3px solid #142d37 !important;
+  border-radius:0 !important;
+  box-shadow:3px 3px 0 #5d8056;
+  color:#123047 !important;
+  font:1000 1rem Verdana,sans-serif;
+}
+#main-content.n64-world.voxel-world > section:nth-of-type(3) button.bg-green-500 {
+  background:#d1ff42 !important;color:#132e28 !important;
+  border:4px solid #0b2925 !important;
+  border-radius:2px !important;
+  box-shadow:0 7px 0 #256736 !important;
+  font-weight:1000 !important;
+}
+#main-content.n64-world.voxel-world > section:nth-of-type(4) > div.relative.z-20 > div {
+  background:#f8f6df !important;
+  border:5px solid #14253c !important;
+  border-radius:2px !important;
+  box-shadow:7px 9px 0 #0d1938 !important;
+  padding:17px 14px 14px !important;
+}
+#main-content.n64-world.voxel-world > section:nth-of-type(4) > div.relative.z-20 > div span {
+  background:#ffe136 !important;
+  color:#172b3b !important;
+  border:3px solid #152b3b;
+  border-radius:0 !important;
+  font-weight:1000;
+}
+#main-content.n64-world.voxel-world > section:nth-of-type(5) .grid > div {background:#d9f6ff !important;}
+#main-content.n64-world.voxel-world > section:nth-of-type(6) .grid > div {background:#eaffca !important;}
+#main-content.n64-world.voxel-world > section:nth-of-type(6) .grid > div:nth-child(2n){background:#ffe9c1 !important;}
+#main-content.n64-world.voxel-world > section:nth-of-type(6) .grid > div:nth-child(3n){background:#e9d9fa !important;}
+#main-content.n64-world.voxel-world > section:nth-of-type(5) .grid > div img{
+  border-radius:0 !important;background:#fff !important;border:3px solid #253e50 !important;
+}
+
+/* Navigation and postcode shortcut */
+#site-menu-toggle {
+  background:#ffe12f !important;
+  border:4px solid #102f2e !important;
+  border-radius:2px !important;
+  box-shadow:5px 6px 0 #063c4d !important;
+}
+#site-menu-toggle span,#site-menu-toggle span::before,#site-menu-toggle span::after{background:#12333b !important;height:3px !important;}
+#site-section-menu {
+  background:#f9f9e2 !important;
+  border:5px solid #14362b !important;
+  border-radius:3px !important;
+  box-shadow:8px 9px 0 #042b46 !important;
+}
+#site-section-menu a:hover,#site-section-menu button:hover{background:#ccf757 !important;}
+#main-content.n64-world.voxel-world > button[aria-label="Check whether we cover your postcode"]{
+  background:#0c6946 !important;color:#fff !important;
+  border:4px solid #0a302c !important;
+  border-radius:2px !important;
+  box-shadow:5px 6px 0 #073e61 !important;
+  font-weight:1000 !important;
+}
+#main-content.n64-world.voxel-world > button[aria-label="Check whether we cover your postcode"] svg{stroke:#ffe32f !important;}
+
+/* The extra homepage section generated by privacy-link.js */
+#areas-we-cover{
+  background:
+   linear-gradient(180deg,#0574f7 0%,#158cf6 50%,#64c5fa 71%,#2ca25a 72%,#136544 100%) !important;
+  border-top:10px solid #0a3b36 !important;
+  border-bottom:11px solid #092d33 !important;
+  padding:86px 18px 99px !important;color:#fff !important;
+}
+#areas-we-cover::before{
+  height:21%;
+  background:repeating-linear-gradient(90deg,#358e39 0 40px,#47bb40 40px 80px,#1c7838 80px 120px);
+  clip-path:polygon(0 35%,12% 70%,26% 28%,38% 68%,52% 16%,69% 64%,86% 26%,100% 67%,100% 100%,0 100%);
+}
+#areas-we-cover h2 {
+  color:#fff !important;
+  text-shadow:4px 5px 0 #094c77,7px 9px 0 #073461 !important;
+  font-family:"Arial Black","Trebuchet MS",sans-serif !important;
+}
+#areas-we-cover h2::before{color:#ffe452;text-shadow:2px 2px 0 #003766;}
+#areas-we-cover p{
+  color:#fff !important;
+  text-shadow:1px 2px 0 #06508d;
+  font-weight:850 !important;
+}
+#areas-we-cover a,
+#areas-we-cover .areas a{
+  color:#f9f9ef !important;
+  background:#05774e !important;
+  border:4px solid #07372c !important;
+  border-radius:1px !important;
+  box-shadow:0 6px 0 #033d30 !important;
+  font:1000 .95rem "Arial Black","Trebuchet MS",sans-serif !important;
+  padding:14px 18px !important;
+  min-height:52px !important;
+}
+#areas-we-cover a:nth-child(3n+1){background:#046a47 !important;box-shadow:0 6px 0 #03412e !important;}
+#areas-we-cover a:nth-child(3n+2){background:#0c7c56 !important;box-shadow:0 6px 0 #03412e !important;}
+#areas-we-cover a:nth-child(3n){background:#1a946c !important;box-shadow:0 6px 0 #03412e !important;}
+#areas-we-cover a:hover{transform:translateY(-3px);}
+#areas-we-cover a:active{transform:translateY(5px);box-shadow:none !important;}
+
+/* Squeegee portal remains owned by Squeegee; theme its outer casing. */
+#customer-portal {
+  background:
+    radial-gradient(ellipse at 85% 10%,#3d8bf7 0%,transparent 58%),
+    linear-gradient(170deg,#102951,#0b4e53) !important;
+  border-top:12px solid #092c33 !important;
+  color:#fff !important;
+  padding:85px 16px 99px !important;
+}
+#customer-portal .n64-portal-eyebrow{
+  background:#fddd3d;
+  color:#12332e !important;
+  border:4px solid #112b30;
+  border-radius:1px;
+  box-shadow:5px 6px 0 #063947;
+}
+#customer-portal h2 {
+  color:#fff !important;
+  font-family:"Arial Black","Trebuchet MS",sans-serif !important;
+  letter-spacing:-.06em;
+  text-shadow:4px 5px 0 #062b58,7px 8px 0 #001b27;
+}
+#customer-portal p{color:#e2f0ff !important;font-weight:800;}
+#customer-portal .n64-portal-shell{
+  background:#12633e !important;
+  border:5px solid #092c2a !important;
+  border-radius:3px !important;
+  box-shadow:12px 13px 0 #06213d !important;
+  padding:20px 15px 15px;
+}
+#customer-portal .n64-portal-shell::before{color:#d4ff9c !important;letter-spacing:.09em;}
+#customer-portal [data-sqc="layout"]{
+  background:#1a1e25 !important;
+  border:4px solid #092c2b !important;
+  border-radius:2px !important;
+  box-shadow:inset 0 3px 0 #446b70 !important;
+  max-width:100% !important;
+}
+/* The iframe/provider UI is intentionally not altered. */
+
+/* Existing modals: same logic with a chunky game-panel treatment. */
+#main-content.n64-world.voxel-world [role="dialog"] > div > div{
+  border:5px solid #0f2438 !important;
+  border-radius:3px !important;
+  box-shadow:10px 12px 0 #0c315e !important;
+}
+#main-content.n64-world.voxel-world [role="dialog"] > div > div.bg-white{
+  background:#fffee9 !important;color:#112c3c !important;
+}
+#main-content.n64-world.voxel-world [role="dialog"] h2{color:#123142 !important;font-family:"Arial Black","Trebuchet MS",sans-serif;letter-spacing:-.055em;}
+#main-content.n64-world.voxel-world [role="dialog"] input:not([type="checkbox"]),
+#main-content.n64-world.voxel-world [role="dialog"] select,
+#main-content.n64-world.voxel-world [role="dialog"] textarea {
+  border:3px solid #28465b !important;border-radius:1px !important;
+  color:#102d43 !important;background:#fff !important;
+  font-size:16px;
+}
+#main-content.n64-world.voxel-world [role="dialog"] button[class*="bg-green-500"],
+#main-content.n64-world.voxel-world [role="dialog"] button[class*="bg-blue-500"]{
+  border:3px solid #0e2733 !important;
+  border-radius:1px !important;
+  color:#0b2c32 !important;
+  background:#cefd4a !important;
+  box-shadow:0 5px 0 #37733d !important;
+}
+#main-content.n64-world.voxel-world [role="dialog"] [class*="rounded-xl"],
+#main-content.n64-world.voxel-world [role="dialog"] [class*="rounded-2xl"]{border-radius:3px !important;}
+#main-content.n64-world.voxel-world section[aria-label="Check bin cleaning coverage"]{
+  background:#fffceb !important;
+  color:#142e44 !important;
+}
+#main-content.n64-world.voxel-world section[aria-label="Check bin cleaning coverage"] button[type="submit"],
+#main-content.n64-world.voxel-world section[aria-label="Check bin cleaning coverage"] button.bg-green-500 {
+  background:#d9fd4d !important;
+  border:4px solid #102d33 !important;
+  border-radius:1px !important;
+  box-shadow:0 5px 0 #41813c !important;
+}
+#main-content.n64-world.voxel-world section[aria-label="Check bin cleaning coverage"] [class*="bg-zinc"]{background:#eef6e4 !important;}
+#main-content.n64-world.voxel-world section[aria-label="Check bin cleaning coverage"] .text-zinc-300,
+#main-content.n64-world.voxel-world section[aria-label="Check bin cleaning coverage"] .text-zinc-400{color:#506477 !important;}
+
+#customer-reviews{
+  background:#112f53 !important;color:#fff !important;
+  border-top:10px solid #0e533b !important;
+}
+#customer-reviews h2{color:#fff !important;text-shadow:3px 4px #09264d !important;}
+/* Build the game cabinet around the existing timing challenge. */
+[data-testid="ten-sec-root"] > div{
+  background:#143d5f !important;
+  border:5px solid #091d35 !important;border-radius:3px !important;
+  box-shadow:9px 11px 0 #061a36 !important;
+}
+[data-testid="ten-sec-root"] button[class*="w-full"]{
+  border-radius:2px !important;
+  border:4px solid #061b32 !important;
+}
+[data-testid="ten-sec-root"] > div > div.bg-black\/40{
+  border-radius:2px !important;
+  background:#061e35 !important;
+}
+
+/* Non-home React pages */
+.n64-street-booking{
+  background:linear-gradient(180deg,#0c67f0,#3eb4fa 40%,#136f51 100%) !important;
+  color:#fff !important;
+}
+.n64-street-booking h1{color:#fff !important;text-shadow:4px 4px 0 #064c83,6px 7px 0 #0a284c;}
+.n64-street-booking > div > div:first-child > p:last-of-type{color:#effaff !important;}
+.n64-street-booking > div > div:nth-child(2) {
+  background:#fffdeb !important;border:5px solid #10293c !important;
+  border-radius:3px !important;box-shadow:8px 9px 0 #073a69 !important;
+}
+.n64-street-booking input:not([type="checkbox"]),.n64-street-booking select,.n64-street-booking textarea{
+  border:3px solid #25465a !important;border-radius:1px !important;
+}
+.n64-street-booking button.bg-green-500,.n64-street-booking button.bg-black {
+  background:#d4ff43 !important;border:4px solid #112d31 !important;
+  border-radius:1px !important;box-shadow:0 6px 0 #418141 !important;
+}
+.n64-sidequest{
+  background:linear-gradient(180deg,#0f67ed,#73c9f7 63%,#288f5b) !important;color:#fff !important;
+}
+.n64-sidequest > div[class*="bg-black"]{color:#fff !important;}
+.n64-sidequest h1 {color:#fff !important;text-shadow:3px 4px 0 #053c79 !important;}
+.n64-sidequest .max-w-xl,.n64-sidequest form {
+  border-radius:2px !important;
+  border:5px solid #0c273b !important;
+  box-shadow:8px 10px 0 #103e54 !important;
+  background:#fffde9 !important;color:#1a3045 !important;
+}
+.n64-sidequest a[class*="bg"],.n64-sidequest button:not([aria-label]){
+  border-radius:2px !important;border:4px solid #0b2537 !important;
+}
+.n64-metrics {background:linear-gradient(180deg,#0a6ef4,#134269) !important;}
+.n64-metrics h1{color:#fff !important;text-shadow:3px 4px 0 #082b4c !important;}
+.n64-metrics .bg-neutral-900{border-radius:2px !important;background:#fffde9 !important;border:4px solid #132939 !important;}
+
+#root > footer {
+  background:#0a203f !important;
+  color:#d0e8f9 !important;
+  border-top:10px solid #1d9e56 !important;
+}
+#root > footer a{color:#deff58 !important;}
+
+/* Tablet */
+@media(max-width:1040px){
+  .voxel-hero-grid {grid-template-columns:minmax(0,51%) minmax(0,49%);min-height:480px;}
+  #main-content.n64-world.voxel-world .voxel-game-title{font-size:clamp(4rem,8.3vw,7rem);}
+  .voxel-title-panel{padding-left:0;}
+  .voxel-character > img{width:128%;margin-left:-13%;}
+  .voxel-price-flag strong{font-size:2.7rem;}
+}
+/* Mobile: character gets a large, poster-like stage just like reference artwork. */
+@media(max-width:720px){
+  #main-content.n64-world.voxel-world .voxel-hero{padding:82px 13px 45px !important;}
+  .voxel-topbar{gap:7px;margin-bottom:21px;}
+  .voxel-mini-brand{border-width:3px;padding:4px 7px 4px 4px;gap:7px;box-shadow:3px 4px 0 #032429;}
+  .voxel-mini-brand img{width:35px;height:35px;}
+  .voxel-mini-brand strong{font-size:clamp(.83rem,3vw,1rem);}
+  .voxel-mini-brand small{font-size:.4rem;letter-spacing:.06em;}
+  .voxel-level-chip{padding:8px 7px;font-size:clamp(.5rem,2.3vw,.69rem);letter-spacing:0;border-width:3px;box-shadow:3px 4px 0 #0c305c;gap:5px;}
+  .voxel-level-chip span{font-size:.94rem;}
+  .voxel-hero-grid {display:flex;flex-direction:column;align-items:stretch;gap:0;min-height:0;}
+  .voxel-title-panel{padding:11px 3px 0;text-align:left;}
+  .voxel-eyebrow{font-size:clamp(.51rem,2vw,.68rem);margin:0 0 16px;border-width:3px;padding:7px 9px;box-shadow:3px 4px 0 #175174;}
+  #main-content.n64-world.voxel-world .voxel-game-title{
+    font-size:clamp(3.35rem,12.1vw,5.5rem);
+    line-height:.9;margin:0 0 22px;
+  }
+  .voxel-game-title > span{
+    border-width:4px;box-shadow:6px 0 #013b2b,6px 6px #002f29,10px 10px rgba(0,18,28,.5);
+    text-shadow:2px 2px 0 #8b9998,4px 5px 0 #162521;
+    -webkit-text-stroke:1px #e8f1ee;
+  }
+  .voxel-game-title .voxel-title-last{margin:12px 0 0 41px;}
+  #main-content.n64-world.voxel-world .voxel-stage-tagline{
+    font-size:clamp(.99rem,4.4vw,1.4rem);
+    margin:27px 0 9px;
+  }
+  #main-content.n64-world.voxel-world .voxel-stage-description{font-size:.91rem;line-height:1.53;max-width:100%;}
+  .voxel-price-flag{margin:17px 0 0;border-width:3px;padding:7px 12px;box-shadow:4px 5px 0 #064b54;}
+  .voxel-price-flag strong{font-size:2.45rem;}
+  .voxel-price-flag span{font-size:.62rem;}
+  .voxel-character{width:100%;height:auto;margin:-32px 0 -6px;}
+  .voxel-character > img{width:min(119%,540px);max-width:none;margin:0 -9.5% -10px;}
+  .voxel-art-label{right:4px;bottom:13px;font-size:.51rem;padding:7px 8px;border-width:3px;box-shadow:3px 4px 0 #064b51;}
+  .voxel-action-deck{display:grid;grid-template-columns:1fr 1fr;gap:14px 11px;margin:15px 0 18px;}
+  #main-content.n64-world.voxel-world .voxel-action{
+    min-height:58px;font-size:clamp(.78rem,3.4vw,1.03rem);
+    border-width:3px !important;padding:10px 11px;
+    box-shadow:0 6px 0 #13632c,0 9px 0 #07344d !important;
+  }
+  #main-content.n64-world.voxel-world .voxel-action--primary{
+    grid-column:1 / -1;
+    background:#ffe333 !important;
+    box-shadow:0 6px 0 #b78011,0 9px 0 #07344d !important;
+  }
+  #main-content.n64-world.voxel-world .voxel-action--prize{
+    box-shadow:0 6px 0 #9d2b59,0 9px 0 #07344d !important;
+  }
+  .voxel-links{gap:11px 13px;margin:28px auto 20px;}
+  #main-content.n64-world.voxel-world .voxel-links button,
+  #main-content.n64-world.voxel-world .voxel-links a{font-size:.59rem;letter-spacing:.02em;}
+  .voxel-stat-deck{gap:6px;margin:15px auto 0;}
+  .voxel-stat{padding:12px 6px;border-width:3px;box-shadow:3px 4px 0 #073d6e;}
+  .voxel-stat > span{font-size:.49rem;letter-spacing:0;}
+  .voxel-stat > strong{font-size:clamp(.83rem,3.6vw,1.25rem);}
+  #main-content.n64-world.voxel-world .voxel-scroll{font-size:.52rem;letter-spacing:.04em;margin-top:29px;}
+  #main-content.n64-world.voxel-world > section:not(.voxel-hero){padding:68px 17px !important;}
+  #main-content.n64-world.voxel-world > section:not(.voxel-hero) > h2{font-size:clamp(2rem,7vw,2.75rem);}
+  #main-content.n64-world.voxel-world > section .bg-zinc-800\/70,
+  #main-content.n64-world.voxel-world > section:nth-of-type(5) .grid > div,
+  #main-content.n64-world.voxel-world > section:nth-of-type(6) .grid > div{border-width:3px !important;padding:21px !important;box-shadow:5px 6px 0 #05192a !important;}
+  #areas-we-cover{padding:65px 14px 83px !important;}
+  #areas-we-cover a,#areas-we-cover .areas a{min-height:46px !important;padding:10px 13px !important;border-width:3px !important;font-size:.84rem !important;box-shadow:0 4px 0 #033d30 !important;}
+  #customer-portal{padding:65px 12px 78px !important;}
+  #customer-portal .n64-portal-shell{padding:12px 7px 7px;border-width:3px !important;box-shadow:5px 7px 0 #06213d !important;}
+  #customer-portal [data-sqc="layout"]{padding:5px !important;}
+}
+@media (prefers-reduced-motion:reduce){
+ .voxel-action,.voxel-game-title > span{transition:none !important;}
+}
