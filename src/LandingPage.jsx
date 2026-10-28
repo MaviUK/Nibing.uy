@@ -1532,94 +1532,76 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
 
 
   return (
-    <section className="n64-hero" aria-labelledby="n64-hero-title">
-      <div className="n64-cloud n64-cloud--one" aria-hidden="true" />
-      <div className="n64-cloud n64-cloud--two" aria-hidden="true" />
-      <div className="n64-cloud n64-cloud--three" aria-hidden="true" />
+    <section className="voxel-hero" aria-labelledby="voxel-hero-title">
+      <div className="voxel-hero-shell">
+        <div className="voxel-topbar">
+          <div className="voxel-mini-brand">
+            <img src="/logo.webp" width="51" height="51" alt="NI Bin Guy logo" fetchPriority="high" />
+            <span><strong>NI BIN GUY</strong><small>COUNTY DOWN · NI</small></span>
+          </div>
+          <span className="voxel-level-chip">LEVEL 01 <span aria-hidden="true">★</span> CLEAN ZONE</span>
+        </div>
 
-      <div className="n64-hero-inner">
-        <div className="n64-hero-copy">
-          <div className="n64-brand">
+        <div className="voxel-hero-grid">
+          <div className="voxel-title-panel">
+            <span className="voxel-eyebrow">WELCOME TO THE CLEANING WORLD</span>
+            <h1 className="voxel-game-title" id="voxel-hero-title">
+              <span className="voxel-title-first">NI BIN</span>
+              <span className="voxel-title-last">GUY</span>
+            </h1>
+            <p className="voxel-stage-tagline">DIRTY BINS? <strong>GAME OVER.</strong></p>
+            <p className="voxel-stage-description">
+              Serious bin cleaning with serious power. We wash, sanitise and deodorise your
+              wheelie bins after collection, across Bangor and the surrounding County Down areas.
+            </p>
+            <div className="voxel-price-flag"><strong>£5</strong><span>PER BIN<br />4-WEEKLY</span></div>
+          </div>
+
+          <div className="voxel-character" aria-hidden="true">
             <img
-              src="/logo.webp"
-              alt="Ni Bin Guy wheelie bin cleaning service logo"
-              width="64"
-              height="64"
+              src="/voxel-worker.svg"
+              alt=""
+              width="900"
+              height="720"
               fetchPriority="high"
               decoding="async"
             />
-            <div>
-              <strong>NI BIN GUY</strong>
-              <small>THE COUNTY DOWN CLEANING CREW</small>
-            </div>
-          </div>
-
-          <div className="n64-kicker">★ THE 4-WEEKLY CLEANING ADVENTURE ★</div>
-          <h1 id="n64-hero-title" className="n64-headline">
-            BIN CLEANING<br />
-            <span>LEVELLED UP.</span>
-          </h1>
-          <p className="n64-lead">
-            Your bins deserve a power-up. Proper washing, sanitising and freshening
-            right outside your home — <strong>from just £5 per bin, every four weeks</strong>.
-            Serving Bangor and surrounding County Down areas.
-          </p>
-
-          <div className="n64-actions">
-            <button type="button" onClick={onBook} className="n64-btn n64-btn--start">
-              Book a Clean
-            </button>
-            <button type="button" onClick={onCoverage} className="n64-btn n64-btn--area">
-              <span aria-hidden="true">⌖</span> Check Your Area
-            </button>
-            <button type="button" onClick={onChallenge} className="n64-btn n64-btn--bonus">
-              <span aria-hidden="true">★</span> Free Bin Clean
-            </button>
-          </div>
-          <div className="n64-extra-links">
-            <button type="button" className="n64-text-link" onClick={onContact}>Contact Us</button>
-            <span className="n64-divider" aria-hidden="true">✦</span>
-            <a className="n64-text-link" href="#customer-portal">Customer Portal</a>
-            <span className="n64-divider" aria-hidden="true">✦</span>
-            <button type="button" className="n64-text-link" onClick={onBinChecker}>Bin Day Checker</button>
+            <span className="voxel-art-label">★ THE WHEELIE WASHER ★</span>
           </div>
         </div>
 
-        <div className="n64-scene" aria-hidden="true">
-          <div className="n64-plinth" />
-          <span className="n64-star n64-star--one">★</span>
-          <span className="n64-star n64-star--two">★</span>
-          <span className="n64-star n64-star--three">★</span>
-          <div className="n64-bin n64-bin--left">
-            <N64GameBin front="#58b8ec" side="#2576ad" lid="#94e7ff" />
-          </div>
-          <div className="n64-bin n64-bin--centre">
-            <N64GameBin front="#68cf70" side="#359359" lid="#baf198" />
-          </div>
-          <div className="n64-bin n64-bin--right">
-            <N64GameBin front="#e49a55" side="#aa663a" lid="#ffd28b" />
-          </div>
-          <span className="n64-scene-label">3 BINS · 1 CLEAN MISSION</span>
+        <div className="voxel-action-deck" aria-label="NI Bin Guy quick actions">
+          <button type="button" onClick={onBook} className="voxel-action voxel-action--primary">Book a Clean</button>
+          <button type="button" onClick={onCoverage} className="voxel-action voxel-action--secondary">Check Your Area</button>
+          <button type="button" onClick={onChallenge} className="voxel-action voxel-action--prize">★ Win a Free Clean</button>
         </div>
+
+        <nav className="voxel-links" aria-label="More NI Bin Guy options">
+          <button type="button" onClick={onContact}>CONTACT US</button>
+          <a href="#customer-portal">CUSTOMER PORTAL</a>
+          <button type="button" onClick={onBinChecker}>BIN DAY CHECKER</button>
+        </nav>
+
+        <div className="voxel-stat-deck" aria-label="Our cleaning statistics">
+          <div className="voxel-stat">
+            <span>BINS CLEANED</span>
+            <strong>{Number(displayTotal).toLocaleString()}</strong>
+          </div>
+          <div className="voxel-stat">
+            <span>TODAY'S AREA</span>
+            <strong>{todaysArea || "County Down"}</strong>
+          </div>
+          <div className="voxel-stat">
+            <span>REGULAR CUSTOMERS</span>
+            <strong>{Number(totalMonthlyCustomers).toLocaleString()}</strong>
+          </div>
+        </div>
+        <p className="voxel-scroll">▼ SCROLL TO EXPLORE MORE LEVELS ▼</p>
       </div>
-
-      <div className="n64-scoreboard" aria-label="Our cleaning statistics">
-        <div className="n64-score">
-          <span className="n64-score-title">Bins Cleaned</span>
-          <strong className="n64-score-value">{Number(displayTotal).toLocaleString()}</strong>
-        </div>
-        <div className="n64-score">
-          <span className="n64-score-title">Today's Area</span>
-          <strong className="n64-score-value">{todaysArea || "County Down"}</strong>
-        </div>
-        <div className="n64-score">
-          <span className="n64-score-title">Regular Customers</span>
-          <strong className="n64-score-value">{Number(totalMonthlyCustomers).toLocaleString()}</strong>
-        </div>
-      </div>
-      <p className="n64-scroll-note">▼ SCROLL TO EXPLORE ▼</p>
     </section>
-  );}
+  );
+}
+
 
 function WhatWeDo() {
   return (
@@ -1800,7 +1782,7 @@ export default function NiBinGuyLandingPage() {
   };
 
  return (
-  <main id="main-content" tabIndex="-1" className="n64-world min-h-screen bg-black text-white font-sans relative">
+  <main id="main-content" tabIndex="-1" className="n64-world voxel-world min-h-screen bg-black text-white font-sans relative">
       {/* Snow overlay */}
       <SnowCanvas enabled={snowEnabled} />
 
