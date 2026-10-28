@@ -1567,7 +1567,7 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
 
           <div className="n64-actions">
             <button type="button" onClick={onBook} className="n64-btn n64-btn--start">
-              <span aria-hidden="true">▶</span> Book a Clean
+              Book a Clean
             </button>
             <button type="button" onClick={onCoverage} className="n64-btn n64-btn--area">
               <span aria-hidden="true">⌖</span> Check Your Area
