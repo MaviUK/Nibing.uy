@@ -192,3 +192,95 @@ body.n64-metrics-standalone .muted{color:#576989 !important;}
     box-shadow:4px 6px 0 #7298ba !important;
   }
 }
+
+
+/* SECOND THEME: VOXEL WORLD - static pages only, preview/voxel-arcade-v2 */
+body.n64-not-found,
+body.n64-policy,
+body.n64-portal-standalone,
+body.n64-whatsapp,
+body.n64-metrics-standalone {
+  color:#f8feff !important;
+  background:linear-gradient(180deg,#0968ed 0%,#188cf3 50%,#0f5b4e 100%) !important;
+  font-family:"Trebuchet MS",Verdana,sans-serif !important;
+}
+body.n64-not-found main,
+body.n64-policy .card,
+body.n64-whatsapp .card,
+body.n64-portal-standalone .portal-container,
+body.n64-metrics-standalone .card{
+  background:#fffdeb !important;
+  color:#162f43 !important;
+  border:5px solid #0b2739 !important;
+  border-radius:2px !important;
+  box-shadow:9px 10px 0 #0c3b64 !important;
+}
+body.n64-not-found h1,
+body.n64-policy h1,
+body.n64-whatsapp h1,
+body.n64-portal-standalone h1,
+body.n64-metrics-standalone h1{
+  font-family:"Arial Black","Trebuchet MS",sans-serif !important;
+  color:#17364e !important;
+  text-shadow:3px 4px 0 #b2ced5 !important;
+}
+body.n64-not-found img {
+  background:#0d5e44;
+  border:4px solid #08273c;
+  border-radius:2px;
+  box-shadow:5px 6px 0 #0e355e;
+}
+body.n64-not-found a:not(.back),
+body.n64-policy .back,
+body.n64-whatsapp .open,
+body.n64-metrics-standalone button {
+  background:#d4ff44 !important;
+  color:#0d2f36 !important;
+  border:4px solid #0d2f35 !important;
+  border-radius:2px !important;
+  box-shadow:0 6px 0 #177040 !important;
+  font-weight:1000 !important;
+}
+body.n64-policy h2 {
+  border-left:8px solid #1d9761;
+  color:#18475e !important;
+  font-family:"Arial Black","Trebuchet MS",sans-serif;
+}
+body.n64-policy .contact-box {
+  border:3px solid #177c5a !important;
+  background:#e2ffe9 !important;
+  border-radius:2px !important;
+}
+body.n64-whatsapp .check {
+  border:4px solid #112d3d !important;
+  border-radius:2px !important;
+  background:#c8ff45 !important;
+  box-shadow:4px 5px 0 #3d8f58 !important;
+}
+body.n64-whatsapp .spinner{border-top-color:#159f61 !important;}
+body.n64-portal-standalone [data-sqc="layout"] {
+  background:#1a222d !important;
+  border:4px solid #0c2f39;
+  border-radius:1px !important;
+}
+body.n64-metrics-standalone {
+  --bg:#0e4e80;
+  --card:#fffdec;
+  --border:#1d4f5d;
+  --txt:#19344b;
+  --muted:#516780;
+  --accent:#169b60;
+}
+body.n64-metrics-standalone .card{border-width:4px !important;}
+body.n64-metrics-standalone .bar > span{background:#2daa55 !important;}
+body.n64-metrics-standalone .actions a {
+  background:transparent !important;
+  border:0 !important;box-shadow:none !important;
+}
+body.n64-metrics-standalone .actions a button{color:#112e3f !important;}
+@media(max-width:600px){
+  body.n64-not-found main,body.n64-policy .card,body.n64-whatsapp .card,
+  body.n64-portal-standalone .portal-container,body.n64-metrics-standalone .card{
+    border-width:3px !important;box-shadow:5px 6px 0 #0c3b64 !important;
+  }
+}
