@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useLiveCounters } from "./data/statsPlan";
 import CoverageChecker from "./CoverageChecker.jsx";
+import N64GameBin from "./N64GameBin.jsx";
 
 const TenSecondChallenge = lazy(() => import("./TenSecondChallenge.jsx"));
 const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
@@ -1492,7 +1493,7 @@ function ChallengeModal({ open, onClose }) {
 /* ────────────────────────────────────────────────────────────────────────────
    Page Sections
    ──────────────────────────────────────────────────────────────────────────── */
-function Hero({ onBook, onContact, onChallenge, onBinChecker }) {
+function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
   const { totalBinsCleaned, todaysArea, totalMonthlyCustomers } = useLiveCounters();
 
   // Soft-live counter (display only)
@@ -1529,81 +1530,100 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker }) {
     return () => clearInterval(interval);
   }, []);
 
+
   return (
-    <section className="relative overflow-hidden flex flex-col items-center justify-center text-center pt-10 pb-20 px-4 bg-black">
-      <div className="absolute top-[60%] left-1/2 transform -translate-x-1/2 w-[800px] h-[800px] bg-green-900 opacity-30 blur-3xl rounded-full z-0" />
-      <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-b from-transparent via-[#121212] to-[#18181b] z-10 pointer-events-none" />
+    <section className="n64-hero" aria-labelledby="n64-hero-title">
+      <div className="n64-cloud n64-cloud--one" aria-hidden="true" />
+      <div className="n64-cloud n64-cloud--two" aria-hidden="true" />
+      <div className="n64-cloud n64-cloud--three" aria-hidden="true" />
 
-      <div className="relative z-20 flex flex-col items-center gap-4">
-        <img
-          src="/logo.webp"
-          alt="Ni Bin Guy wheelie bin cleaning service logo"
-          width="320"
-          height="320"
-          fetchPriority="high"
-          decoding="async"
-          className="w-64 h-64 md:w-80 md:h-80 rounded-xl shadow-lg"
-        />
-
-        {/* Stats under logo */}
-        <div className="w-full max-w-4xl mt-2 grid grid-cols-3 gap-2 sm:grid-cols-3 sm:gap-4">
-          <div className="rounded-xl bg-white/5 border border-white/30 p-3 sm:p-5 shadow-lg text-center">
-            <div className="text-[10px] sm:text-xs tracking-widest text-white/60 uppercase">Total Bins Cleaned</div>
-            <div className="mt-1 sm:mt-2 text-xl sm:text-3xl font-extrabold text-white">{Number(displayTotal).toLocaleString()}</div>
+      <div className="n64-hero-inner">
+        <div className="n64-hero-copy">
+          <div className="n64-brand">
+            <img
+              src="/logo.webp"
+              alt="Ni Bin Guy wheelie bin cleaning service logo"
+              width="64"
+              height="64"
+              fetchPriority="high"
+              decoding="async"
+            />
+            <div>
+              <strong>NI BIN GUY</strong>
+              <small>THE COUNTY DOWN CLEANING CREW</small>
+            </div>
           </div>
 
-          <div className="rounded-xl bg-white/5 border border-white/30 p-3 sm:p-5 shadow-lg text-center">
-            <div className="text-[10px] sm:text-xs tracking-widest text-white/60 uppercase">Today’s Area</div>
-            <div className="mt-1 sm:mt-2 text-xl sm:text-3xl font-extrabold text-white">{todaysArea}</div>
-          </div>
+          <div className="n64-kicker">★ THE 4-WEEKLY CLEANING ADVENTURE ★</div>
+          <h1 id="n64-hero-title" className="n64-headline">
+            BIN CLEANING<br />
+            <span>LEVELLED UP.</span>
+          </h1>
+          <p className="n64-lead">
+            Your bins deserve a power-up. Proper washing, sanitising and freshening
+            right outside your home — <strong>from just £5 per bin, every four weeks</strong>.
+            Serving Bangor and surrounding County Down areas.
+          </p>
 
-          <div className="rounded-xl bg-white/5 border border-white/30 p-3 sm:p-5 shadow-lg text-center">
-            <div className="text-[10px] sm:text-xs tracking-widest text-white/60 uppercase">Monthly Customers</div>
-            <div className="mt-1 sm:mt-2 text-xl sm:text-3xl font-extrabold text-white">{Number(totalMonthlyCustomers).toLocaleString()}</div>
+          <div className="n64-actions">
+            <button type="button" onClick={onBook} className="n64-btn n64-btn--start">
+              <span aria-hidden="true">▶</span> Book a Clean
+            </button>
+            <button type="button" onClick={onCoverage} className="n64-btn n64-btn--area">
+              <span aria-hidden="true">⌖</span> Check Your Area
+            </button>
+            <button type="button" onClick={onChallenge} className="n64-btn n64-btn--bonus">
+              <span aria-hidden="true">★</span> Free Bin Clean
+            </button>
+          </div>
+          <div className="n64-extra-links">
+            <button type="button" className="n64-text-link" onClick={onContact}>Contact Us</button>
+            <span className="n64-divider" aria-hidden="true">✦</span>
+            <a className="n64-text-link" href="#customer-portal">Customer Portal</a>
+            <span className="n64-divider" aria-hidden="true">✦</span>
+            <button type="button" className="n64-text-link" onClick={onBinChecker}>Bin Day Checker</button>
           </div>
         </div>
 
-        <h1 className="text-4xl md:text-6xl font-bold">
-          Bin Cleaning, <span className="text-green-400">Done Right</span>
-        </h1>
-
-        <p className="text-lg md:text-xl max-w-xl mt-4 text-center">
-          Professional wheelie bin cleaning at your home from <span className="text-green-400 font-bold text-xl">£5</span>, across{" "}
-          <span className="text-green-400">County Down</span>. Sparkling clean &amp; fresh smelling bins without any drama.
-        </p>
-
-      <div className="mt-6 flex flex-col sm:flex-row gap-4">
-          <button onClick={onBook} className="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition">
-            Book a Clean
-          </button>
-
-          <button onClick={onContact} className="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition">
-            Contact Us
-          </button>
-
-          <button
-            onClick={onChallenge}
-            className="bg-[#9b111e] hover:bg-[#7f0e19] text-white font-bold py-3 px-6 rounded-xl shadow-lg transition focus:outline-none focus:ring-2 focus:ring-[#9b111e]/50 active:scale-[0.99]"
-          >
-            Free Bin Clean
-          </button>
-
-          <a href="#customer-portal" className="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition text-center">
-            Customer Portal
-          </a>
-
-          <button onClick={onBinChecker} className="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition">
-            Bin Day Checker
-          </button>
+        <div className="n64-scene" aria-hidden="true">
+          <div className="n64-plinth" />
+          <span className="n64-star n64-star--one">★</span>
+          <span className="n64-star n64-star--two">★</span>
+          <span className="n64-star n64-star--three">★</span>
+          <div className="n64-bin n64-bin--left">
+            <N64GameBin front="#58b8ec" side="#2576ad" lid="#94e7ff" />
+          </div>
+          <div className="n64-bin n64-bin--centre">
+            <N64GameBin front="#68cf70" side="#359359" lid="#baf198" />
+          </div>
+          <div className="n64-bin n64-bin--right">
+            <N64GameBin front="#e49a55" side="#aa663a" lid="#ffd28b" />
+          </div>
+          <span className="n64-scene-label">3 BINS · 1 CLEAN MISSION</span>
         </div>
       </div>
+
+      <div className="n64-scoreboard" aria-label="Our cleaning statistics">
+        <div className="n64-score">
+          <span className="n64-score-title">Bins Cleaned</span>
+          <strong className="n64-score-value">{Number(displayTotal).toLocaleString()}</strong>
+        </div>
+        <div className="n64-score">
+          <span className="n64-score-title">Today's Area</span>
+          <strong className="n64-score-value">{todaysArea || "County Down"}</strong>
+        </div>
+        <div className="n64-score">
+          <span className="n64-score-title">Regular Customers</span>
+          <strong className="n64-score-value">{Number(totalMonthlyCustomers).toLocaleString()}</strong>
+        </div>
+      </div>
+      <p className="n64-scroll-note">▼ SCROLL TO EXPLORE ▼</p>
     </section>
-  );
-}
+  );}
 
 function WhatWeDo() {
   return (
-    <section className="relative py-16 px-6 bg-[#18181b]">
+    <section id="what-we-do" className="relative py-16 px-6 bg-[#18181b]">
       <h2 className="text-3xl font-bold text-green-400 mb-8 text-center">What We Do</h2>
       <div className="grid md:grid-cols-3 gap-6 text-center">
         <div className="bg-zinc-800/70 border border-white/30 p-6 rounded-2xl shadow-lg">
@@ -1673,7 +1693,7 @@ function BinsWeClean() {
   { src: "/bins/1100L.webp", alt: "1100 litre commercial waste container", size: "1100L", h: "h-48" },
 ];
   return (
-    <section className="relative py-16 px-6 bg-[#18181b] text-white text-center">
+    <section id="bins-we-clean" className="relative py-16 px-6 bg-[#18181b] text-white text-center">
       <h2 className="text-3xl font-bold text-green-400 mb-12">The Bins We Clean</h2>
       <div className="relative z-20 flex flex-wrap justify-center items-end gap-12 md:gap-20">
         {items.map((it) => (
@@ -1696,7 +1716,7 @@ function WhyCleanYourBin() {
     { icon: "/family.webp", title: "Protect Your Family", text: "A clean bin reduces exposure to germs and pathogens, helping keep your household healthier." },
   ];
   return (
-    <section className="py-16 px-6 bg-gradient-to-b from-black via-[#0a0a0a] to-zinc-900 text-white">
+    <section id="why-clean-your-bin" className="py-16 px-6 bg-gradient-to-b from-black via-[#0a0a0a] to-zinc-900 text-white">
       <h2 className="text-3xl font-bold text-green-400 mb-12 text-center">Why Clean Your Bin?</h2>
       <div className="grid md:grid-cols-2 gap-12 max-w-6xl mx-auto">
         {points.map((p) => (
@@ -1721,7 +1741,7 @@ function WhyNiBinGuy() {
     { title: "Fully Insured", text: "We’re fully insured and compliant — so you can rest easy." },
   ];
   return (
-    <section className="py-16 px-6 bg-gradient-to-b from-zinc-900 via-[#1a1a1a] to-black text-white">
+    <section id="why-ni-bin-guy" className="py-16 px-6 bg-gradient-to-b from-zinc-900 via-[#1a1a1a] to-black text-white">
       <h2 className="text-3xl font-bold text-green-400 mb-8 text-center">Why Ni Bin Guy?</h2>
       <div className="grid md:grid-cols-2 gap-10 max-w-5xl mx-auto">
         {points.map((p) => (
@@ -1780,11 +1800,11 @@ export default function NiBinGuyLandingPage() {
   };
 
  return (
-  <main id="main-content" tabIndex="-1" className="min-h-screen bg-black text-white font-sans relative">
+  <main id="main-content" tabIndex="-1" className="n64-world min-h-screen bg-black text-white font-sans relative">
       {/* Snow overlay */}
       <SnowCanvas enabled={snowEnabled} />
 
-      <Hero onBook={openBooking} onContact={() => setShowContact(true)} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} />
+      <Hero onBook={openBooking} onContact={() => setShowContact(true)} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} onCoverage={() => setShowCoverageChecker(true)} />
 
       {/* Compact coverage control aligns with the existing fixed site menu. */}
       <button
