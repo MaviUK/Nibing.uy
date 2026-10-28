@@ -382,6 +382,46 @@
   font-family:"Trebuchet MS",Verdana,sans-serif;
 }
 #root > footer a {color:#ffe57a !important;}
+
+/* Customer portal sits outside the React landing <main>, so colour it separately. */
+#customer-portal {
+  background:#fff4d8 !important;
+  color:#20345b !important;
+  border-top:6px solid #20345b !important;
+  padding:76px 18px !important;
+}
+#customer-portal h2 {
+  color:#20345b !important;
+  font:1000 clamp(2rem,5vw,3.8rem)/1.1 "Arial Black","Trebuchet MS",sans-serif !important;
+  letter-spacing:-.055em;
+  text-shadow:3px 4px 0 #fff,5px 6px 0 #c7ad67;
+  margin-bottom:20px !important;
+}
+#customer-portal h2::before {
+  content:"WORLD 06  /  PLAYER PORTAL";
+  display:block; margin-bottom:14px;
+  font:900 .71rem/1.4 Verdana,sans-serif;
+  letter-spacing:.15em; text-shadow:none; color:#646d8b;
+}
+#customer-portal p {
+  color:#354466 !important; font-weight:700;line-height:1.6;
+}
+#customer-portal [data-sqc="layout"] {
+  background:#fff !important;
+  border:3px solid #20345b !important;
+  border-radius:18px !important;
+  box-shadow:8px 9px 0 #a7a8b8 !important;
+}
+#customer-reviews {
+  border-top:6px solid #20345b;
+  background:#e6ddf7 !important;
+}
+#customer-reviews h2 {
+  color:#20345b !important;
+  font-family:"Arial Black","Trebuchet MS",sans-serif !important;
+  text-shadow:3px 3px 0 #fff;
+}
+
 @media (max-width:950px) {
   #main-content.n64-world .n64-hero { padding-top:91px;min-height:0;}
   .n64-hero-inner {grid-template-columns:1fr;gap:10px;max-width:660px;}
