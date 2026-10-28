@@ -22,6 +22,7 @@ export default function CustomerPortalLoader() {
       }}
     >
       <div style={{ width: "100%", maxWidth: "1152px", margin: "0 auto" }}>
+        <div className="n64-portal-eyebrow" aria-hidden="true">WORLD 07 · CUSTOMER HQ</div>
         <h2
           style={{
             fontSize: "1.875rem",
@@ -35,6 +36,7 @@ export default function CustomerPortalLoader() {
         <p style={{ color: "#d4d4d8", margin: "0 auto 24px", maxWidth: "720px" }}>
           Existing customers can manage their service through the NI Bin Guy customer portal.
         </p>
+        <div className="n64-portal-shell">
         <div
           data-sqc="layout"
           data-sqa="25a031e7-75af-4a0e-9f3a-d308fd9b2e3a"
@@ -53,6 +55,7 @@ export default function CustomerPortalLoader() {
             boxSizing: "border-box",
           }}
         />
+        </div>
       </div>
     </section>
   )

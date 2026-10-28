@@ -1,0 +1,480 @@
+/*
+  NI BIN GUY — N64-era concept theme.
+  PREVIEW BRANCH ONLY: preview/n64-retro-site.
+  Original artwork, no Nintendo assets. Booking logic and APIs are unchanged.
+*/
+#main-content.n64-world {
+  --ink: #20335c;
+  --outline: #14274b;
+  --cream: #fff6da;
+  --blue: #69c6fb;
+  --yellow: #ffd34e;
+  --green: #73db67;
+  --purple: #8569d8;
+  --pink: #ff7f89;
+  color: var(--ink);
+  background: var(--cream) !important;
+  font-family: "Trebuchet MS", Verdana, system-ui, sans-serif;
+  overflow: clip;
+}
+#main-content.n64-world *, #main-content.n64-world *::before,
+#main-content.n64-world *::after { box-sizing: border-box; }
+
+#main-content.n64-world .n64-hero {
+  isolation: isolate;
+  min-height: 850px;
+  position: relative;
+  overflow: hidden;
+  padding: 87px 22px 48px;
+  background:
+    radial-gradient(circle at 84% 13%, #fffcba 0 45px, #f7e76c 47px 66px, transparent 68px),
+    linear-gradient(180deg, #61bbfa 0%, #b1e9ff 59%, #effcce 77%, #8ed76c 100%) !important;
+}
+.n64-hero::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  left: -6%;
+  right: -6%;
+  bottom: 8%;
+  height: 23%;
+  background: #79ca6c;
+  clip-path: polygon(0 78%, 11% 38%, 22% 57%, 34% 10%, 46% 60%, 59% 28%, 74% 62%, 87% 20%, 100% 50%, 100% 100%, 0 100%);
+  opacity: .94;
+  z-index: -1;
+}
+.n64-hero::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 11%;
+  background: linear-gradient(#53b75d 0 11px, #417b4d 11px 17px, transparent 17px),
+              repeating-conic-gradient(#f7f3d4 0 25%, #353f63 0 50%) 0 17px / 42px 42px;
+  transform-origin: 50% 100%;
+  border-top: 4px solid #224b4c;
+  z-index: -1;
+}
+.n64-cloud {
+  position: absolute;
+  width: 114px;
+  height: 26px;
+  border-radius: 100px;
+  background: #fff;
+  box-shadow: 0 7px 0 rgba(25,95,141,.1);
+  pointer-events: none;
+  z-index: -1;
+  animation: n64-drift 7s ease-in-out infinite alternate;
+}
+.n64-cloud::before,.n64-cloud::after {
+  content: ""; position:absolute; background:#fff; border-radius:50%;
+}
+.n64-cloud::before { width:62px;height:62px;left:18px;bottom:3px; }
+.n64-cloud::after { width:50px;height:50px;right:6px;bottom:0; }
+.n64-cloud--one { top:17%;left:6%;transform:scale(.85); }
+.n64-cloud--two { top:32%;right:8%;transform:scale(.65);animation-delay:-3s; }
+.n64-cloud--three { top:51%;left:49%;transform:scale(.55);animation-delay:-2s; }
+@keyframes n64-drift { from {margin-left:-11px} to {margin-left:12px} }
+.n64-hero-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0,1.04fr) minmax(0,.96fr);
+  align-items: center;
+  gap: 22px;
+  position: relative;
+  z-index: 2;
+}
+.n64-hero-copy { min-width:0; }
+.n64-brand {
+  display: inline-flex; align-items:center; gap:14px;
+  border:3px solid var(--outline); border-radius:19px;
+  background:rgba(255,255,255,.94);
+  padding:8px 19px 8px 8px;
+  box-shadow:5px 6px 0 #36749c;
+  transform: rotate(-1.3deg);
+}
+.n64-brand img {
+  width:64px; height:64px; object-fit:contain;
+  background:#15172a;
+  border-radius:12px;
+  border:2px solid var(--outline);
+}
+.n64-brand strong {
+  display:block; color:var(--outline); font-size:clamp(1.15rem,2vw,1.48rem);
+  font-weight:1000; line-height:1; letter-spacing:-.055em;
+}
+.n64-brand small { display:block; color:#607299; font:800 9px/1.5 Verdana,sans-serif; letter-spacing:.07em; margin-top:4px; }
+.n64-kicker {
+  display:table; background:#fa7f83; color:#20264d;
+  border:3px solid var(--outline); box-shadow:4px 4px 0 #ae4062;
+  padding:8px 14px; margin:37px 0 17px;
+  font:900 clamp(.68rem,1.1vw,.82rem)/1.4 Verdana,sans-serif; letter-spacing:.065em;
+  text-transform:uppercase;
+  transform:rotate(-2deg);
+}
+#main-content.n64-world .n64-headline {
+  font:1000 clamp(3.3rem,6.6vw,6.65rem)/.95 "Arial Black","Trebuchet MS",system-ui,sans-serif;
+  color:#fff;
+  letter-spacing:-.075em;
+  margin:0;
+  max-width:760px;
+  text-shadow:
+    -3px -3px 0 #253a6a, 3px -3px 0 #253a6a,
+    -3px 3px 0 #253a6a, 3px 3px 0 #253a6a,
+    1px 9px 0 #2b65b5, 5px 14px 0 rgba(41,69,112,.2);
+}
+.n64-headline span { color:#ffe15a; display:inline-block; }
+#main-content.n64-world .n64-lead {
+  max-width:520px;
+  color:#1a335f; font-size:clamp(1rem,1.45vw,1.25rem);
+  line-height:1.52; font-weight:800;
+  margin:27px 0 22px;
+  text-shadow:0 1px 0 #ffffff90;
+}
+.n64-lead strong { color:#bf2b61; }
+.n64-actions { display:flex; flex-wrap:wrap;gap:14px;margin-top:23px; }
+#main-content.n64-world .n64-btn {
+  appearance:none; display:inline-flex; align-items:center; justify-content:center;
+  gap:9px; border-radius:13px !important;
+  border:3px solid var(--outline) !important;
+  background:#fff !important; color:var(--outline) !important;
+  padding:13px 19px; text-decoration:none; font-size:1rem;
+  font-weight:1000; line-height:1.2; letter-spacing:-.015em;
+  box-shadow:0 6px 0 #497e96, 0 9px 0 rgba(13,42,84,.22) !important;
+  transition:transform .13s ease,box-shadow .13s ease,filter .13s ease;
+  cursor:pointer;
+}
+#main-content.n64-world .n64-btn:hover { filter:brightness(1.045);transform:translateY(-2px); }
+#main-content.n64-world .n64-btn:active {
+  transform:translateY(5px);
+  box-shadow:0 1px 0 #497e96,0 3px 0 rgba(13,42,84,.22) !important;
+}
+#main-content.n64-world .n64-btn:focus-visible { outline:4px solid #fff !important;outline-offset:3px; }
+#main-content.n64-world .n64-btn--start {
+  background:var(--yellow) !important;
+  box-shadow:0 6px 0 #d08e2c,0 9px 0 rgba(13,42,84,.22) !important;
+  font-size:1.12rem;
+}
+#main-content.n64-world .n64-btn--area {
+  background:#d5fffa !important;
+  box-shadow:0 6px 0 #52a99c,0 9px 0 rgba(13,42,84,.22) !important;
+}
+#main-content.n64-world .n64-btn--bonus {
+  background:#f7b6ef !important;
+  box-shadow:0 6px 0 #bc6abb,0 9px 0 rgba(13,42,84,.22) !important;
+}
+.n64-extra-links {
+  display:flex; flex-wrap:wrap; align-items:center; gap:7px 17px;
+  margin-top:23px; color:#23395d; font-weight:900; font-size:.9rem;
+}
+#main-content.n64-world .n64-text-link {
+  border:0; border-bottom:3px dotted #28446b;
+  border-radius:0; padding:3px 0; background:transparent;
+  color:#20355e; text-decoration:none; cursor:pointer; font-weight:900;
+}
+.n64-extra-links .n64-divider {opacity:.5}
+.n64-scene {
+  position:relative; width:100%; height:480px;
+  filter:drop-shadow(0 20px 18px rgba(26,69,85,.15));
+}
+.n64-scene::before {
+  content:""; position:absolute; width:94%; height:56%;
+  left:3%;top:18%;z-index:-1;
+  border-radius:50%;
+  background:radial-gradient(ellipse,#fff5bd 0%,rgba(255,255,255,.75) 35%,transparent 75%);
+}
+.n64-plinth {
+  position:absolute; left:7%;right:5%;bottom:15%;height:105px;
+  background:#fbd768; border:5px solid #27385c;
+  border-radius:50%;
+  box-shadow:0 17px 0 #d7a641,0 24px 0 #283453,0 31px 0 rgba(29,55,83,.19);
+  transform:rotate(-6deg);
+}
+.n64-bin { position:absolute; width:37%; z-index:2; animation:n64-bob 3.1s ease-in-out infinite alternate; }
+.n64-bin--left { left:1%; top:29%; transform:rotate(-12deg) scale(.85); animation-delay:-1.4s; z-index:3; }
+.n64-bin--centre { left:31%;top:8%;width:43%; z-index:5;animation-delay:-.6s; }
+.n64-bin--right { right:0%;top:28%;transform:rotate(10deg) scale(.91);z-index:4; animation-delay:-1.9s; }
+.n64-game-bin { display:block;width:100%;height:auto; filter:drop-shadow(8px 12px 1px rgba(27,59,88,.25)); }
+@keyframes n64-bob { from{translate:0 2px}to{translate:0 -9px} }
+.n64-star {
+  position:absolute; display:grid;place-items:center; z-index:6;
+  color:#ffdc3d;font-size:clamp(2rem,4vw,3.1rem);
+  -webkit-text-stroke:2px #38436b;
+  text-shadow:3px 4px 0 #ce9a37;
+  transform:rotate(-14deg);
+}
+.n64-star--one { left:9%;top:13%; }
+.n64-star--two { right:9%;top:7%;font-size:2rem;transform:rotate(20deg); }
+.n64-star--three { right:17%;top:53%;font-size:1.4rem;transform:rotate(9deg); }
+.n64-scene-label {
+  position:absolute; right:0; bottom:2%;
+  background:#fff; border:3px solid var(--outline); border-radius:12px;
+  padding:8px 15px;font:900 .71rem Verdana,sans-serif;letter-spacing:.06em;
+  color:var(--outline); box-shadow:4px 5px 0 #5774a1;
+  transform:rotate(3deg);
+}
+.n64-scoreboard {
+  position:relative; z-index:3;
+  margin:31px auto 0; max-width:1160px;
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+.n64-score {
+  background:#fff; border:3px solid var(--outline); border-radius:16px;
+  min-width:0; padding:16px 18px; text-align:center;
+  box-shadow:5px 6px 0 #416b86;
+  transform:rotate(.5deg);
+}
+.n64-score:nth-child(2){background:#efffed;transform:rotate(-.6deg);box-shadow:5px 6px 0 #4a926e}
+.n64-score:nth-child(3){background:#fff4dc;transform:rotate(.4deg);box-shadow:5px 6px 0 #af9c70}
+.n64-score-title {
+  display:block; text-transform:uppercase; font:900 .68rem/1.2 Verdana,sans-serif;
+  color:#667591;letter-spacing:.07em;
+}
+.n64-score-value {
+  display:block; margin-top:8px; color:#25375e;
+  font:1000 clamp(1.12rem,2.4vw,2rem)/1.13 "Arial Black","Trebuchet MS",sans-serif;
+  overflow-wrap:anywhere;
+}
+.n64-scroll-note {
+  position:relative; z-index:3; text-align:center;
+  font:900 .65rem/1.4 Verdana,sans-serif;letter-spacing:.15em;
+  margin:28px auto 18px; color:#2c516d;
+}
+
+/* The six levels below the hero — keep all existing booking and service content. */
+#main-content.n64-world > section:not(.n64-hero) {
+  background:#fff7e9 !important; color:var(--ink) !important;
+  padding:85px max(22px,calc((100vw - 1180px)/2)) !important;
+  border-top:6px solid var(--outline);
+  overflow:hidden;
+}
+#main-content.n64-world > section:nth-of-type(2) {background:#fff6db !important;}
+#main-content.n64-world > section:nth-of-type(3) {background:#c7f4f0 !important;}
+#main-content.n64-world > section:nth-of-type(4) {background:#dddefe !important;}
+#main-content.n64-world > section:nth-of-type(5) {background:#fce3cf !important;}
+#main-content.n64-world > section:nth-of-type(6) {background:#d8f4d3 !important;}
+#main-content.n64-world > section:not(.n64-hero) > h2 {
+  color:var(--outline) !important;
+  font:1000 clamp(2.1rem,4.7vw,4.2rem)/1.07 "Arial Black","Trebuchet MS",system-ui,sans-serif;
+  letter-spacing:-.055em; text-align:center;
+  margin:0 0 46px !important;
+  text-shadow:3px 4px 0 rgba(255,255,255,.95),5px 6px 0 rgba(34,48,85,.16);
+}
+#main-content.n64-world > section:not(.n64-hero) > h2::before {
+  display:block; margin-bottom:14px;
+  color:#4f5582; font:900 .73rem/1.25 Verdana,sans-serif;
+  letter-spacing:.16em;text-shadow:none;
+}
+#main-content.n64-world > section:nth-of-type(2) > h2::before {content:"WORLD 01  /  OUR SERVICES";}
+#main-content.n64-world > section:nth-of-type(3) > h2::before {content:"WORLD 02  /  HOW WE PLAY";}
+#main-content.n64-world > section:nth-of-type(4) > h2::before {content:"WORLD 03  /  CHOOSE YOUR BIN";}
+#main-content.n64-world > section:nth-of-type(5) > h2::before {content:"WORLD 04  /  BEAT THE GRIME";}
+#main-content.n64-world > section:nth-of-type(6) > h2::before {content:"WORLD 05  /  WHY CHOOSE US";}
+#main-content.n64-world > section .bg-zinc-800\/70 {
+  background:#fff !important; color:var(--ink) !important;
+  border:3px solid var(--outline) !important;
+  border-radius:18px !important;
+  box-shadow:7px 8px 0 rgba(44,71,111,.35) !important;
+  transition:transform .16s ease, box-shadow .16s ease;
+}
+#main-content.n64-world > section:nth-of-type(2) .bg-zinc-800\/70:hover {
+  transform:translateY(-4px) rotate(-.5deg);
+  box-shadow:9px 12px 0 rgba(44,71,111,.35) !important;
+}
+#main-content.n64-world > section:nth-of-type(2) .bg-zinc-800\/70:nth-child(1) {background:#fff !important;}
+#main-content.n64-world > section:nth-of-type(2) .bg-zinc-800\/70:nth-child(2) {background:#fcf0ff !important;}
+#main-content.n64-world > section:nth-of-type(2) .bg-zinc-800\/70:nth-child(3) {background:#e9fff2 !important;}
+#main-content.n64-world > section:not(.n64-hero) h3 {
+  color:#24375c; font-weight:1000 !important;letter-spacing:-.035em;
+}
+#main-content.n64-world > section:not(.n64-hero) p {
+  color:#334668; line-height:1.63;
+}
+#main-content.n64-world > section:nth-of-type(3) li > span {
+  border:3px solid var(--outline) !important;
+  border-radius:10px !important;
+  background:var(--yellow) !important;
+  color:var(--outline) !important;
+  box-shadow:2px 3px 0 #c9a251;
+}
+#main-content.n64-world > section:nth-of-type(3) button.bg-green-500 {
+  background:var(--yellow) !important;
+  color:var(--outline) !important;
+  border:3px solid var(--outline) !important;
+  border-radius:12px !important;
+  box-shadow:0 6px 0 #c49134 !important;
+}
+#main-content.n64-world > section:nth-of-type(4) > div.relative.z-20 > div {
+  padding:14px 14px 12px;
+  background:#fff9ef; border:3px solid #27365b;
+  border-radius:19px;
+  box-shadow:6px 8px 0 #9a9fd2;
+  min-width:110px;
+  transition:transform .15s ease;
+}
+#main-content.n64-world > section:nth-of-type(4) > div.relative.z-20 > div:hover {transform:translateY(-5px);}
+#main-content.n64-world > section:nth-of-type(4) img {filter:drop-shadow(3px 6px 2px rgba(19,28,57,.2));}
+#main-content.n64-world > section:nth-of-type(4) span {
+  display:inline-block; margin-top:6px;
+  border:2px solid #2b385f;border-radius:8px;
+  padding:2px 9px;background:var(--yellow);
+  color:#24365f; font-weight:1000;
+}
+#main-content.n64-world > section:nth-of-type(4) .bg-gradient-to-b {display:none;}
+#main-content.n64-world > section:nth-of-type(5) .grid > div,
+#main-content.n64-world > section:nth-of-type(6) .grid > div {
+  background:#fffefb; border:3px solid var(--outline);
+  border-radius:17px; padding:25px !important;
+  box-shadow:6px 7px 0 rgba(48,70,105,.25);
+}
+#main-content.n64-world > section:nth-of-type(5) .grid > div {align-items:center;}
+#main-content.n64-world > section:nth-of-type(5) .grid > div img {
+  width:54px;height:54px;object-fit:contain;
+  background:#f9e8ff;border:2px solid var(--outline);padding:5px;border-radius:12px;
+}
+#main-content.n64-world > section:nth-of-type(6) .grid > div:nth-child(2n){background:#f0edff;}
+#main-content.n64-world > section:nth-of-type(6) .grid > div:nth-child(3n){background:#fff7dd;}
+
+/* Keep the pre-existing fixed menu and postcode search in the same N64 world. */
+#site-menu-toggle {
+  background:#ffd24b !important; color:#1f3158 !important;
+  border:3px solid #20345b !important; border-radius:12px !important;
+  box-shadow:4px 5px 0 #37618a !important;
+}
+#site-menu-toggle span,#site-menu-toggle span::before,#site-menu-toggle span::after {
+  background:#20345b !important;border-radius:1px !important;height:3px !important;
+}
+#site-section-menu {
+  background:#fff9e6 !important;border:3px solid #1d3457 !important;
+  border-radius:16px !important;box-shadow:7px 8px 0 #426b9b !important;
+}
+#site-section-menu a,#site-section-menu button {
+  color:#1d3457 !important;border-radius:9px !important;
+}
+#site-section-menu a:hover,#site-section-menu button:hover,
+#site-section-menu a:focus-visible,#site-section-menu button:focus-visible {
+  background:#f9da7a !important;color:#1d3457 !important;
+}
+#main-content.n64-world > button[aria-label="Check whether we cover your postcode"] {
+  background:#ffffff !important;color:#1b3158 !important;
+  border:3px solid #20345b !important;border-radius:12px !important;
+  box-shadow:4px 5px 0 #37618a !important;
+  font-weight:1000 !important;
+}
+#main-content.n64-world > button[aria-label="Check whether we cover your postcode"] svg {stroke:#236c85;}
+#main-content.n64-world [role="dialog"] > div > div {
+  border:3px solid #20345b;
+  border-radius:17px !important;
+  box-shadow:8px 9px 0 rgba(37,68,118,.38) !important;
+}
+#main-content.n64-world [role="dialog"] input,
+#main-content.n64-world [role="dialog"] select,
+#main-content.n64-world [role="dialog"] textarea {
+  border-radius:9px; min-height:42px;
+}
+#root > footer {
+  background:#20345b !important;
+  color:#dce7ff !important;
+  border-top:7px solid #fbd156;
+  font-family:"Trebuchet MS",Verdana,sans-serif;
+}
+#root > footer a {color:#ffe57a !important;}
+
+/* Customer portal sits outside the React landing <main>, so colour it separately. */
+#customer-portal {
+  background:#fff4d8 !important;
+  color:#20345b !important;
+  border-top:6px solid #20345b !important;
+  padding:76px 18px !important;
+}
+#customer-portal h2 {
+  color:#20345b !important;
+  font:1000 clamp(2rem,5vw,3.8rem)/1.1 "Arial Black","Trebuchet MS",sans-serif !important;
+  letter-spacing:-.055em;
+  text-shadow:3px 4px 0 #fff,5px 6px 0 #c7ad67;
+  margin-bottom:20px !important;
+}
+#customer-portal h2::before {
+  content:"WORLD 06  /  PLAYER PORTAL";
+  display:block; margin-bottom:14px;
+  font:900 .71rem/1.4 Verdana,sans-serif;
+  letter-spacing:.15em; text-shadow:none; color:#646d8b;
+}
+#customer-portal p {
+  color:#354466 !important; font-weight:700;line-height:1.6;
+}
+#customer-portal [data-sqc="layout"] {
+  background:#fff !important;
+  border:3px solid #20345b !important;
+  border-radius:18px !important;
+  box-shadow:8px 9px 0 #a7a8b8 !important;
+}
+#customer-reviews {
+  border-top:6px solid #20345b;
+  background:#e6ddf7 !important;
+}
+#customer-reviews h2 {
+  color:#20345b !important;
+  font-family:"Arial Black","Trebuchet MS",sans-serif !important;
+  text-shadow:3px 3px 0 #fff;
+}
+
+@media (max-width:950px) {
+  #main-content.n64-world .n64-hero { padding-top:91px;min-height:0;}
+  .n64-hero-inner {grid-template-columns:1fr;gap:10px;max-width:660px;}
+  .n64-hero-copy {text-align:center;}
+  .n64-brand,.n64-kicker {margin-left:auto;margin-right:auto;}
+  #main-content.n64-world .n64-headline {font-size:clamp(3.15rem,10vw,5.6rem);}
+  #main-content.n64-world .n64-lead {margin:25px auto 20px;}
+  .n64-actions,.n64-extra-links {justify-content:center;}
+  .n64-scene {height:360px;max-width:520px;margin:0 auto;}
+  .n64-bin--left {top:22%;}
+  .n64-bin--centre {top:0;}
+  .n64-bin--right {top:20%;}
+  .n64-plinth {bottom:11%;}
+}
+@media (max-width:600px) {
+  #main-content.n64-world .n64-hero {padding:82px 17px 24px;}
+  .n64-cloud--one {top:10%;left:4%;opacity:.6;}
+  .n64-cloud--two {top:32%;right:-8%;}
+  .n64-kicker {margin-top:28px;}
+  #main-content.n64-world .n64-headline {
+    font-size:clamp(2.8rem,12vw,4.7rem);
+    text-shadow:-2px -2px 0 #253a6a,2px -2px 0 #253a6a,
+        -2px 2px 0 #253a6a,2px 2px 0 #253a6a,
+        1px 6px 0 #2b65b5,3px 10px 0 rgba(41,69,112,.18);
+  }
+  .n64-brand {padding:6px 12px 6px 6px;gap:9px;}
+  .n64-brand img {width:49px;height:49px;}
+  .n64-brand strong {font-size:1.15rem;}
+  .n64-brand small {font-size:8px;}
+  #main-content.n64-world .n64-lead {font-size:.97rem;}
+  .n64-actions {gap:10px;}
+  #main-content.n64-world .n64-btn {font-size:.91rem;padding:11px 12px;}
+  #main-content.n64-world .n64-btn--start {font-size:1rem;}
+  .n64-extra-links {font-size:.82rem;margin-top:21px;}
+  .n64-scene {height:270px;max-width:420px;margin:15px auto 3px;}
+  .n64-plinth {height:58px;bottom:14%;border-width:3px;box-shadow:0 9px 0 #d7a641,0 15px 0 #283453;}
+  .n64-bin--left {top:18%;}
+  .n64-bin--centre {top:-3%;}
+  .n64-bin--right {top:17%;}
+  .n64-star--one {top:3%;}
+  .n64-star--two {top:0;}
+  .n64-scene-label {font-size:.56rem;bottom:1%;padding:6px 8px;}
+  .n64-scoreboard {gap:7px;margin:23px auto 0;}
+  .n64-score {padding:12px 6px;border-width:2px;border-radius:11px;box-shadow:3px 4px 0 #416b86;}
+  .n64-score:nth-child(2),.n64-score:nth-child(3) {box-shadow:3px 4px 0 #416b86;}
+  .n64-score-title {font-size:.56rem;letter-spacing:0;line-height:1.35;}
+  .n64-score-value {font-size:clamp(.92rem,4.2vw,1.28rem);}
+  #main-content.n64-world > section:not(.n64-hero) {padding:65px 19px !important;}
+  #main-content.n64-world > section:not(.n64-hero) > h2 {font-size:clamp(2rem,9vw,2.7rem);margin-bottom:31px !important;}
+  #main-content.n64-world > section:nth-of-type(4) > div.relative.z-20 {gap:16px !important;}
+  #main-content.n64-world > section:nth-of-type(4) > div.relative.z-20 > div {min-width:105px;}
+}
+@media (prefers-reduced-motion:reduce) {
+  .n64-cloud,.n64-bin {animation:none !important;}
+  #main-content.n64-world .n64-btn {transition:none !important;}
+}

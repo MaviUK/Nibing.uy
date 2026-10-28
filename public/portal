@@ -30,8 +30,9 @@
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
   </style>
+  <link rel="stylesheet" href="/n64-static.css">
 </head>
-<body>
+<body class="n64-portal-standalone">
 
   <h1>Customer Portal</h1>
 

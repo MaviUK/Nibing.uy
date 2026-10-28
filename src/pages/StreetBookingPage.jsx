@@ -300,7 +300,7 @@ export default function StreetBookingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white px-4 py-8 sm:py-12">
+    <div className="n64-street-booking min-h-screen bg-black text-white px-4 py-8 sm:py-12">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-6">
           <a href="/" className="inline-block" aria-label="Ni Bin Guy home">
