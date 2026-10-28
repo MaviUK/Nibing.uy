@@ -1,0 +1,420 @@
+/*
+ * N64-ERA SITE-WIDE FINISH — preview branch only.
+ * Deliberately cosmetic: do not change customer data, booking mechanics,
+ * postcode results, checkout providers or third-party authentication.
+ */
+
+/* -------- Areas We Cover: section inserted after React by privacy-link.js -------- */
+#areas-we-cover {
+  position:relative;
+  isolation:isolate;
+  padding:85px 18px 93px !important;
+  background:
+    radial-gradient(circle at 88% 16%,#fff0a2 0 36px,transparent 38px),
+    linear-gradient(180deg,#a6deff 0%,#d2f2f9 61%,#b9e3a7 62%,#9bd78d 100%) !important;
+  color:#24365f !important;
+  border-top:7px solid #213858;
+  border-bottom:7px solid #213858;
+  overflow:hidden;
+  text-align:center;
+}
+#areas-we-cover::before {
+  content:"";
+  position:absolute;
+  left:-4%;right:-4%;bottom:0;height:23%;
+  background:#67bb75;
+  clip-path:polygon(0 80%,10% 42%,24% 65%,34% 24%,48% 67%,59% 38%,72% 58%,86% 16%,100% 69%,100% 100%,0 100%);
+  z-index:-1;
+}
+#areas-we-cover::after {
+  content:"✦";
+  position:absolute;right:8%;top:10%;
+  font-size:clamp(30px,5vw,64px);
+  color:#ffd247;-webkit-text-stroke:2px #28416f;
+  text-shadow:5px 5px 0 #ba9446;
+  transform:rotate(18deg);pointer-events:none;
+}
+#areas-we-cover > div {max-width:1060px;margin:0 auto;}
+#areas-we-cover h2 {
+  color:#21365e !important;
+  font:1000 clamp(2.3rem,5vw,4.2rem)/1.04 "Arial Black","Trebuchet MS",system-ui,sans-serif !important;
+  letter-spacing:-.06em;
+  text-shadow:3px 3px #fff,6px 6px #79acd4;
+  margin:0 auto 21px !important;
+}
+#areas-we-cover h2::before {
+  display:block;
+  content:"WORLD 06  /  EXPLORE THE MAP";
+  font:900 .7rem/1.4 Verdana,system-ui,sans-serif;
+  letter-spacing:.16em;
+  color:#344e7b;
+  text-shadow:none;
+  margin-bottom:18px;
+}
+#areas-we-cover p {
+  color:#213b61 !important;
+  max-width:630px !important;
+  font-weight:750; font-size:1rem;line-height:1.65 !important;
+  margin:0 auto 30px !important;
+}
+#areas-we-cover > div > div {
+  display:flex !important;flex-wrap:wrap !important;
+  justify-content:center !important;align-items:center;
+  gap:16px 15px !important;
+  max-width:890px;
+  margin:0 auto;
+}
+#areas-we-cover a,
+#areas-we-cover .areas a {
+  appearance:none;display:inline-flex !important;
+  align-items:center;justify-content:center;
+  min-height:49px;
+  background:#fff6dc !important;
+  color:#20375f !important;
+  border:3px solid #23365b !important;
+  border-radius:12px !important;
+  box-shadow:0 5px 0 #56859b,0 8px 0 rgba(24,61,79,.18) !important;
+  font:900 .95rem/1.2 "Trebuchet MS",Verdana,sans-serif !important;
+  padding:11px 17px !important;
+  text-decoration:none !important;
+  transition:transform .12s ease,box-shadow .12s ease;
+  max-width:100%;overflow-wrap:anywhere;
+}
+#areas-we-cover a:nth-child(3n + 1){background:#ffe087 !important;box-shadow:0 5px 0 #c6943d !important;}
+#areas-we-cover a:nth-child(3n + 2){background:#d2fbe5 !important;box-shadow:0 5px 0 #56aa80 !important;}
+#areas-we-cover a:nth-child(3n){background:#f5dbfa !important;box-shadow:0 5px 0 #a272ad !important;}
+#areas-we-cover a:hover{transform:translateY(-3px);}
+#areas-we-cover a:active{transform:translateY(4px);box-shadow:none !important;}
+#areas-we-cover a:focus-visible{outline:4px solid #fff;outline-offset:4px;}
+
+/* -------- Third-party customer portal: preserve widget internals -------- */
+#customer-portal {
+  position:relative;
+  padding:85px 16px 96px !important;
+  background:
+    radial-gradient(ellipse at 4% 9%,#ffe6bc 0 10%,transparent 34%),
+    linear-gradient(180deg,#f8e3fc,#fff5d9) !important;
+  color:#20365d !important;
+  border-top:7px solid #20365d !important;
+  text-align:center;
+  overflow:hidden;
+}
+#customer-portal > div{max-width:970px !important;}
+#customer-portal .n64-portal-eyebrow {
+  display:table;margin:0 auto 17px;padding:7px 15px;
+  color:#23385f !important;
+  background:#ffdc62;
+  border:3px solid #23385f;border-radius:9px;
+  box-shadow:4px 5px 0 #bf9751;
+  font:900 .72rem/1.4 Verdana,system-ui,sans-serif;
+  letter-spacing:.1em;
+  transform:rotate(-2deg);
+}
+#customer-portal h2 {
+  color:#20365d !important;
+  font:1000 clamp(2.45rem,5vw,4.2rem)/1.04 "Arial Black","Trebuchet MS",sans-serif !important;
+  letter-spacing:-.065em;
+  text-shadow:3px 3px #fff,6px 6px #cbacd7;
+  margin:0 0 19px !important;
+}
+#customer-portal h2::before{display:none !important;}
+#customer-portal p{
+  color:#344364 !important;
+  font-size:1.05rem;font-weight:750;line-height:1.6;
+  margin:0 auto 29px !important;
+  max-width:640px !important;
+}
+#customer-portal .n64-portal-shell {
+  position:relative;
+  padding:18px 12px 12px;
+  background:#fefbe8;
+  border:4px solid #20365d;
+  border-radius:21px;
+  box-shadow:9px 12px 0 #ad88b6;
+  margin:14px auto 0;
+}
+#customer-portal .n64-portal-shell::before {
+  content:"★  PLAYER LOGIN  /  MANAGE YOUR CLEANING QUEST";
+  display:block;
+  color:#2b4069;
+  font:900 .68rem/1.3 Verdana,system-ui,sans-serif;
+  letter-spacing:.08em;
+  margin:0 auto 19px;
+  text-align:center;
+}
+#customer-portal [data-sqc="layout"] {
+  background:#1c2235 !important;
+  border:3px solid #25395e !important;
+  border-radius:13px !important;
+  box-shadow:inset 0 2px 0 #53678c !important;
+  padding:12px !important;
+  overflow:visible;
+  margin:0 auto !important;
+  max-width:100% !important;
+}
+/* Embedded Squeegee login is provider-owned. Do not restyle iframe/shadow DOM. */
+
+/* -------- Main booking, postcode & contact pop-ups -------- */
+#main-content.n64-world [role="dialog"] > div > div {
+  border:4px solid #20365d !important;
+  border-radius:18px !important;
+  box-shadow:10px 12px 0 #54729e !important;
+}
+#main-content.n64-world [role="dialog"] > div > div.bg-white {
+  background:#fff9e9 !important;color:#263a60 !important;
+}
+#main-content.n64-world [role="dialog"] h2{
+  color:#263a60;font-weight:1000 !important;letter-spacing:-.03em;
+}
+#main-content.n64-world [role="dialog"] input:not([type="checkbox"]),
+#main-content.n64-world [role="dialog"] textarea,
+#main-content.n64-world [role="dialog"] select {
+  background:#fff !important;
+  border:2px solid #526387 !important;
+  color:#253452 !important;
+  border-radius:10px !important;
+  font-size:16px;
+  min-height:43px;
+}
+#main-content.n64-world [role="dialog"] input:focus-visible,
+#main-content.n64-world [role="dialog"] textarea:focus-visible,
+#main-content.n64-world [role="dialog"] select:focus-visible{
+  outline:3px solid #f5bf3f !important;outline-offset:2px;
+}
+#main-content.n64-world [role="dialog"] button[class*="bg-green-500"],
+#main-content.n64-world [role="dialog"] button[class*="bg-blue-500"] {
+  background:#ffd758 !important;
+  border:2px solid #24365c !important;
+  color:#22365a !important;
+  border-radius:10px !important;
+  box-shadow:0 4px 0 #b88c38 !important;
+  font-weight:1000 !important;
+}
+#main-content.n64-world [role="dialog"] button[class*="bg-green-500"]:active,
+#main-content.n64-world [role="dialog"] button[class*="bg-blue-500"]:active{
+  transform:translateY(3px);box-shadow:0 1px 0 #b88c38 !important;
+}
+#main-content.n64-world [role="dialog"] button:disabled{
+  box-shadow:none !important;opacity:.55;cursor:not-allowed;
+}
+#main-content.n64-world [role="dialog"] .bg-gray-50 {
+  background:#fff3cf !important;border-color:#b7a781 !important;
+}
+#main-content.n64-world [role="dialog"] .text-gray-600,
+#main-content.n64-world [role="dialog"] .text-gray-500{color:#52617c !important;}
+#main-content.n64-world [role="dialog"] .text-gray-800,
+#main-content.n64-world [role="dialog"] .text-gray-900{color:#26365b !important;}
+#main-content.n64-world [role="dialog"] [class*="rounded-xl"],
+#main-content.n64-world [role="dialog"] [class*="rounded-2xl"]{border-radius:13px;}
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] {
+  background:#fff9e9 !important;
+  color:#23375e !important;
+  border-radius:12px !important;
+  border:0 !important;
+  text-align:left;
+}
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] h2,
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] label,
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] .text-white {
+  color:#203760 !important;
+}
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] .text-zinc-300,
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] .text-zinc-400 {
+  color:#526180 !important;
+}
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] .bg-zinc-800,
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] [class*="bg-zinc-950"]{
+  background:#f0edfc !important;color:#253960 !important;
+  border-color:#92a1b7 !important;
+}
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] [class*="bg-green-950"]{
+  background:#e5ffe2 !important;border-color:#65ae73 !important;
+}
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] .text-green-200,
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] .text-green-300{color:#275f42 !important;}
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] [class*="bg-amber-950"]{
+  background:#fff1cc !important;color:#70431b !important;
+}
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] .text-amber-100,
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] .text-amber-200{color:#70431b !important;}
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] button[type="submit"],
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] button.bg-green-500{
+  background:#ffd758 !important;color:#20365d !important;
+  border:2px solid #20365d !important;border-radius:9px !important;
+  box-shadow:0 4px 0 #b88d3c !important;
+}
+#main-content.n64-world section[aria-label="Check bin cleaning coverage"] button[aria-label*="Close"]{
+  color:#24375f !important;
+}
+
+/* -------- The prize mini-game (same function, new cabinet) -------- */
+[data-testid="ten-sec-root"] {
+  font-family:"Trebuchet MS",Verdana,sans-serif;
+  color:#20365f !important;
+}
+[data-testid="ten-sec-root"] > div {
+  border:4px solid #26345f !important;
+  border-radius:22px !important;
+  background:linear-gradient(155deg,#7665b9,#3f568f) !important;
+  box-shadow:8px 10px 0 #25365a !important;
+  color:#fff !important;
+}
+[data-testid="ten-sec-root"] > div > div.bg-black\/40{
+  background:#172747 !important;
+  border:3px solid #c9b7ff !important;
+  border-radius:16px !important;
+  box-shadow:inset 0 4px 0 rgba(255,255,255,.16) !important;
+}
+[data-testid="ten-sec-root"] button[class*="w-full"] {
+  border-radius:12px !important;
+  border:3px solid #1f3157 !important;
+  box-shadow:0 5px 0 #28345e !important;
+  font-weight:1000 !important;
+}
+[data-testid="ten-sec-root"] button:disabled{opacity:.55;box-shadow:none !important;}
+[data-testid="ten-sec-root"] .rounded-2xl{border-radius:16px;}
+
+/* -------- Internal street signup: retro frame, real booking form unchanged -------- */
+#root > .n64-street-booking {
+  min-height:100dvh;
+  color:#223658 !important;
+  background:
+    radial-gradient(circle at 88% 13%,#fff4a5 0 45px,transparent 46px),
+    linear-gradient(180deg,#72c7f9,#c7edfc 48%,#fff4da 100%) !important;
+  font-family:"Trebuchet MS",Verdana,sans-serif;
+}
+.n64-street-booking > div > div:first-child > a > img{
+  max-width:150px;
+  border-radius:19px;border:3px solid #213659;
+  background:#1d2a4b;
+  box-shadow:6px 8px 0 #487e9c;
+  transform:rotate(-3deg);
+}
+.n64-street-booking > div > div:first-child > p:first-of-type {
+  display:table;margin:26px auto 10px;
+  background:#ffd75e;color:#24385e !important;
+  border:3px solid #26365a;border-radius:10px;
+  padding:7px 13px;
+  box-shadow:4px 5px 0 #bc9a4e;
+}
+.n64-street-booking h1 {
+  font:1000 clamp(2.5rem,6vw,4rem)/1.05 "Arial Black","Trebuchet MS",sans-serif !important;
+  color:#24375e;letter-spacing:-.055em;
+  text-shadow:3px 4px 0 #fff,5px 6px 0 #87a5c7;
+}
+.n64-street-booking > div > div:first-child > p:last-of-type {
+  color:#344965 !important;font-weight:700;line-height:1.65;
+}
+.n64-street-booking > div > div:nth-child(2) {
+  border:4px solid #24375d !important;
+  border-radius:19px !important;
+  background:#fffaf0 !important;
+  box-shadow:9px 12px 0 #7497a8 !important;
+}
+.n64-street-booking input:not([type="checkbox"]),
+.n64-street-booking select,
+.n64-street-booking textarea{
+  background:#fff !important;color:#26365b !important;
+  border:2px solid #5a6786 !important;
+  border-radius:10px !important;
+  font-size:16px;
+}
+.n64-street-booking .bg-gray-50{background:#fff0cb !important;}
+.n64-street-booking button.bg-green-500,
+.n64-street-booking button.bg-black {
+  background:#ffdb61 !important;color:#23365b !important;
+  border:3px solid #26375b !important;border-radius:12px !important;
+  box-shadow:0 5px 0 #b58c39 !important;
+}
+.n64-street-booking button:disabled{box-shadow:none !important;}
+
+/* -------- Side quests (standee/spotting, not the admin dashboard) -------- */
+.n64-sidequest {
+  min-height:100dvh;
+  color:#25385d;
+  background:
+    radial-gradient(circle at 84% 13%,#ffeca2 0 44px,transparent 45px),
+    linear-gradient(180deg,#89d6ff 0%,#ceebfa 65%,#fdf1d4 100%);
+  font-family:"Trebuchet MS",Verdana,sans-serif;
+}
+.n64-sidequest > div[class*="bg-black"] {
+  background:transparent !important;
+  color:#263a5f !important;
+  min-height:100dvh;
+  max-width:780px;
+  margin:0 auto;
+  padding:52px 20px 75px !important;
+}
+.n64-sidequest h1 {
+  font:1000 clamp(1.9rem,5.8vw,3.5rem)/1.07 "Arial Black","Trebuchet MS",sans-serif !important;
+  color:#23385f !important;
+  letter-spacing:-.05em;
+  text-shadow:3px 3px 0 #fff,5px 5px 0 #9cb1ce;
+}
+.n64-sidequest h2{color:#24385e !important;font-weight:1000 !important;}
+.n64-sidequest input,.n64-sidequest select,.n64-sidequest textarea{
+  border:2px solid #33496b !important;border-radius:10px !important;
+  background:#fff !important;color:#25385c !important;
+  padding:12px;max-width:100%;
+}
+.n64-sidequest form,
+.n64-sidequest .max-w-xl {
+  background:#fff9e8;border:3px solid #26375d;
+  border-radius:18px;padding:25px !important;
+  box-shadow:7px 9px 0 #7295b4;
+}
+.n64-sidequest button:not([aria-label]),
+.n64-sidequest a[class*="bg-green-500"],
+.n64-sidequest a[class*="bg-white"]{
+  border:3px solid #26375b !important;
+  border-radius:11px !important;
+  box-shadow:0 4px 0 #5c7b99 !important;
+  font-weight:900 !important;
+}
+.n64-sidequest img[src*="logo"] {
+  background:#1d2948;border:3px solid #24375b;
+  border-radius:18px;
+  padding:7px;max-width:190px !important;
+  box-shadow:4px 6px 0 #799cb8;
+}
+
+/* -------- Metrics is an internal page but can share the palette -------- */
+.n64-metrics{
+  min-height:100dvh;color:#23365d !important;
+  font-family:"Trebuchet MS",Verdana,sans-serif;
+  background:linear-gradient(180deg,#a6dcf9,#e7edfd);
+  padding:35px 14px;
+}
+.n64-metrics h1 {
+  font:1000 clamp(1.8rem,5vw,3.2rem)/1.1 "Arial Black","Trebuchet MS",sans-serif !important;
+  letter-spacing:-.05em;color:#24375d !important;
+}
+.n64-metrics .bg-neutral-900 {
+  background:#fff9e8 !important;color:#24375d !important;
+  border:3px solid #26385c !important;
+  box-shadow:5px 6px 0 #94a3bb;
+  border-radius:16px !important;
+}
+.n64-metrics [class*="border-neutral-800"]{border-color:#8095b0 !important;}
+.n64-metrics td,.n64-metrics th{color:#25395a;}
+.n64-metrics th{font-weight:1000;}
+
+@media(max-width:640px) {
+  #areas-we-cover{padding:66px 15px 76px !important;}
+  #areas-we-cover > div > div{gap:12px 10px !important;}
+  #areas-we-cover a,#areas-we-cover .areas a {
+    font-size:.89rem !important;
+    min-height:44px;padding:9px 13px !important;
+  }
+  #customer-portal{padding:64px 13px 76px !important;}
+  #customer-portal .n64-portal-shell{padding:14px 8px 8px;box-shadow:5px 7px 0 #ad88b6;}
+  #customer-portal .n64-portal-shell::before{font-size:.6rem;letter-spacing:.03em;}
+  #customer-portal [data-sqc="layout"]{padding:6px !important;}
+  #main-content.n64-world [role="dialog"] > div > div {
+    border-width:3px !important;box-shadow:5px 7px 0 #54729e !important;
+  }
+  .n64-street-booking > div > div:nth-child(2) {box-shadow:5px 7px 0 #7497a8 !important;}
+}
+@media(prefers-reduced-motion:reduce){
+  #areas-we-cover a{transition:none;}
+}
