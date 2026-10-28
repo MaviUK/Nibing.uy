@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from "react"
 import { Routes, Route } from "react-router-dom"
 import NiBinGuyLandingPage from "./LandingPage"
+import "./n64-theme.css"
 import HomepageServiceSchema from "./HomepageServiceSchema"
 import CustomerPortalLoader from "./components/CustomerPortalLoader"
 
