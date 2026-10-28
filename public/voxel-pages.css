@@ -1,0 +1,136 @@
+/*
+ * WORLD SELECT - voxel-style service-area, guide and commercial pages.
+ * Added only on preview/voxel-arcade-v2. Content, canonical links and JSON-LD unchanged.
+ */
+:root{color-scheme:light;--navy:#0b2c3c;--outline:#071f2f;--sky:#1178f3;--cream:#fcfde9;--yellow:#ffe035;--green:#b4f64c}
+body{
+  background:#082c52;color:#f8fffb;
+  font-family:"Trebuchet MS",Verdana,sans-serif;
+}
+section.section-black {background:linear-gradient(145deg,#0c2f56,#103e71);color:#f6fff9}
+section.section-dark {background:linear-gradient(145deg,#0d3c39,#0b644d);color:#f6fff9}
+main > section:nth-of-type(3n){background:linear-gradient(145deg,#293967,#2b407a)}
+main > section:nth-of-type(4n){background:linear-gradient(145deg,#114a58,#0a5b65)}
+main > section:nth-of-type(5n){background:linear-gradient(145deg,#143e3c,#125b3a)}
+main > section:not(:first-of-type) {
+  border-top:10px solid #092c30;
+  border-bottom:7px solid #11713b;
+  position:relative;
+}
+main > section:not(:first-of-type)::after {
+  content:"";
+  position:absolute;bottom:0;left:0;right:0;height:17px;
+  background:repeating-linear-gradient(90deg,#3eab40 0 20px,#258c3b 20px 40px,#6bc637 40px 60px);
+  opacity:.65;pointer-events:none;
+}
+main > section:first-of-type{
+  background:linear-gradient(180deg,#0964ee 0%,#2793f8 66%,#77c8ff 100%) !important;
+  border-bottom:12px solid #105c38;
+  padding:12px 16px 55px !important;
+}
+main > section:first-of-type::before{
+  height:120px;
+  background:repeating-linear-gradient(90deg,#4bb946 0 32px,#2a9641 32px 64px,#66d146 64px 96px);
+  opacity:.92;
+}
+main > section:first-of-type::after {
+  content:"";
+  pointer-events:none;
+  position:absolute;right:-3%;bottom:0;
+  width:min(370px,33vw);
+  height:300px;
+  background:url('/voxel-worker.svg') center bottom / contain no-repeat;
+  opacity:.42;
+  filter:drop-shadow(9px 8px 0 rgba(0,29,55,.19));
+  z-index:-1;
+}
+.wrap{width:min(1100px,calc(100% - 30px))}
+.back {
+  background:#ffde37;
+  color:#0b2c30;
+  border:4px solid #082e2d;
+  border-radius:2px;
+  box-shadow:5px 6px 0 #084468;
+  font-weight:1000;
+}
+.hero {
+  padding:clamp(28px,5vw,62px);
+  background:linear-gradient(140deg,#06744d,#075739 80%);
+  color:#fff;
+  border:6px solid #082b32;
+  border-radius:3px;
+  box-shadow:12px 13px 0 #0a3b68;
+  isolation:isolate;
+}
+.hero::before{
+  content:"★  WORLD SELECT / NI BIN GUY ★";
+  background:#ffde31;
+  color:#112f36;
+  border:4px solid #092c30;
+  border-radius:2px;
+  font:1000 clamp(.56rem,1.1vw,.75rem)/1.4 Verdana,sans-serif;
+  box-shadow:5px 5px 0 #0c3e42;
+}
+.hero img {
+  background:#14302f;
+  border:4px solid #092b31;
+  border-radius:2px;
+  box-shadow:6px 7px 0 #082b30;
+  padding:7px;
+}
+h1{
+  color:#fff;
+  font-family:"Arial Black","Trebuchet MS",sans-serif;
+  text-shadow:3px 3px 0 #092e29,7px 8px 0 rgba(0,25,32,.54);
+}
+h1 span{color:#ffe13b;text-shadow:3px 3px 0 #504322,6px 6px 0 #092d2a}
+h2{
+  color:#fff;
+  font-family:"Arial Black","Trebuchet MS",sans-serif;
+  text-shadow:4px 5px 0 #071d34;
+}
+h3{color:#162c3f}
+p,.lead,.hero .lead{color:#f0fff6}
+.card{
+  background:#fcfbed;
+  color:#183145;
+  border:5px solid #071f30;
+  border-radius:2px;
+  box-shadow:8px 9px 0 #071d31;
+}
+.card:nth-child(3n+2){background:#dff7fa;box-shadow:8px 9px 0 #071d31}
+.card:nth-child(3n){background:#e4ffd2;box-shadow:8px 9px 0 #071d31}
+.card h3,.card h2{color:#142e42;text-shadow:none;font-family:"Arial Black","Trebuchet MS",sans-serif}
+.card p{color:#31485b}
+.card a{color:#095e65}
+.btn,.btn.secondary {
+  background:#d5fb40;
+  color:#0a2e31;
+  border:4px solid #082d31;
+  border-radius:2px;
+  box-shadow:0 7px 0 #177039;
+  font-family:"Arial Black","Trebuchet MS",sans-serif;
+}
+.btn.secondary {background:#ffe03b;box-shadow:0 7px 0 #956b1a}
+.btn:hover{filter:brightness(1.07)}
+.areas a{
+  background:#0f8458 !important;
+  color:#fff !important;
+  border:4px solid #092b2b;
+  border-radius:1px;
+  box-shadow:0 5px 0 #062f2d !important;
+  font-family:"Arial Black","Trebuchet MS",sans-serif;
+}
+.areas a:nth-child(3n+2),.areas a:nth-child(3n){background:#167653 !important;box-shadow:0 5px 0 #062f2d !important}
+.footer{background:#0a203f;color:#d6e7f1;border-top:9px solid #159b55}
+.footer a{color:#dcff69}
+a:focus-visible{outline:4px solid #fff;outline-offset:4px}
+@media(max-width:670px){
+  main > section:first-of-type::after{width:160px;height:160px;opacity:.16;right:-24px;bottom:0}
+  .back{border-width:3px;box-shadow:3px 4px 0 #084468}
+  .hero{border-width:4px;box-shadow:7px 8px 0 #0a3b68}
+  .hero::before{border-width:3px;box-shadow:3px 4px 0 #0c3e42}
+  .card{border-width:3px;box-shadow:5px 6px 0 #071d31}
+  .card:nth-child(3n+2),.card:nth-child(3n){box-shadow:5px 6px 0 #071d31}
+  .btn,.btn.secondary{border-width:3px;box-shadow:0 5px 0 #177039}
+}
