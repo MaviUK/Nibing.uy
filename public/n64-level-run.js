@@ -42,16 +42,16 @@
           for (const entry of entries) {
             if (!entry.isIntersecting) continue;
             visibilityObserver.unobserve(entry.target);
-            start(entry.target);
+            start(entry.target._n64Flag || entry.target);
           }
         },
-        { threshold: 0.05, rootMargin: "0px 0px 12px 0px" }
+        { threshold: 0, rootMargin: "0px 0px 0px 0px" }
       )
     : null;
 
   function register(track) {
     if (registered.has(track)) return;
-    if (!track.closest("#main-content.n64-world, #areas-we-cover, #customer-portal")) return;
+    if (!track.closest("#main-content.n64-world, #areas-we-cover, #customer-portal, #level-08-final")) return;
 
     registered.add(track);
     track.dataset.n64RunStage = "ready";
@@ -66,7 +66,10 @@
     }
 
     if (visibilityObserver) {
-      visibilityObserver.observe(track);
+      // Observe the level section, not just the narrow 64px strip.
+      const target = track.closest("section") || track;
+      target._n64Flag = track;
+      visibilityObserver.observe(target);
     } else {
       start(track);
     }
