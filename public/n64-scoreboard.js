@@ -168,6 +168,8 @@
 
   function buildHud() {
     if (root || !document.body) return;
+    // Do not overlay the administrative, account or callback screens.
+    if (!["/", "/street-booking"].includes(location.pathname.replace(/\/$/, "") || "/")) return;
     root = document.createElement("aside");
     root.className = "n64-score-hud";
     root.setAttribute("aria-label", "NI Bin Guy arcade score");
