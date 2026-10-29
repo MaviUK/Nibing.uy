@@ -875,7 +875,8 @@
 */
 #main-content.n64-world > section:not(.n64-hero) > .n64-level-track,
 #areas-we-cover > .n64-level-track,
-#customer-portal > .n64-level-track {
+#customer-portal > .n64-level-track,
+#level-08-final > .n64-level-track {
   display:block;
   box-sizing:border-box;
   position:absolute;
@@ -900,7 +901,8 @@
 }
 #main-content.n64-world > section:not(.n64-hero) .n64-level-track .n64-level-washer,
 #areas-we-cover .n64-level-track .n64-level-washer,
-#customer-portal .n64-level-track .n64-level-washer {
+#customer-portal .n64-level-track .n64-level-washer,
+#level-08-final .n64-level-track .n64-level-washer {
   display:block;
   position:absolute;
   top:0;
@@ -924,7 +926,8 @@
 }
 #main-content.n64-world > section:not(.n64-hero) .n64-level-track .n64-level-washer img,
 #areas-we-cover .n64-level-track .n64-level-washer img,
-#customer-portal .n64-level-track .n64-level-washer img {
+#customer-portal .n64-level-track .n64-level-washer img,
+#level-08-final .n64-level-track .n64-level-washer img {
   display:block;
   box-sizing:border-box;
   width:100%;
@@ -942,7 +945,8 @@
 }
 #main-content.n64-world .n64-level-track.n64-run-active .n64-level-washer,
 #areas-we-cover .n64-level-track.n64-run-active .n64-level-washer,
-#customer-portal .n64-level-track.n64-run-active .n64-level-washer {
+#customer-portal .n64-level-track.n64-run-active .n64-level-washer,
+#level-08-final .n64-level-track.n64-run-active .n64-level-washer {
   animation:n64-washer-travel var(--n64-level-duration) linear forwards !important;
 }
 @keyframes n64-washer-travel {
@@ -951,13 +955,15 @@
 }
 #main-content.n64-world .n64-level-track.n64-run-complete .n64-level-washer,
 #areas-we-cover .n64-level-track.n64-run-complete .n64-level-washer,
-#customer-portal .n64-level-track.n64-run-complete .n64-level-washer {
+#customer-portal .n64-level-track.n64-run-complete .n64-level-washer,
+#level-08-final .n64-level-track.n64-run-complete .n64-level-washer {
   animation:none !important;
   opacity:0;
 }
 #main-content.n64-world .n64-level-track .n64-level-complete,
 #areas-we-cover .n64-level-track .n64-level-complete,
-#customer-portal .n64-level-track .n64-level-complete {
+#customer-portal .n64-level-track .n64-level-complete,
+#level-08-final .n64-level-track .n64-level-complete {
   display:block;
   box-sizing:border-box;
   position:absolute;
@@ -983,7 +989,8 @@
 }
 #main-content.n64-world .n64-level-track.n64-run-complete .n64-level-complete,
 #areas-we-cover .n64-level-track.n64-run-complete .n64-level-complete,
-#customer-portal .n64-level-track.n64-run-complete .n64-level-complete {
+#customer-portal .n64-level-track.n64-run-complete .n64-level-complete,
+#level-08-final .n64-level-track.n64-run-complete .n64-level-complete {
   animation:n64-level-complete-pop .35s steps(3,end) forwards;
 }
 @keyframes n64-level-complete-pop {
@@ -993,14 +1000,16 @@
 @media(min-width:800px) {
   #main-content.n64-world > section:not(.n64-hero) > .n64-level-track,
   #areas-we-cover > .n64-level-track,
-  #customer-portal > .n64-level-track {
+#customer-portal > .n64-level-track,
+#level-08-final > .n64-level-track {
     --n64-level-duration:5.2s;
   }
 }
 @media(max-width:640px) {
   #main-content.n64-world .n64-level-track .n64-level-complete,
   #areas-we-cover .n64-level-track .n64-level-complete,
-  #customer-portal .n64-level-track .n64-level-complete {
+#customer-portal .n64-level-track .n64-level-complete,
+#level-08-final .n64-level-track .n64-level-complete {
     padding:7px 10px;
     border-width:3px !important;
     font-size:.73rem;
@@ -1010,13 +1019,15 @@
 @media(prefers-reduced-motion:reduce) {
   #main-content.n64-world .n64-level-track .n64-level-washer,
   #areas-we-cover .n64-level-track .n64-level-washer,
-  #customer-portal .n64-level-track .n64-level-washer {
+#customer-portal .n64-level-track .n64-level-washer,
+#level-08-final .n64-level-track .n64-level-washer {
     animation:none !important;
     transform:translateX(-100%) !important;
   }
   #main-content.n64-world .n64-level-track.n64-run-complete .n64-level-complete,
   #areas-we-cover .n64-level-track.n64-run-complete .n64-level-complete,
-  #customer-portal .n64-level-track.n64-run-complete .n64-level-complete {
+#customer-portal .n64-level-track.n64-run-complete .n64-level-complete,
+#level-08-final .n64-level-track.n64-run-complete .n64-level-complete {
     animation:none !important;
     opacity:1;
     transform:translate(-50%,-50%) !important;
