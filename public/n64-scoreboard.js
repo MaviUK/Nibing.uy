@@ -62,6 +62,8 @@
   let history = stored ? stored.history : [];
   let root, scoreNode, recentNode, historyNode, savedNode, saveButton, resetButton;
   let refreshQueued = false;
+  let bookingProof = null;
+  let boardNode, consentNode, entryStatus, boardNote;
 
   function deleteCookie() {
     try {
@@ -166,6 +168,65 @@
     return award(key, Math.min(total, 30000), "Booking sent: " + binCount + " bin" + (binCount === 1 ? "" : "s"));
   }
 
+
+  async function refreshLeaderboard() {
+    if (!boardNode) return;
+    try {
+      const response = await fetch("/.netlify/functions/arcadeLeaderboard", {cache:"no-store"});
+      if (!response.ok) throw new Error("Leaderboard unavailable");
+      const data = await response.json();
+      const top = Array.isArray(data.entries) ? data.entries.slice(0,10) : [];
+      boardNode.replaceChildren();
+      if (!top.length) {
+        const li = document.createElement("li");
+        li.textContent = "No players yet — be the first!";
+        boardNode.appendChild(li);
+      }
+      top.forEach((item) => {
+        const li = document.createElement("li");
+        const name = document.createElement("span");
+        name.textContent = item.rank + ". " + item.name;
+        const score = document.createElement("strong");
+        score.textContent = Number(item.points || 0).toLocaleString("en-GB") + " XP";
+        li.append(name,score);
+        boardNode.appendChild(li);
+      });
+      boardNote.textContent = "Public: display name and XP only.";
+    } catch (_) { boardNote.textContent = "Leaderboard currently unavailable. Your XP remains on this device."; }
+  }
+
+  function offerEntry(proof) {
+    if (typeof proof !== "string" || !proof.includes(".")) return;
+    bookingProof = proof;
+    if (!root || !consentNode) return;
+    consentNode.hidden = false;
+    root.querySelector(".n64-score-panel").hidden = false;
+    root.querySelector(".n64-score-toggle").setAttribute("aria-expanded", "true");
+    entryStatus.textContent = "Booking received! Join the scoreboard if you want to enter the prize draw.";
+  }
+
+  async function joinLeaderboard(button) {
+    if (!bookingProof) return;
+    button.disabled = true;
+    entryStatus.textContent = "Registering your score…";
+    try {
+      const response = await fetch("/.netlify/functions/arcadeLeaderboard",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({bookingProof,consent:true,claimed:[...claimed]})
+      });
+      const result = await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(result.error || "Unable to join");
+      entryStatus.textContent = "You're on the leaderboard! Contact details stay private.";
+      bookingProof = null;
+      consentNode.hidden = true;
+      await refreshLeaderboard();
+    } catch(error) {
+      entryStatus.textContent = error.message || "Unable to join right now";
+      button.disabled = false;
+    }
+  }
+
   function buildHud() {
     if (root || !document.body) return;
     // Do not overlay the administrative, account or callback screens.
@@ -189,6 +250,8 @@
       '<div class="n64-score-panel" id="n64-score-details" hidden>',
       '<div class="n64-score-heading"><strong>★ PLAYER SCORE</strong><button type="button" class="n64-score-close" aria-label="Close scoreboard">×</button></div>',
       '<div class="n64-score-earned" aria-live="polite"></div>',
+      '<section class="n64-board"><strong>🏆 GLOBAL LEADERBOARD</strong><ol class="n64-board-list"><li>Loading scores…</li></ol><p class="n64-board-note"></p></section>',
+      '<div class="n64-leader-consent" hidden><label><input type="checkbox" class="n64-entry-optin"> I agree to display my name and XP publicly and be contacted using my private booking details if I win a prize.</label><button type="button" class="n64-join-board" disabled>Join leaderboard</button><p class="n64-entry-status" aria-live="polite"></p></div>',
       '<p class="n64-score-hint">Level +50 • Area +25 • Bin day +35</p>',
       '<p class="n64-score-hint">One-off +60/bin • 4-weekly +150/bin</p>',
       '<ol class="n64-score-history"></ol>',
@@ -201,6 +264,10 @@
     const toggle = root.querySelector(".n64-score-toggle");
     const panel = root.querySelector(".n64-score-panel");
     scoreNode = root.querySelector("[data-n64-score]");
+    boardNode = root.querySelector(".n64-board-list");
+    boardNote = root.querySelector(".n64-board-note");
+    consentNode = root.querySelector(".n64-leader-consent");
+    entryStatus = root.querySelector(".n64-entry-status");
     recentNode = root.querySelector(".n64-score-earned");
     historyNode = root.querySelector(".n64-score-history");
     savedNode = root.querySelector(".n64-score-persistence");
@@ -228,13 +295,19 @@
       paint();
     });
     document.body.appendChild(root);
+    const consentCheck = root.querySelector(".n64-entry-optin");
+    const join = root.querySelector(".n64-join-board");
+    consentCheck.addEventListener("change", () => {join.disabled = !consentCheck.checked;});
+    join.addEventListener("click", () => {if(consentCheck.checked) joinLeaderboard(join);});
     paint();
+    refreshLeaderboard();
   }
 
   window.n64Score = Object.freeze({
     awardLevel,
     awardAction,
     awardBooking,
+    offerEntry,
     points: () => xp,
     rules: POINTS,
   });
