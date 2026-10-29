@@ -590,8 +590,8 @@
 
 /* ── PRIMARY & SECONDARY NAV BUTTONS ───────────────────────────────────────
    One Check Your Area control remains fixed at the top.
-   Place the two remaining hero actions in a tidy full-width stack.
-   Replace the three dotted links with real, square arcade-style buttons.
+   Keep Book a Clean full width.
+   Present the four other actions as a 2-by-2 grid of square arcade buttons.
    No booking, portal, bin-day or contact handler changes.
 */
 #main-content.n64-world .n64-hero-layout-v2 .n64-actions {
@@ -609,7 +609,7 @@
 }
 #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links {
   display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-columns:repeat(2,minmax(0,1fr));
   gap:13px;
   max-width:1030px;
   align-items:stretch;
@@ -637,6 +637,10 @@
   white-space:normal;
   cursor:pointer;
   transition:transform .14s ease,box-shadow .14s ease,filter .14s ease;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--bonus {
+  background:#f7b6ef !important;
+  box-shadow:0 6px 0 #bc6abb !important;
 }
 #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--contact {
   background:#d9f8ff !important;
@@ -683,7 +687,7 @@
     font-size:1rem;
   }
   #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links {
-    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-columns:repeat(2,minmax(0,1fr));
     gap:8px;
     margin:21px auto 19px;
   }
@@ -695,6 +699,9 @@
     font-size:clamp(.67rem,2.8vw,.87rem);
     line-height:1.18;
     letter-spacing:-.025em;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--bonus {
+    box-shadow:0 5px 0 #bc6abb !important;
   }
   #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--contact {
     box-shadow:0 5px 0 #6aaec2 !important;
