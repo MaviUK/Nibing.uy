@@ -192,3 +192,58 @@ body.n64-metrics-standalone .muted{color:#576989 !important;}
     box-shadow:4px 6px 0 #7298ba !important;
   }
 }
+
+
+/* PREVIEW 1: square/rectangular treatment for standalone visitor-facing pages.
+   External Squeegee login markup must keep provider-controlled styling. */
+body.n64-not-found *,
+body.n64-not-found *::before,
+body.n64-policy *,
+body.n64-policy *::before,
+body.n64-whatsapp *,
+body.n64-whatsapp *::before,
+body.n64-metrics-standalone *,
+body.n64-metrics-standalone *::before {
+  border-radius: 0 !important;
+}
+body.n64-portal-standalone .portal-container,
+body.n64-portal-standalone h1 {
+  border-radius:0 !important;
+}
+body.n64-not-found main,
+body.n64-policy .card,
+body.n64-whatsapp .card,
+body.n64-portal-standalone .portal-container,
+body.n64-metrics-standalone .card {
+  border-radius:0 !important;
+  border-width:4px !important;
+  box-shadow:10px 11px 0 #7298ba !important;
+}
+body.n64-policy .contact-box {border-radius:0 !important;}
+body.n64-policy .back,
+body.n64-whatsapp .open,
+body.n64-not-found main a,
+body.n64-metrics-standalone button {
+  border-radius:0 !important;
+  border-width:4px !important;
+  box-shadow:0 6px 0 #bd9551 !important;
+}
+body.n64-not-found img {
+  border-radius:0 !important;
+  border-width:4px !important;
+  box-shadow:6px 7px 0 #9aaec5 !important;
+}
+body.n64-whatsapp .check{
+  border-radius:0 !important;
+  box-shadow:4px 5px 0 #54a877 !important;
+}
+@media(max-width:600px){
+  body.n64-not-found main,
+  body.n64-policy .card,
+  body.n64-whatsapp .card,
+  body.n64-portal-standalone .portal-container,
+  body.n64-metrics-standalone .card {
+    border-width:3px !important;
+    box-shadow:6px 7px 0 #7298ba !important;
+  }
+}
