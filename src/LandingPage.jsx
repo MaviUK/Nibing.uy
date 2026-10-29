@@ -3,7 +3,7 @@ import { useLiveCounters } from "./data/statsPlan";
 import CoverageChecker from "./CoverageChecker.jsx";
 import N64GameBin from "./N64GameBin.jsx";
 import LevelWasher from "./components/LevelWasher.jsx";
-import BookingAddressAutocomplete from "./components/BookingAddressAutocomplete.jsx";
+import BookingAddressAutocomplete, { findNiPostcode } from "./components/BookingAddressAutocomplete.jsx";
 
 const TenSecondChallenge = lazy(() => import("./TenSecondChallenge.jsx"));
 const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
@@ -787,6 +787,10 @@ function BookingForm({ onClose, initialAddress = "" }) {
       alert("Please complete all fields before sending.");
       return;
     }
+    if (!findNiPostcode(address)) {
+      alert("Please include the full BT postcode in your address so we can calculate the correct bin cleaning date.");
+      return;
+    }
     if (!agreeToTerms) {
       alert("Please view and agree to the Terms of Service before booking.");
       return;
@@ -896,6 +900,10 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const handleSendEmail = async () => {
     if (missingFields) {
       alert("Please complete all fields before sending.");
+      return;
+    }
+    if (!findNiPostcode(address)) {
+      alert("Please include the full BT postcode in your address so we can calculate the correct bin cleaning date.");
       return;
     }
     if (!agreeToTerms) {
@@ -1153,7 +1161,12 @@ function BookingForm({ onClose, initialAddress = "" }) {
           setAddress(place?.formatted_address || place?.name || "");
         }}
       />
-      <p className="text-xs text-gray-500 -mt-2">Tip: select a matching address, or enter a full BT postcode to see council addresses. Manual entry also works.</p>
+      <p className="text-xs text-gray-500 -mt-2">Select an address to fill its postcode automatically, or enter your full address and BT postcode manually.</p>
+      {address.trim() && !findNiPostcode(address) && (
+        <p className="text-xs font-semibold text-amber-800" role="status">
+          Full BT postcode required to calculate your bin cleaning date.
+        </p>
+      )}
 
       <input type="tel" placeholder="Contact Number" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
       <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
