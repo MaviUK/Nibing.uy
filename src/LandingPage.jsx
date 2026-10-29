@@ -1591,21 +1591,16 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
         <button type="button" onClick={onBook} className="n64-btn n64-btn--start">
           Book a Clean
         </button>
-        <button type="button" onClick={onCoverage} className="n64-btn n64-btn--area">
-          <span aria-hidden="true">⌖</span> Check Your Area
-        </button>
         <button type="button" onClick={onChallenge} className="n64-btn n64-btn--bonus">
           <span aria-hidden="true">★</span> Free Bin Clean
         </button>
       </div>
 
-      <div className="n64-extra-links">
-        <button type="button" className="n64-text-link" onClick={onContact}>Contact Us</button>
-        <span className="n64-divider" aria-hidden="true">✦</span>
-        <a className="n64-text-link" href="#customer-portal">Customer Portal</a>
-        <span className="n64-divider" aria-hidden="true">✦</span>
-        <button type="button" className="n64-text-link" onClick={onBinChecker}>Bin Day Checker</button>
-      </div>
+      <nav className="n64-extra-links" aria-label="More NI Bin Guy options">
+        <button type="button" className="n64-text-link n64-link--contact" onClick={onContact}>Contact Us</button>
+        <a className="n64-text-link n64-link--portal" href="#customer-portal">Customer Portal</a>
+        <button type="button" className="n64-text-link n64-link--bin-day" onClick={onBinChecker}>Bin Day Checker</button>
+      </nav>
 
       <div className="n64-scoreboard" aria-label="Our cleaning statistics">
         <div className="n64-score">
