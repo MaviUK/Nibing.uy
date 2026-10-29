@@ -110,8 +110,8 @@
       historyNode.appendChild(line);
     }
     savedNode.textContent = saved
-      ? "Score saved in a first-party cookie on this device."
-      : "Score works during this visit. Choose Save XP to keep it on this device.";
+      ? "XP saved in a first-party cookie on this device."
+      : "XP lasts this visit. Choose Save XP to remember it on this device.";
     saveButton.hidden = saved;
     resetButton.hidden = !saved && !xp && !claimed.size;
   }
@@ -221,6 +221,7 @@
       bookingProof = null;
       consentNode.hidden = true;
       await refreshLeaderboard();
+      window.dispatchEvent(new Event("n64:leaderboard-updated"));
     } catch(error) {
       entryStatus.textContent = error.message || "Unable to join right now";
       button.disabled = false;
@@ -257,7 +258,7 @@
       '<ol class="n64-score-history"></ol>',
       '<p class="n64-score-persistence"></p>',
       '<div class="n64-score-controls"><button type="button" class="n64-score-save">Save XP (cookie)</button><button type="button" class="n64-score-reset">Reset score</button></div>',
-      '<p class="n64-score-legal">Just for fun — not a discount or monetary reward. No personal details stored.</p>',
+      '<p class="n64-score-legal">Only XP and activity keys are stored in the optional cookie. Prize contact details are stored privately only after a booking and your explicit leaderboard consent.</p>',
       '</div>',
     ].join("");
 
