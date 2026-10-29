@@ -289,6 +289,10 @@ export default function StreetBookingPage() {
       });
 
       if (!response.ok) throw new Error(await response.text());
+      // Score only after the street-signup booking has been accepted.
+      const arcadeSubmissionId = window.crypto?.randomUUID?.()
+        || "street-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+      window.n64Score?.awardBooking(arcadeSubmissionId, bins);
       setSuccess(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
