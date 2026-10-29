@@ -2,6 +2,7 @@
 // can be allocated. If scheduling needs manual review, still notify the owner so
 // the booking is never lost just because the council/round lookup could not match.
 const { Resend } = require("resend");
+const { signBooking } = require("./lib/arcadeBookingProof");
 const { handler: sendAutomaticBookingConfirmation } = require("./sendAutomaticBookingConfirmation");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 
@@ -232,6 +233,7 @@ exports.handler = async (event) => {
       await setBookingStatus(payload.bookingId, "confirmed", {
         automatic: Boolean(confirmationBody?.automatic),
         schedule: confirmationBody?.schedule || schedule || null,
+        arcadeBookingProof: signBooking(payload),
       });
     } else if (
       confirmationResponse?.statusCode === 409 &&
