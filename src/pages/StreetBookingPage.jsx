@@ -293,6 +293,8 @@ export default function StreetBookingPage() {
       const arcadeSubmissionId = window.crypto?.randomUUID?.()
         || "street-" + Date.now() + "-" + Math.random().toString(36).slice(2);
       window.n64Score?.awardBooking(arcadeSubmissionId, bins);
+      const booked = await response.json().catch(() => ({}));
+      window.n64Score?.offerEntry(booked.arcadeBookingProof);
       setSuccess(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
