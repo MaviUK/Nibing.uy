@@ -17,6 +17,9 @@
     track.dataset.n64RunStage = "complete";
     track.classList.remove("n64-run-active");
     track.classList.add("n64-run-complete");
+    // One-time arcade reward for visiting and completing this level.
+    const sectionId = track.closest("section")?.id;
+    window.n64Score?.awardLevel(sectionId);
   };
 
   const start = (track) => {
@@ -42,7 +45,7 @@
             start(entry.target);
           }
         },
-        { threshold: 0.4 }
+        { threshold: 0.05, rootMargin: "0px 0px 12px 0px" }
       )
     : null;
 
