@@ -586,3 +586,128 @@
     padding:13px 22px !important;
   }
 }
+
+
+/* ── PRIMARY & SECONDARY NAV BUTTONS ───────────────────────────────────────
+   One Check Your Area control remains fixed at the top.
+   Place the two remaining hero actions in a tidy full-width stack.
+   Replace the three dotted links with real, square arcade-style buttons.
+   No booking, portal, bin-day or contact handler changes.
+*/
+#main-content.n64-world .n64-hero-layout-v2 .n64-actions {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:14px;
+  max-width:1030px;
+  margin:18px auto 17px;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-btn--start,
+#main-content.n64-world .n64-hero-layout-v2 .n64-btn--bonus {
+  grid-column:auto;
+  width:100%;
+  min-height:64px;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:13px;
+  max-width:1030px;
+  align-items:stretch;
+  width:100%;
+  margin:23px auto 21px;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-text-link {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  min-width:0;
+  min-height:59px;
+  padding:12px 9px;
+  margin:0;
+  color:#20345c !important;
+  border:4px solid #20345c !important;
+  border-radius:0 !important;
+  box-shadow:0 6px 0 #7094ad !important;
+  font:1000 clamp(.85rem,1.35vw,1.03rem)/1.23 "Trebuchet MS",Verdana,sans-serif;
+  text-transform:none !important;
+  text-align:center;
+  text-decoration:none !important;
+  overflow-wrap:normal;
+  white-space:normal;
+  cursor:pointer;
+  transition:transform .14s ease,box-shadow .14s ease,filter .14s ease;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--contact {
+  background:#d9f8ff !important;
+  box-shadow:0 6px 0 #6aaec2 !important;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--portal {
+  background:#d8ffcf !important;
+  box-shadow:0 6px 0 #81b97b !important;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--bin-day {
+  background:#fff0b2 !important;
+  box-shadow:0 6px 0 #bd9d53 !important;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-text-link:hover {
+  transform:translateY(-2px);
+  filter:brightness(1.04);
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-text-link:active {
+  transform:translateY(5px);
+  box-shadow:0 1px 0 #667f93 !important;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-text-link:focus-visible {
+  outline:4px solid #fff !important;
+  outline-offset:4px;
+}
+@media(max-width:950px) {
+  #main-content.n64-world .n64-hero-layout-v2 .n64-actions {
+    grid-template-columns:minmax(0,1fr);
+    gap:13px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-btn--start {
+    grid-column:auto;
+  }
+}
+@media(max-width:600px) {
+  #main-content.n64-world .n64-hero-layout-v2 .n64-actions {
+    grid-template-columns:minmax(0,1fr);
+    gap:13px;
+    margin:12px 0 15px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-btn--start,
+  #main-content.n64-world .n64-hero-layout-v2 .n64-btn--bonus {
+    min-height:62px;
+    font-size:1rem;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links {
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:8px;
+    margin:21px auto 19px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-text-link {
+    min-height:65px;
+    padding:9px 5px;
+    border-width:3px !important;
+    box-shadow:0 5px 0 #7792a4 !important;
+    font-size:clamp(.67rem,2.8vw,.87rem);
+    line-height:1.18;
+    letter-spacing:-.025em;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--contact {
+    box-shadow:0 5px 0 #6aaec2 !important;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--portal {
+    box-shadow:0 5px 0 #81b97b !important;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--bin-day {
+    box-shadow:0 5px 0 #bd9d53 !important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-text-link{
+    transition:none;
+  }
+}
