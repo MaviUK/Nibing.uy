@@ -1,0 +1,292 @@
+/*
+ * NI BIN GUY — N64 ARCADE: SQUARE-CORNER EDITION
+ *
+ * Deliberately loaded LAST, after n64-theme.css and n64-complete.css.
+ * Applies to Preview 1 (preview/n64-retro-site) only.
+ * Do not change colours, content, routes, bookings, Squeegee, or data.
+ *
+ * Design: square edges, heavier outlines, hard offset shadows,
+ * rectangular/pixel-inspired controls. Illustrations stay illustrative.
+ */
+
+/* 01 — All first-party landing-page elements, including modal contents. */
+#main-content.n64-world *,
+#main-content.n64-world *::before,
+#main-content.n64-world *::after {
+  border-radius: 0 !important;
+}
+
+/* Clouds belong to the scene: make them stepped, pixel-like silhouettes. */
+#main-content.n64-world .n64-cloud {
+  width: 152px;
+  height: 70px;
+  border-radius: 0 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 7px 0 rgba(44,122,167,.19));
+  clip-path: polygon(
+    0 49%, 12% 49%, 12% 25%, 29% 25%, 29% 0,
+    66% 0, 66% 24%, 82% 24%, 82% 48%, 100% 48%,
+    100% 75%, 87% 75%, 87% 87%, 12% 87%, 12% 75%, 0 75%
+  );
+}
+#main-content.n64-world .n64-cloud::before,
+#main-content.n64-world .n64-cloud::after { display: none !important; }
+
+/* A low-poly ground platform instead of a soft oval. */
+#main-content.n64-world .n64-plinth {
+  border-radius:0 !important;
+  clip-path:polygon(13% 4%, 83% 0, 100% 37%, 91% 86%, 24% 100%, 0 60%);
+}
+
+/* 02 — Brand badge, action buttons and floating game label. */
+#main-content.n64-world .n64-brand {
+  border: 4px solid #20345c !important;
+  box-shadow: 6px 7px 0 #3978a0 !important;
+}
+#main-content.n64-world .n64-brand img {
+  border: 3px solid #20345c !important;
+}
+#main-content.n64-world .n64-kicker {
+  border-width:4px !important;
+  box-shadow: 5px 6px 0 #ae4062 !important;
+}
+#main-content.n64-world .n64-actions {
+  align-items: stretch;
+}
+#main-content.n64-world .n64-btn {
+  border-radius:0 !important;
+  border:4px solid #20345c !important;
+  padding: 14px 20px;
+  min-height: 53px;
+  box-shadow: 0 7px 0 #5f799a, 0 11px 0 rgba(23,48,88,.17) !important;
+  font-weight: 1000 !important;
+}
+#main-content.n64-world .n64-btn--start {
+  box-shadow: 0 7px 0 #cb8d27, 0 11px 0 rgba(23,48,88,.17) !important;
+}
+#main-content.n64-world .n64-btn--area {
+  box-shadow: 0 7px 0 #52a99c, 0 11px 0 rgba(23,48,88,.17) !important;
+}
+#main-content.n64-world .n64-btn--bonus {
+  box-shadow: 0 7px 0 #bc6abb, 0 11px 0 rgba(23,48,88,.17) !important;
+}
+#main-content.n64-world .n64-btn:active {
+  transform:translateY(6px) !important;
+  box-shadow:0 1px 0 #56708f !important;
+}
+#main-content.n64-world .n64-scene-label {
+  border:4px solid #20345c !important;
+  box-shadow:5px 6px 0 #5774a1 !important;
+}
+
+/* 03 — The three counters: solid, square scoreboard tiles. */
+#main-content.n64-world .n64-score {
+  border: 4px solid #20345c !important;
+  border-radius:0 !important;
+  box-shadow: 6px 7px 0 #416b86 !important;
+}
+#main-content.n64-world .n64-score:nth-child(2) {
+  box-shadow:6px 7px 0 #4a926e !important;
+}
+#main-content.n64-world .n64-score:nth-child(3) {
+  box-shadow:6px 7px 0 #af9c70 !important;
+}
+
+/* 04 — All service-level cards and numbered step tokens. */
+#main-content.n64-world > section:not(.n64-hero) .bg-zinc-800\/70 {
+  border:4px solid #20345c !important;
+  border-radius:0 !important;
+  box-shadow:8px 9px 0 rgba(32,52,92,.44) !important;
+}
+#main-content.n64-world > section:not(.n64-hero) .bg-zinc-800\/70:hover {
+  box-shadow:10px 13px 0 rgba(32,52,92,.44) !important;
+}
+#main-content.n64-world > section:nth-of-type(3) li > span {
+  border:3px solid #20345c !important;
+  box-shadow:3px 4px 0 #c9a251 !important;
+}
+#main-content.n64-world > section:nth-of-type(3) button.bg-green-500 {
+  border:4px solid #20345c !important;
+  padding:14px 24px !important;
+  box-shadow:0 7px 0 #c49134 !important;
+}
+#main-content.n64-world > section:nth-of-type(4) > div.relative.z-20 > div {
+  border:4px solid #20345c !important;
+  box-shadow:7px 9px 0 #9a9fd2 !important;
+}
+#main-content.n64-world > section:nth-of-type(4) > div.relative.z-20 > div span {
+  border:3px solid #20345c !important;
+}
+#main-content.n64-world > section:nth-of-type(5) .grid > div,
+#main-content.n64-world > section:nth-of-type(6) .grid > div {
+  border:4px solid #20345c !important;
+  box-shadow:7px 9px 0 rgba(48,70,105,.3) !important;
+}
+
+/* 05 — Header navigation, generated town links, and website sections. */
+#site-menu-toggle {
+  border-radius:0 !important;
+  border:4px solid #20345c !important;
+  box-shadow:5px 6px 0 #37618a !important;
+}
+#site-menu-toggle span,
+#site-menu-toggle span::before,
+#site-menu-toggle span::after { border-radius:0 !important; }
+#site-section-menu {
+  border-radius:0 !important;
+  border:4px solid #20345c !important;
+  box-shadow:7px 8px 0 #426b9b !important;
+}
+#site-section-menu a,
+#site-section-menu button { border-radius:0 !important; }
+#main-content.n64-world > button[aria-label="Check whether we cover your postcode"] {
+  border-radius:0 !important;
+  border:4px solid #20345c !important;
+  box-shadow:5px 6px 0 #37618a !important;
+}
+
+#areas-we-cover a,
+#areas-we-cover .areas a {
+  border-radius:0 !important;
+  border:4px solid #20345c !important;
+  padding:13px 18px !important;
+  min-height:51px;
+  box-shadow:0 6px 0 #56859b !important;
+  font-weight:1000 !important;
+}
+#areas-we-cover a:nth-child(3n + 1) {
+  box-shadow:0 6px 0 #c6943d !important;
+}
+#areas-we-cover a:nth-child(3n + 2) {
+  box-shadow:0 6px 0 #56aa80 !important;
+}
+#areas-we-cover a:nth-child(3n) {
+  box-shadow:0 6px 0 #a272ad !important;
+}
+
+/* 06 — Portal framing only: leave the Squeegee-rendered UI provider-owned. */
+#customer-portal .n64-portal-eyebrow,
+#customer-portal .n64-portal-shell,
+#customer-portal [data-sqc="layout"] {
+  border-radius:0 !important;
+}
+#customer-portal .n64-portal-eyebrow {
+  border:4px solid #20345c !important;
+  box-shadow:5px 6px 0 #bf9751 !important;
+}
+#customer-portal .n64-portal-shell {
+  border:5px solid #20345c !important;
+  box-shadow:11px 13px 0 #ad88b6 !important;
+}
+#customer-portal [data-sqc="layout"] {
+  border:4px solid #20345c !important;
+}
+#customer-reviews :is(article,button,a,[class*="rounded"]) {
+  border-radius:0 !important;
+}
+
+/* 07 — Modal containers, controls and results. Keep interactions unchanged. */
+#main-content.n64-world [role="dialog"] > div > div {
+  border-radius:0 !important;
+  border:4px solid #20345c !important;
+  box-shadow:10px 12px 0 #54729e !important;
+}
+#main-content.n64-world [role="dialog"] :is(
+  input:not([type="checkbox"]),
+  textarea,
+  select
+) {
+  border-radius:0 !important;
+  border:2px solid #526387 !important;
+  min-height:44px;
+}
+#main-content.n64-world [role="dialog"] button[class*="bg-green-500"],
+#main-content.n64-world [role="dialog"] button[class*="bg-blue-500"] {
+  border-radius:0 !important;
+  border:3px solid #20345c !important;
+  box-shadow:0 5px 0 #b88c38 !important;
+}
+#main-content.n64-world [role="dialog"] button:disabled {
+  box-shadow:none !important;
+  transform:none !important;
+}
+/* The 10-second minigame has its own nested modal/control surfaces. */
+[data-testid="ten-sec-root"] :is(
+  button,input,textarea,select,
+  [class*="rounded"], [class*="border"]
+) {border-radius:0 !important;}
+[data-testid="ten-sec-root"] > div {
+  border:4px solid #20345c !important;
+  box-shadow:9px 10px 0 #25365a !important;
+}
+
+/* Privacy-policy dialog is inserted by an external first-party script. */
+#nbg-privacy-policy-overlay,
+#nbg-privacy-policy-overlay * {
+  border-radius:0 !important;
+}
+
+/* 08 — Other first-party React screens, not the private admin controls. */
+.n64-street-booking *,
+.n64-street-booking *::before,
+.n64-sidequest *,
+.n64-metrics * {
+  border-radius:0 !important;
+}
+.n64-street-booking > div > div:nth-child(2) {
+  border:4px solid #20345c !important;
+  box-shadow:10px 12px 0 #7497a8 !important;
+}
+.n64-street-booking button[type="submit"],
+.n64-street-booking button.bg-black {
+  border:3px solid #20345c !important;
+  box-shadow:0 6px 0 #b58c39 !important;
+}
+.n64-sidequest :is(form,.max-w-xl) {
+  border:4px solid #20345c !important;
+  box-shadow:8px 10px 0 #7295b4 !important;
+}
+.n64-metrics .bg-neutral-900 {
+  border:4px solid #20345c !important;
+  box-shadow:7px 8px 0 #94a3bb !important;
+}
+
+/* Compact mobile buttons and borders still leave room for text. */
+@media(max-width:600px) {
+  #main-content.n64-world .n64-btn {
+    border-width:3px !important;
+    padding:11px 13px !important;
+    min-height:49px;
+    font-size:.91rem;
+  }
+  #main-content.n64-world .n64-score {
+    border-width:3px !important;
+    padding:12px 6px !important;
+    box-shadow:4px 5px 0 #416b86 !important;
+  }
+  #main-content.n64-world .n64-score:nth-child(2) {
+    box-shadow:4px 5px 0 #4a926e !important;
+  }
+  #main-content.n64-world .n64-score:nth-child(3) {
+    box-shadow:4px 5px 0 #af9c70 !important;
+  }
+  #areas-we-cover a,
+  #areas-we-cover .areas a {
+    border-width:3px !important;
+    padding:10px 12px !important;
+    min-height:44px;
+  }
+  #customer-portal .n64-portal-shell {
+    border-width:4px !important;
+    box-shadow:7px 8px 0 #ad88b6 !important;
+  }
+  #main-content.n64-world [role="dialog"] > div > div {
+    border-width:3px !important;
+    box-shadow:6px 8px 0 #54729e !important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  #main-content.n64-world .n64-btn,
+  #areas-we-cover a {transition:none !important;}
+}
