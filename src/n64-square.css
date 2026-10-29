@@ -599,7 +599,7 @@
   grid-template-columns:minmax(0,1fr);
   gap:14px;
   max-width:1030px;
-  margin:18px auto 17px;
+  margin:18px auto 0;
 }
 #main-content.n64-world .n64-hero-layout-v2 .n64-btn--start,
 #main-content.n64-world .n64-hero-layout-v2 .n64-btn--bonus {
@@ -614,7 +614,7 @@
   max-width:1030px;
   align-items:stretch;
   width:100%;
-  margin:23px auto 21px;
+  margin:13px auto 21px;
 }
 #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-text-link {
   display:flex;
@@ -679,7 +679,7 @@
   #main-content.n64-world .n64-hero-layout-v2 .n64-actions {
     grid-template-columns:minmax(0,1fr);
     gap:13px;
-    margin:12px 0 15px;
+    margin:12px 0 0;
   }
   #main-content.n64-world .n64-hero-layout-v2 .n64-btn--start,
   #main-content.n64-world .n64-hero-layout-v2 .n64-btn--bonus {
@@ -688,8 +688,9 @@
   }
   #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links {
     grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:8px;
-    margin:21px auto 19px;
+    column-gap:8px;
+    row-gap:12px;
+    margin:12px auto 19px;
   }
   #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-text-link {
     min-height:65px;
