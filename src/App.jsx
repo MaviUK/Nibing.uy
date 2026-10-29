@@ -4,8 +4,10 @@ import NiBinGuyLandingPage from "./LandingPage"
 import "./n64-theme.css"
 import "./n64-complete.css"
 import "./n64-square.css"
+import "./n64-finale.css"
 import HomepageServiceSchema from "./HomepageServiceSchema"
 import CustomerPortalLoader from "./components/CustomerPortalLoader"
+import FinalLevel from "./components/FinalLevel"
 
 const StandeeClaim = lazy(() => import("./standee/StandeeClaim"))
 const StandeeSpottedClaim = lazy(() => import("./standee/StandeeSpottedClaim"))
@@ -39,6 +41,7 @@ function HomePage() {
       <HomepageServiceSchema />
       <NiBinGuyLandingPage />
       <CustomerPortalLoader />
+      <FinalLevel />
       <SiteFooter />
     </>
   )
