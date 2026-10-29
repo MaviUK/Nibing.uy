@@ -621,6 +621,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const [whatsAppBookingStatus, setWhatsAppBookingStatus] = useState("idle");
   const [whatsAppConfirmation, setWhatsAppConfirmation] = useState(null);
   const [whatsAppBookingId, setWhatsAppBookingId] = useState("");
+  const bookedBinScoreRef = useRef([]);
 
 
   const canToggleAgree = termsViewed;
@@ -684,6 +685,8 @@ function BookingForm({ onClose, initialAddress = "" }) {
         const result = await response.json().catch(() => ({}));
 
         if (response.ok && result?.status === "confirmed") {
+          // The server confirmed the receipt and booking; award once per booking ID.
+          window.n64Score?.awardBooking(whatsAppBookingId, bookedBinScoreRef.current);
           setWhatsAppConfirmation(result);
           setWhatsAppBookingStatus("confirmed");
           return;
@@ -841,6 +844,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
     }
 
     const submissionMeta = createBookingSubmissionMeta();
+    bookedBinScoreRef.current = bins.map((bin) => ({ ...bin }));
     setWhatsAppBookingStatus("sending");
     setWhatsAppConfirmation(null);
     setWhatsAppBookingId(submissionMeta.bookingId);
@@ -996,6 +1000,9 @@ function BookingForm({ onClose, initialAddress = "" }) {
     alert("Failed to send booking email: " + errorText);
     return;
   }
+
+  // The server accepted the booking email. Award XP per requested bin/plan.
+  window.n64Score?.awardBooking(createBookingSubmissionMeta().bookingId, bins);
 
   // Booking database/Squeegee save removed by request.
   // The form now only sends the booking email.
