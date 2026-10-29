@@ -687,6 +687,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
         if (response.ok && result?.status === "confirmed") {
           // The server confirmed the receipt and booking; award once per booking ID.
           window.n64Score?.awardBooking(whatsAppBookingId, bookedBinScoreRef.current);
+          window.n64Score?.offerEntry(result.arcadeBookingProof);
           setWhatsAppConfirmation(result);
           setWhatsAppBookingStatus("confirmed");
           return;
@@ -1003,6 +1004,8 @@ function BookingForm({ onClose, initialAddress = "" }) {
 
   // The server accepted the booking email. Award XP per requested bin/plan.
   window.n64Score?.awardBooking(createBookingSubmissionMeta().bookingId, bins);
+  const acceptedBooking = await res.json().catch(() => ({}));
+  window.n64Score?.offerEntry(acceptedBooking.arcadeBookingProof);
 
   // Booking database/Squeegee save removed by request.
   // The form now only sends the booking email.
