@@ -1022,7 +1022,7 @@
 #customer-portal .n64-level-track .n64-level-washer,
 #level-08-final .n64-level-track .n64-level-washer {
     animation:none !important;
-    transform:translateX(-100%) !important;
+    transform:translateX(-100%);
   }
   #main-content.n64-world .n64-level-track.n64-run-complete .n64-level-complete,
   #areas-we-cover .n64-level-track.n64-run-complete .n64-level-complete,
@@ -1031,5 +1031,58 @@
     animation:none !important;
     opacity:1;
     transform:translate(-50%,-50%) !important;
+  }
+}
+
+
+/* ── REPLAYABLE CHECKPOINTS ──
+ * The mascot replays on re-entry, while the scoreboard deduplicates XP.
+ * A small manual replay button also works after a level is completed.
+ */
+.n64-level-track > .n64-level-replay {
+  display:none;
+  position:absolute;
+  top:50%;
+  right:7px;
+  z-index:12;
+  transform:translateY(-50%);
+  box-sizing:border-box;
+  min-height:33px;
+  padding:5px 7px;
+  margin:0;
+  color:#20345c !important;
+  background:#fff8df !important;
+  border:3px solid #20345c !important;
+  border-radius:0 !important;
+  box-shadow:3px 3px 0 #6689af !important;
+  font:1000 .63rem/1 "Trebuchet MS",Verdana,sans-serif;
+  letter-spacing:.02em;
+  text-transform:uppercase;
+  cursor:pointer;
+  pointer-events:auto;
+  user-select:none;
+  white-space:nowrap;
+}
+.n64-level-track.n64-run-complete > .n64-level-replay {display:block;}
+.n64-level-track > .n64-level-replay:focus-visible {
+  outline:3px solid #fff;
+  outline-offset:3px;
+}
+@media(max-width:640px){
+  .n64-level-track > .n64-level-replay {
+    min-height:28px;
+    padding:4px 5px;
+    right:5px;
+    border-width:2px !important;
+    font-size:.57rem;
+    box-shadow:2px 2px 0 #6689af !important;
+  }
+}
+/* If system motion is reduced, autoplay remains static. An explicit REPLAY
+ * tap is a deliberate opt-in and is allowed to animate that single run. */
+@media (prefers-reduced-motion: reduce) {
+  :is(#main-content.n64-world,#areas-we-cover,#customer-portal,#level-08-final)
+    .n64-level-track[data-n64-manual-play="true"].n64-run-active .n64-level-washer {
+    animation:n64-washer-travel var(--n64-level-duration) linear forwards !important;
   }
 }
