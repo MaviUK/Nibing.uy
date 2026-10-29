@@ -22,7 +22,7 @@ export default function CustomerPortalLoader() {
       }}
     >
       <div style={{ width: "100%", maxWidth: "1152px", margin: "0 auto" }}>
-        <div className="n64-portal-eyebrow" aria-hidden="true">WORLD 07 · CUSTOMER HQ</div>
+        <div className="n64-portal-eyebrow" aria-hidden="true">LEVEL 07 · CUSTOMER HQ</div>
         <h2
           style={{
             fontSize: "1.875rem",
