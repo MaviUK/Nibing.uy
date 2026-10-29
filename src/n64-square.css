@@ -396,7 +396,7 @@
   #main-content.n64-world .n64-hero-layout-v2 .n64-scene {
     width:100%;
     max-width:600px;
-    height:clamp(345px,61vw,475px);
+    height:clamp(345px,50vw,405px);
     margin:0 auto 2px;
   }
   #main-content.n64-world .n64-hero-layout-v2 .n64-actions {
@@ -447,7 +447,8 @@
   }
   #main-content.n64-world .n64-hero-layout-v2 .n64-scene {
     width:100%;
-    height:clamp(320px,94vw,460px);
+    /* Size the stage to the actual bin art rather than the removed platform. */
+    height:clamp(252px,73vw,380px);
     max-width:520px;
     margin:4px auto 6px;
   }
@@ -471,12 +472,14 @@
     height:68px;
   }
   #main-content.n64-world .n64-hero-layout-v2 .n64-scene-label {
-    bottom:1%;
+    /* Place the label directly beneath the bins, not at the old platform's base. */
+    top:calc(min(61vw,330px) + 10px);
+    bottom:auto;
     right:1%;
   }
   #main-content.n64-world .n64-hero-layout-v2 .n64-actions {
     gap:13px 10px;
-    margin:14px 0 18px;
+    margin:8px 0 18px;
   }
   #main-content.n64-world .n64-hero-layout-v2 .n64-btn {
     min-height:59px;
