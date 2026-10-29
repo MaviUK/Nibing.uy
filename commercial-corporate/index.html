@@ -611,7 +611,7 @@
             <span class="lab-label lab-label--left">TIRED-LOOKING</span><span class="lab-label lab-label--right">REFRESHED</span>
           </div>
           <div class="lab-control">
-            <label class="mono" for="cleanSlider"><span>DRAG TO WIPE</span><span id="sliderAmount">53% REVEALED</span></label>
+            <label class="mono" for="cleanSlider"><span>DRAG TO WIPE</span><span id="sliderAmount">53% WIPE POSITION</span></label>
             <input id="cleanSlider" type="range" min="0" max="100" step="1" value="53" aria-label="Move the illustrative clean-bin comparison">
           </div>
           <p class="lab-note">Illustration only. This is not a photograph or a guarantee of a particular cleaning result.</p>
@@ -778,7 +778,7 @@
       cleanSlider.addEventListener("input",()=>{
         const pct=Number(cleanSlider.value);
         document.getElementById("labVisual").style.setProperty("--reveal",pct+"%");
-        document.getElementById("sliderAmount").textContent=pct+"% REVEALED";
+        document.getElementById("sliderAmount").textContent=pct+"% WIPE POSITION";
       });
 
       const plans={};
