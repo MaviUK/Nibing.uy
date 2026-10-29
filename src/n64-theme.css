@@ -268,11 +268,11 @@
   color:#4f5582; font:900 .73rem/1.25 Verdana,sans-serif;
   letter-spacing:.16em;text-shadow:none;
 }
-#main-content.n64-world > section:nth-of-type(2) > h2::before {content:"WORLD 01  /  OUR SERVICES";}
-#main-content.n64-world > section:nth-of-type(3) > h2::before {content:"WORLD 02  /  HOW WE PLAY";}
-#main-content.n64-world > section:nth-of-type(4) > h2::before {content:"WORLD 03  /  CHOOSE YOUR BIN";}
-#main-content.n64-world > section:nth-of-type(5) > h2::before {content:"WORLD 04  /  BEAT THE GRIME";}
-#main-content.n64-world > section:nth-of-type(6) > h2::before {content:"WORLD 05  /  WHY CHOOSE US";}
+#main-content.n64-world > section:nth-of-type(2) > h2::before {content:"LEVEL 01  /  OUR SERVICES";}
+#main-content.n64-world > section:nth-of-type(3) > h2::before {content:"LEVEL 02  /  HOW WE PLAY";}
+#main-content.n64-world > section:nth-of-type(4) > h2::before {content:"LEVEL 03  /  CHOOSE YOUR BIN";}
+#main-content.n64-world > section:nth-of-type(5) > h2::before {content:"LEVEL 04  /  BEAT THE GRIME";}
+#main-content.n64-world > section:nth-of-type(6) > h2::before {content:"LEVEL 05  /  WHY CHOOSE US";}
 #main-content.n64-world > section .bg-zinc-800\/70 {
   background:#fff !important; color:var(--ink) !important;
   border:3px solid var(--outline) !important;
