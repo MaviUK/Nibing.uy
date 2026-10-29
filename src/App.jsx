@@ -8,6 +8,7 @@ import "./n64-finale.css"
 import HomepageServiceSchema from "./HomepageServiceSchema"
 import CustomerPortalLoader from "./components/CustomerPortalLoader"
 import FinalLevel from "./components/FinalLevel"
+import ArcadeLeaderboard from "./components/ArcadeLeaderboard"
 
 const StandeeClaim = lazy(() => import("./standee/StandeeClaim"))
 const StandeeSpottedClaim = lazy(() => import("./standee/StandeeSpottedClaim"))
@@ -42,6 +43,7 @@ function HomePage() {
       <NiBinGuyLandingPage />
       <CustomerPortalLoader />
       <FinalLevel />
+      <ArcadeLeaderboard />
       <SiteFooter />
     </>
   )
