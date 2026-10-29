@@ -44,7 +44,7 @@
 }
 #areas-we-cover h2::before {
   display:block;
-  content:"WORLD 06  /  EXPLORE THE MAP";
+  content:"LEVEL 06  /  EXPLORE THE MAP";
   font:900 .7rem/1.4 Verdana,system-ui,sans-serif;
   letter-spacing:.16em;
   color:#344e7b;
