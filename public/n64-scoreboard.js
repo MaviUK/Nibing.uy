@@ -170,6 +170,16 @@
     if (root || !document.body) return;
     // Do not overlay the administrative, account or callback screens.
     if (!["/", "/street-booking"].includes(location.pathname.replace(/\/$/, "") || "/")) return;
+    // This stylesheet is noncritical: loading it after the DOM is ready keeps
+    // the homepage renderable even if a mobile browser delays this asset.
+    if (!document.querySelector('link[data-n64-score-style]')) {
+      const scoreStyle = document.createElement("link");
+      scoreStyle.rel = "stylesheet";
+      scoreStyle.href = "/n64-scoreboard.css?v=3";
+      scoreStyle.dataset.n64ScoreStyle = "true";
+      document.head.appendChild(scoreStyle);
+    }
+
     root = document.createElement("aside");
     root.className = "n64-score-hud";
     root.setAttribute("aria-label", "NI Bin Guy arcade score");
