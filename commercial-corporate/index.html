@@ -470,6 +470,131 @@
       html{scroll-behavior:auto}
       *,*::before,*::after{animation:none!important;transition:none!important}
     }
+  
+    /* MOBILE LAYOUT REPAIR - keep all responsive grids within the actual phone viewport.
+       The original planner used intrinsic min-content widths, widening the document and
+       making other sections look like narrow, left-aligned columns on Android. */
+    html,body{max-width:100%;overflow-x:hidden;overflow-x:clip}
+    main,.masthead,.systemline,.hero,.intro-section,.services,.sectors,.visual-lab,.planner,.method,.locations,.last-call,.footer{min-width:0;max-width:100%}
+    .wrap{min-width:0}
+    .hero-main,.intro-header,.intro-bottom,.section-heading,.lab-layout,.planner-grid,.configurator,.sheet,.sheet-body,.config-choose,.bin-options,.bin-list,.frequency-pills,.sheet-preview,.sheet-preview__items,.enquiry-form,.send-options,.method-grid,.location-layout,.footer-grid{min-width:0}
+    .planner-grid > *,.enquiry-form > *,.bin-options > *,.config-choose > *{min-width:0}
+    .planner-grid{grid-template-columns:minmax(0,1fr)}
+    .sheet,.configurator{width:100%;max-width:100%;min-width:0}
+    .configurator .subtext,.section-heading p,.hero-intro p,.sector-panel p{overflow-wrap:break-word}
+    .bin-options{grid-template-columns:repeat(5,minmax(0,1fr))}
+    .bin-option{min-width:0;overflow-wrap:anywhere}
+    .form-field{min-width:0}
+    .form-field input,.form-field textarea{min-width:0;max-width:100%}
+    @media (max-width:600px){
+      html,body{width:100%;max-width:100%;overflow-x:hidden;overflow-x:clip}
+      .wrap{width:calc(100% - 28px);max-width:100%}
+      .masthead__inner{min-width:0}
+      .brand-words{min-width:0}
+      .hero-main,.intro-header,.intro-bottom,.lab-layout,.planner-grid,.location-layout{grid-template-columns:minmax(0,1fr)}
+      .hero-copy{min-width:0;padding:54px 0 44px}
+      .hero-title{font-size:clamp(62px,14.7vw,83px);line-height:.82;letter-spacing:-.02em;max-width:100%}
+      .hero-title .line{max-width:100%;white-space:normal;overflow-wrap:normal}
+      .hero-intro{grid-template-columns:23px minmax(0,1fr)}
+      .hero-actions{grid-template-columns:minmax(0,1fr)}
+      .hero-actions .btn{max-width:100%;min-width:0}
+      .hero-stage{width:100%;min-width:0;max-width:100%}
+      .stage-art{min-width:0}
+      .stage-bin{max-width:95%}
+      .capacity-picker{grid-template-columns:repeat(5,minmax(0,1fr))}
+      .capacity-picker button{min-width:0;font-size:10px}
+      .intro-section,.services,.sectors,.visual-lab,.planner,.method,.locations{padding-top:60px;padding-bottom:60px}
+      .intro-header{gap:18px}
+      .intro-title{font-size:clamp(48px,11.7vw,63px);line-height:.93;max-width:100%;overflow-wrap:normal}
+      .intro-bottom{gap:22px;margin-top:34px}
+      .intro-bottom .pullquote{font-size:clamp(29px,8.4vw,40px);line-height:1.02}
+      .section-heading{margin-bottom:24px}
+      .section-heading h2{font-size:clamp(48px,11.6vw,65px);line-height:.91;max-width:100%;overflow-wrap:normal}
+      .section-heading p{margin-top:17px;max-width:100%}
+      .service-rail{grid-template-columns:28px minmax(0,1fr) 29px}
+      .service-rail h3{font-size:clamp(30px,8.7vw,40px);line-height:.94;min-width:0}
+      .service-rail p{font-size:12px;min-width:0}
+      .sector summary{grid-template-columns:27px minmax(0,1fr) 28px}
+      .sector summary strong{font-size:clamp(28px,8.3vw,38px);min-width:0;overflow-wrap:break-word}
+      .sector-panel{padding-left:36px}
+      .lab-copy h2{font-size:clamp(51px,12vw,72px);line-height:.9}
+      .lab-panel{max-width:100%;min-width:0}
+      .lab-panel__header{min-width:0}
+      .lab-panel__header .mono{font-size:8px}
+      .planner-grid{grid-template-columns:minmax(0,1fr);gap:0;align-items:stretch}
+      .configurator{padding:19px 16px;border:2px solid var(--ink);border-bottom:0;box-shadow:none}
+      .configurator h3{font-size:clamp(32px,8.7vw,43px);line-height:.94;max-width:100%}
+      .configurator .subtext{margin-bottom:25px}
+      .config-top{gap:6px;flex-wrap:wrap}
+      .config-top .mono{font-size:9px}
+      .config-index{white-space:nowrap;font-size:9px}
+      .bin-options{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+      .bin-option{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:58px;padding:10px 6px;font-size:13px;line-height:1.2}
+      .bin-option small{font-size:9px}
+      .bin-option:last-child{grid-column:1/-1}
+      .config-choose{grid-template-columns:minmax(0,1fr);gap:13px;align-items:stretch;margin:23px 0}
+      .quantity{width:100%;max-width:none;height:52px}
+      .quantity button{flex:0 0 54px;width:54px;height:50px}
+      .quantity output{min-width:0}
+      .add-bin{width:100%;min-height:54px;font-size:12px}
+      .current-bins{padding-top:18px}
+      .bin-list{min-width:0}
+      .bin-line{grid-template-columns:39px minmax(0,1fr) 80px 27px;gap:7px}
+      .bin-line strong{font-size:15px;line-height:1.15}
+      .bin-line small{font-size:9px}
+      .bin-line__image{width:39px;height:42px}
+      .bin-line__qty{gap:3px}
+      .bin-line__qty button{width:24px;height:25px;flex-shrink:0}
+      .bin-remove{width:27px;height:27px}
+      .configurator .config-substep{margin-top:22px;padding-top:22px}
+      .frequency-pills{grid-template-columns:minmax(0,1fr);gap:9px}
+      .frequency-pills button,.frequency-pills button[aria-pressed="true"]{width:100%;min-width:0;padding:15px 13px;font-size:11px;line-height:1.4}
+      .frequency-pills button span{font-size:11px;margin-top:5px}
+      .sheet{position:static;border:2px solid var(--ink);box-shadow:none}
+      .sheet-head{padding:18px 16px;min-width:0}
+      .sheet-head h3{font-size:clamp(32px,8.3vw,42px);line-height:.94}
+      .sheet-head .mono{font-size:9px}
+      .sheet-body{padding:19px 16px}
+      .sheet-total{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .sheet-total div{padding:15px 12px;min-width:0}
+      .sheet-total strong{font-size:41px}
+      .sheet-preview__items{min-width:0;overflow-wrap:anywhere}
+      .sheet-frequency{align-items:flex-start;gap:15px}
+      .sheet-frequency>*{min-width:0}
+      .sheet-frequency span:last-child{max-width:60%;overflow-wrap:break-word}
+      .enquiry-form{grid-template-columns:minmax(0,1fr);gap:12px}
+      .enquiry-form .full{grid-column:1}
+      .form-field input,.form-field textarea{width:100%}
+      .send-options{grid-template-columns:minmax(0,1fr);gap:9px}
+      .send-options button{width:100%}
+      .method-grid{grid-template-columns:minmax(0,1fr)}
+      .method-step{min-width:0;min-height:0;padding:22px}
+      .method-step__number{font-size:58px}
+      .method-step h3{font-size:clamp(29px,8.1vw,37px);line-height:.99}
+      .method-step p{font-size:12px}
+      .locations h2{font-size:clamp(55px,13.3vw,77px);line-height:.88}
+      .town{min-width:0;padding:11px 0}
+      .town strong{min-width:0;font-size:clamp(25px,7.2vw,34px);overflow-wrap:break-word}
+      .town span{flex-shrink:0;font-size:9px}
+      .last-call{padding-top:66px;padding-bottom:69px}
+      .last-call h2{font-size:clamp(57px,13.5vw,88px);line-height:.88}
+      .last-call .wrap{grid-template-columns:minmax(0,1fr)}
+      .last-call .btn{white-space:normal;width:100%;min-width:0}
+      .footer-grid{grid-template-columns:minmax(0,1fr)}
+      .mobile-cta{max-width:100%;width:100%}
+    }
+    @media (max-width:370px){
+      .wrap{width:calc(100% - 24px)}
+      .hero-title{font-size:clamp(55px,14.5vw,65px)}
+      .section-heading h2{font-size:clamp(43px,11.3vw,56px)}
+      .intro-title{font-size:clamp(44px,11.3vw,55px)}
+      .service-rail h3{font-size:30px}
+      .sector summary strong{font-size:27px}
+      .lab-copy h2{font-size:51px}
+      .sheet-head h3{font-size:33px}
+      .brand-words strong{font-size:20px}
+    }
+
   </style>
 </head>
 <body>
