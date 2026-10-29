@@ -719,3 +719,32 @@
     transition:none;
   }
 }
+
+
+/* ── POSTCODE CHECKER SQUARE-EDGE FIX ───────────────────────────────────────
+   These targeted selectors override earlier !important border radii from
+   n64-complete.css. The coverage checker keeps all existing postcode,
+   address lookup, booking and date-checking behaviour unchanged.
+*/
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] {
+  border-radius:0 !important;
+}
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] [class*="rounded"],
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] input,
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] select,
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] button {
+  border-radius:0 !important;
+}
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] button[type="submit"] {
+  border-radius:0 !important;
+  border:3px solid #20345c !important;
+  box-shadow:0 5px 0 #b88d3c !important;
+}
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] button[type="submit"]:active {
+  transform:translateY(4px);
+  box-shadow:0 1px 0 #b88d3c !important;
+}
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] button[type="submit"]:disabled {
+  box-shadow:none !important;
+  transform:none !important;
+}
