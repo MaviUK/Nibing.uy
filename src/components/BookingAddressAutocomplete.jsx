@@ -81,51 +81,113 @@ export default function BookingAddressAutocomplete({ value, onChange, onPlace })
       return;
     }
 
-    setStatus("searching");
-    setActiveIndex(-1);
+    let cancelled = false;
+    let completed = false;
     const controller = new AbortController();
-    const isCurrent = () => requestRef.current === requestNumber;
-    const timer = window.setTimeout(async () => {
-      // Ards & North Down council can return actual properties for full BT
-      // postcodes, including when Google browser-key restrictions apply.
+    const isCurrent = () => !cancelled && !completed && requestRef.current === requestNumber;
+    const deliver = (items, state) => {
+      if (!isCurrent()) return;
+      completed = true;
+      setSuggestions(items);
+      setStatus(state);
+    };
+
+    // Every search has a finite deadline. Previously an unresolved Google
+    // promise could leave "Searching for addresses..." visible indefinitely.
+    const hardStop = window.setTimeout(() => {
+      if (isCurrent()) {
+        deliver([], "unavailable");
+        controller.abort();
+      }
+    }, 10000);
+
+    async function timedJson(url, ms) {
+      const requestController = new AbortController();
+      const abort = () => requestController.abort();
+      controller.signal.addEventListener("abort", abort, { once: true });
+      const timeout = window.setTimeout(abort, ms);
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          signal: requestController.signal,
+          cache: "no-store",
+        });
+        if (!response.ok) return null;
+        return await response.json();
+      } finally {
+        window.clearTimeout(timeout);
+        controller.signal.removeEventListener("abort", abort);
+      }
+    }
+
+    function withDeadline(promise, ms) {
+      let timer;
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          timer = window.setTimeout(() => reject(new Error("Address lookup timeout")), ms);
+        }),
+      ]).finally(() => window.clearTimeout(timer));
+    }
+
+    async function run() {
+      setStatus("searching");
+      setSuggestions([]);
+      setActiveIndex(-1);
+
+      // 1. Council properties are often the most accurate result for full BT
+      // postcodes, and don't depend on Google API key/referrer restrictions.
       const postcode = findNiPostcode(query);
       if (postcode) {
         try {
-          const response = await fetch(
+          const body = await timedJson(
             "/.netlify/functions/binAddresses?postcode=" + encodeURIComponent(postcode),
-            { signal: controller.signal }
+            3000
           );
-          if (response.ok) {
-            const matches = councilSuggestions(await response.json(), postcode);
-            if (matches.length) {
-              if (isCurrent()) {
-                setSuggestions(matches);
-                setStatus("ready");
-              }
-              return;
-            }
+          if (!isCurrent()) return;
+          const matches = councilSuggestions(body, postcode);
+          if (matches.length) {
+            deliver(matches, "ready");
+            return;
           }
         } catch (_) {
-          // A council outage must not block the normal Google lookup.
+          if (!isCurrent()) return;
         }
       }
-      if (!isCurrent()) return;
-      if (provider === "loading") {
-        setStatus("loading");
-        return;
+
+      // 2. Server-side Google Places uses the existing protected Netlify key.
+      // It works even when maps.googleapis.com is blocked by the preview host.
+      try {
+        const body = await timedJson(
+          "/.netlify/functions/bookingAddressSuggestions?q=" + encodeURIComponent(query),
+          5300
+        );
+        if (!isCurrent()) return;
+        if (Array.isArray(body?.addresses) && body.addresses.length) {
+          deliver(body.addresses.slice(0, 8), "ready");
+          return;
+        }
+      } catch (_) {
+        if (!isCurrent()) return;
       }
-      if (provider !== "ready" || !placesRef.current) {
-        setStatus("unavailable");
+
+      // 3. Keep the Google JavaScript API as a backup for browsers where it
+      // works, but bound every Google promise/callback by a timeout.
+      const places = provider === "ready" ? placesRef.current : null;
+      if (!places) {
+        deliver([], "unavailable");
         return;
       }
 
-      const places = placesRef.current;
       if (places.AutocompleteSuggestion?.fetchAutocompleteSuggestions) {
         try {
-          const result = await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-            input: query,
-            includedRegionCodes: ["gb"],
-          });
+          const result = await withDeadline(
+            places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+              input: query,
+              includedRegionCodes: ["gb"],
+            }),
+            2400
+          );
           if (!isCurrent()) return;
           const matches = (result?.suggestions || []).map((item) => {
             const prediction = item?.placePrediction;
@@ -136,51 +198,56 @@ export default function BookingAddressAutocomplete({ value, onChange, onPlace })
               source: "google-new",
               prediction,
             };
-          }).filter((item) => item?.label).slice(0, 6);
-          setSuggestions(matches);
-          setStatus(matches.length ? "ready" : "empty");
+          }).filter((item) => item?.label).slice(0, 8);
+          if (matches.length) {
+            deliver(matches, "ready");
+            return;
+          }
+        } catch (_) {
+          if (!isCurrent()) return;
+        }
+      }
+
+      if (places.AutocompleteService) {
+        try {
+          if (!legacyAutocompleteRef.current) {
+            legacyAutocompleteRef.current = new places.AutocompleteService();
+          }
+          const predictions = await withDeadline(new Promise((resolve, reject) => {
+            legacyAutocompleteRef.current.getPlacePredictions({
+              input: query,
+              componentRestrictions: { country: "gb" },
+              types: ["address"],
+            }, (list, responseStatus) => {
+              if (responseStatus === places.PlacesServiceStatus.OK) resolve(list || []);
+              else if (responseStatus === places.PlacesServiceStatus.ZERO_RESULTS) resolve([]);
+              else reject(new Error("Google autocomplete not available"));
+            });
+          }), 2400);
+          if (!isCurrent()) return;
+          const matches = predictions.slice(0, 8).map((item) => ({
+            id: item.place_id,
+            label: item.description,
+            source: "google-legacy",
+          })).filter((item) => item.label);
+          deliver(matches, matches.length ? "ready" : "empty");
           return;
         } catch (_) {
-          // Some existing Google projects only support the legacy Places API.
-        }
-      }
-
-      if (!places.AutocompleteService) {
-        if (isCurrent()) setStatus("unavailable");
-        return;
-      }
-
-      try {
-        if (!legacyAutocompleteRef.current) {
-          legacyAutocompleteRef.current = new places.AutocompleteService();
-        }
-        legacyAutocompleteRef.current.getPlacePredictions({
-          input: query,
-          componentRestrictions: { country: "gb" },
-          types: ["address"],
-        }, (predictions, responseStatus) => {
           if (!isCurrent()) return;
-          if (responseStatus === places.PlacesServiceStatus.OK && Array.isArray(predictions)) {
-            const matches = predictions.slice(0, 6).map((item) => ({
-              id: item.place_id,
-              label: item.description,
-              source: "google-legacy",
-            }));
-            setSuggestions(matches);
-            setStatus(matches.length ? "ready" : "empty");
-          } else {
-            setSuggestions([]);
-            setStatus(responseStatus === places.PlacesServiceStatus.ZERO_RESULTS ? "empty" : "unavailable");
-          }
-        });
-      } catch (_) {
-        if (isCurrent()) setStatus("unavailable");
+        }
       }
-    }, 260);
+      deliver([], "unavailable");
+    }
+
+    const timer = window.setTimeout(() => { void run().catch(() => {
+      deliver([], "unavailable");
+    }); }, 280);
 
     return () => {
+      cancelled = true;
       controller.abort();
       window.clearTimeout(timer);
+      window.clearTimeout(hardStop);
     };
   }, [typed, open, provider]);
 
@@ -199,7 +266,7 @@ export default function BookingAddressAutocomplete({ value, onChange, onPlace })
     setSuggestions([]);
     // Fill immediately, even if fetching Google place details takes time.
     onPlace({ formatted_address: item.label, place_id: item.source === "council" ? null : item.id });
-    if (item.source === "council") return;
+    if (item.source === "council" || item.source === "google-server") return;
     try {
       let place;
       if (item.source === "google-new") {
@@ -294,7 +361,8 @@ export default function BookingAddressAutocomplete({ value, onChange, onPlace })
               {item.label}
             </button>
           ))}
-          {status !== "ready" && (
+<p className="m-0 px-3 pb-2 pt-1 text-[11px] text-gray-500" aria-label="Google Places attribution">Powered by Google for address suggestions</p>
+                    {status !== "ready" && (
             <p className="m-0 px-3 py-3 text-sm" role="status" aria-live="polite">
               {status === "searching" || status === "loading"
                 ? "Searching for addresses…"
