@@ -6,8 +6,9 @@
   <meta name="color-scheme" content="light">
   <meta name="theme-color" content="#101f1c">
   <meta name="robots" content="noindex, nofollow">
-  <meta name="description" content="A corporate website concept for NI Bin Guy's commercial bin cleaning service across North Down and Ards.">
-  <title>Commercial Bin Cleaning | NI Bin Guy — Concept Preview</title>
+  <meta name="description" content="NI Bin Guy commercial bin cleaning for restaurants, shops, offices and larger premises across North Down and Ards. Enquire about regular or one-off cleans.">
+  <title>NI Bin Guy | Commercial Bin Cleaning — Brand Preview</title>
+  <link rel="icon" href="https://nibing.uy/favicon.ico">
   <style>
     :root {
       --ink:#10221e; --forest:#122b25; --forest-2:#1a3930; --lime:#c5f36b;
@@ -237,6 +238,188 @@
       .footer-base{align-items:start;flex-direction:column}
     }
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
+  
+/* NI BIN GUY | LOGO-LED CORPORATE REDESIGN V2
+   Official visual language: charcoal black, periodic-table green, hazmat yellow, white.
+   Keeps existing HTML interactions and form behaviour intact. */
+:root {
+  --ink:#0b0e0c;
+  --forest:#074832;
+  --forest-2:#095940;
+  --lime:#ffd322;
+  --cream:#f6f6f2;
+  --white:#fff;
+  --mute:#626962;
+  --line:#d8ded6;
+  --brand-red:#c83a4b;
+}
+body{background:var(--cream);color:var(--ink)}
+a,button{-webkit-tap-highlight-color:transparent}
+.topline{background:#064833;color:#f6fff9;border-bottom:1px solid #0e6549}
+.topline a{color:#ffd322}
+.topline-inner{min-height:34px}
+.site-header{background:#080b09;border-bottom:1px solid #27342d}
+.header-inner{min-height:86px}
+.brand-symbol{
+  background:#075640;color:#fff;border:2px solid #fff;
+  font-family:Georgia,serif;font-weight:800;font-size:25px;letter-spacing:-.06em;
+  padding-right:0;width:49px;height:49px;position:relative;line-height:1
+}
+.brand-symbol::after{content:"28";position:absolute;background:none;color:#fff;width:auto;height:auto;top:2px;right:3px;transform:none;font:700 9px/1 Arial,sans-serif}
+.brand-copy strong{color:#fff;font-weight:950;font-size:23px;letter-spacing:-.055em}
+.brand-copy span{color:#ffd322;letter-spacing:.17em;font-size:9px}
+.nav-links a:not(.nav-cta){color:#f1f5f1;font-size:13px}
+.nav-links a:not(.nav-cta):hover{color:#ffd322}
+.nav-cta{background:#ffd322;color:#090d08;box-shadow:4px 4px 0 #0c573c;padding:16px 18px}
+.nav-cta:hover{background:#ffe278;color:#090d08}
+.menu-toggle{border-color:#56665c}
+.menu-toggle i{background:#fff}
+.hero{background:var(--cream);color:#0b0e0c;border-bottom:1px solid #d8ded7}
+.hero::before{background:radial-gradient(circle at 13% 4%,rgba(255,211,34,.095),transparent 35%);pointer-events:none}
+.hero-content{grid-template-columns:1.09fr .91fr;min-height:670px}
+.hero-copy{padding-top:94px;padding-bottom:88px;padding-right:48px}
+.hero .eyebrow{color:#075840;letter-spacing:.15em;font-size:11px;margin-bottom:31px}
+.hero .eyebrow::before{background:#ffca00;width:29px;height:5px;margin-right:11px}
+h1{color:#080b09;font-family:Arial,"Helvetica Neue",Helvetica,sans-serif;font-size:clamp(56px,6.1vw,93px);line-height:.99;letter-spacing:-.082em;font-weight:950;margin-bottom:30px;max-width:740px}
+h1 em{color:#006144}
+.hero-lead{color:#4c5850;max-width:500px;font-size:16px;line-height:1.76;margin-bottom:36px}
+.btn{min-height:57px;border-width:2px;padding:0 22px;letter-spacing:.005em}
+.btn-lime{background:#ffd322;color:#10110b;box-shadow:5px 5px 0 #0e4b38}
+.btn-lime:hover{background:#ffe071}
+.btn-outline{color:#171c18;border-color:#15221c;background:transparent}
+.btn-outline:hover{background:#0b0e0c;color:#fff}
+.hero-meta{border-top:1px solid #d1d7ce;margin-top:72px;max-width:550px;padding-top:27px}
+.hero-meta strong{font-size:16px;color:#102219}
+.hero-meta span{color:#647168;font-size:10px}
+.hero-visual{
+  background:#000;border-left:8px solid #ffcf1b;min-height:590px;
+  isolation:isolate;overflow:hidden
+}
+.hero-visual::before{
+  background-image:linear-gradient(to right,rgba(255,255,255,.25) 1px,transparent 1px),
+    linear-gradient(to bottom,rgba(255,255,255,.25) 1px,transparent 1px);
+  background-size:54px 54px;opacity:.16;
+  mask-image:linear-gradient(to bottom,transparent,black 45%,transparent)
+}
+.hero-visual::after{width:420px;height:420px;border:1px solid rgba(255,211,34,.25);background:transparent;border-radius:50%;bottom:-160px;transform:translateX(-50%);pointer-events:none}
+.bin-image{
+  width:min(94%,540px);max-height:560px;object-fit:contain;
+  filter:none;margin-bottom:49px;mix-blend-mode:normal;z-index:1;
+  background:#000
+}
+.hero-visual:hover .bin-image{transform:translateY(-5px)}
+.visual-ribbon{top:24px;left:22px;color:#ffd322;letter-spacing:.135em;z-index:2}
+.visual-topline{top:25px;right:24px;color:#b8b9af;z-index:2}
+.hero-vertical{left:14px;color:#e4cf7b;z-index:2}
+.visual-label{background:#ffcf1d;box-shadow:7px 7px 0 #075943;color:#050605;right:23px;bottom:22px;min-width:214px;z-index:3}
+.visual-label small{color:#19402b}
+.proof-strip{background:#fff;border-bottom:1px solid #e3e6e0}
+.proof-item{border-right-color:#e1e5de;padding-top:22px;padding-bottom:22px}
+.proof-icon{background:#ffcf1d;border:2px solid #ffcf1d;color:#10150d;font-size:17px}
+.proof-item strong{color:#14241b}
+.proof-item span{color:#5b635b}
+.section-white,.faqs{background:#fff}
+.section-cream{background:#f5f6f1}
+.section-kicker{color:#087047}
+.section-kicker::before{background:#ffcb1e}
+h2{color:#111913;letter-spacing:-.071em}
+h2 span{color:#086040}
+.section-top>p,.bin-intro p:not(.eyebrow),.faq-layout>div>p:not(.eyebrow){color:#5b665d}
+.service-card{
+  background:#fff;border:1px solid #e1e6df;padding:32px;
+  box-shadow:0 8px 24px rgba(5,36,20,.025);
+  border-top:5px solid #076243;min-height:327px
+}
+.service-card:hover{background:#f9fbf5;border-color:#076243;border-top-color:#ffcc15}
+.service-card .index{color:#086043}
+.service-symbol{background:#e8f2ea;border:1px solid #d8e6db;color:#066044;margin-top:30px;margin-bottom:32px}
+.service-card h3{color:#121b15}
+.service-card p{color:#68726b;line-height:1.7}
+.industries{background:#090d0a;color:#fff;border-top:8px solid #ffd322}
+.industries .section-kicker{color:#ffd322}
+.industries .section-top>p{color:#b5c1b7}
+.industries h2{color:#fff}
+.industry-grid{border-top-color:#32453b;border-left-color:#32453b}
+.industry{border-right-color:#32453b;border-bottom-color:#32453b}
+.industry .industry-code{color:#ffd322}
+.industry .industry-mark{color:#0f7050;font-size:55px}
+.industry h3{color:#f6fbf6}
+.industry p{color:#afc0b4}
+.bin-tabs button{border:1px solid #cfd8d0;background:#fff;color:#142319}
+.bin-tabs button:hover,.bin-tabs button[aria-selected="true"]{background:#0a5b40;border-color:#0a5b40;color:#fff}
+.bin-display{background:#e5ece4;border:1px solid #cfddcf}
+.bin-display::before{background:#d3dfd2}
+.bin-display-copy .volume{color:#064c36}
+.bin-display-copy h3{color:#172d21}
+.bin-display-copy p{color:#576b5b}
+.bin-display .side-number{color:#3f684e}
+.process-card{border-top:4px solid #0a5940}
+.process-card span{color:#ffca16}
+.process-card h3{color:#18231a}
+.process-card p{color:#5f6960}
+.coverage-banner{background:#07513a;border:0;border-left:8px solid #ffd322;box-shadow:10px 10px 0 #e5ece4}
+.coverage-banner h3{color:#fff}
+.coverage-banner p{color:#c8e0d0}
+.towns span{background:#fff;color:#0c513b;border:1px solid #b9d3c2}
+.faq-items,details{border-color:#dce1d9}
+summary{color:#17251a}
+summary::after{color:#036c49}
+details p{color:#636e65}
+.quote{background:#091c14;border-top:8px solid #ffd322}
+.quote-info .eyebrow{color:#ffd322}
+.quote-info h2{color:#fff}
+.quote-info>p:not(.eyebrow){color:#c0d3c5}
+.contact-direct{border-top-color:#45634f}
+.contact-direct a:hover{color:#ffd322}
+.quote-form{box-shadow:12px 12px 0 #07553b}
+.form-head span{background:#ffd322;color:#111908}
+.field label{color:#15271b}
+input:focus,select:focus,textarea:focus{outline-color:#09804b;border-color:#0c6a49}
+.form-actions .mail-button{background:#ffd322;border:1px solid #ffd322;color:#09150c}
+.form-actions .whatsapp-button{background:#065a40;border:1px solid #065a40;color:#fff}
+.site-footer{background:#050807;border-top:1px solid #3a4d40}
+.footer-main .brand-symbol{background:#075640;color:#fff;border-color:#fff}
+.footer-main .brand-symbol::after{background:none;color:#fff}
+.footer-main .brand-copy span{color:#ffd322}
+.footer-col strong{color:#ffd322}
+.preview-note{color:#b4cbbd}
+@media(max-width:1080px){
+  .hero-content{grid-template-columns:1.05fr .95fr}
+  h1{font-size:clamp(50px,6.7vw,80px)}
+  .hero-copy{padding-right:30px}
+}
+@media(max-width:800px){
+  .header-inner{min-height:76px}
+  .nav-links{top:76px;background:#080b09;border-bottom:1px solid #334c3a}
+  .nav-links a:not(.nav-cta){color:#fff;border-bottom-color:#294034}
+  .nav-cta{color:#12180e}
+  .hero-content{display:flex;flex-direction:column}
+  .hero-copy{padding:76px 0 64px}
+  h1{font-size:clamp(51px,10vw,77px)}
+  .hero-meta{margin-top:52px}
+  .hero-visual{border-left:0;border-top:7px solid #ffcf1d;min-height:460px}
+  .bin-image{max-height:390px;width:min(88%,420px);margin-bottom:40px}
+  .hero-visual::after{bottom:-200px}
+}
+@media(max-width:500px){
+  .brand-symbol{height:43px;width:43px;font-size:23px}
+  .brand-copy strong{font-size:20px}
+  .brand-copy span{font-size:8px}
+  .hero-copy{padding:62px 0 55px}
+  h1{font-size:clamp(44px,12.6vw,61px);margin-bottom:24px}
+  .hero-lead{font-size:14px}
+  .hero-meta{margin-top:46px}
+  .hero-visual{min-height:355px}
+  .bin-image{width:89%;max-height:320px;margin-bottom:25px}
+  .visual-label{right:13px;bottom:14px;padding:11px;min-width:175px;box-shadow:4px 4px 0 #075943}
+  .visual-ribbon{top:13px;left:14px;font-size:8px}
+  .visual-topline{top:13px;right:14px;font-size:8px}
+  .service-card{min-height:250px}
+  .industry .industry-mark{font-size:40px}
+  .coverage-banner{box-shadow:5px 5px 0 #e5ece4}
+  .quote-form{box-shadow:6px 6px 0 #07553b}
+}
+
   </style>
 </head>
 <body>
@@ -250,7 +433,7 @@
   <header class="site-header">
     <div class="container header-inner">
       <a href="#top" class="brand" aria-label="NI Bin Guy Commercial home">
-        <span class="brand-symbol" aria-hidden="true">N</span>
+        <span class="brand-symbol" aria-hidden="true">Ni</span>
         <span class="brand-copy"><strong>NI BIN GUY</strong><span>COMMERCIAL SERVICES</span></span>
       </a>
       <button class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-controls="mainMenu" aria-expanded="false"><i></i><i></i><i></i></button>
@@ -264,9 +447,9 @@
     <section class="hero" id="top" aria-labelledby="heroTitle">
       <div class="container hero-content">
         <div class="hero-copy">
-          <p class="eyebrow">Professional bin hygiene · County Down</p>
-          <h1 id="heroTitle">Clean bins.<br><em>Better business.</em></h1>
-          <p class="hero-lead">Keep the bins behind your business as presentable as the business itself. Professional commercial bin cleaning for workplaces, hospitality venues and managed premises across North Down and Ards.</p>
+          <p class="eyebrow">NI Bin Guy · Commercial services</p>
+          <h1 id="heroTitle">Commercial bin cleaning.<br><em>Done right.</em></h1>
+          <p class="hero-lead">Commercial bin cleaning for businesses that care about the details. From a single wheelie bin to a busy shared bin store, we help keep commercial waste containers clean, fresh and presentable across North Down and Ards.</p>
           <div class="buttons">
             <a class="btn btn-lime" href="#quote">Get a commercial quote <span class="arrow" aria-hidden="true">↗</span></a>
             <a class="btn btn-outline" href="#services">Explore our services <span class="arrow" aria-hidden="true">↓</span></a>
@@ -278,8 +461,8 @@
           </div>
         </div>
         <div class="hero-visual">
-          <div class="visual-ribbon">NI BIN GUY / BUSINESS SOLUTIONS</div><div class="visual-topline">EST. IN COUNTY DOWN</div>
-          <img class="bin-image" src="https://nibing.uy/bins/1100L.webp" width="460" height="460" alt="Illustration of a large 1100 litre commercial wheelie bin" fetchpriority="high">
+          <div class="visual-ribbon">THE NI BIN GUY DIFFERENCE</div><div class="visual-topline">NORTH DOWN &amp; ARDS</div>
+          <img class="bin-image" src="https://nibing.uy/logo.webp" width="600" height="600" alt="NI Bin Guy original logo with yellow protective-suit mascot, green Ni and Gu tiles and cleaning jet" fetchpriority="high">
           <div class="hero-vertical">BUILT FOR YOUR BUSINESS</div>
           <div class="visual-label"><small>COMMERCIAL CONTAINERS</small><strong>UP TO 1100L</strong></div>
         </div>
@@ -415,7 +598,7 @@
     <div class="container">
       <div class="footer-main">
         <div>
-          <a href="#top" class="brand"><span class="brand-symbol" aria-hidden="true">N</span><span class="brand-copy"><strong>NI BIN GUY</strong><span>COMMERCIAL SERVICES</span></span></a>
+          <a href="#top" class="brand"><span class="brand-symbol" aria-hidden="true">Ni</span><span class="brand-copy"><strong>NI BIN GUY</strong><span>COMMERCIAL SERVICES</span></span></a>
           <p class="footer-tagline">Professional bin cleaning for commercial premises across North Down and Ards, Northern Ireland.</p>
         </div>
         <div class="footer-links">
