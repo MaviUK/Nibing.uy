@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom"
 import NiBinGuyLandingPage from "./LandingPage"
 import "./n64-theme.css"
 import "./n64-complete.css"
+import "./n64-square.css"
 import HomepageServiceSchema from "./HomepageServiceSchema"
 import CustomerPortalLoader from "./components/CustomerPortalLoader"
 
