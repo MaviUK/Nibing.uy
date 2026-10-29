@@ -202,6 +202,8 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
         return;
       }
 
+      // Award once for an actual verified postcode lookup, covered or not.
+      window.n64Score?.awardAction("coverage");
       setCheckedPostcode(data.postcode || pc);
       if (data.covered !== true) {
         setStatus("outside");
