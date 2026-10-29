@@ -1571,7 +1571,6 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
         </div>
 
         <div className="n64-scene" aria-hidden="true">
-          <div className="n64-plinth" />
           <span className="n64-star n64-star--one">★</span>
           <span className="n64-star n64-star--two">★</span>
           <span className="n64-star n64-star--three">★</span>
