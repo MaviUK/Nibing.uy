@@ -1,60 +1,112 @@
 /*
- * N64 preview only: play a pixel-washer run when each checkerboard level
- * divider scrolls into view, then display LEVEL COMPLETED!
- * All effects are decorative and independent of booking or site navigation.
+ * N64 preview only: each checkerboard flag controls its own left-to-right
+ * washer animation. Start when the FLAG (not its much taller parent section)
+ * actually enters view, pause if a mobile visitor scrolls past too quickly,
+ * then show LEVEL COMPLETED! and award the one-time level XP.
  */
 (function () {
   "use strict";
 
   const selector = ".n64-level-track";
   const registered = new WeakSet();
+  const fallbackTimers = new WeakMap();
   const reducedMotion = window.matchMedia
     ? window.matchMedia("(prefers-reduced-motion: reduce)")
     : null;
 
-  const finish = (track) => {
+  function clearFallback(track) {
+    const timer = fallbackTimers.get(track);
+    if (timer) window.clearTimeout(timer);
+    fallbackTimers.delete(track);
+  }
+
+  function finish(track) {
     if (track.dataset.n64RunStage === "complete") return;
+    clearFallback(track);
     track.dataset.n64RunStage = "complete";
     track.classList.remove("n64-run-active");
     track.classList.add("n64-run-complete");
-    // One-time arcade reward for visiting and completing this level.
+    track.querySelector(".n64-level-washer")?.style.removeProperty("animation-play-state");
+    visibilityObserver?.unobserve(track);
+
     const sectionId = track.closest("section")?.id;
     window.n64Score?.awardLevel(sectionId);
-  };
+  }
 
-  const start = (track) => {
+  function scheduleFallback(track) {
+    clearFallback(track);
+    const timer = window.setTimeout(() => {
+      if (
+        track.isConnected &&
+        track.dataset.n64RunStage === "running" &&
+        track.dataset.n64Visible === "true"
+      ) finish(track);
+    }, 8000);
+    fallbackTimers.set(track, timer);
+  }
+
+  function start(track) {
     if (track.dataset.n64RunStage !== "ready") return;
-    if (reducedMotion && reducedMotion.matches) {
+    if (reducedMotion?.matches) {
       finish(track);
       return;
     }
-
     track.dataset.n64RunStage = "running";
     track.classList.add("n64-run-active");
+    track.querySelector(".n64-level-washer")?.style.setProperty("animation-play-state", "running", "important");
+    scheduleFallback(track);
+  }
 
-    // Fallback if a browser fails to dispatch animationend after scrolling.
-    window.setTimeout(() => finish(track), 7500);
-  };
+  function setVisible(track, visible) {
+    if (track.dataset.n64RunStage === "complete") return;
+    track.dataset.n64Visible = String(visible);
+    if (visible && track.dataset.n64RunStage === "ready") {
+      start(track);
+    } else if (track.dataset.n64RunStage === "running") {
+      const sprite = track.querySelector(".n64-level-washer");
+      if (visible) {
+        sprite?.style.setProperty("animation-play-state", "running", "important");
+        scheduleFallback(track);
+      } else {
+        sprite?.style.setProperty("animation-play-state", "paused", "important");
+        clearFallback(track);
+      }
+    }
+  }
 
   const visibilityObserver = "IntersectionObserver" in window
     ? new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
-            if (!entry.isIntersecting) continue;
-            visibilityObserver.unobserve(entry.target);
-            start(entry.target._n64Flag || entry.target);
+            // Require a meaningful portion of the checkerboard itself onscreen.
+            setVisible(entry.target, entry.isIntersecting && entry.intersectionRatio >= 0.4);
           }
         },
-        { threshold: 0, rootMargin: "0px 0px 0px 0px" }
+        { threshold: [0, 0.4, 0.6], rootMargin: "0px" }
       )
     : null;
+
+  // Compatibility fallback for older embedded mobile browsers.
+  const fallbackTracks = new Set();
+  function checkVisibilityWithoutObserver() {
+    if (visibilityObserver) return;
+    for (const track of fallbackTracks) {
+      if (!track.isConnected || track.dataset.n64RunStage === "complete") {
+        fallbackTracks.delete(track);
+        continue;
+      }
+      const rect = track.getBoundingClientRect();
+      const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+      setVisible(track, rect.height > 0 && visibleHeight / rect.height >= 0.4);
+    }
+  }
 
   function register(track) {
     if (registered.has(track)) return;
     if (!track.closest("#main-content.n64-world, #areas-we-cover, #customer-portal, #level-08-final")) return;
-
     registered.add(track);
     track.dataset.n64RunStage = "ready";
+    track.dataset.n64Visible = "false";
 
     const sprite = track.querySelector(".n64-level-washer");
     if (sprite) {
@@ -66,43 +118,37 @@
     }
 
     if (visibilityObserver) {
-      // Observe the level section, not just the narrow 64px strip.
-      const target = track.closest("section") || track;
-      target._n64Flag = track;
-      visibilityObserver.observe(target);
+      visibilityObserver.observe(track);
     } else {
-      start(track);
+      fallbackTracks.add(track);
+      checkVisibilityWithoutObserver();
     }
   }
 
   function scan(node) {
     if (!node || (node.nodeType !== 1 && node.nodeType !== 9)) return;
-    if (node.matches && node.matches(selector)) register(node);
-    if (node.querySelectorAll) node.querySelectorAll(selector).forEach(register);
+    if (node.matches?.(selector)) register(node);
+    node.querySelectorAll?.(selector).forEach(register);
   }
 
   function initialise() {
     scan(document);
-
-    // React mounts the five levels asynchronously; Areas We Cover is added
-    // by privacy-link.js; the customer portal is a separate React section.
-    // Only inspect inserted nodes, not every element on every mutation.
-    const mutations = new MutationObserver((records) => {
+    new MutationObserver((records) => {
       for (const record of records) {
         for (const node of record.addedNodes) scan(node);
       }
-    });
-    mutations.observe(document.body, { childList: true, subtree: true });
+    }).observe(document.body, { childList: true, subtree: true });
 
-    if (reducedMotion && reducedMotion.addEventListener) {
-      reducedMotion.addEventListener("change", (event) => {
-        if (event.matches) {
-          document
-            .querySelectorAll(".n64-level-track.n64-run-active")
-            .forEach(finish);
-        }
-      });
+    if (!visibilityObserver) {
+      window.addEventListener("scroll", checkVisibilityWithoutObserver, { passive: true });
+      window.addEventListener("resize", checkVisibilityWithoutObserver, { passive: true });
+      checkVisibilityWithoutObserver();
     }
+
+    reducedMotion?.addEventListener?.("change", (event) => {
+      if (!event.matches) return;
+      document.querySelectorAll(".n64-level-track.n64-run-active").forEach(finish);
+    });
   }
 
   if (document.readyState === "loading") {

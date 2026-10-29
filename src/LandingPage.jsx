@@ -3,6 +3,7 @@ import { useLiveCounters } from "./data/statsPlan";
 import CoverageChecker from "./CoverageChecker.jsx";
 import N64GameBin from "./N64GameBin.jsx";
 import LevelWasher from "./components/LevelWasher.jsx";
+import BookingAddressAutocomplete from "./components/BookingAddressAutocomplete.jsx";
 
 const TenSecondChallenge = lazy(() => import("./TenSecondChallenge.jsx"));
 const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
@@ -77,27 +78,6 @@ const TERMS_BODY = `We keep our Terms of Service simple and transparent. By book
 7) Data & Communication
 • You consent to us storing your details and contacting you about your service.
 • Text reminders are a courtesy; you’re responsible for knowing your schedule.`;
-
-// Load Google Places once
-function loadGooglePlaces(apiKey) {
-  return new Promise((resolve, reject) => {
-    if (window.google?.maps?.places) return resolve(window.google);
-    const existing = document.querySelector("script[data-gmaps]");
-    if (existing) {
-      existing.addEventListener("load", () => resolve(window.google));
-      existing.addEventListener("error", reject);
-      return;
-    }
-    const s = document.createElement("script");
-    s.dataset.gmaps = "1";
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-    s.async = true;
-    s.defer = true;
-    s.onload = () => resolve(window.google);
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
 
 /* ────────────────────────────────────────────────────────────────────────────
    reCAPTCHA v3 (dynamic inject + token helper)
@@ -611,7 +591,6 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const [discountCode, setDiscountCode] = useState("");
   const [discountStatus, setDiscountStatus] = useState({ state: "empty", message: "" });
 
-  const addressInputRef = useRef(null);
   const selectedPlaceRef = useRef(null);
 
   // Terms gating state
@@ -626,33 +605,6 @@ function BookingForm({ onClose, initialAddress = "" }) {
 
   const canToggleAgree = termsViewed;
 
-  // Attach Google Places autocomplete when modal opens
-  useEffect(() => {
-    const key = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY;
-    if (!key || !addressInputRef.current) return;
-
-    let cleanup = () => {};
-
-    loadGooglePlaces(key)
-      .then((google) => {
-        const ac = new google.maps.places.Autocomplete(addressInputRef.current, {
-          componentRestrictions: { country: ["gb"] },
-          fields: ["place_id", "formatted_address", "address_components", "name", "geometry"],
-          types: ["address"],
-        });
-        const listener = ac.addListener("place_changed", () => {
-          const place = ac.getPlace();
-          selectedPlaceRef.current = place;
-          setPlaceId(place.place_id || null);
-          const formatted = place.formatted_address || place.name || "";
-          setAddress(formatted);
-        });
-        cleanup = () => listener.remove();
-      })
-      .catch((e) => console.warn("Places failed to load (booking):", e));
-
-    return () => cleanup();
-  }, []);
 
   // Re-validate discount whenever selection changes
   useEffect(() => {
@@ -1188,21 +1140,20 @@ function BookingForm({ onClose, initialAddress = "" }) {
         </div>
       </div>
 
-      <input
-        ref={addressInputRef}
-        type="text"
-        placeholder="Full Address"
+      <BookingAddressAutocomplete
         value={address}
-        onChange={(e) => {
-          setAddress(e.target.value);
+        onChange={(nextAddress) => {
+          setAddress(nextAddress);
           setPlaceId(null);
           selectedPlaceRef.current = null;
         }}
-        className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-4"
-        autoComplete="off"
-        inputMode="text"
+        onPlace={(place) => {
+          selectedPlaceRef.current = place;
+          setPlaceId(place?.place_id || null);
+          setAddress(place?.formatted_address || place?.name || "");
+        }}
       />
-      <p className="text-xs text-gray-500 -mt-2">Tip: pick from suggestions or just type your full address.</p>
+      <p className="text-xs text-gray-500 -mt-2">Tip: select a matching address, or enter a full BT postcode to see council addresses. Manual entry also works.</p>
 
       <input type="tel" placeholder="Contact Number" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
       <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />

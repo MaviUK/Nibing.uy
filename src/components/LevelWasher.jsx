@@ -19,7 +19,7 @@ export default function LevelWasher() {
           alt=""
           width="244"
           height="149"
-          loading="lazy"
+          loading="eager"
           decoding="async"
           draggable={false}
         />
