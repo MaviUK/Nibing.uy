@@ -1591,12 +1591,12 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
         <button type="button" onClick={onBook} className="n64-btn n64-btn--start">
           Book a Clean
         </button>
-        <button type="button" onClick={onChallenge} className="n64-btn n64-btn--bonus">
-          <span aria-hidden="true">★</span> Free Bin Clean
-        </button>
       </div>
 
       <nav className="n64-extra-links" aria-label="More NI Bin Guy options">
+        <button type="button" className="n64-text-link n64-link--bonus" onClick={onChallenge}>
+          <span aria-hidden="true">★</span> Free Bin Clean
+        </button>
         <button type="button" className="n64-text-link n64-link--contact" onClick={onContact}>Contact Us</button>
         <a className="n64-text-link n64-link--portal" href="#customer-portal">Customer Portal</a>
         <button type="button" className="n64-text-link n64-link--bin-day" onClick={onBinChecker}>Bin Day Checker</button>
@@ -1616,7 +1616,6 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
           <strong className="n64-score-value">{Number(totalMonthlyCustomers).toLocaleString()}</strong>
         </div>
       </div>
-      <p className="n64-scroll-note">▼ SCROLL TO EXPLORE ▼</p>
     </section>
   );
 }
