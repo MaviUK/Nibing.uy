@@ -3,11 +3,26 @@ import { loadGooglePlaces } from "../useGooglePlaces.js";
 
 // The council list is an independent postcode fallback if Google Places cannot
 // serve the preview domain. No address is persisted by this component.
-function findNiPostcode(value) {
+export function findNiPostcode(value) {
   const match = String(value || "").toUpperCase().match(/\bBT\d{1,2}[A-Z0-9]?\s*\d[A-Z]{2}\b/);
   if (!match) return "";
   const compact = match[0].replace(/\s+/g, "");
   return compact.slice(0, -3) + " " + compact.slice(-3);
+}
+
+// Google autocomplete text is a suggestion, NOT a complete postal address.
+// The selected Place Details record is the authority for the BT postcode.
+function completeAddress(address, postcode) {
+  const base = String(address || "").trim().replace(/\s+/g, " ");
+  if (!postcode || findNiPostcode(base)) return base;
+  const shortened = base.replace(/,\s*(?:UK|United Kingdom)\s*$/i, "").replace(/,\s*$/, "");
+  return shortened + ", " + postcode + (shortened !== base ? ", UK" : "");
+}
+
+function postcodeInComponents(components) {
+  if (!Array.isArray(components)) return "";
+  const postal = components.find((component) => Array.isArray(component?.types) && component.types.includes("postal_code"));
+  return findNiPostcode(postal?.longText || postal?.shortText || postal?.long_name || postal?.short_name);
 }
 
 function councilSuggestions(payload, postcode) {
@@ -39,6 +54,7 @@ export default function BookingAddressAutocomplete({ value, onChange, onPlace })
   const [suggestions, setSuggestions] = useState([]);
   const [status, setStatus] = useState("idle");
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [addressNotice, setAddressNotice] = useState({ status: "idle", message: "" });
 
   useEffect(() => {
     let active = true;
@@ -253,6 +269,7 @@ export default function BookingAddressAutocomplete({ value, onChange, onPlace })
 
   function handleChange(event) {
     selectionRef.current += 1;
+    setAddressNotice({ status: "idle", message: "" });
     const next = event.target.value;
     onChange(next);
     setTyped(next);
@@ -264,38 +281,120 @@ export default function BookingAddressAutocomplete({ value, onChange, onPlace })
     setOpen(false);
     setTyped("");
     setSuggestions([]);
-    // Fill immediately, even if fetching Google place details takes time.
-    onPlace({ formatted_address: item.label, place_id: item.source === "council" ? null : item.id });
-    if (item.source === "council" || item.source === "google-server") return;
+
+    // Populate the field immediately, but never treat a postcode-free Google
+    // suggestion as a verified postal address for cleaning-date calculation.
+    onPlace({
+      formatted_address: item.label,
+      place_id: item.source === "council" ? null : item.id,
+    });
+    if (item.source === "council") {
+      setAddressNotice({ status: "confirmed", message: "Postcode: " + findNiPostcode(item.label) });
+      return;
+    }
+
+    setAddressNotice({ status: "loading", message: "Checking the complete address and BT postcode…" });
+
+    let candidate = null;
+    // All Google prediction sources (server, new Maps JS and legacy Maps JS)
+    // can be resolved by the same protected server-side Place Details endpoint.
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 6500);
     try {
-      let place;
-      if (item.source === "google-new") {
-        const details = item.prediction.toPlace();
-        await details.fetchFields({ fields: ["id", "formattedAddress", "location"] });
-        place = {
-          place_id: details.id || item.id,
-          formatted_address: details.formattedAddress || item.label,
-          geometry: details.location ? { location: details.location } : undefined,
-        };
-      } else {
+      const response = await fetch(
+        "/.netlify/functions/bookingAddressDetails?placeId=" + encodeURIComponent(item.id),
+        { method: "GET", signal: controller.signal, cache: "no-store" }
+      );
+      if (response.ok) candidate = await response.json();
+    } catch (_) {
+      // If server details fail, try Google's browser API below.
+    } finally {
+      window.clearTimeout(timer);
+    }
+    if (selectionRef.current !== sequence) return;
+
+    // Google can occasionally return a street or area with no postal code.
+    // On those results, make one bounded attempt using the browser API.
+    const returnedPostcode = findNiPostcode(candidate?.postcode || candidate?.formatted_address);
+    if (!returnedPostcode && item.source === "google-new" && item.prediction?.toPlace) {
+      try {
+        const detail = item.prediction.toPlace();
+        await Promise.race([
+          detail.fetchFields({ fields: ["id", "formattedAddress", "location", "addressComponents"] }),
+          new Promise((_, reject) => window.setTimeout(() => reject(new Error("Google details timeout")), 3500)),
+        ]);
+        if (selectionRef.current !== sequence) return;
+        const postal = postcodeInComponents(detail.addressComponents) || findNiPostcode(detail.formattedAddress);
+        if (postal || !candidate) {
+          candidate = {
+            place_id: detail.id || item.id,
+            formatted_address: detail.formattedAddress || item.label,
+            postcode: postal,
+            location: detail.location,
+          };
+        }
+      } catch (_) {
+        // Manual postcode entry remains possible.
+      }
+    }
+    if (!findNiPostcode(candidate?.postcode || candidate?.formatted_address) &&
+        item.source === "google-legacy" && placesRef.current?.PlacesService) {
+      try {
         const places = placesRef.current;
         if (!detailsServiceRef.current) {
           detailsServiceRef.current = new places.PlacesService(document.createElement("div"));
         }
-        place = await new Promise((resolve, reject) => {
-          detailsServiceRef.current.getDetails(
-            { placeId: item.id, fields: ["place_id", "formatted_address", "geometry"] },
-            (result, resultStatus) => {
-              if (resultStatus === places.PlacesServiceStatus.OK && result) resolve(result);
-              else reject(new Error("Place details unavailable"));
-            }
-          );
-        });
+        const detail = await Promise.race([
+          new Promise((resolve, reject) => {
+            detailsServiceRef.current.getDetails(
+              { placeId: item.id, fields: ["place_id", "formatted_address", "geometry", "address_components"] },
+              (result, resultStatus) => {
+                if (resultStatus === places.PlacesServiceStatus.OK && result) resolve(result);
+                else reject(new Error("Place details not found"));
+              }
+            );
+          }),
+          new Promise((_, reject) => window.setTimeout(() => reject(new Error("Google details timeout")), 3500)),
+        ]);
+        if (selectionRef.current !== sequence) return;
+        const postal = postcodeInComponents(detail.address_components) || findNiPostcode(detail.formatted_address);
+        if (postal || !candidate) {
+          candidate = {
+            place_id: detail.place_id || item.id,
+            formatted_address: detail.formatted_address || item.label,
+            postcode: postal,
+            geometry: detail.geometry,
+          };
+        }
+      } catch (_) {
+        // The user can enter the postcode without relying on Google.
       }
-      if (selectionRef.current === sequence) onPlace(place);
-    } catch (_) {
-      // The selected display address is still valid for manual booking.
     }
+    if (selectionRef.current !== sequence) return;
+
+    const postal = findNiPostcode(candidate?.postcode)
+      || postcodeInComponents(candidate?.addressComponents || candidate?.address_components)
+      || findNiPostcode(candidate?.formatted_address)
+      || findNiPostcode(item.label);
+    const address = completeAddress(candidate?.formatted_address || item.label, postal);
+    const loc = candidate?.geometry?.location || candidate?.location;
+    const latitude = typeof loc?.lat === "function" ? loc.lat() : Number(loc?.latitude);
+    const longitude = typeof loc?.lng === "function" ? loc.lng() : Number(loc?.longitude);
+
+    onPlace({
+      place_id: candidate?.place_id || item.id,
+      formatted_address: address,
+      postcode: postal,
+      geometry: Number.isFinite(latitude) && Number.isFinite(longitude)
+        ? { location: { lat: () => latitude, lng: () => longitude } }
+        : undefined,
+    });
+    setAddressNotice(postal
+      ? { status: "confirmed", message: "Postcode confirmed: " + postal }
+      : {
+          status: "missing",
+          message: "Google hasn't provided the postcode for this address. Add the full BT postcode before booking so we can calculate the correct cleaning date.",
+        });
   }
 
   function handleKeyDown(event) {
@@ -340,6 +439,18 @@ export default function BookingAddressAutocomplete({ value, onChange, onPlace })
         aria-controls={showList ? "booking-address-options" : undefined}
         aria-activedescendant={showList && activeIndex >= 0 ? "booking-address-option-" + activeIndex : undefined}
       />
+      {addressNotice.message && (
+        <p
+          className={"mt-2 text-xs font-semibold " + (
+            addressNotice.status === "missing" ? "text-amber-900" :
+            addressNotice.status === "confirmed" ? "text-green-700" : "text-gray-600"
+          )}
+          role="status"
+          aria-live="polite"
+        >
+          {addressNotice.message}
+        </p>
+      )}
       {showList && (
         <div
           id="booking-address-options"
