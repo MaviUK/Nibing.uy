@@ -1532,7 +1532,7 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
 
 
   return (
-    <section className="n64-hero" aria-labelledby="n64-hero-title">
+    <section className="n64-hero n64-hero-layout-v2" aria-labelledby="n64-hero-title">
       <div className="n64-cloud n64-cloud--one" aria-hidden="true" />
       <div className="n64-cloud n64-cloud--two" aria-hidden="true" />
       <div className="n64-cloud n64-cloud--three" aria-hidden="true" />
@@ -1564,24 +1564,9 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
             right outside your home — <strong>from just £5 per bin, every four weeks</strong>.
             Serving Bangor and surrounding County Down areas.
           </p>
-
-          <div className="n64-actions">
-            <button type="button" onClick={onBook} className="n64-btn n64-btn--start">
-              Book a Clean
-            </button>
-            <button type="button" onClick={onCoverage} className="n64-btn n64-btn--area">
-              <span aria-hidden="true">⌖</span> Check Your Area
-            </button>
-            <button type="button" onClick={onChallenge} className="n64-btn n64-btn--bonus">
-              <span aria-hidden="true">★</span> Free Bin Clean
-            </button>
-          </div>
-          <div className="n64-extra-links">
-            <button type="button" className="n64-text-link" onClick={onContact}>Contact Us</button>
-            <span className="n64-divider" aria-hidden="true">✦</span>
-            <a className="n64-text-link" href="#customer-portal">Customer Portal</a>
-            <span className="n64-divider" aria-hidden="true">✦</span>
-            <button type="button" className="n64-text-link" onClick={onBinChecker}>Bin Day Checker</button>
+          <div className="n64-price-ticket" aria-label="Four-weekly cleaning from £5 per bin">
+            <strong>£5</strong>
+            <span>PER BIN<br />4-WEEKLY</span>
           </div>
         </div>
 
@@ -1603,6 +1588,26 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
         </div>
       </div>
 
+      <div className="n64-actions">
+        <button type="button" onClick={onBook} className="n64-btn n64-btn--start">
+          Book a Clean
+        </button>
+        <button type="button" onClick={onCoverage} className="n64-btn n64-btn--area">
+          <span aria-hidden="true">⌖</span> Check Your Area
+        </button>
+        <button type="button" onClick={onChallenge} className="n64-btn n64-btn--bonus">
+          <span aria-hidden="true">★</span> Free Bin Clean
+        </button>
+      </div>
+
+      <div className="n64-extra-links">
+        <button type="button" className="n64-text-link" onClick={onContact}>Contact Us</button>
+        <span className="n64-divider" aria-hidden="true">✦</span>
+        <a className="n64-text-link" href="#customer-portal">Customer Portal</a>
+        <span className="n64-divider" aria-hidden="true">✦</span>
+        <button type="button" className="n64-text-link" onClick={onBinChecker}>Bin Day Checker</button>
+      </div>
+
       <div className="n64-scoreboard" aria-label="Our cleaning statistics">
         <div className="n64-score">
           <span className="n64-score-title">Bins Cleaned</span>
@@ -1619,7 +1624,9 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
       </div>
       <p className="n64-scroll-note">▼ SCROLL TO EXPLORE ▼</p>
     </section>
-  );}
+  );
+}
+
 
 function WhatWeDo() {
   return (
