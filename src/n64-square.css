@@ -866,3 +866,67 @@
   }
   #areas-we-cover h2::after {font-size:25px;right:4%;}
 }
+
+
+/* ── ANIMATED PIXEL BIN-WASHING MASCOT ON EVERY LEVEL FLAG ────────────────
+   Transparent 8-bit art sits over the four-row checker strip in Levels 01–07.
+   Animated spray is drawn inside the SVG; CSS adds a tiny game-like recoil.
+   The mascot never takes focus or blocks any buttons.
+*/
+#main-content.n64-world > section:not(.n64-hero) .n64-level-washer,
+#areas-we-cover > .n64-level-washer,
+#customer-portal > .n64-level-washer {
+  display:block;
+  position:absolute;
+  top:0;
+  right:max(16px,calc((100vw - 1180px) / 2));
+  z-index:5;
+  width:clamp(176px,20vw,230px);
+  max-width:44%;
+  height:auto;
+  margin:0;
+  padding:0;
+  line-height:0;
+  border:0 !important;
+  border-radius:0 !important;
+  pointer-events:none;
+  user-select:none;
+  overflow:visible;
+  transform-origin:50% 95%;
+  animation:n64-pixel-washer-recoil .7s steps(2,end) infinite;
+}
+#main-content.n64-world > section:not(.n64-hero) .n64-level-washer img,
+#areas-we-cover > .n64-level-washer img,
+#customer-portal > .n64-level-washer img {
+  display:block;
+  width:100%;
+  height:auto;
+  object-fit:contain;
+  image-rendering:pixelated;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+}
+@keyframes n64-pixel-washer-recoil {
+  0%,45%,100% {transform:translateX(0);}
+  20%,70% {transform:translateX(-2px);}
+  30%,80% {transform:translateX(1px);}
+}
+@media(max-width:640px){
+  #main-content.n64-world > section:not(.n64-hero) .n64-level-washer,
+  #areas-we-cover > .n64-level-washer,
+  #customer-portal > .n64-level-washer {
+    top:0;
+    right:5px;
+    width:clamp(145px,43vw,175px);
+    max-width:48%;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  #main-content.n64-world > section:not(.n64-hero) .n64-level-washer,
+  #areas-we-cover > .n64-level-washer,
+  #customer-portal > .n64-level-washer {
+    animation:none !important;
+    transform:none !important;
+  }
+}
