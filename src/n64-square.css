@@ -868,10 +868,11 @@
 }
 
 
-/* ── ANIMATED PIXEL BIN-WASHING MASCOT ON EVERY LEVEL FLAG ────────────────
-   Transparent 8-bit art sits over the four-row checker strip in Levels 01–07.
-   Animated spray is drawn inside the SVG; CSS adds a tiny game-like recoil.
-   The mascot never takes focus or blocks any buttons.
+/* ── ANIMATED PIXEL BIN-WASHING MASCOT / CENTRED INSIDE FLAG ─────────────
+   Every divider is four checker rows high (64px mobile, 80px desktop).
+   Keep the FULL sprite, including its water spray and bin, wholly within
+   that band; centre it horizontally and vertically without covering content.
+   All seven levels share the same styling, including scripted Level 06.
 */
 #main-content.n64-world > section:not(.n64-hero) .n64-level-washer,
 #areas-we-cover > .n64-level-washer,
@@ -879,11 +880,13 @@
   display:block;
   position:absolute;
   top:0;
-  right:max(16px,calc((100vw - 1180px) / 2));
+  left:50%;
+  right:auto;
+  bottom:auto;
   z-index:5;
-  width:clamp(176px,20vw,230px);
-  max-width:44%;
-  height:auto;
+  width:calc(var(--n64-check-height) * 1.64);
+  max-width:calc(100% - 24px);
+  height:var(--n64-check-height);
   margin:0;
   padding:0;
   line-height:0;
@@ -891,42 +894,39 @@
   border-radius:0 !important;
   pointer-events:none;
   user-select:none;
-  overflow:visible;
-  transform-origin:50% 95%;
+  overflow:hidden;
+  transform:translateX(-50%);
+  transform-origin:center center;
   animation:n64-pixel-washer-recoil .7s steps(2,end) infinite;
 }
 #main-content.n64-world > section:not(.n64-hero) .n64-level-washer img,
 #areas-we-cover > .n64-level-washer img,
 #customer-portal > .n64-level-washer img {
   display:block;
+  box-sizing:border-box;
   width:100%;
-  height:auto;
+  height:100%;
+  max-width:100%;
+  margin:0;
+  padding:3px 0;
   object-fit:contain;
+  object-position:center;
   image-rendering:pixelated;
   border:0 !important;
   border-radius:0 !important;
   box-shadow:none !important;
 }
+/* Move a pixel, not the whole composition away from the centre. */
 @keyframes n64-pixel-washer-recoil {
-  0%,45%,100% {transform:translateX(0);}
-  20%,70% {transform:translateX(-2px);}
-  30%,80% {transform:translateX(1px);}
+  0%,45%,100% { transform:translateX(-50%); }
+  20%,70% { transform:translateX(calc(-50% - 1px)); }
+  30%,80% { transform:translateX(calc(-50% + 1px)); }
 }
-@media(max-width:640px){
-  #main-content.n64-world > section:not(.n64-hero) .n64-level-washer,
-  #areas-we-cover > .n64-level-washer,
-  #customer-portal > .n64-level-washer {
-    top:0;
-    right:5px;
-    width:clamp(145px,43vw,175px);
-    max-width:48%;
-  }
-}
-@media(prefers-reduced-motion:reduce){
+@media (prefers-reduced-motion:reduce){
   #main-content.n64-world > section:not(.n64-hero) .n64-level-washer,
   #areas-we-cover > .n64-level-washer,
   #customer-portal > .n64-level-washer {
     animation:none !important;
-    transform:none !important;
+    transform:translateX(-50%) !important;
   }
 }
