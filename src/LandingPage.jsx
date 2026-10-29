@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "rea
 import { useLiveCounters } from "./data/statsPlan";
 import CoverageChecker from "./CoverageChecker.jsx";
 import N64GameBin from "./N64GameBin.jsx";
+import LevelWasher from "./components/LevelWasher.jsx";
 
 const TenSecondChallenge = lazy(() => import("./TenSecondChallenge.jsx"));
 const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
@@ -1624,6 +1625,7 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
 function WhatWeDo() {
   return (
     <section id="what-we-do" className="relative py-16 px-6 bg-[#18181b]">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-8 text-center">What We Do</h2>
       <div className="grid md:grid-cols-3 gap-6 text-center">
         <div className="bg-zinc-800/70 border border-white/30 p-6 rounded-2xl shadow-lg">
@@ -1646,6 +1648,7 @@ function WhatWeDo() {
 function TheProcess({ onBook }) {
   return (
     <section id="the-process" className="relative py-16 px-6 bg-[#18181b] text-white">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-10 text-center">The Process</h2>
       <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
         <div className="rounded-2xl bg-zinc-800/70 border border-white/30 p-6">
@@ -1694,6 +1697,7 @@ function BinsWeClean() {
 ];
   return (
     <section id="bins-we-clean" className="relative py-16 px-6 bg-[#18181b] text-white text-center">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-12">The Bins We Clean</h2>
       <div className="relative z-20 flex flex-wrap justify-center items-end gap-12 md:gap-20">
         {items.map((it) => (
@@ -1717,6 +1721,7 @@ function WhyCleanYourBin() {
   ];
   return (
     <section id="why-clean-your-bin" className="py-16 px-6 bg-gradient-to-b from-black via-[#0a0a0a] to-zinc-900 text-white">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-12 text-center">Why Clean Your Bin?</h2>
       <div className="grid md:grid-cols-2 gap-12 max-w-6xl mx-auto">
         {points.map((p) => (
@@ -1742,6 +1747,7 @@ function WhyNiBinGuy() {
   ];
   return (
     <section id="why-ni-bin-guy" className="py-16 px-6 bg-gradient-to-b from-zinc-900 via-[#1a1a1a] to-black text-white">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-8 text-center">Why Ni Bin Guy?</h2>
       <div className="grid md:grid-cols-2 gap-10 max-w-5xl mx-auto">
         {points.map((p) => (
