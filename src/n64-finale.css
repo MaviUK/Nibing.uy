@@ -1,0 +1,89 @@
+/* Final bonus level after the customer portal, before the footer. */
+#level-08-final {
+  --n64-check-tile:20px;
+  --n64-check-height:calc(var(--n64-check-tile) * 4);
+  position:relative;
+  isolation:isolate;
+  overflow:hidden;
+  width:100%;
+  padding:calc(94px + var(--n64-check-height)) 20px 105px;
+  background:
+    radial-gradient(circle at 85% 20%,#fff2a4 0 45px,transparent 46px),
+    linear-gradient(160deg,#a8e5ff 0%,#ddf9e2 70%,#bce5a7 100%) !important;
+  color:#20345c;
+  border:0 !important;
+  text-align:center;
+}
+#level-08-final::before {
+  content:"";
+  position:absolute;
+  top:0;left:0;right:0;
+  height:var(--n64-check-height);
+  background:repeating-conic-gradient(#353f63 0% 25%,#fff7df 0% 50%) 0 0 / calc(var(--n64-check-tile) * 2) calc(var(--n64-check-tile) * 2);
+  z-index:1;
+  pointer-events:none;
+  box-shadow:0 4px 0 rgba(32,52,92,.16);
+}
+#level-08-final .n64-final-level-inner {
+  position:relative;
+  z-index:2;
+  max-width:860px;
+  margin:0 auto;
+}
+#level-08-final .n64-final-kicker {
+  display:table;
+  margin:0 auto 26px;
+  padding:9px 14px;
+  border:4px solid #20345c;
+  background:#f4cc6c;
+  color:#20345c;
+  box-shadow:5px 6px 0 #c59448;
+  font:1000 .75rem/1.3 Verdana,system-ui,sans-serif;
+  letter-spacing:.1em;
+}
+#level-08-final h2 {
+  margin:0;
+  color:#20345c;
+  font:1000 clamp(2.3rem,6vw,5.5rem)/1.07 "Arial Black","Trebuchet MS",sans-serif;
+  letter-spacing:-.075em;
+  text-shadow:3px 4px 0 #fff,7px 9px 0 #94acc1;
+  overflow-wrap:anywhere;
+}
+#level-08-final .n64-final-level-inner > p {
+  color:#304967;
+  font-size:clamp(1rem,2vw,1.24rem);
+  line-height:1.6;
+  font-weight:800;
+  margin:25px auto;
+  max-width:650px;
+}
+#level-08-final .n64-final-book {
+  display:block;
+  width:min(100%,620px);
+  min-height:70px;
+  margin:32px auto 18px;
+  border:5px solid #20345c !important;
+  border-radius:0 !important;
+  box-shadow:0 9px 0 #c49430,0 13px 0 #557493 !important;
+  background:#ffe054 !important;
+  color:#20345c !important;
+  font:1000 clamp(1.05rem,2.5vw,1.45rem)/1.2 "Arial Black","Trebuchet MS",sans-serif;
+  letter-spacing:-.03em;
+  cursor:pointer;
+  transition:transform .14s ease,filter .14s ease;
+}
+#level-08-final .n64-final-book:hover{transform:translateY(-3px);filter:brightness(1.04);}
+#level-08-final .n64-final-book:active{transform:translateY(6px);box-shadow:0 2px 0 #c49430 !important;}
+#level-08-final .n64-final-book:focus-visible{outline:4px solid #145b86;outline-offset:6px;}
+#level-08-final .n64-final-level-inner > p.n64-final-caption{font-size:.84rem;font-weight:750;color:#4d5b78;margin-top:17px;}
+@media(max-width:640px) {
+  #level-08-final {
+    --n64-check-tile:16px;
+    padding:calc(65px + var(--n64-check-height)) 17px 78px;
+  }
+  #level-08-final .n64-final-kicker{font-size:.65rem;margin-bottom:24px;}
+  #level-08-final .n64-final-book{min-height:63px;border-width:4px !important;box-shadow:0 7px 0 #c49430,0 10px 0 #557493 !important;}
+}
+@media(prefers-reduced-motion:reduce){
+  #level-08-final .n64-final-book{transition:none;}
+}
