@@ -361,7 +361,9 @@ export default function BookingAddressAutocomplete({ value, onChange, onPlace })
               {item.label}
             </button>
           ))}
-<p className="m-0 px-3 pb-2 pt-1 text-[11px] text-gray-500" aria-label="Google Places attribution">Powered by Google for address suggestions</p>
+{suggestions.some((item) => item.source?.startsWith("google")) && (
+            <p className="m-0 px-3 pb-2 pt-1 text-[11px] text-gray-500" translate="no" aria-label="Google Maps attribution">Google Maps</p>
+          )}
                     {status !== "ready" && (
             <p className="m-0 px-3 py-3 text-sm" role="status" aria-live="polite">
               {status === "searching" || status === "loading"
