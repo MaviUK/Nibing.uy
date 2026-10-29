@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import LevelWasher from "./LevelWasher.jsx"
 
 export default function CustomerPortalLoader() {
   useEffect(() => {
@@ -21,6 +22,7 @@ export default function CustomerPortalLoader() {
         color: "white",
       }}
     >
+      <LevelWasher />
       <div style={{ width: "100%", maxWidth: "1152px", margin: "0 auto" }}>
         <div className="n64-portal-eyebrow" aria-hidden="true">LEVEL 07 · CUSTOMER HQ</div>
         <h2
