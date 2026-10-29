@@ -290,3 +290,223 @@
   #main-content.n64-world .n64-btn,
   #areas-we-cover a {transition:none !important;}
 }
+
+
+/* ── PREVIEW 2 HERO ARRANGEMENT, PREVIEW 1 COLOURS / ARTWORK ──
+ * Layout only: copy + art, full-width primary CTA, two half-width CTAs,
+ * centred secondary links, then the three live stats tiles. No colour
+ * palette or service logic is imported from Preview 2.
+ */
+#main-content.n64-world .n64-hero-layout-v2 {
+  min-height:0 !important;
+  padding-bottom:50px;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-hero-inner {
+  display:grid;
+  grid-template-columns:minmax(0,1.02fr) minmax(0,.98fr);
+  gap:18px;
+  width:100%;
+  max-width:1160px;
+  margin:0 auto;
+  align-items:center;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-hero-copy { min-width:0; }
+#main-content.n64-world .n64-hero-layout-v2 .n64-price-ticket {
+  display:inline-flex;
+  align-items:center;
+  gap:12px;
+  margin:19px 0 7px;
+  padding:9px 16px;
+  background:var(--yellow);
+  color:var(--outline);
+  border:4px solid var(--outline);
+  box-shadow:6px 7px 0 #c39137;
+  transform:rotate(-2deg);
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-price-ticket strong {
+  color:var(--outline);
+  font:1000 clamp(2.5rem,3.7vw,3.7rem)/1 "Arial Black","Trebuchet MS",sans-serif;
+  letter-spacing:-.06em;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-price-ticket span {
+  color:var(--outline);
+  font:1000 .72rem/1.3 Verdana,sans-serif;
+  letter-spacing:.025em;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-actions {
+  position:relative;
+  z-index:4;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:15px;
+  width:100%;
+  max-width:1030px;
+  margin:20px auto 21px;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-btn {
+  min-width:0;
+  width:100%;
+  min-height:65px;
+  text-align:center;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links {
+  position:relative;
+  z-index:3;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:center;
+  gap:10px 19px;
+  width:100%;
+  max-width:1030px;
+  margin:29px auto 24px;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-scoreboard {
+  max-width:1030px;
+  margin:22px auto 0;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-scroll-note {
+  margin:28px auto 6px;
+}
+
+/* Match Preview 2 on phones/tablets: the artwork sits ABOVE all actions.
+ * Keep Preview 1's title, colours, cloud scene, and three original bins. */
+@media(max-width:950px){
+  #main-content.n64-world .n64-hero-layout-v2 .n64-hero-inner {
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    max-width:660px;
+    gap:0;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-hero-copy {
+    text-align:left;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-brand,
+  #main-content.n64-world .n64-hero-layout-v2 .n64-kicker {
+    margin-left:0;
+    margin-right:auto;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-kicker {
+    margin-top:28px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-lead {
+    margin:22px 0 12px;
+    max-width:610px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-scene {
+    width:100%;
+    max-width:600px;
+    height:clamp(345px,61vw,475px);
+    margin:0 auto 2px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-actions {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    max-width:660px;
+    gap:15px 13px;
+    margin:13px auto 19px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-btn--start {
+    grid-column:1 / -1;
+    min-height:70px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links {
+    max-width:660px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-scoreboard {
+    max-width:660px;
+  }
+}
+@media(max-width:600px){
+  #main-content.n64-world .n64-hero-layout-v2 {
+    padding:84px 14px 36px !important;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-hero-inner {
+    width:100%;
+    gap:0;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-kicker {
+    margin-top:26px;
+    margin-bottom:16px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-lead {
+    margin:19px 0 10px;
+    font-size:.96rem;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-price-ticket {
+    margin:14px 0 2px;
+    padding:7px 12px;
+    gap:9px;
+    border-width:3px;
+    box-shadow:4px 5px 0 #c39137;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-price-ticket strong {
+    font-size:2.45rem;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-price-ticket span {
+    font-size:.61rem;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-scene {
+    width:100%;
+    height:clamp(320px,94vw,460px);
+    max-width:520px;
+    margin:4px auto 6px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-bin--left {
+    width:41%;
+    left:0;
+    top:19%;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-bin--centre {
+    width:48%;
+    left:27%;
+    top:2%;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-bin--right {
+    width:41%;
+    right:-1%;
+    top:18%;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-plinth {
+    bottom:18%;
+    height:68px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-scene-label {
+    bottom:1%;
+    right:1%;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-actions {
+    gap:13px 10px;
+    margin:14px 0 18px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-btn {
+    min-height:59px;
+    padding:12px 10px !important;
+    line-height:1.18;
+    font-size:clamp(.79rem,3.4vw,.99rem);
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-btn--start {
+    min-height:67px;
+    font-size:1.07rem;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links {
+    gap:10px 13px;
+    justify-content:center;
+    margin:26px auto 22px;
+    font-size:.69rem;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-divider {
+    display:none;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-text-link {
+    font-size:.72rem;
+    text-transform:uppercase;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-scoreboard {
+    gap:7px;
+    margin:16px auto 0;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-scroll-note {
+    margin:28px auto 6px;
+    letter-spacing:.075em;
+  }
+}
