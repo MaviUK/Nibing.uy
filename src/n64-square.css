@@ -748,3 +748,121 @@
   box-shadow:none !important;
   transform:none !important;
 }
+
+
+/* ── FOUR-ROW CHECKERBOARD LEVEL SEPARATORS ────────────────────────────────
+   Arcade transition between the hero and Levels 01–07, including the
+   dynamically inserted Areas We Cover section and Squeegee portal surround.
+   Each band is EXACTLY four checker rows high. Decorative only.
+*/
+#main-content.n64-world > section:not(.n64-hero),
+#areas-we-cover,
+#customer-portal {
+  --n64-check-tile:20px;
+  --n64-check-height:calc(var(--n64-check-tile) * 4);
+}
+/* Replace the older thin checkered ending on the hero. The next section
+   owns the entire four-row transition, avoiding duplicate patterns. */
+#main-content.n64-world .n64-hero-layout-v2::after {
+  display:none !important;
+}
+/* Each React-rendered level gets an identical full-width band at its top. */
+#main-content.n64-world > section:not(.n64-hero) {
+  position:relative;
+  border-top:0 !important;
+  padding-top:calc(85px + var(--n64-check-height)) !important;
+}
+#main-content.n64-world > section:not(.n64-hero)::before {
+  content:"";
+  position:absolute;
+  inset:0 0 auto 0;
+  width:100%;
+  height:var(--n64-check-height);
+  background:repeating-conic-gradient(
+    #353f63 0% 25%,
+    #fff7df 0% 50%
+  ) 0 0 / calc(var(--n64-check-tile) * 2) calc(var(--n64-check-tile) * 2);
+  box-shadow:0 4px 0 rgba(32,52,92,.16);
+  z-index:1;
+  pointer-events:none;
+}
+/* Level 06 is inserted outside the React main. Preserve its decorative
+   pixel-hills ::before, and repurpose the old ::after star for the stripe. */
+#areas-we-cover {
+  border-top:0 !important;
+  padding-top:calc(85px + var(--n64-check-height)) !important;
+}
+#areas-we-cover::after {
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  right:0;
+  bottom:auto;
+  width:100%;
+  height:var(--n64-check-height);
+  background:repeating-conic-gradient(
+    #353f63 0% 25%,
+    #fff7df 0% 50%
+  ) 0 0 / calc(var(--n64-check-tile) * 2) calc(var(--n64-check-tile) * 2);
+  border:0;
+  border-radius:0;
+  box-shadow:0 4px 0 rgba(32,52,92,.16);
+  font-size:0;
+  color:transparent;
+  -webkit-text-stroke:0;
+  text-shadow:none;
+  transform:none;
+  z-index:2;
+  pointer-events:none;
+}
+/* Keep the area section's little decorative star, away from the stripe. */
+#areas-we-cover h2::after {
+  content:"✦";
+  position:absolute;
+  right:7%;
+  top:calc(var(--n64-check-height) + 22px);
+  color:#ffd247;
+  -webkit-text-stroke:2px #28416f;
+  text-shadow:4px 5px 0 #ba9446;
+  font-size:clamp(25px,4vw,50px);
+  transform:rotate(18deg);
+  pointer-events:none;
+}
+/* Level 07: checker sits above the existing portal frame, never inside
+   or over the third-party Squeegee sign-in widget. */
+#customer-portal {
+  border-top:0 !important;
+  padding-top:calc(85px + var(--n64-check-height)) !important;
+}
+#customer-portal::before {
+  content:"";
+  position:absolute;
+  inset:0 0 auto 0;
+  width:100%;
+  height:var(--n64-check-height);
+  background:repeating-conic-gradient(
+    #353f63 0% 25%,
+    #fff7df 0% 50%
+  ) 0 0 / calc(var(--n64-check-tile) * 2) calc(var(--n64-check-tile) * 2);
+  box-shadow:0 4px 0 rgba(32,52,92,.16);
+  z-index:1;
+  pointer-events:none;
+}
+@media(max-width:640px){
+  #main-content.n64-world > section:not(.n64-hero),
+  #areas-we-cover,
+  #customer-portal {
+    --n64-check-tile:16px;
+  }
+  #main-content.n64-world > section:not(.n64-hero) {
+    padding-top:calc(65px + var(--n64-check-height)) !important;
+  }
+  #areas-we-cover {
+    padding-top:calc(66px + var(--n64-check-height)) !important;
+  }
+  #customer-portal {
+    padding-top:calc(64px + var(--n64-check-height)) !important;
+  }
+  #areas-we-cover h2::after {font-size:25px;right:4%;}
+}
