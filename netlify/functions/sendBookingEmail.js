@@ -1,5 +1,6 @@
 // netlify/functions/sendBookingEmail.js
 const { Resend } = require("resend");
+const { signBooking } = require("./lib/arcadeBookingProof");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
 
@@ -357,6 +358,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         success: true,
         customerConfirmationSent: !customerResult?.error,
+        arcadeBookingProof: signBooking(payload),
       }),
     };
   } catch (error) {
