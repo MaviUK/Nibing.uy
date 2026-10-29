@@ -1,0 +1,1044 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080b09">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="A bold new commercial bin cleaning concept for NI Bin Guy. One-off and regular bin cleaning in North Down and Ards. Build your own cleaning enquiry.">
+  <title>Commercial Bin Cleaning, Done Different | NI Bin Guy Preview</title>
+  <link rel="icon" href="https://nibing.uy/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --ink:#0a0d0b;
+      --dark:#101814;
+      --green:#065640;
+      --green-hi:#0c7254;
+      --yellow:#ffd324;
+      --yellow-light:#ffe475;
+      --paper:#f8f7f0;
+      --white:#fff;
+      --muted:#59655e;
+      --line:#d8ded5;
+      --head:"Barlow Condensed","Arial Narrow",Impact,Arial,sans-serif;
+      --body:"DM Sans",Arial,Helvetica,sans-serif;
+      --mono:"IBM Plex Mono","Courier New",monospace;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth;scroll-padding-top:84px}
+    body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);-webkit-font-smoothing:antialiased}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    input,textarea,select{border-radius:0}
+    img{max-width:100%;height:auto}
+    a{color:inherit}
+    ::selection{color:var(--ink);background:var(--yellow)}
+    :focus-visible{outline:3px solid var(--yellow);outline-offset:4px}
+    .skip{position:absolute;top:-100px;left:10px;background:var(--yellow);padding:12px;z-index:1000;color:#000}
+    .skip:focus{top:10px}
+    .wrap{width:min(1420px,calc(100% - 88px));margin-inline:auto}
+    .mono{font:700 11px/1.5 var(--mono);text-transform:uppercase;letter-spacing:.10em}
+    .overline{display:flex;align-items:center;gap:13px;font:700 11px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.13em}
+    .overline::before{content:"";width:20px;height:7px;background:var(--yellow);flex-shrink:0}
+    .btn{display:inline-flex;align-items:center;justify-content:space-between;gap:25px;min-height:58px;padding:16px 22px;border:2px solid currentColor;text-decoration:none;font:700 12px/1.3 var(--mono);text-transform:uppercase;letter-spacing:.025em;transition:transform .18s,background .18s}
+    .btn:hover{transform:translate(-2px,-2px)}
+    .btn--yellow{background:var(--yellow);color:var(--ink);border-color:var(--yellow);box-shadow:5px 5px 0 var(--green-hi)}
+    .btn--yellow:hover{background:var(--yellow-light)}
+    .btn--dark{background:var(--ink);color:var(--white);border-color:var(--ink)}
+    .btn--outline{background:transparent;color:var(--white);border-color:#60776b}
+    .btn--outline:hover{background:#294235}
+    .arrow{font:600 25px/1 var(--body)}
+    .masthead{position:relative;z-index:50;background:var(--ink);color:var(--white);border-bottom:1px solid #35493b}
+    .masthead__inner{min-height:77px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+    .site-brand{display:inline-flex;align-items:center;gap:14px;text-decoration:none;flex-shrink:0}
+    .brand-tiles{display:grid;grid-template-columns:42px 42px;gap:3px;align-items:center}
+    .tile{height:42px;background:#085841;display:flex;align-items:center;justify-content:center;position:relative;border:1px solid #2d9971;font:900 27px/.9 Georgia,serif;color:white;letter-spacing:-.06em}
+    .tile small{position:absolute;right:4px;top:3px;font:700 8px/1 var(--mono);letter-spacing:0;color:#d0f6e5}
+    .brand-words{display:flex;flex-direction:column;gap:2px}
+    .brand-words strong{font:900 25px/.85 var(--head);letter-spacing:.005em}
+    .brand-words span{font:700 9px/1.4 var(--mono);letter-spacing:.17em;color:var(--yellow)}
+    .mastnav{display:flex;align-items:center;gap:32px}
+    .mastnav a:not(.mastnav__cta){text-decoration:none;text-transform:uppercase;font:700 12px/1 var(--mono);color:#d3e0d8;transition:color .2s}
+    .mastnav a:not(.mastnav__cta):hover{color:var(--yellow)}
+    .mastnav__cta{display:inline-flex;align-items:center;gap:22px;min-height:42px;text-decoration:none;padding:11px 17px;background:var(--yellow);color:#11170c;font:700 11px/1.3 var(--mono);text-transform:uppercase}
+    .menu-toggle{display:none;width:45px;height:45px;background:#17271e;border:1px solid #466050;padding:10px;color:var(--yellow)}
+    .menu-toggle span{display:block;height:2px;background:currentColor;margin:5px 0}
+    .systemline{background:var(--green);color:#daeee5;border-bottom:1px solid #307d61}
+    .systemline__inner{min-height:32px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+    .systemline__right{display:flex;gap:25px;align-items:center}
+    .systemline a{text-decoration:none;color:var(--yellow)}
+    .pulse-dot{display:inline-block;height:7px;width:7px;background:var(--yellow);border-radius:50%;margin-right:9px;vertical-align:1px}
+    /* Hero deliberately works like a graphic poster, not a standard split marketing template. */
+    .hero{background:var(--ink);color:var(--white);overflow:hidden}
+    .hero-main{display:grid;grid-template-columns:minmax(0,1.13fr) minmax(0,.87fr);min-height:675px}
+    .hero-copy{padding:74px 32px 62px 0;position:relative;z-index:2}
+    .hero-kicker{color:var(--yellow);margin:0 0 23px}
+    .hero-title{font:900 clamp(82px,9vw,154px)/.76 var(--head);letter-spacing:-.035em;margin:0 0 30px;text-transform:uppercase;max-width:810px}
+    .hero-title .line{display:block;white-space:nowrap}
+    .hero-title .outline{-webkit-text-stroke:2px var(--yellow);color:transparent}
+    .hero-title .highlight{color:var(--yellow);position:relative}
+    .hero-intro{display:grid;grid-template-columns:35px minmax(0,500px);gap:16px;align-items:start;margin:44px 0 26px}
+    .hero-intro::before{content:"↳";font:900 36px/1 var(--head);color:var(--yellow)}
+    .hero-intro p{margin:0;color:#d2ded4;font-size:15px;line-height:1.7}
+    .hero-actions{display:flex;gap:14px;flex-wrap:wrap;margin-left:51px}
+    .hero-note{margin:38px 0 0 51px;color:#86a297;font:700 10px/1.6 var(--mono);text-transform:uppercase}
+    .hero-stage{
+      background:var(--yellow);position:relative;overflow:hidden;display:flex;flex-direction:column;
+      border-left:5px solid #0c4b37;isolation:isolate
+    }
+    .hero-stage::before{
+      content:"";position:absolute;inset:0;
+      background-image:linear-gradient(to right,rgba(0,0,0,.11) 1px,transparent 1px),
+       linear-gradient(to bottom,rgba(0,0,0,.11) 1px,transparent 1px);
+      background-size:38px 38px;opacity:.5;pointer-events:none;z-index:-1
+    }
+    .stage-top{display:flex;align-items:center;justify-content:space-between;padding:26px 25px 0;gap:10px;color:var(--ink)}
+    .stage-top .mono{font-size:10px}
+    .stage-top b{padding:8px 9px;background:#0b140d;color:var(--yellow);font:700 10px/1 var(--mono)}
+    .stage-art{position:relative;flex:1;display:grid;place-items:center;min-height:350px}
+    .stage-art::before{content:"";width:65%;aspect-ratio:1;border:2px solid rgba(8,62,39,.4);border-radius:50%;position:absolute;top:13%;left:16%}
+    .stage-art::after{content:"";position:absolute;left:-12%;bottom:11%;height:34px;width:125%;transform:rotate(-17deg);background:var(--ink);opacity:.1}
+    .stage-bin{position:relative;max-height:395px;width:min(94%,460px);object-fit:contain;filter:drop-shadow(16px 25px 0 rgba(0,0,0,.18));z-index:2;transition:opacity .22s,transform .25s}
+    .stage-art:hover .stage-bin{transform:translateY(-7px) rotate(-1deg)}
+    .stage-stamp{position:absolute;left:22px;top:34px;transform:rotate(-10deg);width:108px;height:108px;background:var(--green);color:white;border:5px solid var(--ink);border-radius:50%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;z-index:3;box-shadow:5px 5px 0 rgba(0,0,0,.14)}
+    .stage-stamp b{font:900 28px/.85 var(--head)}
+    .stage-stamp small{font:700 8px/1.3 var(--mono);text-align:center;letter-spacing:.05em}
+    .stage-mascot{position:absolute;right:16px;bottom:6px;width:128px;height:128px;object-fit:contain;z-index:3;background:#000;border:4px solid #111;transform:rotate(5deg);box-shadow:5px 5px 0 rgba(0,0,0,.19)}
+    .stage-label{background:var(--ink);color:var(--white);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:6px solid var(--green)}
+    .stage-label strong{font:900 63px/.85 var(--head);letter-spacing:-.02em;color:var(--yellow)}
+    .stage-label span{font:700 10px/1.5 var(--mono);text-align:right;color:#dbe6de}
+    .capacity-picker{display:grid;grid-template-columns:repeat(5,1fr);background:#063c2a;gap:2px;border-top:2px solid #063c2a}
+    .capacity-picker button{border:0;background:#0c543c;color:#ecf1e9;font:700 13px/1.2 var(--mono);padding:17px 5px;transition:background .15s}
+    .capacity-picker button:hover,.capacity-picker button[aria-pressed="true"]{color:#0b130d;background:var(--yellow)}
+    .capacity-picker button:focus-visible{outline-offset:-4px}
+    .ticker{background:var(--yellow);color:#0b0d08;overflow:hidden;border-block:3px solid var(--ink);white-space:nowrap}
+    .ticker__track{display:flex;width:max-content;align-items:center;gap:28px;padding:13px 0;animation:ticker 42s linear infinite}
+    .ticker__track span{font:900 25px/.9 var(--head);text-transform:uppercase;letter-spacing:.025em}
+    .ticker__track i{font-style:normal;font:900 22px/1 var(--head);color:var(--green)}
+    @keyframes ticker{to{transform:translateX(-50%)}}
+    /* Overview: an editorial, numbered manifesto */
+    .intro-section{background:#f9f8f1;padding:118px 0 122px;position:relative}
+    .intro-header{display:grid;grid-template-columns:1fr 3fr;gap:40px;align-items:start}
+    .intro-kicker{color:var(--green);margin-top:16px}
+    .intro-title{font:900 clamp(62px,8vw,140px)/.84 var(--head);letter-spacing:-.023em;text-transform:uppercase;margin:0}
+    .intro-title em{font-style:normal;color:var(--green)}
+    .intro-bottom{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin-top:67px;padding-top:28px;border-top:2px solid var(--ink)}
+    .intro-bottom p{font-size:16px;line-height:1.75;max-width:470px;margin:0}
+    .intro-bottom .pullquote{font:900 clamp(30px,4vw,52px)/1.02 var(--head);letter-spacing:.005em;text-transform:uppercase;color:var(--green);max-width:480px}
+    /* Service rails: no generic cards */
+    .services{background:#fff;padding:95px 0 112px}
+    .section-heading{display:flex;align-items:end;justify-content:space-between;gap:32px;margin-bottom:44px}
+    .section-heading__eyebrow{color:var(--green);margin-bottom:19px}
+    .section-heading h2{font:900 clamp(62px,8vw,122px)/.82 var(--head);letter-spacing:-.012em;text-transform:uppercase;max-width:840px;margin:0}
+    .section-heading p{color:var(--muted);font-size:14px;line-height:1.7;max-width:320px;margin:0 0 6px}
+    .service-rails{border-top:3px solid var(--ink)}
+    .service-rail{display:grid;grid-template-columns:75px minmax(0,1.05fr) minmax(0,.8fr) 40px;align-items:center;gap:22px;min-height:168px;padding:26px 12px;border-bottom:1px solid #b9c5bc;text-decoration:none;transition:background .2s,padding .2s}
+    .service-rail:hover{background:#edf7e9;padding-inline:24px}
+    .service-rail .number{font:700 13px/1 var(--mono);color:var(--green);align-self:start;padding-top:7px}
+    .service-rail h3{font:900 clamp(38px,4.6vw,68px)/.9 var(--head);text-transform:uppercase;margin:0}
+    .service-rail p{margin:0;color:#516055;font-size:14px;line-height:1.7}
+    .service-rail .go{height:39px;width:39px;display:grid;place-items:center;background:var(--yellow);font-size:21px;transition:transform .15s}
+    .service-rail:hover .go{transform:rotate(-40deg)}
+    /* Industry rail: big interactive expandable list */
+    .sectors{background:var(--green);padding:109px 0;color:#fff}
+    .sectors .section-heading__eyebrow{color:var(--yellow)}
+    .sectors .section-heading h2{color:#fff}
+    .sectors .section-heading p{color:#cbdfd1}
+    .sector-list{border-top:1px solid #4b987c}
+    .sector{border-bottom:1px solid #4b987c}
+    .sector summary{cursor:pointer;list-style:none;display:grid;grid-template-columns:80px minmax(0,1fr) 70px;align-items:center;gap:15px;padding:29px 8px;transition:background .2s}
+    .sector summary::-webkit-details-marker{display:none}
+    .sector summary:hover,.sector[open] summary{background:#0b664a}
+    .sector summary .sector-n{color:var(--yellow);font:700 12px/1 var(--mono)}
+    .sector summary strong{font:900 clamp(34px,4.6vw,65px)/1 var(--head);text-transform:uppercase;letter-spacing:.005em}
+    .sector summary .sector-plus{text-align:right;color:var(--yellow);font:700 44px/1 var(--head)}
+    .sector[open] .sector-plus{transform:rotate(45deg)}
+    .sector-panel{padding:0 100px 35px;display:grid;grid-template-columns:1fr .6fr;gap:30px;color:#e2efe6}
+    .sector-panel p{font-size:16px;line-height:1.75;max-width:670px;margin:0}
+    .sector-panel .tagline{display:flex;justify-content:flex-end;align-items:flex-start}
+    .sector-panel .tagline span{border:1px solid #6cae91;color:var(--yellow);font:700 10px/1.5 var(--mono);padding:9px 12px;text-transform:uppercase}
+    /* Visual demonstration — explicitly conceptual, not a before/after claim */
+    .visual-lab{padding:110px 0;background:#161c18;color:#fff}
+    .lab-layout{display:grid;grid-template-columns:.85fr 1.15fr;gap:80px;align-items:center}
+    .lab-copy .overline{color:var(--yellow);margin-bottom:24px}
+    .lab-copy h2{font:900 clamp(64px,7vw,115px)/.83 var(--head);text-transform:uppercase;letter-spacing:-.02em;margin:0 0 26px}
+    .lab-copy h2 em{color:var(--yellow);font-style:normal}
+    .lab-copy p{line-height:1.8;font-size:15px;color:#d2ddd4;max-width:430px}
+    .lab-steps{display:grid;gap:0;margin:28px 0}
+    .lab-steps div{display:flex;gap:17px;padding:13px 0;border-top:1px solid #425246;font-size:13px;line-height:1.5}
+    .lab-steps b{font:700 11px/1.5 var(--mono);color:var(--yellow)}
+    .lab-steps span{color:#d3e0d4}
+    .lab-panel{position:relative;border:7px solid #e7e9df;background:var(--yellow);padding:17px;box-shadow:16px 16px 0 #076047}
+    .lab-panel__header{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--ink);padding-bottom:15px}
+    .lab-panel__visual{height:330px;background:#f3edc4;position:relative;overflow:hidden;display:grid;place-items:center;isolation:isolate}
+    .lab-panel__visual::before{content:"";position:absolute;inset:0;background-image:linear-gradient(to right,rgba(0,0,0,.04) 1px,transparent 1px),linear-gradient(to bottom,rgba(0,0,0,.04) 1px,transparent 1px);background-size:29px 29px;z-index:-1}
+    .lab-bin{position:absolute;width:min(73%,320px);height:92%;object-fit:contain;top:4%;left:50%;transform:translateX(-50%);filter:drop-shadow(0 18px 10px rgba(0,0,0,.2))}
+    .lab-bin--before{filter:grayscale(.9) sepia(.42) brightness(.65) contrast(.85) drop-shadow(0 18px 10px rgba(0,0,0,.2))}
+    .lab-reveal{position:absolute;inset:0;clip-path:inset(0 0 0 var(--reveal,53%));z-index:2}
+    .lab-reveal .lab-bin{filter:drop-shadow(0 18px 10px rgba(0,0,0,.2))}
+    .lab-divider{position:absolute;inset:0 auto 0 var(--reveal,53%);width:4px;background:#0b130c;z-index:3;transform:translateX(-50%)}
+    .lab-divider::before{content:"◀  ▶";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--yellow);border:3px solid #0b130c;padding:10px 9px;font:900 9px/1 var(--mono);white-space:nowrap}
+    .lab-label{position:absolute;top:14px;z-index:5;background:#0e1510;color:white;font:700 10px/1 var(--mono);padding:9px 12px}
+    .lab-label--left{left:14px}.lab-label--right{right:14px;background:var(--green)}
+    .lab-control{display:flex;flex-direction:column;gap:12px;padding-top:18px;color:var(--ink)}
+    .lab-control .mono{display:flex;justify-content:space-between;gap:8px}
+    input[type=range]{width:100%;accent-color:var(--green);cursor:pointer}
+    .lab-note{font:600 11px/1.65 var(--body);color:#3d4434;margin:11px 0 0}
+    /* Interactive site planner — main functional differentiator */
+    .planner{background:#f7f6f0;padding:116px 0 124px;position:relative}
+    .planner .section-heading h2{max-width:880px}
+    .planner .section-heading p{max-width:335px}
+    .planner-grid{display:grid;grid-template-columns:1fr .93fr;gap:20px;align-items:start}
+    .configurator{background:#fff;border:2px solid var(--ink);padding:39px}
+    .config-top{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:28px}
+    .config-index{background:var(--green);color:#fff;padding:8px 12px;font:700 10px/1 var(--mono)}
+    .configurator h3{font:900 52px/.9 var(--head);text-transform:uppercase;margin:0 0 9px}
+    .configurator .subtext{color:#59655b;font-size:14px;line-height:1.6;margin:0 0 32px}
+    .label-title{font:700 11px/1.4 var(--mono);text-transform:uppercase;letter-spacing:.08em;display:block;margin:0 0 13px;color:#39463d}
+    .bin-options{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+    .bin-option{border:1px solid #cbd5ca;background:#f8f9f4;color:#1d3325;text-align:center;padding:12px 4px 13px;font:700 13px/1.4 var(--mono);transition:background .15s,border-color .15s}
+    .bin-option small{display:block;font:700 8px/1.4 var(--mono);text-transform:uppercase;color:#69776b;letter-spacing:0}
+    .bin-option:hover{border-color:var(--green)}
+    .bin-option[aria-pressed="true"]{background:var(--green);color:#fff;border-color:var(--green)}
+    .bin-option[aria-pressed="true"] small{color:#bddec9}
+    .config-choose{display:grid;grid-template-columns:1fr .9fr;gap:18px;align-items:end;margin:32px 0 25px}
+    .quantity{display:flex;align-items:center;border:1px solid #cbd6cb;max-width:220px;height:52px}
+    .quantity button{width:52px;height:50px;background:#f0f3ee;border:0;font:900 24px/1 var(--head)}
+    .quantity button:hover{background:#dce9dc}
+    .quantity output{flex:1;text-align:center;font:800 22px/1 var(--mono)}
+    .add-bin{width:100%;height:52px;background:var(--yellow);color:var(--ink);border:2px solid var(--ink);font:800 12px/1.1 var(--mono);text-transform:uppercase;box-shadow:4px 4px 0 #0b5c43}
+    .add-bin:hover{background:#ffe579}
+    .current-bins{border-top:2px solid var(--ink);padding-top:20px}
+    .bin-list{min-height:76px;margin:15px 0}
+    .bin-list-empty{padding:24px;background:#f2f4ef;color:#697368;text-align:center;font-size:13px;line-height:1.6}
+    .bin-line{display:grid;grid-template-columns:48px 1fr 82px 40px;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #e2e8df}
+    .bin-line__image{height:48px;width:48px;object-fit:contain;background:#edf4e9;padding:4px}
+    .bin-line strong{display:block;font:800 18px/1.1 var(--head)}
+    .bin-line small{color:#657266;font:600 10px/1.3 var(--mono)}
+    .bin-line__qty{display:flex;align-items:center;justify-content:center;gap:6px}
+    .bin-line__qty button{background:#f2f5f1;border:1px solid #d0dad0;height:24px;width:24px;font-weight:700}
+    .bin-line__qty button:hover{background:#d5e5d7}
+    .bin-line__qty span{min-width:13px;text-align:center;font:700 12px/1 var(--mono)}
+    .bin-remove{background:none;border:1px solid #d8dcd7;color:#7c4b50;height:31px;width:31px;font-size:18px}
+    .bin-remove:hover{color:#a52b36;border-color:#a52b36}
+    .configurator .config-substep{margin-top:27px;padding-top:27px;border-top:2px solid var(--ink)}
+    .frequency-pills{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .frequency-pills button{border:1px solid #a6b5a8;padding:17px 12px;background:#f9faf6;text-align:left;font:700 11px/1.3 var(--mono);text-transform:uppercase;transition:all .15s}
+    .frequency-pills button span{display:block;font:500 11px/1.5 var(--body);margin-top:8px;text-transform:none;color:#657268}
+    .frequency-pills button[aria-pressed="true"]{border:2px solid var(--green);background:#e8f2e9;padding:16px 11px}
+    .frequency-pills button[aria-pressed="true"] span{color:#3d6650}
+    .sheet{position:sticky;top:95px;box-shadow:8px 8px 0 #0b573f;background:var(--ink);border:2px solid var(--ink);color:#fff}
+    .sheet-head{display:flex;justify-content:space-between;align-items:flex-start;background:var(--yellow);color:var(--ink);padding:22px 25px;gap:18px}
+    .sheet-head h3{font:900 45px/.86 var(--head);text-transform:uppercase;margin:6px 0 0}
+    .sheet-head .mono{text-align:right}
+    .sheet-body{padding:27px}
+    .sheet-total{display:grid;grid-template-columns:1fr 1fr;border:1px solid #506357;margin-bottom:26px}
+    .sheet-total div{padding:18px 16px}
+    .sheet-total div+div{border-left:1px solid #506357}
+    .sheet-total strong{display:block;font:900 54px/.9 var(--head);color:var(--yellow)}
+    .sheet-total small{display:block;margin-top:7px;font:700 10px/1.5 var(--mono);text-transform:uppercase;color:#bed0c4}
+    .sheet-preview{padding-bottom:17px;border-bottom:1px dashed #789083;margin-bottom:20px}
+    .sheet-preview .mono{color:#a9c6b6;margin:0 0 11px}
+    .sheet-preview__items{min-height:39px;display:flex;align-items:start;flex-wrap:wrap;gap:8px}
+    .sheet-tag{font:700 11px/1.2 var(--mono);background:#164934;color:#e2f9e7;border:1px solid #387957;padding:9px 10px}
+    .sheet-tag--empty{font:600 11px/1.6 var(--mono);color:#aabbb0}
+    .sheet-frequency{display:flex;justify-content:space-between;gap:14px;font:700 11px/1.45 var(--mono);text-transform:uppercase;padding-bottom:22px}
+    .sheet-frequency span:first-child{color:#a9c6b6}
+    .sheet-frequency span:last-child{color:var(--yellow);text-align:right}
+    .enquiry-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .enquiry-form .full{grid-column:1/-1}
+    .form-field label{display:block;font:700 10px/1.4 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:#d2e0d5;margin-bottom:7px}
+    .form-field input,.form-field textarea{
+      display:block;width:100%;padding:12px;min-height:48px;background:#f7f9f3;
+      color:#142417;border:1px solid #90a995;outline-offset:2px;font:500 13px/1.4 var(--body)
+    }
+    .form-field input::placeholder,.form-field textarea::placeholder{color:#7b867a}
+    .form-field textarea{min-height:72px;resize:vertical}
+    .form-field input:focus,.form-field textarea:focus{outline:3px solid #ffd324}
+    .form-field{min-width:0}
+    .send-options{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:22px}
+    .send-options button{min-height:55px;padding:13px 11px;font:700 11px/1.4 var(--mono);border:2px solid var(--yellow);text-transform:uppercase}
+    .send-options button:first-child{background:var(--yellow);color:#0b100b}
+    .send-options button:last-child{background:transparent;color:#fff;border-color:#85ac91}
+    .send-options button:hover{filter:brightness(1.12)}
+    .form-error{font:700 12px/1.55 var(--body);color:var(--yellow);min-height:0;margin:12px 0 0}
+    .form-help{font-size:11px;color:#a7b6ac;line-height:1.7;margin:13px 0 0}
+    /* Process is a typographic sequence */
+    .method{background:var(--yellow);padding:100px 0 112px}
+    .method .section-heading__eyebrow{color:var(--green)}
+    .method .section-heading h2{color:var(--ink)}
+    .method .section-heading p{color:#4e553c}
+    .method-grid{display:grid;grid-template-columns:repeat(3,1fr);border:3px solid var(--ink);background:#f4df74}
+    .method-step{padding:33px 35px;min-height:310px;display:flex;flex-direction:column;justify-content:space-between;gap:20px}
+    .method-step+ .method-step{border-left:3px solid var(--ink)}
+    .method-step__number{font:900 96px/.8 var(--head);color:var(--green)}
+    .method-step h3{font:900 43px/.9 var(--head);text-transform:uppercase;margin:0 0 13px}
+    .method-step p{font-size:13px;line-height:1.65;margin:0;max-width:315px}
+    /* Location and closing */
+    .locations{background:#fff;padding:105px 0}
+    .location-layout{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:start}
+    .locations h2{font:900 clamp(76px,9vw,145px)/.78 var(--head);text-transform:uppercase;margin:20px 0 25px}
+    .locations h2 em{font-style:normal;color:var(--green)}
+    .locations p{color:var(--muted);font-size:14px;line-height:1.75;max-width:430px}
+    .town-list{border-top:3px solid var(--ink);margin-top:12px}
+    .town{display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid #cbd6cd;padding:12px 3px}
+    .town strong{font:900 clamp(30px,3.3vw,50px)/.92 var(--head);text-transform:uppercase}
+    .town span{font:700 10px/1 var(--mono);color:var(--green)}
+    .last-call{background:#07583e;color:#fff;padding:100px 0;overflow:hidden}
+    .last-call .wrap{display:grid;grid-template-columns:1fr auto;align-items:end;gap:30px}
+    .last-call h2{font:900 clamp(78px,10vw,164px)/.78 var(--head);text-transform:uppercase;letter-spacing:-.01em;margin:14px 0 0}
+    .last-call h2 em{color:var(--yellow);font-style:normal}
+    .last-call .overline{color:var(--yellow)}
+    .last-call .btn{margin-bottom:7px;white-space:nowrap}
+    .footer{background:#070a08;color:#c1d1c5;padding:55px 0 25px}
+    .footer-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:44px;align-items:start;padding-bottom:45px;border-bottom:1px solid #334038}
+    .footer .brand-words strong{color:#fff}
+    .footer p{font-size:13px;line-height:1.65;color:#a6b6aa;max-width:360px;margin:20px 0 0}
+    .footer-group{display:grid;gap:10px;font-size:13px}
+    .footer-group b{font:700 11px/1.5 var(--mono);text-transform:uppercase;color:var(--yellow);margin-bottom:9px}
+    .footer-group a{text-decoration:none}.footer-group a:hover{color:var(--yellow);text-decoration:underline}
+    .footer-bottom{display:flex;align-items:center;justify-content:space-between;gap:20px;padding-top:21px;font-size:11px;color:#9baa9d}
+    .footer-note{color:#e3c96c}
+    .mobile-cta{display:none}
+    @media(max-width:1200px){
+      .wrap{width:min(100% - 58px,1420px)}
+      .mastnav{gap:17px}
+      .hero-main{grid-template-columns:1fr .86fr;min-height:610px}
+      .hero-title{font-size:clamp(70px,9vw,119px)}
+      .hero-copy{padding-top:74px}
+      .hero-stage .stage-bin{max-height:350px}
+      .intro-header{grid-template-columns:1fr 3fr}
+      .lab-layout{gap:46px}
+      .configurator{padding:26px}
+    }
+    @media(max-width:900px){
+      .wrap{width:min(100% - 40px,760px)}
+      .masthead__inner{min-height:72px}
+      .mastnav{display:none;position:absolute;top:72px;left:0;right:0;background:var(--ink);padding:12px 20px 27px;box-shadow:0 22px 30px rgba(0,0,0,.3);border-bottom:2px solid #2e5640;flex-direction:column;align-items:stretch;gap:0}
+      .mastnav[data-open="true"]{display:flex}
+      .mastnav a:not(.mastnav__cta){padding:15px 2px;border-bottom:1px solid #35493b}
+      .mastnav__cta{margin-top:20px;justify-content:space-between}
+      .menu-toggle{display:block}
+      .systemline__right{display:none}
+      .hero-main{display:flex;flex-direction:column}
+      .hero-copy{padding:75px 0 61px}
+      .hero-title{font-size:clamp(80px,14vw,140px);max-width:800px}
+      .hero-stage{min-height:540px;border-left:0;border-top:5px solid #0b5338}
+      .stage-art{min-height:410px}
+      .stage-bin{max-height:375px!important}
+      .intro-section{padding:90px 0}
+      .intro-header{grid-template-columns:1fr;gap:23px}
+      .intro-kicker{margin:0}
+      .intro-bottom{gap:25px;margin-top:45px}
+      .section-heading{display:block}
+      .section-heading p{margin-top:24px}
+      .services,.sectors,.visual-lab,.planner,.method,.locations{padding:85px 0}
+      .service-rail{grid-template-columns:50px 1fr 40px;min-height:130px;gap:12px}
+      .service-rail p{grid-column:2;grid-row:2}
+      .service-rail .go{grid-column:3;grid-row:1}
+      .service-rail h3{grid-column:2;grid-row:1}
+      .lab-layout{grid-template-columns:1fr;gap:44px}
+      .lab-copy h2{font-size:clamp(67px,11vw,105px)}
+      .lab-copy p{max-width:670px}
+      .planner-grid{grid-template-columns:1fr}
+      .sheet{position:static}
+      .location-layout{grid-template-columns:1fr;gap:30px}
+      .locations h2{font-size:clamp(84px,14vw,150px)}
+      .last-call .wrap{grid-template-columns:1fr}
+      .last-call .btn{justify-self:start}
+      .footer-grid{grid-template-columns:1.2fr 1fr}
+    }
+    @media(max-width:600px){
+      html{scroll-padding-top:76px}
+      .wrap{width:calc(100% - 34px)}
+      .brand-tiles{grid-template-columns:36px 36px;gap:2px}
+      .tile{height:36px;font-size:23px}
+      .tile small{font-size:7px}
+      .brand-words strong{font-size:23px}
+      .brand-words span{font-size:8px}
+      .systemline__inner{min-height:31px}
+      .systemline__inner .mono{font-size:8px;letter-spacing:.035em}
+      .hero-copy{padding:61px 0 48px}
+      .hero-kicker{font-size:9px}
+      .hero-title{font-size:clamp(70px,15.9vw,102px);margin-bottom:27px}
+      .hero-intro{margin:20px 0 22px;grid-template-columns:24px 1fr;gap:9px}
+      .hero-intro::before{font-size:24px}
+      .hero-intro p{font-size:13px}
+      .hero-actions{margin-left:0;display:grid;gap:12px}
+      .hero-actions .btn{min-height:54px}
+      .hero-note{margin:27px 0 0;font-size:9px}
+      .hero-stage{min-height:448px}
+      .stage-art{min-height:320px}
+      .stage-bin{max-height:275px!important;width:min(85%,320px)}
+      .stage-stamp{width:77px;height:77px;border-width:3px;left:13px;top:17px}
+      .stage-stamp b{font-size:21px}.stage-stamp small{font-size:6px}
+      .stage-mascot{height:96px;width:96px;right:11px;bottom:8px;border-width:2px}
+      .stage-top{padding:15px 15px 0}
+      .stage-top .mono{font-size:8px}.stage-top b{font-size:8px}
+      .stage-label{padding:10px 14px}
+      .stage-label strong{font-size:53px}
+      .stage-label span{font-size:9px}
+      .capacity-picker button{padding:14px 3px;font-size:11px}
+      .ticker__track{padding:10px 0}
+      .ticker__track span{font-size:20px}
+      .intro-section{padding:75px 0}
+      .intro-title{font-size:clamp(64px,13vw,96px)}
+      .intro-bottom{grid-template-columns:1fr;gap:22px}
+      .intro-bottom p{font-size:14px}
+      .intro-bottom .pullquote{font-size:37px}
+      .services,.sectors,.visual-lab,.planner,.method,.locations{padding:73px 0}
+      .section-heading{margin-bottom:27px}
+      .section-heading h2{font-size:clamp(64px,12vw,94px)}
+      .section-heading p{font-size:13px}
+      .service-rail{grid-template-columns:31px minmax(0,1fr) 28px;column-gap:9px;row-gap:10px;padding:22px 3px}
+      .service-rail:hover{padding-inline:7px}
+      .service-rail h3{font-size:37px}
+      .service-rail p{font-size:12px;line-height:1.6}
+      .service-rail .go{height:27px;width:27px;font-size:18px}
+      .sector summary{grid-template-columns:35px 1fr 27px;gap:6px;padding:24px 0}
+      .sector summary strong{font-size:35px}
+      .sector summary .sector-plus{font-size:33px}
+      .sector-panel{padding:0 0 29px 42px;display:block}
+      .sector-panel p{font-size:13px}
+      .sector-panel .tagline{justify-content:flex-start;margin-top:15px}
+      .lab-copy h2{font-size:clamp(70px,13.5vw,93px)}
+      .lab-copy p{font-size:14px}
+      .lab-panel{padding:10px;border-width:4px;box-shadow:7px 7px 0 #076047}
+      .lab-panel__visual{height:245px}
+      .lab-bin{width:min(82%,260px)}
+      .lab-label{font-size:8px;padding:7px}
+      .lab-panel__header .mono{font-size:9px}
+      .configurator{padding:19px}
+      .configurator h3{font-size:44px}
+      .configurator .subtext{font-size:13px}
+      .bin-options{gap:3px}
+      .bin-option{font-size:11px;padding:13px 2px}
+      .bin-option small{font-size:7px}
+      .config-choose{grid-template-columns:1fr 1.2fr;gap:10px}
+      .label-title{font-size:10px}
+      .quantity{max-width:unset}
+      .quantity button{width:40px}
+      .add-bin{font-size:10px}
+      .bin-line{grid-template-columns:40px 1fr 78px 26px;gap:7px}
+      .bin-line__image{width:40px;height:44px}
+      .bin-line strong{font-size:16px}
+      .bin-line__qty button{height:22px;width:22px}
+      .bin-remove{width:26px;height:26px;font-size:16px}
+      .frequency-pills{gap:7px}
+      .frequency-pills button{font-size:10px;padding:14px 9px}
+      .frequency-pills button[aria-pressed="true"]{padding:13px 8px}
+      .frequency-pills button span{font-size:10px}
+      .sheet-head{padding:19px}
+      .sheet-head h3{font-size:40px}
+      .sheet-body{padding:19px}
+      .sheet-total strong{font-size:46px}
+      .enquiry-form{grid-template-columns:1fr}
+      .enquiry-form .full{grid-column:1}
+      .send-options{grid-template-columns:1fr}
+      .method-grid{grid-template-columns:1fr}
+      .method-step{min-height:205px;gap:18px;padding:24px}
+      .method-step + .method-step{border-left:0;border-top:3px solid var(--ink)}
+      .method-step__number{font-size:69px}
+      .method-step h3{font-size:39px}
+      .locations h2{font-size:clamp(75px,15vw,102px)}
+      .town strong{font-size:35px}
+      .last-call{padding:75px 0}
+      .last-call h2{font-size:clamp(83px,16vw,120px)}
+      .footer-grid{grid-template-columns:1fr;gap:29px}
+      .footer-bottom{align-items:start;flex-direction:column}
+      .mobile-cta{
+        display:flex;position:fixed;bottom:0;left:0;right:0;z-index:40;align-items:center;
+        background:var(--ink);border-top:2px solid var(--yellow);padding:9px 12px;
+        gap:12px;transition:transform .2s
+      }
+      .mobile-cta[data-hidden="true"]{transform:translateY(110%);pointer-events:none}
+      .mobile-cta span{flex:1;color:#fff;font:800 13px/1.1 var(--head);text-transform:uppercase}
+      .mobile-cta a{background:var(--yellow);color:#0b0d08;text-decoration:none;font:700 10px/1.25 var(--mono);text-transform:uppercase;padding:12px 15px;white-space:nowrap}
+      .footer{padding-bottom:84px}
+    }
+    @media(max-width:380px){
+      .hero-title{font-size:clamp(62px,15.3vw,73px)}
+      .service-rail h3{font-size:32px}
+      .sector summary strong{font-size:31px}
+      .bin-option{font-size:9px}
+      .brand-words strong{font-size:20px}
+    }
+    @media(prefers-reduced-motion:reduce){
+      html{scroll-behavior:auto}
+      *,*::before,*::after{animation:none!important;transition:none!important}
+    }
+  
+    /* MOBILE LAYOUT REPAIR - keep all responsive grids within the actual phone viewport.
+       The original planner used intrinsic min-content widths, widening the document and
+       making other sections look like narrow, left-aligned columns on Android. */
+    html,body{max-width:100%;overflow-x:hidden;overflow-x:clip}
+    main,.masthead,.systemline,.hero,.intro-section,.services,.sectors,.visual-lab,.planner,.method,.locations,.last-call,.footer{min-width:0;max-width:100%}
+    .wrap{min-width:0}
+    .hero-main,.intro-header,.intro-bottom,.section-heading,.lab-layout,.planner-grid,.configurator,.sheet,.sheet-body,.config-choose,.bin-options,.bin-list,.frequency-pills,.sheet-preview,.sheet-preview__items,.enquiry-form,.send-options,.method-grid,.location-layout,.footer-grid{min-width:0}
+    .planner-grid > *,.enquiry-form > *,.bin-options > *,.config-choose > *{min-width:0}
+    .planner-grid{grid-template-columns:minmax(0,1fr)}
+    .sheet,.configurator{width:100%;max-width:100%;min-width:0}
+    .configurator .subtext,.section-heading p,.hero-intro p,.sector-panel p{overflow-wrap:break-word}
+    .bin-options{grid-template-columns:repeat(5,minmax(0,1fr))}
+    .bin-option{min-width:0;overflow-wrap:anywhere}
+    .form-field{min-width:0}
+    .form-field input,.form-field textarea{min-width:0;max-width:100%}
+    @media (max-width:600px){
+      html,body{width:100%;max-width:100%;overflow-x:hidden;overflow-x:clip}
+      .wrap{width:calc(100% - 28px);max-width:100%}
+      .masthead__inner{min-width:0}
+      .brand-words{min-width:0}
+      .hero-main,.intro-header,.intro-bottom,.lab-layout,.planner-grid,.location-layout{grid-template-columns:minmax(0,1fr)}
+      .hero-copy{min-width:0;padding:54px 0 44px}
+      .hero-title{font-size:clamp(62px,14.7vw,83px);line-height:.82;letter-spacing:-.02em;max-width:100%}
+      .hero-title .line{max-width:100%;white-space:normal;overflow-wrap:normal}
+      .hero-intro{grid-template-columns:23px minmax(0,1fr)}
+      .hero-actions{grid-template-columns:minmax(0,1fr)}
+      .hero-actions .btn{max-width:100%;min-width:0}
+      .hero-stage{width:100%;min-width:0;max-width:100%}
+      .stage-art{min-width:0}
+      .stage-bin{max-width:95%}
+      .capacity-picker{grid-template-columns:repeat(5,minmax(0,1fr))}
+      .capacity-picker button{min-width:0;font-size:10px}
+      .intro-section,.services,.sectors,.visual-lab,.planner,.method,.locations{padding-top:60px;padding-bottom:60px}
+      .intro-header{gap:18px}
+      .intro-title{font-size:clamp(48px,11.7vw,63px);line-height:.93;max-width:100%;overflow-wrap:normal}
+      .intro-bottom{gap:22px;margin-top:34px}
+      .intro-bottom .pullquote{font-size:clamp(29px,8.4vw,40px);line-height:1.02}
+      .section-heading{margin-bottom:24px}
+      .section-heading h2{font-size:clamp(48px,11.6vw,65px);line-height:.91;max-width:100%;overflow-wrap:normal}
+      .section-heading p{margin-top:17px;max-width:100%}
+      .service-rail{grid-template-columns:28px minmax(0,1fr) 29px}
+      .service-rail h3{font-size:clamp(30px,8.7vw,40px);line-height:.94;min-width:0}
+      .service-rail p{font-size:12px;min-width:0}
+      .sector summary{grid-template-columns:27px minmax(0,1fr) 28px}
+      .sector summary strong{font-size:clamp(28px,8.3vw,38px);min-width:0;overflow-wrap:break-word}
+      .sector-panel{padding-left:36px}
+      .lab-copy h2{font-size:clamp(51px,12vw,72px);line-height:.9}
+      .lab-panel{max-width:100%;min-width:0}
+      .lab-panel__header{min-width:0}
+      .lab-panel__header .mono{font-size:8px}
+      .planner-grid{grid-template-columns:minmax(0,1fr);gap:0;align-items:stretch}
+      .configurator{padding:19px 16px;border:2px solid var(--ink);border-bottom:0;box-shadow:none}
+      .configurator h3{font-size:clamp(32px,8.7vw,43px);line-height:.94;max-width:100%}
+      .configurator .subtext{margin-bottom:25px}
+      .config-top{gap:6px;flex-wrap:wrap}
+      .config-top .mono{font-size:9px}
+      .config-index{white-space:nowrap;font-size:9px}
+      .bin-options{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+      .bin-option{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:58px;padding:10px 6px;font-size:13px;line-height:1.2}
+      .bin-option small{font-size:9px}
+      .bin-option:last-child{grid-column:1/-1}
+      .config-choose{grid-template-columns:minmax(0,1fr);gap:13px;align-items:stretch;margin:23px 0}
+      .quantity{width:100%;max-width:none;height:52px}
+      .quantity button{flex:0 0 54px;width:54px;height:50px}
+      .quantity output{min-width:0}
+      .add-bin{width:100%;min-height:54px;font-size:12px}
+      .current-bins{padding-top:18px}
+      .bin-list{min-width:0}
+      .bin-line{grid-template-columns:39px minmax(0,1fr) 80px 27px;gap:7px}
+      .bin-line strong{font-size:15px;line-height:1.15}
+      .bin-line small{font-size:9px}
+      .bin-line__image{width:39px;height:42px}
+      .bin-line__qty{gap:3px}
+      .bin-line__qty button{width:24px;height:25px;flex-shrink:0}
+      .bin-remove{width:27px;height:27px}
+      .configurator .config-substep{margin-top:22px;padding-top:22px}
+      .frequency-pills{grid-template-columns:minmax(0,1fr);gap:9px}
+      .frequency-pills button,.frequency-pills button[aria-pressed="true"]{width:100%;min-width:0;padding:15px 13px;font-size:11px;line-height:1.4}
+      .frequency-pills button span{font-size:11px;margin-top:5px}
+      .sheet{position:static;border:2px solid var(--ink);box-shadow:none}
+      .sheet-head{padding:18px 16px;min-width:0}
+      .sheet-head h3{font-size:clamp(32px,8.3vw,42px);line-height:.94}
+      .sheet-head .mono{font-size:9px}
+      .sheet-body{padding:19px 16px}
+      .sheet-total{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .sheet-total div{padding:15px 12px;min-width:0}
+      .sheet-total strong{font-size:41px}
+      .sheet-preview__items{min-width:0;overflow-wrap:anywhere}
+      .sheet-frequency{align-items:flex-start;gap:15px}
+      .sheet-frequency>*{min-width:0}
+      .sheet-frequency span:last-child{max-width:60%;overflow-wrap:break-word}
+      .enquiry-form{grid-template-columns:minmax(0,1fr);gap:12px}
+      .enquiry-form .full{grid-column:1}
+      .form-field input,.form-field textarea{width:100%}
+      .send-options{grid-template-columns:minmax(0,1fr);gap:9px}
+      .send-options button{width:100%}
+      .method-grid{grid-template-columns:minmax(0,1fr)}
+      .method-step{min-width:0;min-height:0;padding:22px}
+      .method-step__number{font-size:58px}
+      .method-step h3{font-size:clamp(29px,8.1vw,37px);line-height:.99}
+      .method-step p{font-size:12px}
+      .locations h2{font-size:clamp(55px,13.3vw,77px);line-height:.88}
+      .town{min-width:0;padding:11px 0}
+      .town strong{min-width:0;font-size:clamp(25px,7.2vw,34px);overflow-wrap:break-word}
+      .town span{flex-shrink:0;font-size:9px}
+      .last-call{padding-top:66px;padding-bottom:69px}
+      .last-call h2{font-size:clamp(57px,13.5vw,88px);line-height:.88}
+      .last-call .wrap{grid-template-columns:minmax(0,1fr)}
+      .last-call .btn{white-space:normal;width:100%;min-width:0}
+      .footer-grid{grid-template-columns:minmax(0,1fr)}
+      .mobile-cta{max-width:100%;width:100%}
+    }
+    @media (max-width:370px){
+      .wrap{width:calc(100% - 24px)}
+      .hero-title{font-size:clamp(55px,14.5vw,65px)}
+      .section-heading h2{font-size:clamp(43px,11.3vw,56px)}
+      .intro-title{font-size:clamp(44px,11.3vw,55px)}
+      .service-rail h3{font-size:30px}
+      .sector summary strong{font-size:27px}
+      .lab-copy h2{font-size:51px}
+      .sheet-head h3{font-size:33px}
+      .brand-words strong{font-size:20px}
+    }
+
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to main content</a>
+  <header class="masthead">
+    <div class="wrap masthead__inner">
+      <a href="#top" class="site-brand" aria-label="NI Bin Guy commercial home">
+        <span class="brand-tiles" aria-hidden="true"><span class="tile"><small>28</small>Ni</span><span class="tile"><small>32</small>Gu</span></span>
+        <span class="brand-words"><strong>NI BIN GUY</strong><span>COMMERCIAL DIVISION</span></span>
+      </a>
+      <button class="menu-toggle" type="button" aria-label="Open menu" id="menuToggle" aria-controls="mastNav" aria-expanded="false"><span></span><span></span><span></span></button>
+      <nav class="mastnav" id="mastNav" aria-label="Primary">
+        <a href="#why">The difference</a><a href="#services">What we do</a><a href="#industries">Who it's for</a><a href="#the-lab">The lab</a>
+        <a class="mastnav__cta" href="#planner">BUILD YOUR CLEANING PLAN <span aria-hidden="true">↗</span></a>
+      </nav>
+    </div>
+  </header>
+  <div class="systemline">
+    <div class="wrap systemline__inner">
+      <span class="mono"><span class="pulse-dot" aria-hidden="true"></span>COMMERCIAL CLEANING / NORTH DOWN + ARDS</span>
+      <div class="systemline__right"><span class="mono">120L — 1100L / ONE-OFF + REGULAR</span><a class="mono" href="tel:+447555178484">CALL 07555 178484 ↗</a></div>
+    </div>
+  </div>
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-heading">
+      <div class="wrap hero-main">
+        <div class="hero-copy">
+          <p class="overline hero-kicker">The unglamorous side of good business.</p>
+          <h1 id="hero-heading" class="hero-title">
+            <span class="line">DIRTY</span><span class="line outline">BINS?</span><span class="line highlight">SORTED.</span>
+          </h1>
+          <div class="hero-intro">
+            <p>Big bins. Busy businesses. Not-so-lovely smells. We take care of the bit nobody wants to deal with — commercial bin cleaning for businesses across North Down and Ards.</p>
+          </div>
+          <div class="hero-actions">
+            <a class="btn btn--yellow" href="#planner">Build a cleaning plan <span class="arrow" aria-hidden="true">↗</span></a>
+            <a class="btn btn--outline" href="#why">See what we do <span class="arrow" aria-hidden="true">↓</span></a>
+          </div>
+          <p class="hero-note">NO PUSHY SALES. NO COMPLICATED BOOKING. JUST A BETTER BIN CLEAN.</p>
+        </div>
+        <div class="hero-stage" aria-label="Explore the commercial bin sizes we clean">
+          <div class="stage-top"><span class="mono">NBG — CONTAINER SPECIMEN</span><b>FILE / 001</b></div>
+          <div class="stage-art">
+            <div class="stage-stamp"><b>NI</b><small>LOCAL<br>BIN CARE</small></div>
+            <img id="heroBin" class="stage-bin" src="https://nibing.uy/bins/1100L.webp" alt="Illustration of an 1100-litre four-wheel commercial bin" width="470" height="470" fetchpriority="high">
+            <img class="stage-mascot" src="https://nibing.uy/logo.webp" alt="NI Bin Guy mascot in a yellow cleaning suit" width="128" height="128">
+          </div>
+          <div class="stage-label"><strong id="heroSize">1100L</strong><span id="heroSizeType">FOUR-WHEEL<br>COMMERCIAL BIN</span></div>
+          <div class="capacity-picker" role="group" aria-label="Choose bin size to display">
+            <button type="button" data-hero-bin="120" aria-pressed="false">120L</button>
+            <button type="button" data-hero-bin="240" aria-pressed="false">240L</button>
+            <button type="button" data-hero-bin="360" aria-pressed="false">360L</button>
+            <button type="button" data-hero-bin="660" aria-pressed="false">660L</button>
+            <button type="button" data-hero-bin="1100" aria-pressed="true">1100L</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div class="ticker" aria-label="Commercial bin cleaning services">
+      <div class="ticker__track" aria-hidden="true">
+        <span>WASH IT</span><i>✳</i><span>SANITISE IT</span><i>✳</i><span>DEODORISE IT</span><i>✳</i><span>KEEP BUSINESS MOVING</span><i>✳</i>
+        <span>WASH IT</span><i>✳</i><span>SANITISE IT</span><i>✳</i><span>DEODORISE IT</span><i>✳</i><span>KEEP BUSINESS MOVING</span><i>✳</i>
+      </div>
+    </div>
+
+    <section id="why" class="intro-section">
+      <div class="wrap">
+        <div class="intro-header">
+          <p class="overline intro-kicker">01 / OUR THINKING</p>
+          <h2 class="intro-title">BEHIND EVERY BUSINESS IS A BIN AREA <em>WORTH LOOKING AFTER.</em></h2>
+        </div>
+        <div class="intro-bottom">
+          <p>The front of your business gets all the attention. The place where the bins live? Not so much. But a neglected bin can become unpleasant, smelly and difficult to manage.</p>
+          <p class="pullquote">WE TAKE THE WORST JOB OFF YOUR TO-DO LIST.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="services" id="services">
+      <div class="wrap">
+        <div class="section-heading">
+          <div><p class="overline section-heading__eyebrow">02 / THE WORK</p><h2>THREE WAYS<br>TO GET SORTED.</h2></div>
+          <p>Real commercial cleaning needs don't always fit into a package. Start with the service that sounds most like your site.</p>
+        </div>
+        <div class="service-rails">
+          <a class="service-rail" href="#planner"><span class="number">01.</span><h3>ONE-OFF CLEAN</h3><p>When the bin area needs a reset. For a single clean or a more demanding cleaning job, subject to requirements.</p><span class="go" aria-hidden="true">↗</span></a>
+          <a class="service-rail" href="#planner"><span class="number">02.</span><h3>RECURRING BIN CARE</h3><p>Keep things in better shape with a regular cleaning arrangement that suits your bins and site.</p><span class="go" aria-hidden="true">↗</span></a>
+          <a class="service-rail" href="#planner"><span class="number">03.</span><h3>MULTI-BIN PREMISES</h3><p>From a few wheelie bins to large commercial containers and shared bin stores. We'll discuss access and suitability.</p><span class="go" aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="sectors" id="industries">
+      <div class="wrap">
+        <div class="section-heading">
+          <div><p class="overline section-heading__eyebrow">03 / MADE FOR BUSINESSES</p><h2>YOUR INDUSTRY.<br>OUR DIRTY WORK.</h2></div>
+          <p>Choose a sector below to see how commercial bin cleaning might fit your premises.</p>
+        </div>
+        <div class="sector-list">
+          <details class="sector" open>
+            <summary><span class="sector-n">01</span><strong>RESTAURANTS &amp; TAKEAWAYS</strong><span class="sector-plus" aria-hidden="true">+</span></summary>
+            <div class="sector-panel"><p>Busy kitchens and food businesses rely on their waste storage every day. We can help with cleaning arrangements for food waste, general waste and recycling bins, subject to the site and waste type.</p><div class="tagline"><span>Hospitality / Food service</span></div></div>
+          </details>
+          <details class="sector">
+            <summary><span class="sector-n">02</span><strong>SHOPS &amp; WORKPLACES</strong><span class="sector-plus" aria-hidden="true">+</span></summary>
+            <div class="sector-panel"><p>Whether you're running a shop, office or another business site, clean bins help make day-to-day waste areas easier to live with. We offer one-off and repeat cleaning by arrangement.</p><div class="tagline"><span>Retail / Offices</span></div></div>
+          </details>
+          <details class="sector">
+            <summary><span class="sector-n">03</span><strong>APARTMENTS &amp; MANAGED SITES</strong><span class="sector-plus" aria-hidden="true">+</span></summary>
+            <div class="sector-panel"><p>Shared wheelie bins and larger four-wheel containers can quickly see heavy use. We can discuss multi-container cleaning for property managers and shared waste storage areas.</p><div class="tagline"><span>Property / Facilities</span></div></div>
+          </details>
+          <details class="sector">
+            <summary><span class="sector-n">04</span><strong>SCHOOLS &amp; ORGANISATIONS</strong><span class="sector-plus" aria-hidden="true">+</span></summary>
+            <div class="sector-panel"><p>For schools, community organisations and care facilities, the right bin-cleaning arrangement depends on the premises. Tell us about your location and access needs and we'll discuss availability.</p><div class="tagline"><span>Community / Institutions</span></div></div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="visual-lab" id="the-lab">
+      <div class="wrap lab-layout">
+        <div class="lab-copy">
+          <p class="overline">04 / THE BIN LAB</p>
+          <h2>GIVE GRIME<br>THE <em>SLIDE.</em></h2>
+          <p>Drag the slider for a playful illustration of the difference between a tired-looking bin and one that's been refreshed. No miracle claims. Just a cleaner, more presentable bin.</p>
+          <div class="lab-steps">
+            <div><b>01 /</b><span>Wash away dirt and leftover grime.</span></div>
+            <div><b>02 /</b><span>Sanitise the bin.</span></div>
+            <div><b>03 /</b><span>Deodorise and refresh.</span></div>
+          </div>
+          <a href="#planner" class="btn btn--yellow">Give your bins some attention <span class="arrow" aria-hidden="true">↗</span></a>
+        </div>
+        <div class="lab-panel">
+          <div class="lab-panel__header"><span class="mono">NBG / VISUAL EXPERIMENT</span><span class="mono">DEMO 01</span></div>
+          <div class="lab-panel__visual" id="labVisual" style="--reveal:53%">
+            <img class="lab-bin lab-bin--before" src="https://nibing.uy/bins/660L.webp" width="320" height="320" alt="Stylised, greyed-out illustration of a bin before cleaning">
+            <div class="lab-reveal" aria-hidden="true"><img class="lab-bin" src="https://nibing.uy/bins/660L.webp" width="320" height="320" alt=""></div>
+            <div class="lab-divider" aria-hidden="true"></div>
+            <span class="lab-label lab-label--left">TIRED-LOOKING</span><span class="lab-label lab-label--right">REFRESHED</span>
+          </div>
+          <div class="lab-control">
+            <label class="mono" for="cleanSlider"><span>DRAG TO WIPE</span><span id="sliderAmount">53% WIPE POSITION</span></label>
+            <input id="cleanSlider" type="range" min="0" max="100" step="1" value="53" aria-label="Move the illustrative clean-bin comparison">
+          </div>
+          <p class="lab-note">Illustration only. This is not a photograph or a guarantee of a particular cleaning result.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="planner" id="planner">
+      <div class="wrap">
+        <div class="section-heading">
+          <div><p class="overline section-heading__eyebrow">05 / NO-GUESSWORK ENQUIRIES</p><h2>BUILD YOUR<br>BIN PLAN.</h2></div>
+          <p>Choose the bins you've got, tell us where they are, and we'll have the details needed to discuss an appropriate commercial cleaning quote.</p>
+        </div>
+        <div class="planner-grid">
+          <div class="configurator">
+            <div class="config-top"><span class="mono">YOUR SITE / CONFIGURATOR</span><span class="config-index">STEP 01 / 02</span></div>
+            <h3>WHAT'S IN YOUR BIN STORE?</h3>
+            <p class="subtext">Mix and match bin sizes. You can add several different sizes to the same enquiry.</p>
+            <span class="label-title">Select a bin size</span>
+            <div class="bin-options" role="group" aria-label="Choose size to add to plan">
+              <button type="button" data-select-bin="120" aria-pressed="false">120L<small>Wheelie</small></button>
+              <button type="button" data-select-bin="240" aria-pressed="false">240L<small>Wheelie</small></button>
+              <button type="button" data-select-bin="360" aria-pressed="false">360L<small>Wheelie</small></button>
+              <button type="button" data-select-bin="660" aria-pressed="true">660L<small>4-wheel</small></button>
+              <button type="button" data-select-bin="1100" aria-pressed="false">1100L<small>4-wheel</small></button>
+            </div>
+            <div class="config-choose">
+              <div>
+                <label class="label-title" for="quantityOutput">Number of these bins</label>
+                <div class="quantity">
+                  <button type="button" id="quantityDown" aria-label="Decrease number of selected bins">−</button>
+                  <output id="quantityOutput" aria-live="polite">1</output>
+                  <button type="button" id="quantityUp" aria-label="Increase number of selected bins">+</button>
+                </div>
+              </div>
+              <button type="button" class="add-bin" id="addBin">+ ADD TO MY PLAN</button>
+            </div>
+            <div class="current-bins">
+              <span class="label-title">Your bins <span id="totalCountLabel">(0)</span></span>
+              <div class="bin-list" id="binList" aria-live="polite"><div class="bin-list-empty">Your bin plan is empty. Add your first bin above.</div></div>
+            </div>
+            <div class="config-substep">
+              <span class="label-title">How often would you like them cleaned?</span>
+              <div class="frequency-pills" role="group" aria-label="Preferred cleaning frequency">
+                <button type="button" data-frequency="One-off clean" aria-pressed="true">ONE-OFF CLEAN<span>A single tidy-up</span></button>
+                <button type="button" data-frequency="Regular cleaning (frequency to be agreed)" aria-pressed="false">REGULAR CLEANING<span>A repeat schedule by arrangement</span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="sheet" id="quote-sheet">
+            <div class="sheet-head"><div><span class="mono">NI BIN GUY / YOUR ENQUIRY SHEET</span><h3>YOUR SITE<br>BRIEF.</h3></div><span class="mono">REF / NBG-001<br>STEP 02 / 02</span></div>
+            <div class="sheet-body">
+              <div class="sheet-total">
+                <div><strong id="sheetBinCount">0</strong><small>Total bins</small></div>
+                <div><strong id="sheetSizesCount">0</strong><small>Bin types</small></div>
+              </div>
+              <div class="sheet-preview"><p class="mono">YOUR REQUESTED CLEANING SETUP</p><div class="sheet-preview__items" id="sheetItems" aria-live="polite"><span class="sheet-tag--empty">ADD A BIN TO BEGIN</span></div></div>
+              <div class="sheet-frequency"><span>Preferred service</span><span id="sheetFrequency">ONE-OFF CLEAN</span></div>
+              <form id="enquiryForm">
+                <div class="enquiry-form">
+                  <div class="form-field"><label for="businessName">Business name *</label><input id="businessName" name="businessName" required maxlength="100" placeholder="e.g. Your business" autocomplete="organization"></div>
+                  <div class="form-field"><label for="contactName">Contact name *</label><input id="contactName" name="contactName" required maxlength="100" placeholder="Your name" autocomplete="name"></div>
+                  <div class="form-field"><label for="email">Email *</label><input id="email" name="email" type="email" required maxlength="150" placeholder="you@business.co.uk" autocomplete="email"></div>
+                  <div class="form-field"><label for="postcode">Site postcode *</label><input id="postcode" name="postcode" required maxlength="12" placeholder="e.g. BT20 5NF" autocomplete="postal-code" pattern="[A-Za-z]{1,2}[0-9][A-Za-z0-9]?\s*[0-9][A-Za-z]{2}" title="Enter a valid UK postcode"></div>
+                  <div class="form-field full"><label for="notes">Site notes (optional)</label><textarea id="notes" name="notes" maxlength="1200" placeholder="Access arrangements, waste collection times, questions..."></textarea></div>
+                </div>
+                <div class="send-options"><button type="submit">OPEN EMAIL ENQUIRY ↗</button><button type="button" id="sendWhatsapp">ENQUIRE ON WHATSAPP ↗</button></div>
+                <p id="planError" class="form-error" role="status" aria-live="polite"></p>
+                <p class="form-help">Preview mode: nothing is automatically submitted or stored. These buttons prepare a message in your email or WhatsApp app for you to review and send yourself.</p>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="method" id="how">
+      <div class="wrap">
+        <div class="section-heading">
+          <div><p class="overline section-heading__eyebrow">06 / OUR APPROACH</p><h2>NO DRAMA.<br>JUST A PLAN.</h2></div>
+          <p>We fit the cleaning around the site and discuss a workable schedule based on access and waste collections.</p>
+        </div>
+        <div class="method-grid">
+          <article class="method-step"><span class="method-step__number">01</span><div><h3>YOU SHOW US THE BINS.</h3><p>Tell us how many, what sizes and where they're located.</p></div></article>
+          <article class="method-step"><span class="method-step__number">02</span><div><h3>WE WORK OUT THE DETAILS.</h3><p>We discuss site access, preferred timing and a suitable quote.</p></div></article>
+          <article class="method-step"><span class="method-step__number">03</span><div><h3>THE BINS GET ATTENTION.</h3><p>We arrange the wash, sanitising and deodorising as agreed.</p></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="locations" id="areas">
+      <div class="wrap location-layout">
+        <div>
+          <p class="overline" style="color:var(--green)">07 / OUR PATCH</p>
+          <h2>LOCAL.<br><em>ON PURPOSE.</em></h2>
+          <p>NI Bin Guy is based in Bangor. We serve our established North Down and Ards routes, with commercial availability depending on the site and requirements. Tell us your postcode when you enquire.</p>
+          <a href="#planner" class="btn btn--dark">Check your commercial enquiry <span class="arrow" aria-hidden="true">↗</span></a>
+        </div>
+        <div class="town-list" aria-label="Main service towns">
+          <div class="town"><strong>Bangor</strong><span>01 / BT20</span></div>
+          <div class="town"><strong>Newtownards</strong><span>02 / BT23</span></div>
+          <div class="town"><strong>Holywood</strong><span>03 / BT18</span></div>
+          <div class="town"><strong>Donaghadee</strong><span>04 / BT21</span></div>
+          <div class="town"><strong>Comber</strong><span>05 / BT23</span></div>
+          <div class="town"><strong>Groomsport · Carrowdore</strong><span>06 / LOCAL</span></div>
+          <div class="town"><strong>Millisle · Portaferry</strong><span>07 / LOCAL</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="last-call">
+      <div class="wrap">
+        <div><p class="overline">YOUR BIN AREA DESERVES BETTER.</p><h2>LESS GRIME.<br><em>MORE PRIDE.</em></h2></div>
+        <a href="#planner" class="btn btn--yellow">Let's talk bins <span class="arrow" aria-hidden="true">↗</span></a>
+      </div>
+    </section>
+  </main>
+  <footer class="footer">
+    <div class="wrap">
+      <div class="footer-grid">
+        <div>
+          <a href="#top" class="site-brand" aria-label="Back to the top of NI Bin Guy Commercial">
+            <span class="brand-tiles" aria-hidden="true"><span class="tile"><small>28</small>Ni</span><span class="tile"><small>32</small>Gu</span></span>
+            <span class="brand-words"><strong>NI BIN GUY</strong><span>COMMERCIAL DIVISION</span></span>
+          </a>
+          <p>Commercial wheelie and larger bin cleaning across North Down and Ards. All commercial work subject to agreement and availability.</p>
+        </div>
+        <div class="footer-group"><b>Find your way</b><a href="#services">Services</a><a href="#industries">Business sectors</a><a href="#the-lab">The bin lab</a><a href="#planner">Build your plan</a></div>
+        <div class="footer-group"><b>Speak to us</b><a href="tel:+447555178484">07555 178484</a><a href="mailto:info@nibing.uy">info@nibing.uy</a><a href="https://nibing.uy/privacy-policy.html" target="_blank" rel="noopener noreferrer">Privacy policy ↗</a></div>
+      </div>
+      <div class="footer-bottom"><span>© NI Bin Guy 2026 · North Down, Northern Ireland</span><span class="footer-note">DESIGN CONCEPT / PREVIEW ONLY — NOT THE LIVE WEBSITE</span></div>
+    </div>
+  </footer>
+  <div class="mobile-cta" id="mobileCTA" aria-label="Quick commercial enquiry"><span>YOUR BINS.<br>OUR BUSINESS.</span><a href="#planner">BUILD A PLAN ↗</a></div>
+  <script>
+    (function(){
+      "use strict";
+      const binSizes=[120,240,360,660,1100];
+      const binFile=size=>"https://nibing.uy/bins/"+size+"L.webp";
+      const binKind=size=>size>=660?"FOUR-WHEEL COMMERCIAL BIN":size===360?"LARGE WHEELIE BIN":"STANDARD WHEELIE BIN";
+      const menuToggle=document.getElementById("menuToggle");
+      const mastNav=document.getElementById("mastNav");
+      function closeMenu(){mastNav.dataset.open="false";menuToggle.setAttribute("aria-expanded","false");menuToggle.setAttribute("aria-label","Open menu")}
+      menuToggle.addEventListener("click",()=>{const open=mastNav.dataset.open!=="true";mastNav.dataset.open=String(open);menuToggle.setAttribute("aria-expanded",String(open));menuToggle.setAttribute("aria-label",open?"Close menu":"Open menu")});
+      mastNav.querySelectorAll("a").forEach(a=>a.addEventListener("click",closeMenu));
+      document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMenu()});
+
+      const heroBin=document.getElementById("heroBin");
+      let currentHero=1100;
+      document.querySelectorAll("[data-hero-bin]").forEach(button=>button.addEventListener("click",()=>{
+        const size=Number(button.dataset.heroBin);
+        if(!binSizes.includes(size))return;
+        currentHero=size;
+        document.querySelectorAll("[data-hero-bin]").forEach(item=>item.setAttribute("aria-pressed",String(item===button)));
+        heroBin.src=binFile(size);
+        heroBin.alt="Illustration of a "+size+" litre "+(size>=660?"four-wheel commercial":"wheelie")+" bin";
+        document.getElementById("heroSize").textContent=size+"L";
+        const type=binKind(size).replace(" COMMERCIAL","").replace(" BIN","");
+        document.getElementById("heroSizeType").textContent=type+" / BIN";
+      }));
+
+      const cleanSlider=document.getElementById("cleanSlider");
+      cleanSlider.addEventListener("input",()=>{
+        const pct=Number(cleanSlider.value);
+        document.getElementById("labVisual").style.setProperty("--reveal",pct+"%");
+        document.getElementById("sliderAmount").textContent=pct+"% WIPE POSITION";
+      });
+
+      const plans={};
+      let activeSize=660;
+      let activeQuantity=1;
+      let activeFrequency="One-off clean";
+      const quantityOutput=document.getElementById("quantityOutput");
+      const totalCountLabel=document.getElementById("totalCountLabel");
+      const binList=document.getElementById("binList");
+      const sheetItems=document.getElementById("sheetItems");
+      const error=document.getElementById("planError");
+      const form=document.getElementById("enquiryForm");
+      const maxPerSize=250;
+
+      function changeQuantity(delta){
+        activeQuantity=Math.max(1,Math.min(maxPerSize,activeQuantity+delta));
+        quantityOutput.textContent=activeQuantity;
+      }
+      document.getElementById("quantityDown").addEventListener("click",()=>changeQuantity(-1));
+      document.getElementById("quantityUp").addEventListener("click",()=>changeQuantity(1));
+      document.querySelectorAll("[data-select-bin]").forEach(button=>button.addEventListener("click",()=>{
+        const size=Number(button.dataset.selectBin);
+        if(!binSizes.includes(size))return;
+        activeSize=size;
+        document.querySelectorAll("[data-select-bin]").forEach(b=>b.setAttribute("aria-pressed",String(b===button)));
+      }));
+
+      function planSizes(){return binSizes.filter(size=>plans[size]>0)}
+      function totalBins(){return planSizes().reduce((n,size)=>n+plans[size],0)}
+      function addBin(){
+        plans[activeSize]=Math.min(maxPerSize,(plans[activeSize]||0)+activeQuantity);
+        error.textContent="";
+        renderPlan();
+      }
+      document.getElementById("addBin").addEventListener("click",addBin);
+
+      function renderPlan(){
+        const sizes=planSizes();
+        const count=totalBins();
+        document.getElementById("sheetBinCount").textContent=String(count);
+        document.getElementById("sheetSizesCount").textContent=String(sizes.length);
+        totalCountLabel.textContent="("+count+")";
+        binList.replaceChildren();
+        sheetItems.replaceChildren();
+        if(!sizes.length){
+          const empty=document.createElement("div");
+          empty.className="bin-list-empty";
+          empty.textContent="Your bin plan is empty. Add your first bin above.";
+          binList.append(empty);
+          const tag=document.createElement("span");tag.className="sheet-tag--empty";tag.textContent="ADD A BIN TO BEGIN";
+          sheetItems.append(tag);
+          return;
+        }
+        sizes.forEach(size=>{
+          const row=document.createElement("div");row.className="bin-line";
+          const img=document.createElement("img");
+          img.className="bin-line__image";img.src=binFile(size);img.alt="";img.width=48;img.height=48;img.loading="lazy";
+          const text=document.createElement("div");
+          const strong=document.createElement("strong");strong.textContent=size+" LITRES";
+          const small=document.createElement("small");small.textContent=size>=660?"FOUR-WHEEL BIN":"WHEELIE BIN";
+          text.append(strong,small);
+          const controls=document.createElement("div");controls.className="bin-line__qty";
+          const minus=document.createElement("button");minus.type="button";minus.textContent="−";minus.setAttribute("aria-label","Remove one "+size+" litre bin");
+          minus.addEventListener("click",()=>{plans[size]--;if(plans[size]<=0)delete plans[size];renderPlan()});
+          const qty=document.createElement("span");qty.textContent=plans[size];
+          const plus=document.createElement("button");plus.type="button";plus.textContent="+";plus.setAttribute("aria-label","Add one "+size+" litre bin");
+          plus.addEventListener("click",()=>{plans[size]=Math.min(maxPerSize,plans[size]+1);renderPlan()});
+          controls.append(minus,qty,plus);
+          const remove=document.createElement("button");remove.type="button";remove.className="bin-remove";remove.textContent="×";remove.setAttribute("aria-label","Remove all "+size+" litre bins");
+          remove.addEventListener("click",()=>{delete plans[size];renderPlan()});
+          row.append(img,text,controls,remove);
+          binList.append(row);
+          const tag=document.createElement("span");tag.className="sheet-tag";tag.textContent=plans[size]+" × "+size+"L";
+          sheetItems.append(tag);
+        });
+      }
+      document.querySelectorAll("[data-frequency]").forEach(button=>button.addEventListener("click",()=>{
+        activeFrequency=button.dataset.frequency;
+        document.querySelectorAll("[data-frequency]").forEach(b=>b.setAttribute("aria-pressed",String(b===button)));
+        document.getElementById("sheetFrequency").textContent=activeFrequency.toUpperCase();
+      }));
+
+      function prepareMessage(){
+        const data=new FormData(form);
+        return [
+          "Hello NI Bin Guy,",
+          "",
+          "I'd like to enquire about commercial bin cleaning.",
+          "",
+          "Business: "+data.get("businessName"),
+          "Contact: "+data.get("contactName"),
+          "Email: "+data.get("email"),
+          "Site postcode: "+String(data.get("postcode")).trim().toUpperCase(),
+          "Bins: "+planSizes().map(s=>plans[s]+" x "+s+"L").join(", "),
+          "Total bins: "+totalBins(),
+          "Preferred frequency: "+activeFrequency,
+          "Additional information: "+(String(data.get("notes")||"").trim()||"None provided"),
+          "",
+          "Please contact me to discuss availability and a quote."
+        ].join("\n");
+      }
+      function validate(){
+        if(!planSizes().length){
+          error.textContent="Please add at least one bin to your plan before enquiring.";
+          document.getElementById("addBin").focus();
+          return false;
+        }
+        if(!form.reportValidity())return false;
+        error.textContent="";
+        return true;
+      }
+      form.addEventListener("submit",e=>{
+        e.preventDefault();
+        if(!validate())return;
+        const business=document.getElementById("businessName").value.trim();
+        const subject=encodeURIComponent("Commercial bin cleaning quote - "+business);
+        window.location.href="mailto:info@nibing.uy?subject="+subject+"&body="+encodeURIComponent(prepareMessage());
+      });
+      document.getElementById("sendWhatsapp").addEventListener("click",()=>{
+        if(!validate())return;
+        const url="https://wa.me/447555178484?text="+encodeURIComponent(prepareMessage());
+        const popup=window.open(url,"_blank","noopener,noreferrer");
+        if(!popup)window.location.href=url;
+      });
+      renderPlan();
+
+      const mobileCTA=document.getElementById("mobileCTA");
+      if("IntersectionObserver" in window){
+        const tracker=new IntersectionObserver(entries=>{
+          entries.forEach(entry=>mobileCTA.dataset.hidden=String(entry.isIntersecting));
+        },{threshold:0.06});
+        tracker.observe(document.getElementById("planner"));
+      }
+      mobileCTA.querySelector("a").addEventListener("click",()=>{mobileCTA.dataset.hidden="true"});
+    })();
+  </script>
+</body>
+</html>
