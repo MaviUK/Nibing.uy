@@ -87,3 +87,19 @@
 @media(prefers-reduced-motion:reduce){
   #level-08-final .n64-final-book{transition:none;}
 }
+
+.n64-public-leaderboard{background:#182d4f;color:#fff8de;padding:70px 16px 78px;border-top:9px solid #f5d164;font-family:"Trebuchet MS",Verdana,sans-serif;}
+.n64-public-board-inner{max-width:670px;margin:0 auto;text-align:center;}
+.n64-board-eyebrow{display:inline-block;background:#ffe05f;color:#20345c;border:3px solid #0c1835;padding:9px 15px;font-weight:1000;box-shadow:5px 5px 0 #6789b8;}
+.n64-public-leaderboard h2{font-size:clamp(1.8rem,5vw,3.3rem);line-height:1.12;text-shadow:4px 5px 0 #54779e;margin:23px 0 14px;font-weight:1000;}
+.n64-public-leaderboard p{line-height:1.65;font-size:.97rem;max-width:570px;margin:0 auto 27px;}
+.n64-public-leaderboard ol{list-style:none;padding:10px;border:5px solid #e8da93;box-shadow:8px 9px 0 #567ba5;background:#fcf8e7;color:#20345c;margin:0 0 24px;}
+.n64-public-leaderboard li{display:flex;align-items:center;justify-content:space-between;gap:13px;padding:14px 10px;border-bottom:2px solid #b8c3d1;font-weight:900;text-align:left;overflow-wrap:anywhere;}
+.n64-public-leaderboard li:last-child{border-bottom:0;}
+.n64-public-leaderboard li:nth-child(1){background:#ffe49b;}
+.n64-public-leaderboard li:nth-child(2){background:#dfecfb;}
+.n64-public-leaderboard li:nth-child(3){background:#ffdec4;}
+.n64-public-leaderboard li > strong{white-space:nowrap;color:#174f41;}
+.n64-public-leaderboard li span strong{display:inline-block;min-width:29px;color:#576890;}
+.n64-public-leaderboard small{color:#c7d9ef;font-size:.75rem;line-height:1.5;}
+@media(max-width:600px){.n64-public-leaderboard{padding:52px 12px 65px;}.n64-public-leaderboard ol{padding:6px;box-shadow:5px 6px 0 #567ba5;}.n64-public-leaderboard li{padding:13px 7px;font-size:.83rem;}}
