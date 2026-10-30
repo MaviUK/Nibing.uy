@@ -107,3 +107,28 @@ test("customer claims are stable and hide PII",()=>{
   assert.equal(x.includes("example"),false);
   assert.equal(x.includes("BT20"),false);
 });
+
+
+test("different emails at the same property claim one customer/job only", async()=>{
+  const store=makeStore();
+  const first=booking();
+  const second={...booking("NBG-JKLMN-ABCDEFGH"), email:"other@example.net"};
+  assert.equal(customerKey(first),customerKey(second));
+  const firstKey=jobKey(first,job);
+  assert.equal(firstKey,jobKey(second,job));
+  const records=await Promise.all([
+    claimOnce({key:firstKey,bookingId:first.bookingId,store,channel:"email"}),
+    claimOnce({key:jobKey(second,job),bookingId:second.bookingId,store,channel:"whatsapp"}),
+  ]);
+  assert.equal(records.filter(r=>r.acquired).length,1);
+});
+test("street abbreviations and postcode spacing preserve the same claim",()=>{
+  const a={address:"17 Example Rd, Bangor BT20 4AA"};
+  const b={address:"17 Example Road, Bangor, BT204AA"};
+  assert.equal(customerKey(a),customerKey(b));
+});
+test("two different properties sharing a postcode never share a customer claim",()=>{
+  const a={address:"17 Example Road, Bangor, BT20 4AA"};
+  const b={address:"19 Example Road, Bangor, BT20 4AA"};
+  assert.notEqual(customerKey(a),customerKey(b));
+});
