@@ -9,7 +9,7 @@ permissions:
   contents: read
   id-token: write
 jobs:
-  atomic-lock-diagnostics:
+  injected-store-lock-diagnostics:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
