@@ -138,13 +138,16 @@ function redirectTo(path) {
   }});
 }
 function authPage(returnTo=null){
-  return page('<p>This lets NI Bin Guy approve <strong>one</strong> test booking without enabling imports for anyone else.</p>'+
+  return page((returnTo
+    ? '<p>Authorise this browser to resume your <strong>existing two-bin booking</strong>.'+
+      ' No new website booking, confirmation email or Squeegee write happens here.</p>'
+    : '<p>This authorises your browser to inspect the completed one-time Squeegee test.</p>')+
   '<p>Request an access code to your usual business bookings mailbox. The code is not shown on this page.</p>'+
   (returnTo?'<div class="notice"><strong>Two-bin recovery:</strong> After verifying your code, you will return directly to the same recovery page in this browser.</div>':'')+
   '<form method="post"><input type="hidden" name="action" value="request">'+
   returnField(returnTo)+
   '<button type="submit">Email my one-time test code</button></form>'+
-  '<div class="notice">Do not submit a normal booking until you have entered the code and the test is armed.</div>');
+  '<div class="notice">This authorises owner access only. Do not submit another website booking or Squeegee write.</div>');
 }
 function challengePage(challengeId,returnTo=null){
   return page('<p>A 10-digit code has been sent to your bookings email. Enter it here within 15 minutes.</p>'+
@@ -152,7 +155,9 @@ function challengePage(challengeId,returnTo=null){
   '<input type="hidden" name="challengeId" value="'+safe(challengeId)+'">'+
   returnField(returnTo)+
   '<label for="code">Access code</label><input id="code" name="code" type="text" inputmode="numeric" maxlength="10" pattern="[0-9]{10}" autocomplete="one-time-code" required>'+
-  '<button type="submit">Arm one test booking</button></form>');
+  '<button type="submit">'+
+    (returnTo?'Verify code and continue two-bin recovery':'Authorise this browser')+
+    '</button></form>');
 }
 function armedPage(diagnostic,bookingId,squeegeeCheck=null){
   let state="";
