@@ -806,3 +806,28 @@ test("duplicate bin colour lines are held before any claim or Squeegee POST",asy
   assert.equal(h.posts.length,0);
   assert.equal(h.ledger.records.size,0);
 });
+
+
+test("inactive Squeegee customer is never silently reactivated by existing account booking",async()=>{
+  const {externalCustomerReference}=
+    require("../netlify/functions/lib/squeegeeBookingPlan");
+  const b=sampleBooking();
+  const reference=externalCustomerReference(b);
+  for(const caseName of ["inactive_reference","inactive_detail"]) {
+    const row={
+      _id:customerId,name:b.name,email:b.email,status:
+        caseName==="inactive_reference"?"inactive":"active",
+      _externalId:reference,address:{text:b.address},
+    };
+    const h=makeHarness(b,{
+      existingRows:[row],
+      existingCustomer:{
+        status:"inactive",address:{text:b.address},jobs:[],
+      },
+    });
+    const r=await h.run();
+    assert.equal(r.status,"held");
+    assert.equal(h.posts.length,0);
+    assert.equal(h.ledger.records.size,0);
+  }
+});
