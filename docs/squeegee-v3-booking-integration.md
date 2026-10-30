@@ -81,3 +81,20 @@ The temporary Preview 1 diagnostics Function and GitHub Actions workflow used to
 - Test suite: **21/21 passing**, including service distinctions, exact dates, unknown commercial plans and duplicate avoidance. These are no-network unit tests, not a successful real job write.
 
 **No automated Squeegee writes are active.** Before enabling writes: server-side recalculation/verification of price and dates, durable atomic per-job ledger, round mapping approval, and explicit owner approval for a controlled test record. Keep the email/WhatsApp booking, terms receipt and XP/leaderboard unaffected throughout.
+
+## Booking-first shadow integration on Preview 1 (30 October 2026)
+
+Both booking channels now prepare Squeegee read-only plans **after the existing booking has been accepted**:
+- `sendBookingEmail.js` (email) calls `stageWithoutBlockingBooking(payload, {channel:'email'})` after successful admin email and normal leaderboard handling. The staging helper independently calls existing Preview 1 `/api/booking-schedule` to recalculate the date.
+- `sendTosReceipt.js` (WhatsApp) reuses the existing server-calculated schedule **after** confirmation emails, booked status and normal leaderboard handling, then calls `stageWithoutBlockingBooking(payload, {channel:'whatsapp',serverSchedule:schedule})`.
+- `squeegeeBookingStage.js` uses Squeegee `GET /services` only; **never POST**. When runtime supports `getContext().waitUntil`, preparation runs after response; otherwise a bounded 900ms best-effort fallback avoids slowing customer confirmation excessively.
+- A private Netlify Blob `squeegee-preview1-booking-readonly` holds only `bookingId`, channel, per-bin status/date/quantity/price, validation flags and blocked reasons. It stores **no customer names, phone numbers, addresses, emails or Squeegee UUIDs**. This is **not** a transactional ledger, and loss of a shadow audit must never change booking confirmation.
+- `squeegeeBookingPricing.js` independently verifies current website prices (including commercial plans), expired/ineligible discount codes, quantity limits and seven-for-six, and rejects any modified/missing/extra client pricing line.
+- `squeegeeScheduleCheck.js` compares the customer-visible browser snapshot against the independently calculated server schedule **per bin** and explicitly blocks changed/unconfirmed dates, swapped bin types, mismatched BT postcodes or uncovered towns. A missing snapshot is a manual hold, never an invented date. Numeric Squeegee job groups have not been confirmed as cleaning rounds.
+- `squeegeeBookingPreparation.js` combines the canonical price, approved-date comparison and dynamically resolved account services into a private future-job plan. Its public/Blob summary states `approvedToWrite:false` and always requires verified group mapping before write activation.
+- `squeegeeIdempotencyClaims.js` provides future fail-closed atomic single-key `onlyIfNew` reservations and `onlyIfMatch` state changes with nonempty ETag checks. This protects same customer/bin/plan/date even if a second booking ID is generated. A post/timeout with uncertain result requires reconciliation: **no automatic retry**. It is NOT connected to Squeegee POSTs or the current booking flow yet. Conditional single-key writes are not a multi-operation transaction.
+- CI tests mock all API calls and Netlify Blobs; **53/53 passing** as of 30 October 2026. Tests never create Squeegee customers or jobs.
+
+Pending before any LIVE Squeegee write: match customer across all pages within a bounded limit; verify service and round mapping, personally approve one controlled test booking, implement a restricted writer that consumes the atomic claim protocol, reconcile any ambiguous results and manually inspect job dates/4-week recurrence in Squeegee. The existing website behaviour and leaderboard remain authoritative while in shadow mode.
+
+**No production or Preview 2 change, no merge to main, no live Squeegee record creation/alteration.**
