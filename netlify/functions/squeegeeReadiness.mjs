@@ -42,13 +42,23 @@ export default async function handler(request, context) {
     squeegee.getServices(),
     squeegee.getJobGroups(),
   ]);
+  const safeLabel = (value) => String(value || "")
+    .replace(/[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}/g, "[email redacted]")
+    .replace(/\\b(?:\\+?44|0)\\d[\\d\\s-]{8,}\\b/g, "[phone redacted]")
+    .replace(/\\bBT\\d{1,2}\\s*\\d[A-Z]{2}\\b/gi, "[postcode redacted]")
+    .replace(/[<>]/g, "").trim().slice(0, 90);
   const summary = (result) => {
     if (result.status === "fulfilled") {
-      return { connected: true, count: Array.isArray(result.value) ? result.value.length : null };
+      const rows = Array.isArray(result.value) ? result.value : [];
+      return {
+        connected: true,
+        count: rows.length,
+        // One-time, preview-only diagnostic. No UUIDs, customers, or credentials.
+        descriptions: rows.slice(0, 30).map((row) => safeLabel(row?.description)),
+      };
     }
     return {
       connected: false,
-      // Status only; never return upstream content, identifiers or credentials.
       status: result.reason?.status || null,
     };
   };
