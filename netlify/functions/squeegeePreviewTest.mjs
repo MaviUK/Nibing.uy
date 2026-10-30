@@ -164,6 +164,11 @@ function armedPage(diagnostic,bookingId,squeegeeCheck=null){
           '<p>Pages checked: '+safe(squeegeeCheck.pagesScanned)+'</p>':"")+
         '<p><small>No Squeegee customer or job was created by this check. Appointment dates and four-week recurrence still require verification inside Squeegee.</small></p>'+
         '</div>';
+      if(squeegeeCheck.audit==="found" && squeegeeCheck.customer==="not_found" &&
+         diagnostic?.stored==="not_found" && diagnostic?.claim==="not_found") {
+        state+='<p><a href="/api/squeegee-preview-recover-original">'+
+          'Review original booking date and round (READ ONLY)</a></p>';
+      }
     }
   }
   const instructions=bookingId
