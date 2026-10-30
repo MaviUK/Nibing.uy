@@ -243,3 +243,48 @@ test("external customer reference matches consistently without customer PII in r
   assert.equal(found.status,"matched");
   assert.equal(found.reason,"external_reference");
 });
+
+test("matches Squeegee's real addressDescription address shape", () => {
+  const b=booking();
+  const row={
+    _id:SERVICE,
+    email:b.email,
+    phoneNumber:b.phone,
+    address:{addressDescription:"17 Example Street, Bangor, BT20 4AA",lngLat:null},
+  };
+  assert.equal(matcher.matchCustomers(b,[row]).status,"matched");
+});
+
+test("checks every customer page before selecting an existing customer", async () => {
+  const b=booking();
+  const pages=[];
+  const matched=await matcher.matchCustomersAcrossPages(b,async ({page,pagedRequestId})=>{
+    pages.push({page,pagedRequestId});
+    if(page===1) return {customers:[],hasMore:true,pagedRequestId:"test-snapshot"};
+    return {
+      customers:[{_id:SERVICE,email:b.email,address:{addressDescription:b.address}}],
+      hasMore:false,page:2,
+    };
+  });
+  assert.equal(matched.status,"matched");
+  assert.equal(matched.customerId,SERVICE);
+  assert.equal(matched.pagesScanned,2);
+  assert.deepEqual(pages,[{page:1,pagedRequestId:undefined},{page:2,pagedRequestId:"test-snapshot"}]);
+});
+
+test("fails closed if customer listing is truncated, rather than creating a duplicate", async()=>{
+  const b=booking();
+  const found=await matcher.matchCustomersAcrossPages(b,async({page})=>({
+    customers:[],hasMore:true,page,
+  }),{maxPages:2});
+  assert.equal(found.status,"needs_review");
+  assert.equal(found.reason,"customer_pagination_limit");
+});
+
+test("one-page no-match returns not_found only after hasMore false", async()=>{
+  const result=await matcher.matchCustomersAcrossPages(booking(),async()=>({
+    customers:[],hasMore:false,page:1,
+  }));
+  assert.equal(result.status,"not_found");
+  assert.equal(result.pagesScanned,1);
+});
