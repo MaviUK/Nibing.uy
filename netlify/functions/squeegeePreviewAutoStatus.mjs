@@ -64,7 +64,14 @@ export default async function handler(request,context) {
     }
     if(!status || status.bookingId!==id) {
       content+='<div class="notice"><strong>No automatic sync receipt for this reference.</strong>'+
-        '<p>This does not confirm Squeegee has no customer. The normal booking remains valid.</p></div>';
+        '<p>The booking email may have succeeded without an eligible Squeegee dispatch.'+
+        ' No retry has been attempted.</p>'+
+        (id===rollout.PILOT_BOOKING_ID?
+          '<p>This accepted booking contained Brown and Black bins, but the first pilot required one bin.'+
+          ' <strong>Do not submit the website booking again.</strong></p>'+
+          '<p><a href="/api/squeegee-preview-auto-recover">Review original two-bin booking (READ ONLY)</a></p>':
+          '<p>This does not confirm Squeegee has no customer. The normal booking remains valid.</p>')+
+        '</div>';
     }else{
       const simple=(key)=>status[key]===undefined?"":'<p>'+safe(key)+': '+safe(status[key])+'</p>';
       const previewRows=(key)=>{
