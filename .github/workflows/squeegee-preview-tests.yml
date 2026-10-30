@@ -1,0 +1,25 @@
+name: Squeegee preview booking integration tests
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - netlify/functions/lib/squeegeeApiV3.js
+      - netlify/functions/lib/squeegeeBookingPlan.js
+      - tests/squeegee-integration.test.cjs
+      - .github/workflows/squeegee-preview-tests.yml
+
+permissions:
+  contents: read
+
+jobs:
+  test-squeegee-preparation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Test documented customer/job mapping (no API calls)
+        run: node --test tests/squeegee-integration.test.cjs
