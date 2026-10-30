@@ -5,6 +5,7 @@ const { autoEnrollBooking } = require("./arcadeLeaderboard");
 const { verifyPreviewBooking } = require("./previewBookingChallenge");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
+const { validateBookingSubmission, claimBookingSubmission, submissionErrorResponse } = require("./lib/bookingSubmissionGuard");
 
 // Optional audit logging. If Netlify Blobs is unavailable, logging is skipped.
 let getStoreSafe = null;
@@ -253,6 +254,14 @@ exports.handler = async (event) => {
       };
     }
 
+    // Once the security check has passed, claim this random booking reference.
+    // This prevents rapid repeated taps/retries from sending duplicate emails.
+    // Claims are deliberately NOT consumed when CAPTCHA verification fails.
+    const submission = validateBookingSubmission(payload);
+    if (!submission.ok) return submissionErrorResponse(submission);
+    const claim = await claimBookingSubmission({ ...submission, channel: "email" });
+    if (!claim.ok) return submissionErrorResponse({ ...submission, duplicate: true });
+
     const attachments = termsPdfAttachment ? [termsPdfAttachment] : undefined;
     const subjectAdmin = `🗑️ New Bin Cleaning Booking (${source})`;
     const textAdmin = `New Bin Cleaning Booking\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\n${lat != null && lng != null ? `Geo: ${lat}, ${lng}\n` : ""}${placeId ? `Place ID: ${placeId}\n` : ""}Bins:\n${binsText}\n\n${pricingBlocks.text}\n\n— TERMS —\nAccepted: ${termsAccepted ? "yes" : "no"}\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\nAcceptance line: ${termsAcceptanceText}\n`;
@@ -388,6 +397,9 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify({
         success: true,
+        bookingId: submission.bookingId,
+        submittedAt: submission.submittedAt,
+        serverReceivedAt: submission.serverReceivedAt,
         customerConfirmationSent: !customerResult?.error,
         arcadeBookingProof: signBooking(payload),
         arcadeRegistered: Boolean(arcadeEntry?.registered),
