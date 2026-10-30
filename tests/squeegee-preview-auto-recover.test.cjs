@@ -213,3 +213,88 @@ test("new recovery route is owner-only; signed token supports Android Origin:nul
     else process.env.SQUEEGEE_API_KEY=original;
   }
 });
+
+
+test("re-authorisation stays in the browser and returns to exact two-bin recovery",async()=>{
+  const previousKey=process.env.SQUEEGEE_API_KEY;
+  process.env.SQUEEGEE_API_KEY=fakeEnv.SQUEEGEE_API_KEY;
+  try {
+    const {
+      default:authHandler,safeOwnerReturnPath,
+    }=await import("../netlify/functions/squeegeePreviewTest.mjs");
+    const origin="https://deploy-preview-77--nibinguy.netlify.app";
+    const authUrl=origin+"/api/squeegee-preview-test";
+    const returnPath="/api/squeegee-preview-auto-recover";
+    const ctx={deploy:{context:"deploy-preview"},site:{id:runtime.siteId}};
+    assert.equal(safeOwnerReturnPath(returnPath),returnPath);
+    for(const value of [
+      null,"","//evil.example","https://evil.example","/api/squeegee-preview-test",
+      "/api/squeegee-preview-auto-recover?unsafe=1",
+      "/api/squeegee-preview-auto-recover/../admin",
+      "/api/squeegee-preview-auto-recover%0a",
+    ]) assert.equal(safeOwnerReturnPath(value),null);
+    // The unauthorised GET presents the OWNER code form in this browser
+    // with the same-site recovery path, rather than switching tabs.
+    const url=authUrl+"?returnTo="+encodeURIComponent(returnPath);
+    const before=await authHandler(new Request(url),ctx);
+    assert.equal(before.status,200);
+    const form=await before.text();
+    assert.match(form,/<input type="hidden" name="returnTo" value="\/api\/squeegee-preview-auto-recover">/);
+    assert.match(form,/return directly to the same recovery page in this browser/);
+
+    // Once the owner session exists, the GET must redirect without another OTP
+    // or a new booking, and without sending Squeegee data.
+    const cookie=createTestSessionCookie(process.env,Date.now(),runtime);
+    const authorised=await authHandler(new Request(url,{
+      headers:{Cookie:COOKIE_NAME+"="+cookie},
+    }),ctx);
+    assert.equal(authorised.status,303);
+    assert.equal(authorised.headers.get("location"),returnPath);
+    assert.equal(authorised.headers.get("cache-control"),"no-store");
+
+    // Malicious redirect destinations cannot redirect, even with a signed cookie.
+    const unsafe=await authHandler(new Request(
+      authUrl+"?returnTo="+encodeURIComponent("https://evil.example"),{
+        headers:{Cookie:COOKIE_NAME+"="+cookie},
+      }),ctx);
+    assert.equal(unsafe.status,200);
+    assert.equal(unsafe.headers.get("location"),null);
+    // A completely different preview must never authorise the return flow.
+    const wrong=await authHandler(new Request(url),{
+      ...ctx,deploy:{context:"production"},
+    });
+    assert.equal(wrong.status,404);
+
+    // Regression: OTP challenge and completion retain exactly the validated
+    // returnTo value, not the previously displayed old one-booking status.
+    const source=require("node:fs").readFileSync(
+      require("node:path").join(__dirname,
+        "../netlify/functions/squeegeePreviewTest.mjs"),"utf8");
+    assert.match(source,/challengePage\(issued.challengeId,returnTo\)/);
+    assert.match(source,/returnField\(returnTo\)/);
+    assert.match(source,/"Location":returnTo\|\|"\/api\/squeegee-preview-test"/);
+  } finally {
+    if(previousKey===undefined)delete process.env.SQUEEGEE_API_KEY;
+    else process.env.SQUEEGEE_API_KEY=previousKey;
+  }
+});
+
+test("expired two-bin recovery links back to owner login with browser-local return",async()=>{
+  const previousKey=process.env.SQUEEGEE_API_KEY;
+  process.env.SQUEEGEE_API_KEY=fakeEnv.SQUEEGEE_API_KEY;
+  try {
+    const {default:recoveryHandler}=await import(
+      "../netlify/functions/squeegeePreviewAutoRecover.mjs");
+    const url="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-recover";
+    const response=await recoveryHandler(new Request(url),{
+      deploy:{context:"deploy-preview"},site:{id:runtime.siteId},
+    });
+    assert.equal(response.status,403);
+    const html=await response.text();
+    assert.match(html,/same browser/);
+    assert.match(html,/href="\/api\/squeegee-preview-test\?returnTo=%2Fapi%2Fsqueegee-preview-auto-recover"/);
+  } finally {
+    if(previousKey===undefined)delete process.env.SQUEEGEE_API_KEY;
+    else process.env.SQUEEGEE_API_KEY=previousKey;
+  }
+});
