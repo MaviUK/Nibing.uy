@@ -3,6 +3,7 @@
 import api from "./lib/squeegeeApiV3.js";
 import owner from "./lib/squeegeePreviewTestSession.js";
 import auto from "./lib/squeegeeAutomaticBooking.js";
+import rollout from "./lib/squeegeePreviewAutoRollout.js";
 import {getStore} from "@netlify/blobs";
 
 const style='<style>body{font:16px/1.5 system-ui;background:#10121c;color:#fafafa;padding:18px}'+
@@ -41,9 +42,13 @@ export default async function handler(request,context) {
       '<p><a href="/api/squeegee-preview-test">Authorise owner access</a></p>',403);
   }
   const enabled=auto.canAutoSync(process.env,runtime);
+  const mode=rollout.autoMode(process.env);
   const id=new URL(request.url).searchParams.get("bookingId")?.trim()||"";
-  let content='<div class="notice">Automatic Preview 1 writes: <strong>'+
-    (enabled?"ENABLED":"OFF — read-only until separately approved")+'</strong></div>'+
+  const description=!enabled?"OFF":
+    mode==="pilot"?"ENABLED — ONE TEST API EMAIL BOOKING ONLY (one-use cap)":
+    "ENABLED — scoped to Preview 1";
+  let content='<div class="notice">Automatic Preview 1 Squeegee sync: <strong>'+
+    safe(description)+'</strong></div>'+
     '<p><a href="/api/squeegee-preview-test">Owner test page</a></p>'+
     '<form method="get"><label for="bookingId">Booking reference</label>'+
     '<input id="bookingId" name="bookingId" value="'+safe(id)+'" placeholder="NBG-..." required>'+
