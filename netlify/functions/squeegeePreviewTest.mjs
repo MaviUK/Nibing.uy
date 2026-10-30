@@ -67,13 +67,55 @@ function getAuthorized(request,scope) {
     session.sessionCookieFromHeader(request.headers.get("cookie")),
     process.env,Date.now(),scope);
 }
-async function getStatus(bookingId) {
-  if(!/^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i.test(bookingId))return null;
-  const {getStore}=await import("@netlify/blobs");
-  const status=await getStore({name:"squeegee-preview1-one-booking-test-status",
-    consistency:"strong"}).get(bookingId,{type:"json",consistency:"strong"});
-  if(!status || status.bookingId!==bookingId)return null;
-  return status;
+// Read-only reconciliation for a previously accepted booking. Never attempt
+// another Squeegee write or release the immutable one-use reservation here.
+const TEST_GLOBAL_KEY="claim-v1/approved-preview-1/one-customer-one-job";
+const TEST_STATUS_STORE="squeegee-preview1-one-booking-test-status";
+const TEST_CLAIM_STORE="squeegee-preview1-write-claims";
+const SHADOW_STORE="squeegee-preview1-booking-readonly";
+async function diagnosticRecord(storeName,key) {
+  try {
+    const record=await getStore({name:storeName,consistency:"strong"})
+      .get(key,{type:"json",consistency:"strong"});
+    return {readable:true,record};
+  } catch(error) {
+    // Never log values from a private Blob or Squeegee API.
+    console.warn("Owner-only test audit read unavailable",storeName,
+      error?.name||"unknown");
+    return {readable:false,record:null};
+  }
+}
+async function getDiagnostic(bookingId) {
+  if(!/^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i.test(bookingId)) {
+    return {status:null,stored:"invalid_reference",
+      shadow:"not_checked",claim:"not_checked"};
+  }
+  const [saved,shadow,claimed]=await Promise.all([
+    diagnosticRecord(TEST_STATUS_STORE,bookingId),
+    diagnosticRecord(SHADOW_STORE,bookingId),
+    diagnosticRecord(TEST_CLAIM_STORE,TEST_GLOBAL_KEY),
+  ]);
+  const status=saved.record?.bookingId===bookingId?saved.record:null;
+  const savedStatus=!saved.readable?"read_unavailable":
+    status?"found":"not_found";
+  const shadowStatus=!shadow.readable?"read_unavailable":
+    shadow.record?.bookingId===bookingId?
+      String(shadow.record.status||"present"):"not_found";
+  const globalRecord=claimed.record;
+  const claimStatus=!claimed.readable?"read_unavailable":
+    !globalRecord?"not_found":
+    globalRecord.bookingId!==bookingId?"reserved_for_different_booking":
+    String(globalRecord.state||"reserved");
+  // Only PII-free status strings, a date and a numbered round may reach HTML.
+  const oneJob=shadow.record?.bookingId===bookingId?
+    shadow.record.jobs?.[0]:null;
+  const firstClean=typeof oneJob?.date==="string"&&
+    /^\\d{4}-\\d{2}-\\d{2}$/.test(oneJob.date)?oneJob.date:null;
+  const round=Number.isInteger(oneJob?.roundNumber) &&
+    oneJob.roundNumber>=1 && oneJob.roundNumber<=20?
+    oneJob.roundNumber:null;
+  return {status,stored:savedStatus,shadow:shadowStatus,claim:claimStatus,
+    firstClean,round};
 }
 function authPage(){
   return page('<p>This lets NI Bin Guy approve <strong>one</strong> test booking without enabling imports for anyone else.</p>'+
@@ -89,16 +131,24 @@ function challengePage(challengeId){
   '<label for="code">Access code</label><input id="code" name="code" type="text" inputmode="numeric" maxlength="10" pattern="[0-9]{10}" autocomplete="one-time-code" required>'+
   '<button type="submit">Arm one test booking</button></form>');
 }
-function armedPage(status,bookingId){
+function armedPage(diagnostic,bookingId){
   let state="";
   if(bookingId){
+    const status=diagnostic?.status;
     state=status ? '<div class="notice"><strong>Test status:</strong> '+safe(status.stage)+
       '<p>'+safe(status.reason||"")+'</p>'+
       (status.firstClean?'<p>First clean: '+safe(status.firstClean)+'</p>':"")+
       (status.round?'<p>Squeegee round: '+safe(status.round)+'</p>':"")+
       (status.frequency?'<p>Frequency: '+safe(status.frequency)+'</p>':"")+
       '</div>' :
-      '<div class="notice">No test status for this booking reference yet. Check the ID or refresh after confirmation.</div>';
+      '<div class="notice">No Squeegee worker status was saved for this reference. <strong>Do not submit this booking again.</strong> Check the read-only reservation below.</div>';
+    state+='<div class="notice"><strong>Read-only reconciliation (no new Squeegee write)</strong>'+
+      '<p>Worker status record: '+safe(diagnostic?.stored||"not_checked")+'</p>'+
+      '<p>One-use test reservation: '+safe(diagnostic?.claim||"not_checked")+'</p>'+
+      '<p>Booking shadow preparation: '+safe(diagnostic?.shadow||"not_checked")+'</p>'+
+      (diagnostic?.firstClean?'<p>Website first clean: '+safe(diagnostic.firstClean)+'</p>':"")+
+      (diagnostic?.round?'<p>Website round candidate: '+safe(diagnostic.round)+'</p>':"")+
+      '<p><small>Shadow dates or claims do not prove a job was created. Do not retry an uncertain Squeegee POST.</small></p></div>';
   }
   return page('<div class="notice"><strong>Owner test authorised for this browser.</strong></div>'+
   '<p>Complete <strong>ONE NEW CUSTOMER</strong> booking on Preview 1. Select exactly <strong>one domestic bin, four-weekly at £5</strong>, using <strong>Email booking</strong>. You must use an address not already in Squeegee with an actual clean date shown.</p>'+
@@ -118,8 +168,8 @@ export default async function handler(request,context) {
     if(request.method==="GET"){
       if(!active) return authPage();
       const bookingId=new URL(request.url).searchParams.get("bookingId")?.trim()||"";
-      const status=bookingId ? await getStatus(bookingId) : null;
-      return armedPage(status,bookingId);
+      const diagnostic=bookingId?await getDiagnostic(bookingId):null;
+      return armedPage(diagnostic,bookingId);
     }
     if(request.method!=="POST") return new Response("Method not allowed",{status:405});
     const data=await request.formData();
