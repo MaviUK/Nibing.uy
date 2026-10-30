@@ -60,15 +60,20 @@ function matchCustomers(booking, customerList) {
   if(byRef.length>1) return {status:"needs_review",reason:"duplicate_external_reference"};
 
   const sameProperty = rows.filter(c=>addressKey(c.address)===wantedKey);
-  const possible = (c)=> {
-    const samePost = normalizedPostcode(stringValue(c.address))===postcode;
-    const sameNumber = propertyNumber(c.address) && propertyNumber(c.address)===propertyNumber(booking.address);
-    const emailMatch = wantedEmail && normalEmail(c.email)===wantedEmail;
-    const phoneMatch = wantedPhone && [c.phoneNumber,c.phoneNumberOther].some(v=>normalPhone(v)===wantedPhone);
-    return samePost && (emailMatch||phoneMatch||sameNumber);
-  };
   if(!sameProperty.length) {
-    if(rows.some(possible)) return {status:"needs_review",reason:"possible_existing_address"};
+    // An identical contact may legitimately buy a second property. Never
+    // assign its jobs to the first property's Squeegee customer: the public
+    // job-create input verified here does NOT configure an alternate address.
+    // A different house number at the same postcode is a separate property.
+    // Matching *house number* at the same postcode but a differently formatted
+    // address can still be a duplicate; hold it for owner review.
+    const wantedNumber=propertyNumber(booking.address);
+    const nearDuplicate=rows.some(c =>
+      normalizedPostcode(stringValue(c.address))===postcode &&
+      (!wantedNumber || !propertyNumber(c.address) ||
+       propertyNumber(c.address)===wantedNumber)
+    );
+    if(nearDuplicate)return {status:"needs_review",reason:"possible_existing_address"};
     return {status:"not_found"};
   }
 
@@ -97,7 +102,10 @@ async function matchCustomersAcrossPages(booking, listPage, { maxPages = 40 } = 
   }
   const targetPost = normalizedPostcode(booking?.address);
   const reference = externalCustomerReference(booking);
+  const wantedEmail=normalEmail(booking?.email);
+  const wantedPhone=normalPhone(booking?.phone);
   const found = new Map();
+  let otherContactProperties=0;
   let pagedRequestId;
 
   for (let page = 1; page <= maxPages; page += 1) {
@@ -111,10 +119,23 @@ async function matchCustomersAcrossPages(booking, listPage, { maxPages = 40 } = 
       if (String(row._externalId || "") === reference ||
           normalizedPostcode(stringValue(row.address)) === targetPost) {
         found.set(row._id, row);
+      } else {
+        const sameEmail=wantedEmail && normalEmail(row.email)===wantedEmail;
+        const samePhone=wantedPhone.length>=10 &&
+          [row.phoneNumber,row.phoneNumberOther]
+            .some(p=>normalPhone(p)===wantedPhone);
+        if(sameEmail||samePhone)otherContactProperties++;
       }
     }
     if (!data.hasMore) {
-      return { ...matchCustomers(booking, [...found.values()]), pagesScanned: page };
+      const result=matchCustomers(booking,[...found.values()]);
+      // Do not expose contact IDs, emails or addresses in the status log.
+      // The new property's Squeegee customer must retain its own address;
+      // no existing account or billing method is changed.
+      return {...result,pagesScanned:page,
+        relatedContactAtDifferentAddress:
+          result.status==="not_found" && otherContactProperties>0,
+      };
     }
     if (data.pagedRequestId) pagedRequestId = data.pagedRequestId;
   }
