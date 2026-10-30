@@ -19,8 +19,9 @@ jobs:
         run: |
           set -euo pipefail
           url="https://deploy-preview-77--nibinguy.netlify.app/api/nibinguy-preview77-readonly-diagnostic"
+          # Second pass: also reports safe customer-match reason (no contact details).
           for attempt in $(seq 1 18); do
-            result="$(curl -fsS --retry 0 --max-time 8 "$url" 2>/dev/null || true)"
+            result="$(curl -fsS --retry 0 --max-time 50 "$url" 2>/dev/null || true)"
             if [[ "$result" == *'"stage"'* ]]; then
               printf 'READ-ONLY DIAGNOSTIC: %s\n' "$result"
               exit 0
