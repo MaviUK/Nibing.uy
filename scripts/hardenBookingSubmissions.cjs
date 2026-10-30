@@ -41,7 +41,10 @@ updateFile("src/LandingPage.jsx", (text) => {
     );
   }
 
-  if (!text.includes('const emailSubmissionMeta = createBookingSubmissionMeta();')) {
+  if (
+    !text.includes('const emailSubmissionMeta = createBookingSubmissionMeta();') &&
+    !text.includes('const emailSubmissionMeta = emailSubmissionRef.current || createBookingSubmissionMeta();')
+  ) {
     text = mustReplace(
       text,
       '    // ✅ reCAPTCHA token (v3)\n    const recaptchaAction = "booking_submit";',
