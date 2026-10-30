@@ -625,6 +625,14 @@ function createBookingSubmissionMeta() {
 
 const DEFAULT_BIN = { type: "", count: 1, planId: "domestic_4w" };
 
+function normaliseBookingContactNumber(input) {
+  const compact = String(input || "").trim().replace(/[\s().-]/g, "");
+  if (/^0[1-9]\d{9}$/.test(compact)) return compact;
+  if (/^\+44[1-9]\d{9}$/.test(compact)) return "0" + compact.slice(3);
+  if (/^0044[1-9]\d{9}$/.test(compact)) return "0" + compact.slice(4);
+  return null;
+}
+
 function BookingForm({ onClose, initialAddress = "" }) {
   const [bins, setBins] = useState([DEFAULT_BIN]);
   const [address, setAddress] = useState(initialAddress);
@@ -770,6 +778,11 @@ function BookingForm({ onClose, initialAddress = "" }) {
       alert("Please complete all fields before sending.");
       return;
     }
+    const validContactNumber=normaliseBookingContactNumber(phone);
+    if(!validContactNumber) {
+      alert("Please enter a valid 11-digit UK contact number (e.g. 028 or 07). A postcode cannot be used as a phone number.");
+      return;
+    }
     if (!findNiPostcode(address)) {
       alert("Please include the full BT postcode in your address so we can calculate the correct bin cleaning date.");
       return;
@@ -833,7 +846,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
           ...emailSubmissionMeta,
           name,
           email,
-          phone,
+          phone: validContactNumber,
           address,
           bins,
           // Client-side snapshot only; future job creation must verify it.
@@ -1130,7 +1143,8 @@ function BookingForm({ onClose, initialAddress = "" }) {
         </p>
       )}
 
-      <input type="tel" placeholder="Contact Number" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
+      <input type="tel" placeholder="Contact Number (11 digits)" inputMode="tel" autoComplete="tel" maxLength={22} value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
+      <p className="text-xs text-gray-600">Enter an 11-digit UK phone number, including 028 landlines or 07 mobiles.</p>
       <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
 
       <div className="mt-4 p-3 rounded-lg border border-gray-500 bg-gray-50">
