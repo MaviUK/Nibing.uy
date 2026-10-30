@@ -245,6 +245,7 @@ exports.handler = async (event) => {
         automatic: Boolean(confirmationBody?.automatic),
         schedule: confirmationBody?.schedule || schedule || null,
         arcadeBookingProof: signBooking(payload),
+        arcadeOptOut: payload.arcadeOptOut === true,
         arcadeRegistered: Boolean(arcadeEntry?.registered),
         arcadePlayerToken: arcadeEntry?.playerToken || null,
         arcadeDisplayName: arcadeEntry?.displayName || null,
