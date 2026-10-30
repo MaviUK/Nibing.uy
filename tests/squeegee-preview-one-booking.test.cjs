@@ -264,3 +264,36 @@ test("normal public write attempts still require the existing multi-flag gate",(
   assert.throws(()=>assertWriteAllowed(),/disabled/);
   assert.equal(typeof withOneApprovedPreviewTestWrite,"function");
 });
+
+
+test("modern Netlify context validates Preview 1 even without build-time environment variables",()=>{
+  const runtime={
+    hostname:"deploy-preview-77--nibinguy.netlify.app",
+    deployContext:"deploy-preview",
+    siteId:"d63c829f-3ed7-48e9-9633-a042de3f2e84",
+  };
+  const runtimeEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
+  assert.equal(isExactPreview1(runtimeEnv,runtime),true);
+  const cookie=createTestSessionCookie(runtimeEnv,fixedNow,runtime);
+  assert.equal(verifyTestSessionCookie(cookie,runtimeEnv,fixedNow,runtime),true);
+  assert.equal(isExactPreview1(runtimeEnv,{...runtime,hostname:"nibing.uy"}),false);
+  assert.equal(isExactPreview1(runtimeEnv,{...runtime,deployContext:"production"}),false);
+  assert.equal(isExactPreview1(runtimeEnv,{...runtime,
+    siteId:"00000000-0000-4000-8000-000000000000"}),false);
+});
+test("one booking test can run with trusted context even without reserved runtime variables",async()=>{
+  const h=harness();
+  const runtimeScope={
+    hostname:"deploy-preview-77--nibinguy.netlify.app",
+    deployContext:"deploy-preview",
+    siteId:"d63c829f-3ed7-48e9-9633-a042de3f2e84",
+  };
+  const runtimeEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
+  const cookie=COOKIE_NAME+"="+createTestSessionCookie(runtimeEnv,fixedNow,runtimeScope);
+  const result=await executeOneApprovedTestBooking(booking(),{
+    env:runtimeEnv,runtimeScope,cookieHeader:cookie,
+    now:fixedNow,channel:"email",deps:h.deps,
+  });
+  assert.equal(result.status,"test_completed");
+  assert.equal(h.events.length,2);
+});
