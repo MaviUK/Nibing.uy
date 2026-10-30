@@ -279,3 +279,27 @@ The owner has approved exactly ONE entirely fresh test through the normal websit
 - The signed dispatcher, function and worker require the exact Preview 1 hostname, trusted Netlify deploy-preview context and site UUID. Production, Preview 2 and main cannot use the write capability.
 - The API key remains Netlify Functions-scoped in the preview/n64-retro-site branch. No global Netlify flag or secret changed. The explicit SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED=false kill switch is respected; WhatsApp-to-Squeegee remains disabled.
 - Fake-only Squeegee regression tests run in GitHub Actions and as the Netlify build gate. Do NOT merge PR #77 or enable unrestricted production imports without separate owner approval.
+
+## 30 October 2026 — General automatic Email bookings enabled for Preview 1 only
+
+Following independent confirmation that the normal Submit Booking button created the Fresh Sync Brown customer and correctly scheduled £5 four-weekly Round 17 job for 10 November, the owner explicitly authorised expanding automatic syncing to all normal Preview 1 bookings, including multiple bin colours and repeat customers. PR #77 remains draft; there is NO production or Preview 2 integration change.
+
+**Rollout:** `squeegeePreviewAutoRollout.js` now selects full Email sync by default only in the preview/n64-retro-site source. The dispatch endpoint and Squeegee write capability still independently enforce trusted Netlify deploy-preview context, exactly `deploy-preview-77--nibinguy.netlify.app`, and site ID. Production/Preview 2 fail closed. `SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED=false` is a kill switch; `pilot` forces test-only mode, `true` selects full mode. WhatsApp-to-Squeegee remains disabled unless independently approved. The previously abandoned booking NBG-MVV99LDX-7BEDD59D85 cannot be replayed even in full mode.
+
+### Property and customer matching policy
+
+- Same postcode + exact normalised service address + email or phone match: use the existing Squeegee customer, never overwrite their name, contact details, address, payment method or jobs. Independently `GET /customers/:id`, verify the authoritative saved address and inspect all existing jobs before any POST.
+- Existing property, new bin colour: add just the new bin job (with its verified website first date, owner-mapped round, server-calculated price and frequency). Existing jobs are untouched. Multiple distinct colours in one new booking produce separate jobs; don't force them to share first clean dates.
+- Existing property and an already-listed bin: do not silently add the same service again. The comparison covers one-off and regular service UUIDs for that bin colour. Hold for manual review if any current job already uses it, if jobs cannot be read, if customer match/address is ambiguous or if the contact differs. Website email confirmation remains valid, but the Squeegee job has NOT been created in held cases.
+- Same contact/email booking another property: use a NEW address-specific Squeegee customer record with the same contact details and a note explaining the additional service property. This preserves the first property's address, jobs and billing settings. Current verified public API inputs do not safely establish multiple service addresses on one customer, so never attach a new property's job to the first customer's primary address. These records are separate for billing; the owner can manually reconcile if required.
+- Multiple flats/nearby addresses that could plausibly be the same property (e.g. identical building number under same postcode but different textual address): hold until manually checked. Distinct house numbers under one postcode are allowed as different properties.
+
+### Idempotency and customer safety
+
+- Every accepted booking is signed server-to-server and is queued with a permanent strong-consistency receipt before the worker starts. Independent live GET checks verify Squeegee service UUIDs, 20-round mapping, prices, dates, and all customer pages.
+- Permanent per-booking, per-property, per-dated-job and NEW **per-property/per-bin-colour** CAS claims prevent duplicate customer creation and concurrent repeat bookings with different first dates. Reserved or ambiguous claims are NEVER automatically cleared or retried.
+- The worker blocks repeated colour lines in a single booking, because the API record cannot reliably distinguish two separate wheelie bins of the same colour at one property. A single line with quantity above one is allowed and charged at the verified total price, with quantity in job notes.
+- Any uncertain customer/job POST or partially created multi-bin booking is marked `requires_reconciliation`; no automatic retry. Owner can query the reference from `/api/squeegee-preview-auto-status` with the existing owner code. Test-only Fresh Sync diagnostic and customer emails remain unchanged.
+- Services absent from the Squeegee account catalog (especially commercial-specific labels) are **not auto-created**. Those bookings are held for manual mapping rather than assigned an incorrect service. The original website booking and email still work.
+
+All testing uses fake Squeegee methods and Blob stores. General Preview 1 automatic writes start only when a NEW customer submits the actual website booking. Do not merge PR #77 or alter live operations without separate owner approval and further existing-customer/new-property verification in the Squeegee app.
