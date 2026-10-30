@@ -20,6 +20,7 @@ const {resolveSqueegeeServiceIds}=require("./squeegeeServiceCatalog");
 const {normalizedBinType}=require("./squeegeeBookingPlan");
 const {customerKey,jobKey,activeBinKey,claimOnce,changeClaimState}=require("./squeegeeIdempotencyClaims");
 const {validateBookingSubmission}=require("./bookingSubmissionGuard");
+const {notifyOwnerOfSyncHold}=require("./squeegeeSyncOwnerAlert");
 
 const STATUS_STORE="squeegee-preview1-auto-sync-status";
 const CLAIM_STORE="squeegee-preview1-write-claims";
@@ -127,14 +128,22 @@ async function executeAutomaticPreviewBooking(payload,{
     addJob:deps.addJob||api.addJobToCustomer,
     withWrite:deps.withWrite||api.withApprovedPreviewAutomaticWrite,
     save:deps.save||saveAutoStatus,
+    alert:deps.alert||((id,reason,extra)=>notifyOwnerOfSyncHold(id,reason,extra,{env})),
   };
   const mark=(stage,extra={})=>use.save(bookingId,stage,extra);
   const held=async(reason,extra={})=>{
     await mark("held_for_review",{reason,...extra});
+    // The normal website/admin booking email already succeeded. A separate
+    // PII-free owner notice prevents an unimported job being silently missed.
+    // The alert can fail safely; there is NEVER an automatic Squeegee retry.
+    try{await use.alert(bookingId,reason,extra);}catch{}
     return outcome("held",reason);
   };
   const uncertain=async(reason,extra={})=>{
     try{await mark("requires_reconciliation",{reason,...extra});}catch{}
+    try{await use.alert(bookingId,"requires_reconciliation",{
+      matchReason:reason,
+    });}catch{}
     return outcome("requires_reconciliation",reason);
   };
   try {
@@ -182,7 +191,9 @@ async function executeAutomaticPreviewBooking(payload,{
     const customerMatch=await matchCustomersAcrossPages(payload,
       args=>use.listCustomers(args),{maxPages:100});
     if(!["matched","not_found"].includes(customerMatch.status))
-      return await held("customer_match_ambiguous_or_incomplete");
+      return await held("customer_match_ambiguous_or_incomplete",{
+        matchReason:customerMatch.reason||"unspecified_match_reason",
+      });
     const existing=customerMatch.status==="matched";
     const anotherProperty=customerMatch.relatedContactAtDifferentAddress===true;
     const customerMode=existing?"existing":
