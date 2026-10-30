@@ -69,5 +69,8 @@ test("server booking still emails receipts, awards XP and optionally dispatches 
   assert.match(server,/autoEnrollBooking\(payload\)/);
   assert.match(server,/await dispatchAcceptedBooking\(payload/);
   assert.match(dispatch,/autoDispatchConfigured/);
-  assert.match(dispatch,/SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED/);
+  assert.match(dispatch,/squeegeePreviewAutoRollout/);
+  const rollout=fs.readFileSync(path.join(ROOT,"netlify/functions/lib/squeegeePreviewAutoRollout.js"),"utf8");
+  assert.match(rollout,/SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED/);
+  assert.match(rollout,/PILOT_CLAIM_KEY/);
 });
