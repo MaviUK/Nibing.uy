@@ -400,3 +400,38 @@ test("public auto-sync function denies wrong site and disabled preview before an
   });
   assert.ok([403,415].includes(correctSite.status));
 });
+
+
+test("WhatsApp stays separately approval-gated even when email preview sync is enabled",async()=>{
+  const b=sampleBooking();
+  let network=0;
+  const denied=await dispatchAcceptedBooking(b,{
+    channel:"whatsapp",eventHost:runtime.hostname,env,now,
+    fetchImpl:async()=>{network++;return{status:202};},
+  });
+  assert.equal(denied.queued,false);
+  assert.equal(denied.reason,"whatsapp_auto_sync_requires_separate_approval");
+  assert.equal(network,0);
+  const approved=await dispatchAcceptedBooking(b,{
+    channel:"whatsapp",eventHost:runtime.hostname,
+    env:{...env,SQUEEGEE_PREVIEW_AUTO_WHATSAPP_ENABLED:"true"},
+    now,fetchImpl:async()=>{network++;return{status:202};},
+  });
+  assert.equal(approved.queued,true);
+  assert.equal(network,1);
+});
+
+test("owner-only automatic sync status page does not permit unauthorised inspection",async()=>{
+  const {default:handler}=await import(
+    "../netlify/functions/squeegeePreviewAutoStatus.mjs");
+  const url="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId=NBG-ABCDE-ABCDEFGH";
+  const denied=await handler(new Request(url),{
+    deploy:{context:"production"},site:{id:runtime.siteId},
+  });
+  assert.equal(denied.status,404);
+  const preview=await handler(new Request(url),{
+    deploy:{context:"deploy-preview"},site:{id:runtime.siteId},
+  });
+  assert.ok([403,404].includes(preview.status));
+  assert.match(await preview.text(),/authorisation required|Not found/i);
+});
