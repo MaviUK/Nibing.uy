@@ -174,7 +174,7 @@ test("bad booking references cannot stage records", async () => {
   assert.equal(result.reason, "invalid_booking_reference");
 });
 
-test("Thursday remains unverified even when Squeegee Group 14 exists", () => {
+test("Thursday 5 November correctly resolves to active Squeegee Round 14", () => {
   const b = booking();
   const sch = serverSchedule();
   b.bookingScheduleSnapshot.results[1].assignedCleanDate = "2026-11-05";
@@ -182,12 +182,29 @@ test("Thursday remains unverified even when Squeegee Group 14 exists", () => {
   const result = prepareReadOnlyBooking(b, sch, SERVICES, {
     jobGroups: GROUPS,
   });
-  assert.equal(result.status, "held_for_review");
+  assert.equal(result.status, "prepared_read_only");
   assert.equal(result.summary.jobs[0].status, "ready");
-  assert.equal(result.summary.jobs[0].roundStatus, "mapped");
-  assert.equal(result.summary.jobs[1].roundNumber, null);
+  assert.equal(result.summary.jobs[1].roundNumber, 14);
+  assert.equal(result.summary.jobs[1].roundStatus, "mapped");
+  assert.equal(result.summary.jobs[1].status, "ready");
+  assert.equal(result.privatePlan.jobs[1].input.jobGroup, GROUP_14);
+  assert.equal(result.summary.approvedToWrite, false);
+});
+
+test("unused Friday-collection round 15 remains held without creating a substitute group", () => {
+  const b = booking();
+  const sch = serverSchedule();
+  b.bookingScheduleSnapshot.results[1].assignedCleanDate = "2026-11-06";
+  sch.results[1].assignedCleanDate = "2026-11-06";
+  const result = prepareReadOnlyBooking(b, sch, SERVICES, {
+    jobGroups: GROUPS,
+  });
+  assert.equal(result.status, "held_for_review");
+  assert.equal(result.summary.jobs[0].roundNumber, 11);
+  assert.equal(result.summary.jobs[0].status, "ready");
+  assert.equal(result.summary.jobs[1].roundNumber, 15);
   assert.equal(result.summary.jobs[1].status, "job_group_mapping_required");
-  assert.equal(result.summary.jobs[1].roundStatus, "weekday_mapping_unverified");
+  assert.equal(result.summary.jobs[1].roundStatus, "round_missing_in_account");
   assert.equal(result.privatePlan.jobs[1].input, null);
   assert.equal(result.summary.approvedToWrite, false);
 });
