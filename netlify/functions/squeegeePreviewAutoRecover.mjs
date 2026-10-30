@@ -138,10 +138,12 @@ export default async function handler(request,context) {
     return page('<p>Single-booking Preview 1 pilot is not enabled.</p>',403);
   const cookie=owner.sessionCookieFromHeader(request.headers.get("cookie"));
   if(!owner.verifyTestSessionCookie(cookie,process.env,Date.now(),runtime)) {
-    return page('<div class="notice">Owner session expired. Use the owner code page'+
-      ' to re-authorise this browser, then reopen this recovery link.</div>'+
-      '<p><a href="/api/squeegee-preview-test?bookingId='+TARGET+
-      '">Re-authorise owner access</a></p>',403);
+    return page('<div class="notice"><strong>This browser has no valid owner session.</strong>'+
+      '<p>This can happen if the code was entered in a different browser or tab context.'+
+      ' Re-authorise using the link below; after entering the code you will'+
+      ' return directly here in the <strong>same browser</strong>.</p></div>'+
+      '<p><a href="/api/squeegee-preview-test?returnTo=%2Fapi%2Fsqueegee-preview-auto-recover">'+
+      'Re-authorise here and return to this recovery</a></p>',403);
   }
   if(request.method==="POST") {
     if(!acceptablePilotOrigin(request,runtime))
