@@ -53,6 +53,10 @@ export default async function handler(request,context) {
     // Respond with only a bounded status/reason, never names or addresses.
     let matchReason=null,matchStatus=null,pagesScanned=null;
     let phoneValid=null,auditFound=false;
+    // Aggregated flags ONLY; no candidate name, address, phone or email
+    // leaves this function. Values capped to avoid enumerating customers.
+    let possibleSameHouseCount=null,streetAndPostcodeCount=null,
+      streetAndContactCount=null,houseAndContactCount=null;
     try {
       const audit=getStore({name:"tos-confirmations",consistency:"strong"});
       const pages=await audit.list({prefix:"2026-10-30T19:04"});
@@ -66,8 +70,39 @@ export default async function handler(request,context) {
           auditFound=true;
           const rawPhone=String(original.phone||"").replace(/[\s()+.-]/g,"");
           phoneValid=/^(0\d{10}|44\d{10}|0044\d{10})$/.test(rawPhone);
+          const seen=[];
+          const bookingPost=String(original.address||"").toUpperCase()
+            .match(/\bBT\d{1,2}\s*\d[A-Z]{2}\b/)?.[0]?.replace(/\s/g,"")||"";
+          const postcode=value=>String(value||"").toUpperCase()
+            .match(/\bBT\d{1,2}\s*\d[A-Z]{2}\b/)?.[0]?.replace(/\s/g,"")||"";
+          const details=value=>typeof value==="string"?value:
+            String(value?.addressDescription||value?.text||value?.formattedAddress||"");
+          const street=value=>details(value).split(",")[0].trim().toUpperCase()
+            .replace(/\bRD\b/g,"ROAD").replace(/\bST\b/g,"STREET")
+            .replace(/\bAVE\b/g,"AVENUE").replace(/[^A-Z0-9]+/g," ").trim();
+          const number=value=>street(value).match(/^\d{1,4}[A-Z]?\b/)?.[0]||"";
+          const wantedStreet=street(original.address),wantedNumber=number(original.address);
+          const wantedMail=String(original.email||"").toLowerCase().trim();
           const result=await matching.matchCustomersAcrossPages(
-            original,args=>api.listCustomers(args),{maxPages:100});
+            original,async args=>{
+              const page=await api.listCustomers(args);
+              if(Array.isArray(page?.customers)) for(const row of page.customers){
+                const addr=details(row?.address);
+                if(postcode(addr)!==bookingPost)continue;
+                if(number(addr)!==wantedNumber)continue;
+                seen.push({
+                  sameStreet:street(addr)===wantedStreet,
+                  sameContact:!!wantedMail &&
+                    String(row.email||"").trim().toLowerCase()===wantedMail,
+                });
+              }
+              return page;
+            },{maxPages:100});
+          const cap=n=>n>=2?"multiple":n===1?"one":"zero";
+          possibleSameHouseCount=cap(seen.length);
+          streetAndPostcodeCount=cap(seen.filter(x=>x.sameStreet).length);
+          streetAndContactCount=cap(seen.filter(x=>x.sameStreet&&x.sameContact).length);
+          houseAndContactCount=cap(seen.filter(x=>x.sameContact).length);
           matchReason=safeCode(result.reason);
           matchStatus=["matched","not_found","needs_review"].includes(result.status)?
             result.status:"unknown";
@@ -86,6 +121,8 @@ export default async function handler(request,context) {
       customerMode:["existing","new","additional_property"].includes(record?.customerMode)?
         record.customerMode:null,
       auditFound,phoneValid,matchStatus,matchReason,pagesScanned,
+      possibleSameHouseCount,streetAndPostcodeCount,
+      streetAndContactCount,houseAndContactCount,
     });
   } catch {
     return json(503,{error:"read_only_status_storage_unavailable"});
