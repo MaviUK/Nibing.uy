@@ -11,7 +11,7 @@ const { requireUuid } = require("./squeegeeApiV3");
 function stringValue(value) {
   if (typeof value === "string") return value;
   if (value && typeof value === "object") {
-    return String(value.text || value.formattedAddress || value.address || value.fullAddress || "");
+    return String(value.text || value.addressDescription || value.formattedAddress || value.address || value.fullAddress || "");
   }
   return "";
 }
