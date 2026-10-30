@@ -22,7 +22,16 @@ class SqueegeeApiError extends Error {
   }
 }
 
-function isExactPreview1(env = process.env) {
+function isExactPreview1(env = process.env, runtimeScope = null) {
+  // Netlify's reserved CONTEXT/BRANCH/REVIEW_ID variables are build-time,
+  // NOT present in modern production function runtimes. Runtime checks must
+  // use the trusted Context supplied directly to a modern Netlify function.
+  if (runtimeScope) {
+    return runtimeScope.hostname === "deploy-preview-77--nibinguy.netlify.app" &&
+      runtimeScope.deployContext === "deploy-preview" &&
+      runtimeScope.siteId === "d63c829f-3ed7-48e9-9633-a042de3f2e84";
+  }
+  // This fallback exists for independent local tests, not runtime writes.
   return env.CONTEXT === "deploy-preview" &&
     env.REVIEW_ID === "77" &&
     env.BRANCH === "preview/n64-retro-site" &&
@@ -37,21 +46,26 @@ function assertWriteAllowed() {
     process.env.SQUEEGEE_WRITE_ENABLED === "true" &&
     process.env.SQUEEGEE_OWNER_APPROVED_WRITES === "true" &&
     process.env.SQUEEGEE_ATOMIC_LEDGER_READY === "true";
-  const singleTest = isExactPreview1() &&
-    previewTestContext.getStore()?.singleApprovedTest === true;
+  const singleTest = Boolean(process.env.SQUEEGEE_API_KEY) &&
+    previewTestContext.getStore()?.singleApprovedTest === true &&
+    previewTestContext.getStore()?.preview1ScopeVerified === true;
   if (!normal && !singleTest) throw new Error("Squeegee writes are disabled for this deployment");
 }
-async function withOneApprovedPreviewTestWrite(proof, operation) {
-  // Do NOT accept this proof from the request body or a browser header.
-  // The orchestration code obtains it from a successful atomic Blob claim.
-  if (!isExactPreview1() ||
+async function withOneApprovedPreviewTestWrite(proof, operation, runtimeScope) {
+  // The scope is constructed by the modern, preview-specific handler from
+  // Netlify's trusted context + Request URL; never from JSON body fields.
+  // The proof comes from a successful atomic claim, never from the browser.
+  if (!isExactPreview1(process.env,runtimeScope) ||
+      !process.env.SQUEEGEE_API_KEY ||
       proof?.acquired !== true ||
-      !String(proof.key || "").startsWith("claim-v1/approved-preview-1/") ||
+      proof?.key !== "claim-v1/approved-preview-1/one-customer-one-job" ||
       typeof proof.etag !== "string" || proof.etag.length < 4 ||
       typeof operation !== "function") {
     throw new Error("Owner-approved single-test write capability unavailable");
   }
-  return await previewTestContext.run({ singleApprovedTest:true }, operation);
+  return await previewTestContext.run({
+    singleApprovedTest:true,preview1ScopeVerified:true,
+  }, operation);
 }
 
 function requireUuid(value, field) {
