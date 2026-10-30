@@ -162,6 +162,7 @@
     history = [[label, points], ...history].slice(0, MAX_HISTORY);
     writeCookie();
     redraw();
+    window.dispatchEvent(new Event("n64:score-updated"));
     scheduleProgressSync();
     return true;
   }
@@ -301,6 +302,7 @@
         saved = true;
         writeCookie();
         paint();
+        window.dispatchEvent(new Event("n64:score-updated"));
       }
       bookingProof = null;
       consentNode.hidden = true;
@@ -383,6 +385,7 @@
       claimed = new Set();
       history = [];
       paint();
+      window.dispatchEvent(new Event("n64:score-updated"));
     });
     document.body.appendChild(root);
     const consentCheck = root.querySelector(".n64-entry-optin");
@@ -390,6 +393,7 @@
     consentCheck.addEventListener("change", () => {join.disabled = !consentCheck.checked;});
     join.addEventListener("click", () => {if(consentCheck.checked) joinLeaderboard(join);});
     paint();
+    window.dispatchEvent(new Event("n64:score-updated"));
     refreshLeaderboard();
     window.addEventListener("online", scheduleProgressSync);
     window.addEventListener("pageshow", scheduleProgressSync);
@@ -408,6 +412,7 @@
     awardBooking,
     offerEntry,
     points: () => xp,
+    isRegistered: () => Boolean(playerToken),
     rules: POINTS,
   });
 
