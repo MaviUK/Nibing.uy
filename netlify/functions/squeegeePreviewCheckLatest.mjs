@@ -3,6 +3,7 @@
 // No accepted booking replay, claim mutation or Squeegee write is possible.
 import {getStore} from "@netlify/blobs";
 import api from "./lib/squeegeeApiV3.js";
+import matching from "./lib/squeegeeCustomerMatcher.js";
 
 const BOOKING_ID="NBG-MVVCDC3D-83AB713D58";
 const STATUS_STORE="squeegee-preview1-auto-sync-status";
@@ -47,6 +48,35 @@ export default async function handler(request,context) {
       record?"unknown_stage":"not_found";
     const claimState=ALLOWED_STATES.has(claim?.state)?claim.state:
       claim?"unknown_state":"not_found";
+    // Read-only reconciliation of the accepted booking itself, not a new
+    // customer submission. The audit is private and all PII stays in memory.
+    // Respond with only a bounded status/reason, never names or addresses.
+    let matchReason=null,matchStatus=null,pagesScanned=null;
+    let phoneValid=null,auditFound=false;
+    try {
+      const audit=getStore({name:"tos-confirmations",consistency:"strong"});
+      const pages=await audit.list({prefix:"2026-10-30T19:04"});
+      if(Array.isArray(pages?.blobs) && pages.blobs.length<=30){
+        let original=null;
+        for(const item of pages.blobs){
+          const entry=await audit.get(item.key,{type:"json",consistency:"strong"});
+          if(entry?.bookingId===BOOKING_ID) {original=entry;break;}
+        }
+        if(original) {
+          auditFound=true;
+          const rawPhone=String(original.phone||"").replace(/[\\s()+.-]/g,"");
+          phoneValid=/^(0\\d{10}|44\\d{10}|0044\\d{10})$/.test(rawPhone);
+          const result=await matching.matchCustomersAcrossPages(
+            original,args=>api.listCustomers(args),{maxPages:100});
+          matchReason=safeCode(result.reason);
+          matchStatus=["matched","not_found","needs_review"].includes(result.status)?
+            result.status:"unknown";
+          pagesScanned=Number.isInteger(result.pagesScanned)?result.pagesScanned:null;
+        }
+      }
+    }catch {
+      matchReason="read_only_match_unavailable";
+    }
     return json(200,{
       stage,claimState,
       reason:safeCode(record?.reason),
@@ -55,6 +85,7 @@ export default async function handler(request,context) {
       createdJobs:Number.isInteger(record?.createdJobs)?record.createdJobs:null,
       customerMode:["existing","new","additional_property"].includes(record?.customerMode)?
         record.customerMode:null,
+      auditFound,phoneValid,matchStatus,matchReason,pagesScanned,
     });
   } catch {
     return json(503,{error:"read_only_status_storage_unavailable"});
