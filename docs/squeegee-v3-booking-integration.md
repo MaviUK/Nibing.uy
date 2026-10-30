@@ -114,3 +114,38 @@ A second temporary GET-only probe retrieved one individual customer record's **f
 **Blocker:** Ask the account owner to open the Squeegee scheduling/rounds UI and show which numeric job group corresponds to each actual cleaning route/weekday/cycle (including bank-holiday rescheduling). Don't infer weekdays from historic town distribution. Until mapping is confirmed, keep `jobGroupFor` unresolved and all Squeegee POSTs disabled.
 
 Duplicate-claim improvement: future customer/job reservations now hash property plus postcode rather than using email, so changing email alone cannot bypass duplicate protection for the same address. This is still code-only, not a live write mechanism.
+
+
+## Owner-confirmed four-week Squeegee round cycle (30 October 2026)
+
+Owner explicitly confirmed:
+
+- **Monday 2 November 2026 is Round 11**, the Monday of Week 3.
+- **Week 1:** Rounds 1, 2, 3, 4, 5
+- **Week 2:** Rounds 6, 7, 8, 9, 10
+- **Week 3:** Rounds 11, 12, 13, 14, 15
+- **Week 4:** Rounds 16, 17, 18, 19, 20
+
+Day-order interpretation for the preview algorithm: each week's five numbers correspond in sequence to Monday through Friday. The **user has verified the Monday Round 11 anchor**; the weekday ordering is the natural continuation and must be confirmed by inspection of the first controlled test, especially on moved collection days.
+
+| Week / Monday date | Mon | Tue | Wed | Thu | Fri |
+| --- | --- | --- | --- | --- | --- |
+| Week 1: 19 Oct 2026 | 1 | 2 | 3 | 4 | 5 |
+| Week 2: 26 Oct 2026 | 6 | 7 | 8 | 9 | 10 |
+| Week 3: 2 Nov 2026 | 11 | 12 | 13 | 14 | 15 |
+| Week 4: 9 Nov 2026 | 16 | 17 | 18 | 19 | 20 |
+| Week 1: 16 Nov 2026 | 1 | 2 | 3 | 4 | 5 |
+| Week 2: 23 Nov 2026 | 6 | 7 | 8 | 9 | 10 |
+| Week 3: 30 Nov 2026 | 11 | 12 | 13 | 14 | 15 |
+
+Implementation:
+
+- `netlify/functions/lib/squeegeeRoundCycle.js` computes the week and round from the *server-verified* per-bin clean date using the **2 November 2026 Monday anchor**, modulo four weeks, independent of town.
+- For NI Monday bank holidays, the website moves Monday-Friday cleaning to Tuesday-Saturday. The resolver mirrors the existing website rule (including the site's **no Christmas/Boxing Day substitute Monday shift**). Any **four-weekly recurring clean with a first appointment in a shifted week** is held for review because anchoring Squeegee recurrence to Tuesday/Saturday would move normal future weeks to the wrong day. Dates for one-off cleans can be calculated but remain subject to other gates.
+- Resolved numeric group codes are matched uniquely against actual Squeegee `GET /job-groups` results. The planner passes the real UUID only for a unique valid account group and verified date. **Never construct/fabricate a group UUID**.
+- The most recent account list had only 14 of the 20 numbered job groups: **01, 02, 03, 04, 08, 09, 11, 12, 13, 14, 16, 17, 18, 19**. Missing from that GET response: **05, 06, 07, 10, 15, 20**. If one is required but not in the API response at booking time, the affected job stays `job_group_mapping_required`. The API did not expose a documented create-group endpoint; **do not auto-create missing groups**.
+- `squeegeeBookingStage.js` now performs `GET /job-groups` alongside `GET /services`, in **read-only shadow mode** for both email and WhatsApp booking submissions.
+- `squeegeeBookingPreparation.js` now includes group-number, rota-week, bank-holiday-shift and resolution status in private PII-free booking staging. `squeegeeBookingPlan.js` prevents a real job body from being marked ready if its required verified group is unavailable.
+- GitHub Actions tests for round cycling, shifts, missing/duplicate account groups, bad IDs and prepared booking date+group mapping: **78/78 passing** as of this update.
+
+**Still no Squeegee POST**, no real customer/job creation, no production changes and no merge. Before first write, verify round weekday ordering in Squeegee and explicitly obtain owner's test-record approval. Continue keeping the existing website's bookings, confirmation emails, WhatsApp and arcade score working.
