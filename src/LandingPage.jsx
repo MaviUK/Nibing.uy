@@ -874,6 +874,9 @@ function BookingForm({ onClose, initialAddress = "" }) {
       phone,
       address,
       bins,
+      // Captured from the same schedule response displayed on screen.
+      // The server will independently verify dates before any Squeegee writes.
+      bookingScheduleSnapshot: window.nbgGetBookingScheduleSnapshot?.() || null,
       arcadeClaimed: window.n64Score?.activityKeys?.() || [],
       arcadeOptOut,
       discountCode: normalizeCode(discountCode) || null,
@@ -1036,6 +1039,8 @@ function BookingForm({ onClose, initialAddress = "" }) {
           phone,
           address,
           bins,
+          // Client-side snapshot only; future job creation must verify it.
+          bookingScheduleSnapshot: window.nbgGetBookingScheduleSnapshot?.() || null,
           arcadeClaimed: window.n64Score?.activityKeys?.() || [],
           arcadeOptOut,
           placeId,
