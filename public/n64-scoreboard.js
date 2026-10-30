@@ -404,7 +404,7 @@
       '<ol class="n64-score-history"></ol>',
       '<p class="n64-score-persistence"></p>',
       '<div class="n64-score-controls"><button type="button" class="n64-score-save">Save XP (cookie)</button><button type="button" class="n64-score-reset">Reset score</button></div>',
-      '<p class="n64-score-legal">XP and completed levels can be saved in a cookie. After you opt in to the global leaderboard, a separate player-ID cookie keeps your score in sync. Prize contacts stay private.</p>',
+      '<p class="n64-score-legal">After a confirmed booking, your name and XP go on the global board unless you opted out while booking. XP is saved with a first-party cookie. Private prize contacts stay private.</p>',
       '</div>',
     ].join("");
 
