@@ -7,6 +7,7 @@ import dispatch from "./lib/squeegeePreviewAutoDispatch.js";
 import auto from "./lib/squeegeeAutomaticBooking.js";
 import claims from "./lib/squeegeeIdempotencyClaims.js";
 import guard from "./lib/bookingSubmissionGuard.js";
+import rollout from "./lib/squeegeePreviewAutoRollout.js";
 import {getStore} from "@netlify/blobs";
 
 const respond=(status,data)=>new Response(JSON.stringify(data),{
@@ -53,6 +54,8 @@ export default async function handler(request,context) {
   const booking=data.booking;
   if(!booking || typeof booking!=="object" || Array.isArray(booking))
     return respond(422,{error:"Invalid booking"});
+  if(!rollout.acceptedForRollout(booking,data.channel,process.env))
+    return respond(422,{error:"Outside the approved Preview 1 email pilot"});
   const validation=guard.validateBookingSubmission(booking);
   if(!validation.ok)
     return respond(422,{error:"Missing or expired booking acceptance"});
