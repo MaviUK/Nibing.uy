@@ -41,5 +41,6 @@ jobs:
               print(label.upper()+"_CONNECTED:",entry.get("connected"))
               print(label.upper()+"_COUNT:",entry.get("count"))
               print(label.upper()+"_HTTP_STATUS:",entry.get("status"))
+              print(label.upper()+"_LABELS:",json.dumps(entry.get("descriptions") or []))
           print("DIAGNOSTIC_REASON:",data.get("reason") or data.get("error"))
           print("PREVIEW_GUARD_CHECKS:",data.get("checks"))
