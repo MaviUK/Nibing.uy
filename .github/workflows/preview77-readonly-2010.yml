@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      # Third read-only diagnostic after function deployment is ready; metadata only.
+      # Fourth read-only diagnostic: compare catalog UUID with job-service _id, no identifiers returned.
       - name: "Check exact booking status only (GET; no Squeegee writes)"
         shell: bash
         run: |
