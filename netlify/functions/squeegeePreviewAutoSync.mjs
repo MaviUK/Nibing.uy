@@ -6,6 +6,7 @@ import api from "./lib/squeegeeApiV3.js";
 import dispatch from "./lib/squeegeePreviewAutoDispatch.js";
 import auto from "./lib/squeegeeAutomaticBooking.js";
 import claims from "./lib/squeegeeIdempotencyClaims.js";
+import guard from "./lib/bookingSubmissionGuard.js";
 import {getStore} from "@netlify/blobs";
 
 const respond=(status,data)=>new Response(JSON.stringify(data),{
@@ -52,8 +53,7 @@ export default async function handler(request,context) {
   const booking=data.booking;
   if(!booking || typeof booking!=="object" || Array.isArray(booking))
     return respond(422,{error:"Invalid booking"});
-  const metadata=await import("./lib/bookingSubmissionGuard.js");
-  const validation=metadata.default.validateBookingSubmission(booking);
+  const validation=guard.validateBookingSubmission(booking);
   if(!validation.ok)
     return respond(422,{error:"Missing or expired booking acceptance"});
   const bookingId=validation.bookingId;
