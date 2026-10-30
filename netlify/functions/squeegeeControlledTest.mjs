@@ -1,6 +1,5 @@
-// Preview 1 ONLY: a one-time, GitHub OIDC-authenticated controlled test.
-// The approved execute mode uses immutable synthetic test data and fails
-// closed on duplicate or uncertain Squeegee writes.
+// Preview 1 ONLY: GitHub OIDC-authenticated read-only diagnostics.
+// Write mode was removed immediately after an atomic-claim guard blocked it.
 import squeegee from "./lib/squeegeeApiV3.js";
 import oidc from "./lib/squeegeeTestOidc.js";
 import data from "./lib/squeegeeControlledTestData.js";
@@ -21,17 +20,31 @@ export default async function handler(req,context){
     return json(401,{error:"GitHub Actions identity verification failed"});
   }
   const input=await req.json().catch(()=>({}));
-  if(input.mode==="execute"){
+  // Explicitly DISABLED: the single authorised write attempt stopped before
+  // any Squeegee POST when the atomic lock was not acquired.
+  if(input.mode==="claim-status"){
     try{
-      const result=await writer.runControlledTest();
-      const succeeded=result.customerCreated===true && result.jobCreated===true;
-      // No API credentials, real contact details or internal UUIDs returned.
-      return json(succeeded?200:409,result);
-    }catch(error){
-      return json(502,{
-        testOnly:true,readOnly:false,status:"test_failed_before_confirmed_completion",
-        reason:"Check the test reference in Squeegee; do not retry automatically",
+      const {getStore}=await import("@netlify/blobs");
+      const store=getStore("squeegee-preview1-write-claims");
+      const claim=await store.getWithMetadata(writer.TEST_LOCK_KEY,{
+        type:"json",consistency:"strong",
       });
+      const scan=await writer.scanAllForTestCustomer();
+      return json(200,{
+        readOnly:true,authenticated:true,
+        testReference:data.TEST_REFERENCE,
+        claimExists:Boolean(claim),
+        claimState:claim?.data?.state||null,
+        claimHasEtag:Boolean(claim?.etag),
+        scanComplete:scan.complete,
+        existingTestCustomer:scan.conflict,
+        customerPagesScanned:scan.pages||null,
+        customersScanned:scan.recordsScanned||null,
+        note:"No Squeegee POST is available from this handler",
+      });
+    }catch{
+      return json(502,{readOnly:true,
+        error:"Claim diagnostics not available; no writes permitted"});
     }
   }
   if(input.mode!=="inspect"){
