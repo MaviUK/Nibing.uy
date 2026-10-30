@@ -7,6 +7,8 @@
  * This module is never imported by browser code. No Squeegee writes are
  * permitted until owner approval AND a durable idempotency ledger are ready.
  */
+const { AsyncLocalStorage } = require("node:async_hooks");
+const previewTestContext = new AsyncLocalStorage();
 const API_ORIGIN = "https://api02.sqgee.com";
 const PREFIX = "/api/v3/public";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -20,16 +22,36 @@ class SqueegeeApiError extends Error {
   }
 }
 
+function isExactPreview1(env = process.env) {
+  return env.CONTEXT === "deploy-preview" &&
+    env.REVIEW_ID === "77" &&
+    env.BRANCH === "preview/n64-retro-site" &&
+    env.DEPLOY_PRIME_URL === "https://deploy-preview-77--nibinguy.netlify.app";
+}
 function assertWriteAllowed() {
-  // Write protection is deliberately stricter than possession of an API key.
-  // Never set these switches before approved testing, correct service mapping
-  // and an atomic booking/job idempotency ledger have been verified.
-  const allowed = process.env.SQUEEGEE_WRITE_ENABLED === "true" &&
+  // Both routes are PREVIEW 1 ONLY. Production and Preview 2 are excluded.
+  // Default writes require all existing owner-enabled flags.
+  // A single owner-authorized test can instead run in its own async context;
+  // the context is created ONLY after a verified one-time reservation.
+  const normal = isExactPreview1() &&
+    process.env.SQUEEGEE_WRITE_ENABLED === "true" &&
     process.env.SQUEEGEE_OWNER_APPROVED_WRITES === "true" &&
-    process.env.SQUEEGEE_ATOMIC_LEDGER_READY === "true" &&
-    process.env.CONTEXT === "deploy-preview" &&
-    process.env.REVIEW_ID === "77";
-  if (!allowed) throw new Error("Squeegee writes are disabled for this deployment");
+    process.env.SQUEEGEE_ATOMIC_LEDGER_READY === "true";
+  const singleTest = isExactPreview1() &&
+    previewTestContext.getStore()?.singleApprovedTest === true;
+  if (!normal && !singleTest) throw new Error("Squeegee writes are disabled for this deployment");
+}
+async function withOneApprovedPreviewTestWrite(proof, operation) {
+  // Do NOT accept this proof from the request body or a browser header.
+  // The orchestration code obtains it from a successful atomic Blob claim.
+  if (!isExactPreview1() ||
+      proof?.acquired !== true ||
+      !String(proof.key || "").startsWith("claim-v1/approved-preview-1/") ||
+      typeof proof.etag !== "string" || proof.etag.length < 4 ||
+      typeof operation !== "function") {
+    throw new Error("Owner-approved single-test write capability unavailable");
+  }
+  return await previewTestContext.run({ singleApprovedTest:true }, operation);
 }
 
 function requireUuid(value, field) {
@@ -131,6 +153,8 @@ module.exports = {
   SqueegeeApiError,
   requireUuid,
   assertWriteAllowed,
+  isExactPreview1,
+  withOneApprovedPreviewTestWrite,
   listCustomers,
   getCustomer,
   getCustomerIdForExternalId,
