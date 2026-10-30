@@ -14,6 +14,8 @@ const {withOneApprovedPreviewTestWrite,isExactPreview1,assertWriteAllowed}=
   require("../netlify/functions/lib/squeegeeApiV3");
 const {reconcileAcceptedBooking,findAcceptedAudit}=
   require("../netlify/functions/lib/squeegeeOneBookingReconcile");
+const {RECOVERY_BOOKING_ID,originalAcceptedBooking,inspectAcceptedBooking}=
+  require("../netlify/functions/lib/squeegeeAcceptedBookingRecovery");
 
 const env={
   CONTEXT:"deploy-preview",REVIEW_ID:"77",
@@ -409,4 +411,168 @@ test("invalid accepted audit cannot trigger live Squeegee reads",async()=>{
   assert.equal(reads,0);
   const missing=await findAcceptedAudit("invalid",archived());
   assert.equal(missing.status,"invalid_reference");
+});
+
+
+// Operator recovery is allowed only for the one accepted booking, recorded
+// before the first worker failed. All fake Squeegee clients below are GET-only.
+function archivedOriginalRow(){
+  return {
+    ...booking(RECOVERY_BOOKING_ID),
+    channel:"email",
+    createdAt:"2026-10-30T15:28:57.800Z",
+  };
+}
+function originalArchiveStore(row=archivedOriginalRow()){
+  return mockAcceptedAuditStore([{
+    key:"2026-10-30T15:28:57.800Z__original@example.org.json",
+    row,
+  }]);
+}
+function recoveryHarness(overrides={}){
+  const events=[];
+  return {
+    events,
+    deps:{
+      auditStore:originalArchiveStore(),
+      statusStore:{get:async(key)=>{events.push("read_status");return null;}},
+      claimsStore:{get:async(key)=>{events.push("read_claim");return null;}},
+      getSchedule:async()=>{events.push("get_schedule");return schedule();},
+      getServices:async()=>{events.push("get_services");return services;},
+      getJobGroups:async()=>{events.push("get_job_groups");return groups;},
+      listCustomers:async()=>{events.push("list_customers");return{
+        customers:[],hasMore:false,page:1,pageSize:100,
+      };},
+      now:Date.parse("2026-10-30T15:52:00Z"),
+      ...overrides,
+    },
+  };
+}
+
+test("original accepted Squeegee booking is reconstructed from private audit only",async()=>{
+  const accepted=await originalAcceptedBooking(RECOVERY_BOOKING_ID,
+    originalArchiveStore(),Date.parse("2026-10-30T15:52:00Z"));
+  assert.equal(accepted.reason,null);
+  assert.equal(accepted.booking.bookingId,RECOVERY_BOOKING_ID);
+  assert.equal(accepted.booking.submittedAt,"2026-10-30T15:52:00.000Z");
+  const incorrect=await originalAcceptedBooking("NBG-ABCDE-ABCDEFGH",
+    originalArchiveStore(),Date.parse("2026-10-30T15:52:00Z"));
+  assert.equal(incorrect.reason,"not_approved_original_booking");
+  const changed=archivedOriginalRow();
+  changed.createdAt="2026-10-31T12:00:00Z";
+  const altered=await originalAcceptedBooking(RECOVERY_BOOKING_ID,
+    originalArchiveStore(changed),Date.parse("2026-10-30T15:52:00Z"));
+  assert.equal(altered.reason,"accepted_booking_window_unverified");
+});
+
+test("read-only recovery preflight verifies original £5 four-weekly round 11 date",async()=>{
+  const h=recoveryHarness();
+  const result=await inspectAcceptedBooking(RECOVERY_BOOKING_ID,h.deps);
+  assert.equal(result.ready,true);
+  assert.equal(result.firstClean,"2026-11-02");
+  assert.equal(result.round,11);
+  assert.equal(result.price,5);
+  assert.equal(result.frequency,"every_4_weeks");
+  assert.equal(result.pagesScanned,1);
+  assert.deepEqual(h.events.sort(),[
+    "read_status","read_claim","get_schedule","get_services",
+    "get_job_groups","list_customers",
+  ].sort());
+  assert.ok(!JSON.stringify({ready:result.ready,round:result.round,price:result.price})
+    .includes("original@example.org"));
+});
+
+test("no new Squeegee write permitted when original test was reserved already",async()=>{
+  for(const blocked of ["status","global_claim"]){
+    const h=recoveryHarness(blocked==="status"?
+      {statusStore:{get:async()=>({stage:"queued"})}}:
+      {claimsStore:{get:async()=>({state:"reserved"})}});
+    const result=await inspectAcceptedBooking(RECOVERY_BOOKING_ID,h.deps);
+    assert.equal(result.ready,false);
+    assert.equal(result.reason,"existing_or_uncertain_test_reservation");
+    assert.ok(!h.events.includes("list_customers"));
+  }
+});
+
+test("recovery holds when account already has a customer for the test property",async()=>{
+  const customer={_id:customerId,name:"Existing",status:"active",
+    email:booking().email,address:{addressDescription:booking().address},
+    jobs:[]};
+  const h=recoveryHarness({listCustomers:async()=>({
+    customers:[customer],hasMore:false,page:1,pageSize:100,
+  })});
+  const r=await inspectAcceptedBooking(RECOVERY_BOOKING_ID,h.deps);
+  assert.equal(r.ready,false);
+  assert.equal(r.reason,"squeegee_customer_exists_or_needs_review");
+});
+
+test("recovery refuses a changed or missing displayed website date",async()=>{
+  const changed=archivedOriginalRow();
+  changed.bookingScheduleSnapshot.results[0].assignedCleanDate="2026-11-03";
+  const h=recoveryHarness({auditStore:originalArchiveStore(changed)});
+  const r=await inspectAcceptedBooking(RECOVERY_BOOKING_ID,h.deps);
+  assert.equal(r.ready,false);
+  assert.equal(r.reason,"date_price_round_or_service_not_verified");
+  assert.ok(!h.events.includes("list_customers"));
+});
+
+test("recovery refuses a missing job group or unverified account service",async()=>{
+  const h=recoveryHarness({getJobGroups:async()=>[]});
+  const r=await inspectAcceptedBooking(RECOVERY_BOOKING_ID,h.deps);
+  assert.equal(r.ready,false);
+  assert.equal(r.reason,"date_price_round_or_service_not_verified");
+  assert.ok(!h.events.includes("list_customers"));
+});
+
+test("recovery refuses a date in the past even if its round looks plausible",async()=>{
+  const h=recoveryHarness({now:Date.parse("2026-12-01T12:00:00Z")});
+  const r=await inspectAcceptedBooking(RECOVERY_BOOKING_ID,h.deps);
+  assert.equal(r.ready,false);
+  assert.equal(r.reason,"first_date_outside_45_day_window");
+});
+
+test("recovery refuses any missing or non-unique original booking acceptance",async()=>{
+  const h=recoveryHarness({auditStore:mockAcceptedAuditStore()});
+  const r=await inspectAcceptedBooking(RECOVERY_BOOKING_ID,h.deps);
+  assert.equal(r.ready,false);
+  assert.equal(r.reason,"accepted_booking_not_found");
+  assert.deepEqual(h.events,[]);
+});
+
+test("owner recovery route rejects unauthorised users before any storage or writes",async()=>{
+  const {default:handler}=await import(
+    "../netlify/functions/squeegeePreviewRecoverOriginal.mjs");
+  const scope={
+    deploy:{context:"deploy-preview"},
+    site:{id:"d63c829f-3ed7-48e9-9633-a042de3f2e84"},
+  };
+  const url="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-recover-original";
+  const unauthorised=await handler(new Request(url),scope);
+  assert.equal(unauthorised.status,403);
+  const wrong=await handler(new Request(url),{
+    ...scope,deploy:{context:"production"},
+  });
+  assert.equal(wrong.status,404);
+});
+
+test("owner recovery POST fails closed when after-response worker is unavailable",async()=>{
+  const {default:handler}=await import(
+    "../netlify/functions/squeegeePreviewRecoverOriginal.mjs");
+  const url="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-recover-original";
+  const validScope={hostname:"deploy-preview-77--nibinguy.netlify.app",
+    deployContext:"deploy-preview",
+    siteId:"d63c829f-3ed7-48e9-9633-a042de3f2e84"};
+  const cookie=session.createTestSessionCookie(process.env,Date.now(),validScope);
+  const request=new Request(url,{
+    method:"POST",headers:{
+      "Cookie":session.COOKIE_NAME+"="+cookie,
+      "Origin":"https://deploy-preview-77--nibinguy.netlify.app",
+      "Content-Type":"application/x-www-form-urlencoded",
+    },
+    body:"action=confirm-original",
+  });
+  const result=await handler(request,{
+    deploy:{context:"deploy-preview"},site:{id:validScope.siteId},
+  });
+  assert.equal(result.status,503);
 });
