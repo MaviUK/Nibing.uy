@@ -53,7 +53,7 @@ updateFile("src/LandingPage.jsx", (text) => {
     );
   }
 
-  if (!text.includes('body: JSON.stringify({\n      ...emailSubmissionMeta,\n      name,')) {
+  if (!/body:\\s*JSON\\.stringify\\(\\{\\s*\\.\\.\\.emailSubmissionMeta,\\s*name,/.test(text)) {
     text = mustReplace(
       text,
       '    body: JSON.stringify({\n      name,',
