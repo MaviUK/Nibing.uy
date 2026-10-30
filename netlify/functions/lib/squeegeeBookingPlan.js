@@ -122,7 +122,14 @@ function makeJobPlan(booking, bin, index, dateRow, config) {
   };
   if (!isOneOff) input.frequencyInterval = 4;
 
-  const group = config?.jobGroupFor?.({ bin, date, postcode: normalizedPostcode(booking.address) });
+  const group = config?.jobGroupFor?.({ bin, index, date, postcode: normalizedPostcode(booking.address) });
+  // The Squeegee API allows a job without a group, but an automatically
+  // assigned bin-cleaning booking must not silently land off the proper round.
+  // Existing standalone planner callers may omit requireJobGroup; booking
+  // preparation always sets it after verifying the account's group labels.
+  if (config?.requireJobGroup === true && !group) {
+    return { index, bin: bin.type, quantity, status: "job_group_mapping_required", date, input: null };
+  }
   if (group) input.jobGroup = requireUuid(group, "jobGroup");
   return { index, bin: bin.type, quantity, status: "ready", date, input };
 }
