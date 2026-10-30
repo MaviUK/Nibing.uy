@@ -45,7 +45,7 @@ export default async function handler(request,context) {
   const mode=rollout.autoMode(process.env);
   const id=new URL(request.url).searchParams.get("bookingId")?.trim()||"";
   const description=!enabled?"OFF":
-    mode==="pilot"?"ENABLED — ONE TEST API EMAIL BOOKING ONLY (one-use cap)":
+    mode==="pilot"?"ENABLED — ONE FRESH TEST API BROWN-BIN EMAIL BOOKING ONLY":
     "ENABLED — scoped to Preview 1";
   let content='<div class="notice">Automatic Preview 1 Squeegee sync: <strong>'+
     safe(description)+'</strong></div>'+
@@ -66,10 +66,10 @@ export default async function handler(request,context) {
       content+='<div class="notice"><strong>No automatic sync receipt for this reference.</strong>'+
         '<p>The booking email may have succeeded without an eligible Squeegee dispatch.'+
         ' No retry has been attempted.</p>'+
-        (id===rollout.PILOT_BOOKING_ID?
-          '<p>This accepted booking contained Brown and Black bins, but the first pilot required one bin.'+
-          ' <strong>Do not submit the website booking again.</strong></p>'+
-          '<p><a href="/api/squeegee-preview-auto-recover">Review original two-bin booking (READ ONLY)</a></p>':
+        (id===rollout.ABANDONED_BOOKING_ID?
+          '<p><strong>The previous Brown and Black pilot was abandoned.</strong>'+
+          ' It will not be replayed. Do not submit that booking again.'+
+          ' The new pilot uses one fresh Brown-bin booking and its own permanent claim.</p>':
           '<p>This does not confirm Squeegee has no customer. The normal booking remains valid.</p>')+
         '</div>';
     }else{
