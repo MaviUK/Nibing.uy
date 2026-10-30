@@ -1268,3 +1268,133 @@ test("unique new customer with no repeated information sends no informational du
   assert.equal(duplicateEmails,0);
   assert.deepEqual(h.statuses.at(-1).duplicateFlags,[]);
 });
+
+
+test("real Squeegee service-object format permits Blue at existing Brown property",async()=>{
+  const b=sampleBooking({
+    bins:[{type:"Blue Bin",planId:"domestic_4w",count:1}],
+    modified:x=>({...x,email:"new-contact@example.org",phone:"02891469191"}),
+  });
+  const previousJobs=[{
+    _id:"88888888-8888-4888-8888-888888888888",
+    services:[{_id:brownService,description:"Brown",quantity:1}],
+    jobGroup:group1,price:5,
+  }];
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,name:b.name,
+      email:"old-contact@example.org",phoneNumber:"07700900000",
+      address:{addressDescription:b.address},status:"active",
+    }],
+    existingCustomer:{name:b.name,status:"active",
+      address:{text:b.address},jobs:previousJobs},
+  });
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,false);
+  assert.equal(r.createdJobs,1);
+  assert.equal(h.posts.length,1);
+  assert.equal(h.posts[0].kind,"job");
+  assert.equal(h.posts[0].id,customerId);
+  assert.deepEqual(h.posts[0].job.services,[blueService]);
+  assert.equal(h.posts[0].job.frequencyInterval,4);
+  assert.equal(h.posts[0].job.price,5);
+  assert.deepEqual(previousJobs[0].services,[{
+    _id:brownService,description:"Brown",quantity:1,
+  }]);
+  assert.equal(h.statuses.at(-1).customerMode,"existing");
+});
+
+test("real Squeegee service-object format rejects duplicate Blue service at property",async()=>{
+  const b=sampleBooking({
+    bins:[{type:"Blue Bin",planId:"domestic_4w",count:1}],
+  });
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,name:b.name,email:b.email,
+      address:{addressDescription:b.address},status:"active",
+    }],
+    existingCustomer:{address:{text:b.address},
+      jobs:[{services:[{_id:blueService,description:"Blue",quantity:1}]}]},
+  });
+  const r=await h.run();
+  assert.equal(r.status,"held");
+  assert.equal(r.reason,"existing_job_for_selected_bin_requires_review");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
+
+test("existing one-off service object also blocks another recurring bin of same colour",async()=>{
+  const b=sampleBooking();
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,name:b.name,email:b.email,
+      address:{addressDescription:b.address},status:"active",
+    }],
+    existingCustomer:{
+      address:{text:b.address},
+      jobs:[{services:[{
+        _id:brownOneOffService,description:"(One Off) Brown",quantity:1,
+      }]}],
+    },
+  });
+  const r=await h.run();
+  assert.equal(r.status,"held");
+  assert.equal(r.reason,"existing_job_for_selected_bin_requires_review");
+  assert.equal(h.posts.length,0);
+});
+
+test("existing job with two service objects is inspected by every UUID",()=>{
+  const existing=[{services:[
+    {_id:brownService,description:"Brown",quantity:1},
+    {_id:blackService,description:"Black",quantity:1},
+  ]}];
+  assert.equal(overlappingJobs(existing,[{
+    input:{services:[blueService]},bin:"Blue Bin",
+  }]),null);
+  assert.equal(overlappingJobs(existing,[{
+    input:{services:[blackService]},bin:"Black Bin",
+  }]),"existing_job_for_selected_bin_requires_review");
+});
+
+test("unsupported existing service objects still fail closed; no Squeegee POST",async()=>{
+  const b=sampleBooking({
+    bins:[{type:"Blue Bin",planId:"domestic_4w",count:1}],
+  });
+  const badServices=[
+    {description:"Brown",quantity:1},
+    {_id:"bad-uuid",description:"Brown",quantity:1},
+    {_id:brownService,id:blackService,description:"Brown"},
+    null,
+    123,
+    [],
+  ];
+  for(const bad of badServices){
+    const h=makeHarness(b,{
+      existingRows:[{
+        _id:customerId,name:b.name,email:b.email,
+        address:{addressDescription:b.address},status:"active",
+      }],
+      existingCustomer:{address:{text:b.address},
+        jobs:[{services:[bad]}]},
+    });
+    const r=await h.run();
+    assert.equal(r.status,"held");
+    assert.equal(r.reason,"cannot_inspect_existing_jobs");
+    assert.equal(h.posts.length,0);
+    assert.equal(h.ledger.records.size,0);
+  }
+});
+
+test("valid existing service ID-only format remains supported for compatibility",()=>{
+  const wanted=[{input:{services:[blueService]},bin:"Blue Bin"}];
+  assert.equal(overlappingJobs([
+    {services:[brownService]},
+  ],wanted),null);
+  assert.equal(overlappingJobs([
+    {services:[blueService]},
+  ],wanted),"existing_job_for_selected_bin_requires_review");
+  assert.equal(overlappingJobs([
+    {services:[{id:brownService,description:"Brown",quantity:1}]},
+  ],wanted),null);
+});
