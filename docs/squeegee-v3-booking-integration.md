@@ -111,7 +111,7 @@ Using a temporary Preview 1 GET-only endpoint, Squeegee returned **1,200 custome
 
 A second temporary GET-only probe retrieved one individual customer record's **field names only**, never its personal values. Individual `GET /customers/:id` returned the SAME customer schema as the list: `jobs[]` contained `_id, services, jobGroup, price`, with **no appointment date/recurrence/day/round schedule fields**. The probe was also removed.
 
-**Blocker:** Ask the account owner to open the Squeegee scheduling/rounds UI and show which numeric job group corresponds to each actual cleaning route/weekday/cycle (including bank-holiday rescheduling). Don't infer weekdays from historic town distribution. Until mapping is confirmed, keep `jobGroupFor` unresolved and all Squeegee POSTs disabled.
+**Resolution (subsequent owner confirmation):** Each numbered round runs on its **own distinct day**. Combined with Monday 2 November 2026 = Round 11 and five rounds per week, the mapping follows consecutive Monday–Friday operational days. Job groups must still be found in this account, and the date shown on the booking form must be server-verified. No Squeegee POSTs have been enabled.
 
 Duplicate-claim improvement: future customer/job reservations now hash property plus postcode rather than using email, so changing email alone cannot bypass duplicate protection for the same address. This is still code-only, not a live write mechanism.
 
@@ -126,36 +126,38 @@ Owner explicitly confirmed:
 - **Week 3:** Rounds 11, 12, 13, 14, 15
 - **Week 4:** Rounds 16, 17, 18, 19, 20
 
-**Important correction:** The four-week *week membership* of the 20 rounds is confirmed, but the assumption of one sequential number per weekday is **not**. The owner says missing group codes correspond to Friday bin-emptying coverage that is not currently serviced. Under the original assumed weekday mapping 06/07 would instead fall Monday/Tuesday, so that assumption is unsafe. The Squeegee resolver only allows verified Week 3 Mondays to use **Round 11**; other day-to-round candidates are stored as unverified and cannot produce an assignable group UUID.
+**Latest owner confirmation:** Every numbered round has a distinct day, with no simultaneous rounds. Together with the Round 11 Monday 2 November anchor and five groups per week, **rounds advance Monday–Friday**, then repeat every four weeks. Unused Squeegee group numbers reflect areas whose **bins are emptied on Fridays**, not necessarily cleaning jobs performed on Friday. Hence groups 06/07 can be inactive Monday/Tuesday cleaning groups for Friday-bin-emptying areas. This does not invalidate the daily round sequence.
 
-| Week commencing | Confirmed cycle week | Round numbers in that week | Verified date/group |
-| --- | --- | --- | --- |
-| 19 Oct 2026 | Week 1 | 1–5 | Week only |
-| 26 Oct 2026 | Week 2 | 6–10 | Week only |
-| 2 Nov 2026 | Week 3 | 11–15 | **Mon 2 Nov → 11** |
-| 9 Nov 2026 | Week 4 | 16–20 | Week only |
-| 16 Nov 2026 | Week 1 | 1–5 | Week only |
-| 23 Nov 2026 | Week 2 | 6–10 | Week only |
-| 30 Nov 2026 | Week 3 | 11–15 | **Mon 30 Nov → 11** |
+| Week commencing | Cycle week | Mon | Tue | Wed | Thu | Fri |
+| --- | --- | --- | --- | --- | --- | --- |
+| 19 Oct 2026 | Week 1 | 1 | 2 | 3 | 4 | 5 |
+| 26 Oct 2026 | Week 2 | 6 | 7 | 8 | 9 | 10 |
+| 2 Nov 2026 | Week 3 | 11 | 12 | 13 | 14 | 15 |
+| 9 Nov 2026 | Week 4 | 16 | 17 | 18 | 19 | 20 |
+| 16 Nov 2026 | Week 1 | 1 | 2 | 3 | 4 | 5 |
+| 23 Nov 2026 | Week 2 | 6 | 7 | 8 | 9 | 10 |
+| 30 Nov 2026 | Week 3 | 11 | 12 | 13 | 14 | 15 |
+
+Each table entry is a **cleaning round/day**, not a bin-emptying weekday. Missing Squeegee groups remain inactive and cannot receive automatic bookings.
 
 Implementation:
 
-- `netlify/functions/lib/squeegeeRoundCycle.js` computes the confirmed **cycle week** from the *server-verified* per-bin clean date using the **2 November 2026 Monday anchor**, modulo four weeks. Only the explicitly confirmed **Week 3 Monday → Round 11** is automatically eligible for a job-group UUID. All other weekday-number guesses remain unverified and blocked, irrespective of Squeegee group existence.
+- `netlify/functions/lib/squeegeeRoundCycle.js` computes the owner's confirmed **cycle week and one-distinct-round-per-day sequence** from the *server-verified* per-bin clean date using the **2 November 2026 Monday anchor**, modulo four weeks. It resolves an account group UUID only if that numbered group actually exists; absent groups stay blocked.
 - For NI Monday bank holidays, the website moves Monday-Friday cleaning to Tuesday-Saturday. The resolver mirrors the existing website rule (including the site's **no Christmas/Boxing Day substitute Monday shift**). Any **four-weekly recurring clean with a first appointment in a shifted week** is held for review because anchoring Squeegee recurrence to Tuesday/Saturday would move normal future weeks to the wrong day. Dates for one-off cleans can be calculated but remain subject to other gates.
 - Resolved numeric group codes are matched uniquely against actual Squeegee `GET /job-groups` results. The planner passes the real UUID only for a unique valid account group and verified date. **Never construct/fabricate a group UUID**.
-- The most recent account list had only 14 of the 20 numbered job groups: **01, 02, 03, 04, 08, 09, 11, 12, 13, 14, 16, 17, 18, 19**. The six unconfigured labels are **05, 06, 07, 10, 15, 20**. The owner says missing groups are associated with **Friday bin-emptying areas not currently covered**; this is intentional, not a request to create six groups. Note that 06/07 contradict the prior Monday–Friday assumption. Do **not** create missing groups, assign a substitute group or treat an unverified weekday guess as an actual round.
+- Account groups returned: **01, 02, 03, 04, 08, 09, 11, 12, 13, 14, 16, 17, 18, 19**. Unconfigured groups: **05, 06, 07, 10, 15, 20**. Their absence is intentional because the owner does not cover certain **Friday bin-emptying areas**. Round 06/07 are operational Monday/Tuesday slots in Week 2; they can be unused if those are the cleaning dates for Friday-emptying areas. **Do not add or substitute missing Squeegee groups.**
 - `squeegeeBookingStage.js` now performs `GET /job-groups` alongside `GET /services`, in **read-only shadow mode** for both email and WhatsApp booking submissions.
 - `squeegeeBookingPreparation.js` now includes group-number, rota-week, bank-holiday-shift and resolution status in private PII-free booking staging. `squeegeeBookingPlan.js` prevents a real job body from being marked ready if its required verified group is unavailable.
 - GitHub Actions tests for round cycling, shifts, missing/duplicate account groups, bad IDs and prepared booking date+group mapping: **78/78 passing** as of this update.
 
-**Still no Squeegee POST**, no real customer/job creation, no production changes and no merge. Before first write, verify round weekday ordering in Squeegee and explicitly obtain owner's test-record approval. Continue keeping the existing website's bookings, confirmation emails, WhatsApp and arcade score working.
+**Still no Squeegee POST**, no real customer/job creation, no production changes and no merge. Before first write, explicitly obtain the owner's test-record approval and check the actual first appointment, four-weekly recurrence and cleaning group. Keep the existing website's bookings, emails, WhatsApp and arcade score working.
 
 
 ### Verified against authenticated account groups (GET only)
 
-A one-off Preview 1 probe `GET /api/v3/public/job-groups` confirmed **14 numbered account groups exist**. It does **not** reveal which dates they service. Of the originally proposed date/group associations, **2 Nov → 11** (and its four-week repeat **30 Nov → 11**) are supported by the owner's explicit date anchor. All others were provisional weekday guesses and are blocked from actual Squeegee group assignment until separately verified.
+A one-off Preview 1 probe `GET /api/v3/public/job-groups` confirmed **14 numbered account groups exist**. The owner subsequently confirmed **each round has a distinct cleaning day**, so the weekday sequence is now available for mapping alongside the Monday 2 November anchor. The API lookup determines whether the numeric group exists, not whether its bin-emptying area is covered; the booking website's existing date validation remains authoritative.
 
-The account does not currently return group labels `05, 06, 07, 10, 15, 20`. These absent groups are an **intentional coverage choice** according to the owner, not missing configuration to repair. Do not fabricate or replace them. The website's Friday **bin-emptying** exclusion is distinct from a cleaning job happening on a Friday; the council collection-date data, not a guessed group number, must determine eligibility. The weekday ordering must be verified before mapping more dates.
+The account does not return group labels `05, 06, 07, 10, 15, 20`. Their absence is an **intentional coverage choice**, not missing configuration. Do not fabricate or replace them. Friday **bin-emptying** exclusions differ from cleaning jobs that happen on Fridays; the booking form's council-based date checks remain authoritative.
 
 The temporary public diagnostic endpoint and one-shot GitHub Actions workflow have both been removed. Squeegee customer/job writes remain blocked; the normal website booking form, confirmation emails and arcade score were not changed by the mapping.
 
@@ -164,3 +166,11 @@ The temporary public diagnostic endpoint and one-shot GitHub Actions workflow ha
 The owner confirmed that Friday bin-collection areas are not currently covered and the missing Squeegee groups are intentional. **Do not create 05, 06, 07, 10, 15 or 20 solely to complete 1–20.** The missing codes cannot be interpreted as weekday labels without additional route/weekday evidence.
 
 Preview 1 has been updated: `roundForCleaningDate` retains confirmed four-week cycle membership and a **tentative** weekday candidate for internal diagnostics; `resolveSqueegeeRoundJobGroup` refuses to return a Squeegee UUID unless date-to-round assignment has been explicitly confirmed. As of this update only **Week 3 Monday → 11** is confirmed. New status `weekday_mapping_unverified` safely holds other weekdays, including dates whose proposed group labels happen to exist. No website booking or council schedule logic has been changed, no Squeegee POST has been enabled.
+
+### Latest owner clarification: each numbered round is a different cleaning day
+
+The owner confirmed no two numbered rounds currently run on the same day. Interpret the five round numbers in each week as **Monday to Friday** in order. The website remains the authoritative source of each bin's first cleaning date. Only map that date to Squeegee when the exact numbered group exists in `GET /job-groups`. A missing group is an intentional not-covered/unused area and is not automatically created.
+
+The separate restriction on **areas with Friday bin collections** must not be confused with the **day NI Bin Guy performs the clean**. This resolves the earlier apparently conflicting observations for groups 06/07. Holiday shifts keep their existing special logic; when a recurring first appointment falls in a shifted week, it remains held to avoid repeating the wrong weekday.
+
+The Preview 1 tests now cover the full distinct-daily-round sequence and deliberately missing groups. **All real Squeegee customer/job POSTs remain disabled** pending explicit approval for one controlled test booking. Production, Preview 2 and main remain unchanged.
