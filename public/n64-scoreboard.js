@@ -384,7 +384,7 @@
     if (!document.querySelector('link[data-n64-score-style]')) {
       const scoreStyle = document.createElement("link");
       scoreStyle.rel = "stylesheet";
-      scoreStyle.href = "/n64-scoreboard.css?v=3";
+      scoreStyle.href = "/n64-scoreboard.css?v=4";
       scoreStyle.dataset.n64ScoreStyle = "true";
       document.head.appendChild(scoreStyle);
     }
@@ -393,10 +393,11 @@
     root.className = "n64-score-hud";
     root.setAttribute("aria-label", "NI Bin Guy arcade score");
     root.innerHTML = [
+      '<button type="button" class="n64-score-backdrop" aria-label="Close score panel" hidden></button>',
       '<button type="button" class="n64-score-toggle" aria-expanded="false" aria-controls="n64-score-details">',
       '<span aria-hidden="true">★</span> <strong data-n64-score>0</strong><small>XP</small></button>',
-      '<div class="n64-score-panel" id="n64-score-details" hidden>',
-      '<div class="n64-score-heading"><strong>★ PLAYER SCORE</strong><button type="button" class="n64-score-close" aria-label="Close scoreboard">×</button></div>',
+      '<div class="n64-score-panel" id="n64-score-details" role="dialog" aria-modal="true" aria-labelledby="n64-score-heading-label" hidden>',
+      '<div class="n64-score-heading"><strong id="n64-score-heading-label">★ PLAYER SCORE</strong><button type="button" class="n64-score-close" aria-label="Close scoreboard">×</button></div>',
       '<div class="n64-score-earned" aria-live="polite"></div>',
       '<section class="n64-board"><strong>🏆 GLOBAL LEADERBOARD</strong><ol class="n64-board-list"><li>Loading scores…</li></ol><p class="n64-board-note"></p></section>',
       '<p class="n64-score-hint">Level +50 • Area +25 • Bin day +35</p>',
@@ -410,6 +411,8 @@
 
     const toggle = root.querySelector(".n64-score-toggle");
     const panel = root.querySelector(".n64-score-panel");
+    const backdrop = root.querySelector(".n64-score-backdrop");
+    const closeButton = root.querySelector(".n64-score-close");
     scoreNode = root.querySelector("[data-n64-score]");
     boardNode = root.querySelector(".n64-board-list");
     boardNote = root.querySelector(".n64-board-note");
@@ -421,12 +424,28 @@
 
     function setOpen(open) {
       panel.hidden = !open;
+      backdrop.hidden = !open;
+      root.classList.toggle("n64-score-open", open);
       toggle.setAttribute("aria-expanded", String(open));
-      if (open) void refreshLeaderboard();
+      if (open) {
+        panel.scrollTop = 0;
+        // The close control remains sticky even when the score list scrolls.
+        closeButton.focus({ preventScroll: true });
+        void refreshLeaderboard();
+      } else {
+        toggle.focus({ preventScroll: true });
+      }
     }
 
     toggle.addEventListener("click", () => setOpen(panel.hidden));
-    root.querySelector(".n64-score-close").addEventListener("click", () => setOpen(false));
+    closeButton.addEventListener("click", () => setOpen(false));
+    backdrop.addEventListener("click", () => setOpen(false));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !panel.hidden) {
+        event.preventDefault();
+        setOpen(false);
+      }
+    });
     saveButton.addEventListener("click", () => {
       saved = true;
       writeCookie();
