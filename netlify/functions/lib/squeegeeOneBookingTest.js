@@ -21,8 +21,8 @@ const { verifyTestSessionCookie, sessionCookieFromHeader } = require("./squeegee
 const GLOBAL_TEST_KEY = "claim-v1/approved-preview-1/one-customer-one-job";
 const STATUS_STORE = "squeegee-preview1-one-booking-test-status";
 
-function isEligibleOneBooking(payload) {
-  const check = validateBookingSubmission(payload);
+function isEligibleOneBooking(payload, now = Date.now()) {
+  const check = validateBookingSubmission(payload, {now});
   if (!check.ok) return { eligible:false, reason:"invalid_or_expired_booking" };
   const bins = Array.isArray(payload?.bins) ? payload.bins.filter(b => b?.type) : [];
   if (bins.length !== 1 || bins[0].count !== 1 ||
@@ -73,7 +73,7 @@ async function executeOneApprovedTestBooking(payload, {
   if (!verifyTestSessionCookie(cookie, env, now, runtimeScope)) {
     return privateStatus("not_started", "operator_authorization_missing_or_expired");
   }
-  const eligibility=isEligibleOneBooking(payload);
+  const eligibility=isEligibleOneBooking(payload,now);
   if (!eligibility.eligible) {
     return privateStatus("not_started",eligibility.reason);
   }
