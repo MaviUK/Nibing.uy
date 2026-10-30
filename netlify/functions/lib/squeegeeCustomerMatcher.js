@@ -125,12 +125,12 @@ function matchCustomers(booking, customerList) {
       (contactMatches.length===1 && contactMatches[0]._id!==byRef[0]._id)))
     return {status:"needs_review",reason:"conflicting_customer_reference"};
 
+  if(byRef.length===1)
+    return checkedCustomer(byRef[0],"external_reference");
   if(nameMatches.length===1)
     return checkedCustomer(nameMatches[0],"exact_property_and_name");
   if(contactMatches.length===1)
     return checkedCustomer(contactMatches[0],"exact_property_and_contact");
-  if(byRef.length===1)
-    return checkedCustomer(byRef[0],"external_reference");
 
   return {status:"needs_review",
     reason:"same_address_without_name_or_contact_match"};
