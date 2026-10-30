@@ -108,9 +108,10 @@ test("same phone at another address is flagged without equating two properties",
   assert.ok(!found.duplicateFlags.includes("address_already_registered"));
 });
 test("same house number and postcode on different street is possible address duplicate, not an exact match",async()=>{
-  const found=await scan([own({address:{
-    addressDescription:"7 Another Road, Bangor BT19 7ZW",
-  }})]);
+  const found=await scan([own({
+    email:"another@example.org",phoneNumber:"07700900000",
+    address:{addressDescription:"7 Another Road, Bangor BT19 7ZW"},
+  })]);
   assert.equal(found.status,"needs_review");
   assert.equal(found.reason,"possible_existing_address");
   assert.deepEqual(found.duplicateFlags,["possible_duplicate_address"]);
