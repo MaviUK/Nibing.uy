@@ -30,15 +30,20 @@ const end='<p><small>Preview 1 only. One supervised customer and job maximum. Pr
 function page(body,status=200,additional={}) {
   return new Response(head+body+end,{status,headers:{...headerMap,...additional}});
 }
-function previewReady(request,context) {
-  const url=new URL(request.url);
-  return url.hostname==="deploy-preview-77--nibinguy.netlify.app" &&
-    context?.deploy?.context==="deploy-preview" &&
-    session.validScope(process.env);
+function runtimeScope(request,context) {
+  return {
+    hostname:new URL(request.url).hostname,
+    deployContext:context?.deploy?.context,
+    siteId:context?.site?.id,
+  };
 }
-function getAuthorized(request) {
+function previewReady(request,context) {
+  return session.validScope(process.env,runtimeScope(request,context));
+}
+function getAuthorized(request,scope) {
   return session.verifyTestSessionCookie(
-    session.sessionCookieFromHeader(request.headers.get("cookie")));
+    session.sessionCookieFromHeader(request.headers.get("cookie")),
+    process.env,Date.now(),scope);
 }
 async function getStatus(bookingId) {
   if(!/^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i.test(bookingId))return null;
@@ -85,7 +90,8 @@ function armedPage(status,bookingId){
 export default async function handler(request,context) {
   if(!previewReady(request,context))return new Response("Not found",{status:404});
   try{
-    const active=getAuthorized(request);
+    const scope=runtimeScope(request,context);
+    const active=getAuthorized(request,scope);
     if(request.method==="GET"){
       if(!active) return authPage();
       const bookingId=new URL(request.url).searchParams.get("bookingId")?.trim()||"";
@@ -96,7 +102,7 @@ export default async function handler(request,context) {
     const data=await request.formData();
     const action=String(data.get("action")||"");
     if(action==="request"){
-      const issued=await session.issueOwnerCode();
+      const issued=await session.issueOwnerCode({runtimeScope:scope});
       if(issued.ok)return challengePage(issued.challengeId);
       return page("<p>Unable to issue test access. Try again after the request limit resets or check Preview 1 booking emails.</p>",503);
     }
@@ -104,13 +110,20 @@ export default async function handler(request,context) {
       const verified=await session.verifyOwnerCode({
         challengeId:String(data.get("challengeId")||""),
         code:String(data.get("code")||""),
+        runtimeScope:scope,
       });
       if(!verified.ok)return page("<p>The code is invalid, expired or already used. Please start again.</p>",403);
-      return new Response(null,{status:303,
-        headers:{"Location":"/api/squeegee-preview-test",
-          "Set-Cookie":session.cookieHeaderValue(verified.cookie,20*60),
-          "Cache-Control":"no-store",
-          "Referrer-Policy":"no-referrer"}});
+      const headers=new Headers({
+        "Location":"/api/squeegee-preview-test",
+        "Cache-Control":"no-store",
+        "Referrer-Policy":"no-referrer",
+      });
+      headers.append("Set-Cookie",session.cookieHeaderValue(verified.cookie,20*60));
+      // UI-only hint, intentionally not a security credential. The signed
+      // HttpOnly cookie remains the only server-side authorisation.
+      headers.append("Set-Cookie",
+        "nbgSqTestArmed=1; Path=/; Secure; SameSite=Strict; Max-Age=1200");
+      return new Response(null,{status:303,headers});
     }
     return page("<p>Unknown request.</p>",400);
   }catch {
