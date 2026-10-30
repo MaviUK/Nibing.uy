@@ -6,7 +6,15 @@ on:
     paths:
       - netlify/functions/lib/squeegeeApiV3.js
       - netlify/functions/lib/squeegeeBookingPlan.js
+      - netlify/functions/lib/squeegeeBookingPricing.js
+      - netlify/functions/lib/squeegeeScheduleCheck.js
+      - netlify/functions/lib/squeegeeCustomerMatcher.js
+      - netlify/functions/lib/squeegeeServiceCatalog.js
+      - netlify/functions/lib/squeegeeBookingPreparation.js
       - tests/squeegee-integration.test.cjs
+      - tests/squeegee-booking-pricing.test.cjs
+      - tests/squeegee-schedule-check.test.cjs
+      - tests/squeegee-booking-preparation.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
 
 permissions:
@@ -21,5 +29,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Test documented customer/job mapping (no API calls)
-        run: node --test tests/squeegee-integration.test.cjs
+      - name: Test dates, prices, customer matching and job mapping (no live API calls)
+        run: node --test tests/squeegee-*.test.cjs
