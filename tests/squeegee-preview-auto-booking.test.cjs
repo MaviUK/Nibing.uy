@@ -15,6 +15,7 @@ const {
   signAcceptedEvent,
 }=require("../netlify/functions/lib/squeegeePreviewAutoDispatch");
 
+const rollout=require("../netlify/functions/lib/squeegeePreviewAutoRollout");
 const now=Date.parse("2026-10-30T16:30:00Z");
 const runtime={
   hostname:"deploy-preview-77--nibinguy.netlify.app",
@@ -434,4 +435,89 @@ test("owner-only automatic sync status page does not permit unauthorised inspect
   });
   assert.ok([403,404].includes(preview.status));
   assert.match(await preview.text(),/authorisation required|Not found/i);
+});
+
+
+test("branch-isolated pilot enables ONLY one TEST API email booking with no shared flag",async()=>{
+  const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
+  assert.equal(rollout.autoMode(pilotEnv),"pilot");
+  assert.equal(rollout.automaticEnabled(pilotEnv),true);
+  assert.equal(rollout.autoMode({...pilotEnv,SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED:"false"}),"off");
+  assert.equal(canAutoSync(pilotEnv,runtime),true);
+  assert.equal(canAutoSync(pilotEnv,{...runtime,hostname:"deploy-preview-78--nibinguy.netlify.app"}),false);
+  assert.equal(canAutoSync(pilotEnv,{...runtime,deployContext:"production"}),false);
+  const normal=sampleBooking();
+  const pilot=sampleBooking({modified:booking=>({...booking,name:"TEST API - Pilot One"})});
+  assert.equal(rollout.acceptedForRollout(normal,"email",pilotEnv),false);
+  assert.equal(rollout.acceptedForRollout(pilot,"email",pilotEnv),true);
+  assert.equal(rollout.acceptedForRollout(pilot,"whatsapp",pilotEnv),false);
+  assert.equal(rollout.acceptedForRollout({
+    ...pilot,bins:[...pilot.bins,{...pilot.bins[0]}],
+  },"email",pilotEnv),false);
+  assert.equal(rollout.acceptedForRollout({...pilot,name:"TEST API - Pilot One"},
+    "email",{...pilotEnv,SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED:"false"}),false);
+
+  let sends=0;
+  const notSent=await dispatchAcceptedBooking(normal,{
+    channel:"email",env:pilotEnv,eventHost:runtime.hostname,now,
+    fetchImpl:async()=>{sends++;return{status:202};},
+  });
+  assert.equal(notSent.queued,false);
+  assert.equal(sends,0);
+  const one=await dispatchAcceptedBooking(pilot,{
+    channel:"email",env:pilotEnv,eventHost:runtime.hostname,now,
+    fetchImpl:async()=>{sends++;return{status:202};},
+  });
+  assert.equal(one.queued,true);
+  assert.equal(sends,1);
+  assert.equal(rollout.PILOT_CLAIM_KEY,"claim-v1/auto-pilot/preview77-first-email");
+});
+
+test("one-use atomic pilot claim prevents a second Test API customer at another property",async()=>{
+  const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
+  const ledger=fakeBlobStore();
+  const first=sampleBooking({modified:b=>({...b,name:"TEST API - Pilot One"})});
+  const firstH=makeHarness(first,{ledger});
+  const options={channel:"email",env:pilotEnv,runtimeScope:runtime,now};
+  const completed=await executeAutomaticPreviewBooking(first,{
+    ...options,deps:firstH.deps,
+  });
+  assert.equal(completed.status,"completed");
+  assert.equal(completed.createdCustomer,true);
+  assert.equal(completed.createdJobs,1);
+  assert.equal(firstH.posts.length,2);
+  assert.equal(ledger.records.get(rollout.PILOT_CLAIM_KEY)?.value?.state,"succeeded");
+
+  const second=sampleBooking({
+    bookingId:"NBG-ZYXWV-ABCDEFGH",
+    modified:b=>({...b,name:"TEST API - Pilot Two",
+      address:"8 Example Drive, Bangor BT19 7ZW"}),
+  });
+  const secondH=makeHarness(second,{ledger});
+  const blocked=await executeAutomaticPreviewBooking(second,{
+    ...options,deps:secondH.deps,
+  });
+  assert.equal(blocked.status,"held");
+  assert.equal(blocked.reason,"pilot_first_booking_already_consumed_or_uncertain");
+  assert.equal(secondH.posts.length,0);
+  assert.equal(firstH.posts.length,2);
+});
+
+test("pilot claim stays occupied after an uncertain customer POST",async()=>{
+  const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
+  const b=sampleBooking({modified:x=>({...x,name:"TEST API - Pilot Failure"})});
+  const h=makeHarness(b,{customerError:true});
+  const r=await executeAutomaticPreviewBooking(b,{
+    channel:"email",env:pilotEnv,runtimeScope:runtime,now,deps:h.deps,
+  });
+  assert.equal(r.status,"requires_reconciliation");
+  assert.equal(h.posts.filter(x=>x.kind==="customer").length,1);
+  assert.equal(h.posts.filter(x=>x.kind==="job").length,0);
+  assert.equal(h.ledger.records.get(rollout.PILOT_CLAIM_KEY)?.value?.state,
+    "requires_reconciliation");
+  const again=await executeAutomaticPreviewBooking(b,{
+    channel:"email",env:pilotEnv,runtimeScope:runtime,now,deps:h.deps,
+  });
+  assert.equal(again.status,"held");
+  assert.equal(h.posts.length,1);
 });
