@@ -74,3 +74,23 @@ test("server booking still emails receipts, awards XP and optionally dispatches 
   assert.match(rollout,/SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED/);
   assert.match(rollout,/PILOT_CLAIM_KEY/);
 });
+
+
+test("fresh test confirmation reports queue acceptance without claiming job creation or requiring OTP",()=>{
+  const server=fs.readFileSync(path.join(ROOT,"netlify/functions/sendBookingEmail.js"),"utf8");
+  assert.match(server,/const freshPilot=name===PILOT_NAME/);
+  assert.match(server,/squeegeePilot=\{/);
+  assert.match(server,/queued:dispatched.queued===true/);
+  assert.match(server,/squeegeePilot,/);
+  assert.match(server,/reason:dispatched.reason/);
+  assert.match(booking,/bookingConfirmation\?\.squeegeePilot/);
+  assert.match(booking,/Squeegee test handoff/);
+  assert.match(booking,/Accepted for Squeegee validation/);
+  assert.match(booking,/does not yet confirm a customer or job was created/);
+  assert.match(booking,/Do not submit another booking/);
+  // The customer-facing Submit Booking path never asks for an owner access
+  // code, opens a second recovery tab, or calls a Squeegee POST itself.
+  assert.ok(!booking.includes("Arm one test booking"));
+  assert.ok(!booking.includes("squeegee-preview-auto-recover"));
+  assert.ok(!booking.includes("squeegee-preview-auto-sync"));
+});
