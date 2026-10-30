@@ -30,6 +30,7 @@ on:
       - tests/squeegee-round-analysis.test.cjs
       - tests/squeegee-round-cycle.test.cjs
       - tests/squeegee-preview-one-booking.test.cjs
+      - tests/squeegee-preview-submit-route.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
 
 permissions:
