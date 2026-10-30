@@ -349,3 +349,23 @@ The owner requests automatic customer reactivation for exact-name/exact-address 
 For now a uniquely identified `inactive`/`deactivated` customer becomes `reactivation_required`, not a new customer. The worker verifies the real account, records `held_for_review` with `existing_customer_reactivation_required`, sends the existing booking owner's PII-free review alert to the Zoho-facing inbox, and sends **no create-customer or add-job POST** or claims. A stale listing that says inactive but whose authoritative GET now says active may proceed normally after normal duplicate checks. Deleted/archived/cancelled records still hold. Enable automatic reactivation **only after Squeegee publishes/confirms a supported public API endpoint and its permissions, and after separately testing atomic, idempotent status updates**. This capability is not falsely marked as complete.
 
 The held Green test `NBG-MVVCDC3D-83AB713D58` remains held; new matching logic will only apply to new accepted bookings. There is **no automatic replay or manual Squeegee write** for the old test. This change is restricted to draft PR #77 on Preview 1; no merge, live site or Preview 2 changes.
+
+## 30 October 2026 — Duplicate email and address flags on new Preview 1 bookings
+
+Owner requested that duplicate customer information be **flagged**, especially reused emails and addresses, without treating every repeated value as an error. This is implemented for accepted bookings processed by the Preview 1 automatic Squeegee worker, not a historical bulk-deduplication/deletion job.
+
+**Full-page customer scan** — `squeegeeCustomerMatcher.matchCustomersAcrossPages` now includes matches from all verified customer pages for same full BT postcode, exact external reference, email (case-insensitive) and normalized UK phone. It deduplicates records by Squeegee `_id`. The additional `duplicateFlags` are **diagnostic only**; they neither rewrite the owner-approved name/address matching rule nor allow bypassing the actual customer, bin, date, and CAS duplicate protections. When customer pagination fails, do not claim a complete duplicate scan.
+
+**Informational flags** (private, no PII in emails, logs or status data): email already registered, same email used at another service property, multiple records using one email, address already registered, same address under a different name, multiple accounts at the same address, same customer name/address but changed contact, possible nearby/variant address, phone already registered, phone used at another property.
+
+**Example outcomes:**
+
+- Email previously used at a different address, new verified address: flag it and proceed with a separate service-property customer. This is legitimate for landlords/households.
+- Same full customer name and same full address, but new email/phone: flag the changed contact and reuse the existing verified Squeegee customer; never overwrite their stored contact details.
+- Exact address already registered under a DIFFERENT name, no corroborating contact: flag and **hold**; don't assign another person's job to that record.
+- Same property and one selected bin already has a job: hold as before; duplicate flags do not permit a second job.
+- Duplicate names/contacts across multiple possible Squeegee customer IDs: hold as before. Do not select an arbitrary account.
+
+**Owner notifications** — `squeegeeSyncOwnerAlert.js` sends ONE PII-free informational email for a completed booking with any duplicate flags, containing only the booking reference and human-readable flag names, to the configured bookings inbox received in Zoho Mail. Held/uncertain bookings include flags in the existing review-alert email (no duplicate extra alert). The owner-only `/api/squeegee-preview-auto-status` page displays the same flags after authorisation. Public/customer booking forms do NOT disclose the existence of another person's email/account/address (privacy). A missing email provider or failed informational alert never changes the recorded booking outcome or retries any Squeegee write.
+
+The change runs exclusively in draft PR #77 on Preview 1; no Squeegee records were touched to implement or test the detector. All tests use fake data; a real incoming Preview 1 booking would be needed to verify the live notifications. Historical Squeegee customers are only examined when a new booking runs, not proactively purged or merged. Production and Preview 2 stay unchanged.
