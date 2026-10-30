@@ -135,6 +135,69 @@ function matchCustomers(booking, customerList) {
   return {status:"needs_review",
     reason:"same_address_without_name_or_contact_match"};
 }
+/**
+ * Read-only duplicate signals, independent of the decision to reuse a
+ * customer. Email addresses legitimately belong to multiple properties,
+ * so these are INFORMATIONAL flags, never permission to merge accounts or
+ * reject a normal booking. No PII or Squeegee IDs leave this function.
+ */
+const DUPLICATE_SIGNAL_CODES=Object.freeze([
+  "email_already_registered",
+  "email_used_at_other_property",
+  "multiple_records_with_email",
+  "address_already_registered",
+  "address_registered_to_other_name",
+  "multiple_records_at_address",
+  "same_name_address_contact_changed",
+  "possible_duplicate_address",
+  "phone_already_registered",
+  "phone_used_at_other_property",
+]);
+function detectDuplicateSignals(booking,customerRows) {
+  const rows=Array.isArray(customerRows)?
+    [...new Map(customerRows.filter(row=>typeof row?._id==="string")
+      .map(row=>[row._id,row])).values()]:[];
+  const wantedAddress=addressKey(booking?.address);
+  const wantedPost=normalizedPostcode(booking?.address);
+  const wantedHouse=propertyNumber(booking?.address);
+  const wantedName=normalName(booking?.name);
+  const wantedEmail=normalEmail(booking?.email);
+  const wantedPhone=normalPhone(booking?.phone);
+  const flags=new Set();
+  const sameAddress=rows.filter(row=>wantedAddress &&
+    addressKey(row.address)===wantedAddress);
+  const sameEmail=rows.filter(row=>wantedEmail &&
+    normalEmail(row.email)===wantedEmail);
+  const samePhone=rows.filter(row=>wantedPhone.length>=10 &&
+    [row.phoneNumber,row.phoneNumberOther]
+      .some(phone=>normalPhone(phone)===wantedPhone));
+  if(sameEmail.length)flags.add("email_already_registered");
+  if(sameEmail.some(row=>addressKey(row.address)!==wantedAddress))
+    flags.add("email_used_at_other_property");
+  if(sameEmail.length>1)flags.add("multiple_records_with_email");
+  if(sameAddress.length)flags.add("address_already_registered");
+  if(sameAddress.some(row=>!wantedName ||
+       normalName(row.name)!==wantedName))
+    flags.add("address_registered_to_other_name");
+  if(sameAddress.length>1)flags.add("multiple_records_at_address");
+  if(sameAddress.some(row=>wantedName &&
+     normalName(row.name)===wantedName &&
+     !((wantedEmail && normalEmail(row.email)===wantedEmail) ||
+       (wantedPhone.length>=10 &&
+        [row.phoneNumber,row.phoneNumberOther]
+          .some(phone=>normalPhone(phone)===wantedPhone)))))
+    flags.add("same_name_address_contact_changed");
+  if(wantedPost && wantedHouse &&
+     rows.some(row=>normalizedPostcode(stringValue(row.address))===wantedPost &&
+       propertyNumber(row.address)===wantedHouse &&
+       addressKey(row.address)!==wantedAddress))
+    flags.add("possible_duplicate_address");
+  if(samePhone.length)flags.add("phone_already_registered");
+  if(samePhone.some(row=>addressKey(row.address)!==wantedAddress))
+    flags.add("phone_used_at_other_property");
+  return DUPLICATE_SIGNAL_CODES.filter(code=>flags.has(code));
+}
+
 // A first-page miss is NOT proof a customer is absent. Confirm all pages.
 async function matchCustomersAcrossPages(booking, listPage, { maxPages = 40 } = {}) {
   if (typeof listPage !== "function") throw new TypeError("listPage must be a function");
@@ -157,20 +220,26 @@ async function matchCustomersAcrossPages(booking, listPage, { maxPages = 40 } = 
     }
     for (const row of data.customers) {
       if (typeof row?._id !== "string") continue;
+      const sameEmail=wantedEmail && normalEmail(row.email)===wantedEmail;
+      const samePhone=wantedPhone.length>=10 &&
+        [row.phoneNumber,row.phoneNumberOther]
+          .some(p=>normalPhone(p)===wantedPhone);
+      // Include cross-postcode email/phone matches in a complete, deduplicated
+      // scan. They are flags only and cannot turn a different property into
+      // an existing customer match.
       if (String(row._externalId || "") === reference ||
-          normalizedPostcode(stringValue(row.address)) === targetPost) {
-        found.set(row._id, row);
-      } else {
-        const sameEmail=wantedEmail && normalEmail(row.email)===wantedEmail;
-        const samePhone=wantedPhone.length>=10 &&
-          [row.phoneNumber,row.phoneNumberOther]
-            .some(p=>normalPhone(p)===wantedPhone);
-        if(sameEmail||samePhone)otherContactProperties++;
+          normalizedPostcode(stringValue(row.address)) === targetPost ||
+          sameEmail || samePhone) {
+        found.set(row._id,row);
       }
+      if((sameEmail||samePhone) &&
+         addressKey(row.address)!==addressKey(booking?.address))
+        otherContactProperties++;
     }
     if (!data.hasMore) {
       const candidates=[...found.values()];
       const result=matchCustomers(booking,candidates);
+      const duplicateFlags=detectDuplicateSignals(booking,candidates);
       const sameContactElsewhere=candidates.some(row=>
         addressKey(row.address)!==addressKey(booking?.address) &&
         ((wantedEmail && normalEmail(row.email)===wantedEmail) ||
@@ -180,7 +249,7 @@ async function matchCustomersAcrossPages(booking, listPage, { maxPages = 40 } = 
       // Do not expose contact IDs, emails or addresses in the status log.
       // The new property's Squeegee customer must retain its own address;
       // no existing account or billing method is changed.
-      return {...result,pagesScanned:page,
+      return {...result,pagesScanned:page,duplicateFlags,
         relatedContactAtDifferentAddress:
           result.status==="not_found" &&
           (otherContactProperties>0 || sameContactElsewhere),
@@ -193,4 +262,5 @@ async function matchCustomersAcrossPages(booking, listPage, { maxPages = 40 } = 
 }
 
 module.exports={addressKey,normalName,normalEmail,normalPhone,
+  DUPLICATE_SIGNAL_CODES,detectDuplicateSignals,
   matchCustomers,matchCustomersAcrossPages};
