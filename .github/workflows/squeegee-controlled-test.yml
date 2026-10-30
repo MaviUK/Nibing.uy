@@ -5,34 +5,32 @@ on:
       - preview/n64-retro-site
     paths:
       - .github/workflows/squeegee-controlled-test.yml
-
 permissions:
   contents: read
   id-token: write
-
 jobs:
-  inspect-blob-storage:
+  atomic-lock-diagnostics:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - name: Test Netlify Blobs storage only; no Squeegee writes
+      - name: Verify harmless atomic lock helper; NO Squeegee writes
         shell: python
         run: |
           import json,os,time,urllib.parse,urllib.request,urllib.error
-          audience="ni-bin-guy-squeegee-preview77-test-20261030"
-          identity_url=os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
-          identity_token=os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]
-          url=identity_url+("&" if "?" in identity_url else "?")+urllib.parse.urlencode({"audience":audience})
-          token_req=urllib.request.Request(url,headers={"Authorization":"Bearer "+identity_token})
-          with urllib.request.urlopen(token_req,timeout=30) as response:
+          aud="ni-bin-guy-squeegee-preview77-test-20261030"
+          base=os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
+          url=base+("&" if "?" in base else "?")+urllib.parse.urlencode({"audience":aud})
+          req=urllib.request.Request(url,headers={
+              "Authorization":"Bearer "+os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]})
+          with urllib.request.urlopen(req,timeout=30) as response:
               identity=json.load(response)["value"]
           endpoint="https://deploy-preview-77--nibinguy.netlify.app/.netlify/functions/squeegeeControlledTest"
           for attempt in range(1,13):
-              req=urllib.request.Request(endpoint,data=b'{"mode":"storage-check"}',
+              request=urllib.request.Request(endpoint,data=b'{"mode":"claim-helper-check"}',
                   headers={"Authorization":"Bearer "+identity,
                            "Content-Type":"application/json"},method="POST")
               try:
-                  with urllib.request.urlopen(req,timeout=40) as response:
+                  with urllib.request.urlopen(request,timeout=35) as response:
                       status=response.status
                       body=json.loads(response.read(3000))
               except urllib.error.HTTPError as err:
@@ -43,12 +41,13 @@ jobs:
                   status=0
                   body={}
               if status==200 and body.get("testOnly") and body.get("noSqueegeeWrites"):
-                  allowed=("conditionalModified","conditionalEtagPresent",
-                      "conditionalError","conditionalPersisted",
-                      "plainModified","plainEtagPresent","plainError","plainPersisted")
-                  print("BLOB_STORAGE_CHECK:",json.dumps({k:body.get(k) for k in allowed},sort_keys=True))
+                  allowed=("claimAcquired","claimReason","claimEtagPresent",
+                      "claimPersisted","storedEtagPresent")
+                  print("ATOMIC_CLAIM_HELPER_CHECK:",json.dumps({k:body.get(k) for k in allowed},sort_keys=True))
+                  if not body.get("claimAcquired") or not body.get("claimPersisted"):
+                      raise SystemExit("Atomic claim helper not working; NO Squeegee writes")
                   break
-              print("BLOB_STORAGE_ATTEMPT:",attempt,"HTTP:",status)
-              if status==401:raise SystemExit("GitHub-signed auth rejected")
-              if attempt==12:raise SystemExit("Harmless Netlify Blobs check unavailable")
+              print("CLAIM_HELPER_ATTEMPT:",attempt,"HTTP:",status)
+              if status==401:raise SystemExit("GitHub OIDC rejected")
+              if attempt==12:raise SystemExit("Atomic helper check unavailable")
               time.sleep(8)
