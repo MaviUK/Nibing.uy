@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # Second read-only diagnostic: inspect metadata types of the verified customer jobs only.
       - name: "Check exact booking status only (GET; no Squeegee writes)"
         shell: bash
         run: |
