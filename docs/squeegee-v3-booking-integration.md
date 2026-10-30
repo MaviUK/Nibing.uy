@@ -225,3 +225,31 @@ The owner approved testing **one real test customer and one job**, but has not y
 - GitHub Action `squeegee-preview-tests.yml` uses **mock** Squeegee requests/Blobs, never real customer/job API writes. `squeegee-preview-build-smoke.yml` builds the full site with the existing booking-security scripts. `squeegee-preview-test-readiness.yml` was a temporary read-only diagnostic of the deployed owner-page/scope/worker capability; remove its diagnostic endpoint after verification.
 - Existing security build script `scripts/hardenBookingSubmissions.cjs` was updated to recognise the replay-protected **named emailBookingPayload** introduced solely to hand the *same accepted* booking to the test endpoint. The original `bookingId` / `submittedAt` checks remain enforced.
 - The supervised test is an exception, not a full production integration. Enable general automated booking-to-Squeegee only after the owner inspects test date, price, four-week recurrence and job-group assignment, and separately approves production changes.
+
+
+## Preview 1 automatic booking sync foundation (30 October 2026)
+
+The owner verified in the actual Squeegee app that the first TEST API website booking created **one Brown-bin job**, Round 01, first clean 16 November 2026, £5, and Every 4 weeks on Monday. Squeegee generates the next appointment only after the current clean is completed. The test customer must be removed manually after verification; do not dispatch or bill it.
+
+The owner approved further development on PR #77, branch preview/n64-retro-site only. General writes remain separate from the one-time test and must be explicitly reviewed before activation.
+
+### Server-only automatic sync
+
+1. The existing sendBookingEmail.js and sendTosReceipt.js keep their current owner/customer emails, WhatsApp opening, confirmation and global leaderboard behaviour. Only after confirmation succeeds do they optionally invoke the preview dispatch helper. A Squeegee failure cannot undo the accepted booking.
+2. The server-only squeegeePreviewAutoDispatch helper HMAC-signs a purpose-bound event containing the accepted booking, timestamp and channel. Browser code receives no signing key or general-purpose Squeegee write API. Requests go only to the fixed Preview 1 origin and have a bounded acknowledgement wait, with **no automatic retry**.
+3. The modern squeegeePreviewAutoSync Function verifies the exact trusted Netlify deploy context (Preview 1, correct hostname and site ID), signed accepted event and age before atomically saving a booking receipt. A second submission is rejected without starting another worker.
+4. The automatic worker independently rechecks every website bin/date, Squeegee service/group UUID, server-calculated price including 7-for-6, booking timestamp and full Squeegee customer list. Changed/unverified dates, bank-holiday recurrence conflicts, missing groups, incomplete pagination or invalid pricing are held without a POST.
+5. Existing customers are matched strictly by property/contact or stable external reference; their details are never overwritten. Jobs are added only for **different, non-overlapping services**. Unknown existing job services and existing selected-bin jobs require manual review. New customers require a permanent atomic per-property reservation.
+6. Each planned job has its own permanent property/bin/plan/date claim. A whole booking is protected by a per-booking receipt and claim. Conditional Blob claims and ETag compare-and-set transitions happen before any external POST; these are per-key safeguards, **not a multi-row transaction**. Failed or ambiguous calls never retry automatically and are marked requires_reconciliation for manual inspection.
+7. Each job carries the verified first clean date, matched cleaning round, appropriate Squeegee service ID and correct total line price. Four-weekly is frequencyType weeks, frequencyInterval 4; one-off is frequencyType adhoc. Multi-colour bins with separate dates become separate jobs; quantities above one on the same line are described in notes and billed at the verified line total.
+8. The owner can re-authorise with the emailed ten-digit code and view non-PII read-only progress at /api/squeegee-preview-auto-status. No force-create, duplicate retry, delete or reset control is exposed.
+
+### Rollout switches — independently OFF by default
+
+- SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED: leave **unset/false** until the new worker is reviewed with the owner. Branch-specific Functions-scoped Netlify env var for preview/n64-retro-site only; never configure generic Deploy Previews, Production, main or Preview 2.
+- SQUEEGEE_PREVIEW_AUTO_WHATSAPP_ENABLED: separately **unset/false**. WhatsApp opens before background email confirmation and does not yet use Preview 1 email's anti-bot work challenge. Keep Squeegee WhatsApp writes disabled until the origin/anti-abuse check is audited. The existing WhatsApp booking and read-only shadow preparation remain unaffected.
+- These flags are **not enabled by these code changes**; the original one-time TEST API claim remains consumed.
+
+CI runs fake-only tests (zero real Squeegee writes) for new customers, existing customers adding different bin colours, overlapping services, date/round/price validation, two bins on distinct dates, one-off and 7-for-6 pricing, duplicate and partial job failure protection, status authentication and signed dispatch. Production, Preview 2 and the PR merge state remain untouched.
+
+Before an automatic Preview 1 rollout: inspect the deployed endpoint, safely remove the earlier test from operational planning, agree a controlled fresh email-booking test, verify the actual Squeegee result, then deliberately enable the isolated Preview 1 flag. Never activate automatic production writes from this branch.
