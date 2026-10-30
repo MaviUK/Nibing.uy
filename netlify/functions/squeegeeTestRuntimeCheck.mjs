@@ -19,6 +19,18 @@ export default async function handler(request,ctx) {
     strictPreviewGate:api.isExactPreview1(),
     ownerAccessGate:session.validScope(),
     modernContextWaitUntil:typeof ctx.waitUntil==="function",
+    modernSiteIdPresent:Boolean(ctx.site?.id),
+    modernScopeValid:api.isExactPreview1(process.env,{
+      hostname:url.hostname,
+      deployContext:ctx.deploy?.context,
+      siteId:ctx.site?.id,
+    }),
+    modernOwnerAccessGate:session.validScope(process.env,{
+      hostname:url.hostname,
+      deployContext:ctx.deploy?.context,
+      siteId:ctx.site?.id,
+    }),
+    leaderboardProofSecretAvailable:Boolean(process.env.N64_PREVIEW_LEADERBOARD_SECRET),
   };
   // The legacy booking handler calls getContext(). Test whether it is
   // available when invoked from this modern handler, without scheduling work.
