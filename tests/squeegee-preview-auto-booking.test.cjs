@@ -439,103 +439,162 @@ test("owner-only automatic sync status page does not permit unauthorised inspect
 
 
 
-function acceptedTwoBinPilot({
-  bookingId=rollout.PILOT_BOOKING_ID,
-  name=rollout.PILOT_NAME,
+
+function freshPilot({
+  bookingId="NBG-FRESH-ABCDEF1234",
   addressValue=address,
 }={}) {
   return sampleBooking({
     bookingId,
-    bins:[
-      {type:"Brown Bin",planId:"domestic_4w",count:1},
-      {type:"Black Bin",planId:"domestic_4w",count:1},
-    ],
-    dates:["2026-11-16","2026-11-17"],
-    modified:b=>({...b,name,address:addressValue}),
+    bins:[{type:"Brown Bin",planId:"domestic_4w",count:1}],
+    dates:["2026-11-16"],
+    modified:b=>({...b,name:rollout.PILOT_NAME,address:addressValue}),
   });
 }
 
-test("owner pilot is restricted to the already-accepted two-bin booking ID",async()=>{
+test("Fresh Sync pilot accepts a NEW one-Brown-bin booking, rejects abandoned one",async()=>{
   const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
   assert.equal(rollout.autoMode(pilotEnv),"pilot");
   assert.equal(rollout.automaticEnabled(pilotEnv),true);
-  assert.equal(rollout.autoMode({...pilotEnv,SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED:"false"}),"off");
+  assert.equal(rollout.autoMode({
+    ...pilotEnv,SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED:"false",
+  }),"off");
   assert.equal(canAutoSync(pilotEnv,runtime),true);
-  assert.equal(canAutoSync(pilotEnv,{...runtime,hostname:"deploy-preview-78--nibinguy.netlify.app"}),false);
-  assert.equal(canAutoSync(pilotEnv,{...runtime,deployContext:"production"}),false);
+  assert.equal(canAutoSync(pilotEnv,{
+    ...runtime,hostname:"deploy-preview-78--nibinguy.netlify.app",
+  }),false);
+  assert.equal(canAutoSync(pilotEnv,{
+    ...runtime,deployContext:"production",
+  }),false);
+
   const normal=sampleBooking();
-  const pilot=acceptedTwoBinPilot();
+  const pilot=freshPilot();
   assert.equal(rollout.acceptedForRollout(normal,"email",pilotEnv),false);
   assert.equal(rollout.acceptedForRollout(pilot,"email",pilotEnv),true);
   assert.equal(rollout.acceptedForRollout(pilot,"whatsapp",pilotEnv),false);
-  assert.equal(rollout.acceptedForRollout({...pilot,name:"TEST API - Another"},
+  assert.equal(rollout.acceptedForRollout({...pilot,name:"TEST API - Pilot 2"},
     "email",pilotEnv),false);
-  assert.equal(rollout.acceptedForRollout({...pilot,bookingId:"NBG-ZYXWV-ABCDEFGH"},
-    "email",pilotEnv),false);
-  assert.equal(rollout.acceptedForRollout({...pilot,bins:pilot.bins.slice(0,1)},
-    "email",pilotEnv),false);
+  assert.equal(rollout.acceptedForRollout({...pilot,
+    bookingId:rollout.ABANDONED_BOOKING_ID},"email",pilotEnv),false);
   assert.equal(rollout.acceptedForRollout({...pilot,bins:[
-    pilot.bins[0],pilot.bins[0],
+    ...pilot.bins,{type:"Black Bin",planId:"domestic_4w",count:1},
   ]},"email",pilotEnv),false);
+  assert.equal(rollout.acceptedForRollout({...pilot,bins:[{
+    ...pilot.bins[0],count:2,
+  }]},"email",pilotEnv),false);
+  assert.equal(rollout.acceptedForRollout({...pilot,bins:[{
+    ...pilot.bins[0],planId:"domestic_oneoff",
+  }]},"email",pilotEnv),false);
   assert.equal(rollout.acceptedForRollout({...pilot},
     "email",{...pilotEnv,SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED:"false"}),false);
 
-  let sends=0;
-  const notSent=await dispatchAcceptedBooking(normal,{
+  let posts=0;
+  const blocked=await dispatchAcceptedBooking(normal,{
     channel:"email",env:pilotEnv,eventHost:runtime.hostname,now,
-    fetchImpl:async()=>{sends++;return{status:202};},
+    fetchImpl:async()=>{posts++;return{status:202};},
   });
-  assert.equal(notSent.queued,false);
-  assert.equal(sends,0);
-  const one=await dispatchAcceptedBooking(pilot,{
+  assert.equal(blocked.queued,false);
+  assert.equal(posts,0);
+  const old=await dispatchAcceptedBooking({
+    ...pilot,bookingId:rollout.ABANDONED_BOOKING_ID,
+  },{
     channel:"email",env:pilotEnv,eventHost:runtime.hostname,now,
-    fetchImpl:async()=>{sends++;return{status:202};},
+    fetchImpl:async()=>{posts++;return{status:202};},
   });
-  assert.equal(one.queued,true);
-  assert.equal(sends,1);
-  assert.equal(rollout.PILOT_CLAIM_KEY,"claim-v1/auto-pilot/preview77-first-email");
+  assert.equal(old.queued,false);
+  assert.equal(posts,0);
+  const accepted=await dispatchAcceptedBooking(pilot,{
+    channel:"email",env:pilotEnv,eventHost:runtime.hostname,now,
+    fetchImpl:async()=>{posts++;return{status:202};},
+  });
+  assert.equal(accepted.queued,true);
+  assert.equal(posts,1);
+  assert.equal(rollout.PILOT_CLAIM_KEY,
+    "claim-v1/auto-pilot/preview77-fresh-brown-v1");
+  assert.notEqual(rollout.PILOT_CLAIM_KEY,
+    "claim-v1/auto-pilot/preview77-first-email");
 });
 
-test("pilot creates exactly two jobs then atomic global cap blocks any second write",async()=>{
+test("fresh pilot creates only one customer and one £5 four-weekly Brown job",async()=>{
   const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
   const ledger=fakeBlobStore();
-  const pilot=acceptedTwoBinPilot();
+  const pilot=freshPilot();
   const h=makeHarness(pilot,{ledger});
-  const options={channel:"email",env:pilotEnv,runtimeScope:runtime,now};
-  const completed=await executeAutomaticPreviewBooking(pilot,{
-    ...options,deps:h.deps,
+  const opts={channel:"email",env:pilotEnv,runtimeScope:runtime,now};
+  const result=await executeAutomaticPreviewBooking(pilot,{
+    ...opts,deps:h.deps,
   });
-  assert.equal(completed.status,"completed");
-  assert.equal(completed.createdCustomer,true);
-  assert.equal(completed.createdJobs,2);
-  assert.equal(h.posts.length,3);
+  assert.equal(result.status,"completed");
+  assert.equal(result.createdCustomer,true);
+  assert.equal(result.createdJobs,1);
+  assert.equal(h.posts.length,2);
+  assert.equal(h.posts[0].kind,"customer");
+  assert.equal(h.posts[1].kind,"job");
+  assert.equal(h.posts[1].job.date,"2026-11-16");
+  assert.equal(h.posts[1].job.jobGroup,group1);
+  assert.equal(h.posts[1].job.price,5);
+  assert.equal(h.posts[1].job.frequencyType,"weeks");
+  assert.equal(h.posts[1].job.frequencyInterval,4);
+  assert.deepEqual(h.posts[1].job.services,[brownService]);
+  assert.equal(h.statuses.at(-1).stage,"created_customer_and_jobs");
   assert.equal(ledger.records.get(rollout.PILOT_CLAIM_KEY)?.value?.state,"succeeded");
-  const repeated=await executeAutomaticPreviewBooking(pilot,{
-    ...options,deps:h.deps,
+
+  // Same reference is never posted a second time.
+  const duplicate=await executeAutomaticPreviewBooking(pilot,{
+    ...opts,deps:h.deps,
   });
-  assert.equal(repeated.status,"held");
-  assert.equal(repeated.reason,"pilot_first_booking_already_consumed_or_uncertain");
-  assert.equal(h.posts.length,3);
-  assert.equal(rollout.acceptedForRollout(acceptedTwoBinPilot({
-    bookingId:"NBG-ZYXWV-ABCDEFGH",
-  }),"email",pilotEnv),false);
+  assert.equal(duplicate.status,"held");
+  assert.equal(duplicate.reason,
+    "pilot_first_booking_already_consumed_or_uncertain");
+  assert.equal(h.posts.length,2);
+
+  // A second, genuinely different accepted website booking with the same
+  // approved test name STILL cannot create a second Squeegee customer.
+  const next=freshPilot({
+    bookingId:"NBG-FRESHA-ABCDEF5678",
+    addressValue:"8 Example Drive, Bangor BT19 7ZW",
+  });
+  const h2=makeHarness(next,{ledger});
+  const second=await executeAutomaticPreviewBooking(next,{
+    ...opts,deps:h2.deps,
+  });
+  assert.equal(second.status,"held");
+  assert.equal(h2.posts.length,0);
+  assert.equal(h.posts.length,2);
 });
 
-test("pilot claim stays occupied after an uncertain customer POST",async()=>{
+test("pilot claim remains permanently held if customer POST result is ambiguous",async()=>{
   const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
-  const b=acceptedTwoBinPilot();
+  const b=freshPilot();
   const h=makeHarness(b,{customerError:true});
-  const r=await executeAutomaticPreviewBooking(b,{
-    channel:"email",env:pilotEnv,runtimeScope:runtime,now,deps:h.deps,
+  const opts={channel:"email",env:pilotEnv,runtimeScope:runtime,now};
+  const result=await executeAutomaticPreviewBooking(b,{
+    ...opts,deps:h.deps,
   });
-  assert.equal(r.status,"requires_reconciliation");
+  assert.equal(result.status,"requires_reconciliation");
   assert.equal(h.posts.filter(x=>x.kind==="customer").length,1);
   assert.equal(h.posts.filter(x=>x.kind==="job").length,0);
   assert.equal(h.ledger.records.get(rollout.PILOT_CLAIM_KEY)?.value?.state,
     "requires_reconciliation");
-  const again=await executeAutomaticPreviewBooking(b,{
-    channel:"email",env:pilotEnv,runtimeScope:runtime,now,deps:h.deps,
+  const retry=await executeAutomaticPreviewBooking(b,{
+    ...opts,deps:h.deps,
   });
-  assert.equal(again.status,"held");
+  assert.equal(retry.status,"held");
   assert.equal(h.posts.length,1);
+});
+
+test("the exact new site host is required before signed booking dispatch",async()=>{
+  const testBooking=freshPilot();
+  const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
+  let network=0;
+  for(const host of ["", "nibing.uy",
+    "deploy-preview-78--nibinguy.netlify.app"]) {
+    const result=await dispatchAcceptedBooking(testBooking,{
+      channel:"email",env:pilotEnv,eventHost:host,now,
+      fetchImpl:async()=>{network++;return{status:202};},
+    });
+    assert.equal(result.queued,false);
+    assert.equal(result.reason,"not_exact_preview_1");
+  }
+  assert.equal(network,0);
 });
