@@ -11,6 +11,12 @@ on:
       - netlify/functions/squeegeePreviewTestSubmit.mjs
       - netlify/functions/lib/squeegeePreviewTestSession.js
       - netlify/functions/lib/squeegeeOneBookingTest.js
+      - netlify/functions/lib/squeegeePreviewAutoDispatch.js
+      - netlify/functions/lib/squeegeeAutomaticBooking.js
+      - netlify/functions/squeegeePreviewAutoSync.mjs
+      - netlify/functions/sendBookingEmail.js
+      - netlify/functions/sendTosReceipt.js
+      - netlify/functions/lib/squeegeeApiV3.js
       - netlify/functions/lib/squeegeeOneBookingReconcile.js
       - netlify/functions/lib/squeegeeAcceptedBookingRecovery.js
       - netlify/functions/squeegeePreviewRecoverOriginal.mjs
