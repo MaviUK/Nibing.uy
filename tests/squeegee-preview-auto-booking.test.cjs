@@ -1064,3 +1064,90 @@ test("grouping rejects a malformed or duplicate service plan before a real job P
     }},
   }],"NBG-ABCDE-ABCDEFGH"),/Incomplete or inconsistent/);
 });
+
+
+test("inactive exact name+address customer with changed contact is held for activation; no duplicate customer or job",async()=>{
+  const b=sampleBooking();
+  const alerts=[];
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,
+      name:"An Example Test Customer",
+      email:"old-owner@example.org",
+      phoneNumber:"02891460000",
+      status:"inactive",
+      address:{addressDescription:b.address},
+    }],
+    existingCustomer:{
+      name:b.name,status:"inactive",address:{text:b.address},jobs:[],
+    },
+    deps:{alert:async(...args)=>{alerts.push(args);return{sent:true};}},
+  });
+  const r=await h.run();
+  assert.equal(r.status,"held");
+  assert.equal(r.reason,"existing_customer_reactivation_required");
+  assert.equal(h.statuses.at(-1).matchReason,"inactive_exact_customer");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+  assert.equal(alerts.length,1);
+  assert.equal(alerts[0][0],b.bookingId);
+  assert.equal(alerts[0][1],"existing_customer_reactivation_required");
+});
+
+test("deactivated exact name+address is never mistaken for a new customer",async()=>{
+  const b=sampleBooking();
+  const row={
+    _id:customerId,name:b.name,
+    email:"old@example.org",phoneNumber:"07700000000",
+    status:"deactivated",address:{addressDescription:b.address},
+  };
+  const h=makeHarness(b,{
+    existingRows:[row],
+    existingCustomer:{
+      name:b.name,status:"deactivated",address:{text:b.address},jobs:[],
+    },
+  });
+  const r=await h.run();
+  assert.equal(r.status,"held");
+  assert.equal(r.reason,"existing_customer_reactivation_required");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
+
+test("active detail with stale inactive listing can accept new bin without creating another customer",async()=>{
+  const b=sampleBooking();
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,name:b.name,email:"old@example.org",
+      status:"inactive",address:{addressDescription:b.address},
+    }],
+    existingCustomer:{
+      name:b.name,status:"active",address:{text:b.address},jobs:[],
+    },
+  });
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,false);
+  assert.equal(r.createdJobs,1);
+  assert.equal(h.posts.length,1);
+  assert.equal(h.posts[0].id,customerId);
+});
+
+test("authoritative customer name mismatch after list match prevents appending a job",async()=>{
+  const b=sampleBooking();
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,name:b.name,email:"old@example.org",
+      status:"active",address:{addressDescription:b.address},
+    }],
+    existingCustomer:{
+      name:"A Different Resident",status:"active",
+      address:{text:b.address},jobs:[],
+    },
+  });
+  const r=await h.run();
+  assert.equal(r.status,"held");
+  assert.equal(r.reason,"existing_customer_name_unverified");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
