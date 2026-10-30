@@ -128,13 +128,21 @@ async function matchCustomersAcrossPages(booking, listPage, { maxPages = 40 } = 
       }
     }
     if (!data.hasMore) {
-      const result=matchCustomers(booking,[...found.values()]);
+      const candidates=[...found.values()];
+      const result=matchCustomers(booking,candidates);
+      const sameContactElsewhere=candidates.some(row=>
+        addressKey(row.address)!==addressKey(booking?.address) &&
+        ((wantedEmail && normalEmail(row.email)===wantedEmail) ||
+         (wantedPhone.length>=10 &&
+          [row.phoneNumber,row.phoneNumberOther].some(p=>normalPhone(p)===wantedPhone)))
+      );
       // Do not expose contact IDs, emails or addresses in the status log.
       // The new property's Squeegee customer must retain its own address;
       // no existing account or billing method is changed.
       return {...result,pagesScanned:page,
         relatedContactAtDifferentAddress:
-          result.status==="not_found" && otherContactProperties>0,
+          result.status==="not_found" &&
+          (otherContactProperties>0 || sameContactElsewhere),
       };
     }
     if (data.pagedRequestId) pagedRequestId = data.pagedRequestId;
