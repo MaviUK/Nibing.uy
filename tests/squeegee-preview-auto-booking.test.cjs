@@ -2,7 +2,7 @@
 const test=require("node:test");
 const assert=require("node:assert/strict");
 const {verifyAndPriceBooking}=require("../netlify/functions/lib/squeegeeBookingPricing");
-const {claimOnce,changeClaimState,customerKey,jobKey}=
+const {claimOnce,changeClaimState,customerKey,jobKey,activeBinKey}=
   require("../netlify/functions/lib/squeegeeIdempotencyClaims");
 const {assertWriteAllowed,withApprovedPreviewAutomaticWrite}=
   require("../netlify/functions/lib/squeegeeApiV3");
@@ -99,7 +99,7 @@ function makeHarness(booking,options={}){
       if(options.listCustomers)return options.listCustomers();
       return {customers:options.existingRows||[],hasMore:false,page:1,pageSize:100};
     },
-    getCustomer:async()=>options.existingCustomer||{jobs:[]},
+    getCustomer:async()=>options.existingCustomer||{address:{text:booking.address},jobs:[]},
     claim:args=>claimOnce({...args,store:ledger}),
     changeState:args=>changeClaimState({...args,store:ledger}),
     withWrite:async(proof,operation,scope)=>{
@@ -237,7 +237,7 @@ test("an existing matched customer with a DIFFERENT bin gets one job and no cust
       address:{addressDescription:b.address},status:"active",
       jobs:[{services:[blackService]}],
     }],
-    existingCustomer:{jobs:[{services:[blackService]}]},
+    existingCustomer:{address:{text:b.address},jobs:[{services:[blackService]}]},
   });
   const r=await h.run();
   assert.equal(r.status,"completed");
@@ -255,7 +255,7 @@ test("matching existing job service or unreadable jobs block creation safely",as
     address:{addressDescription:b.address},status:"active",jobs:[],
   };
   for(const jobs of [[{services:[brownService]}],null,[{services:null}]]){
-    const h=makeHarness(b,{existingRows:[row],existingCustomer:{jobs}});
+    const h=makeHarness(b,{existingRows:[row],existingCustomer:{address:{text:b.address},jobs}});
     const r=await h.run();
     assert.equal(r.status,"held");
     assert.equal(h.posts.length,0);
@@ -453,7 +453,8 @@ function freshPilot({
 }
 
 test("Fresh Sync pilot accepts a NEW one-Brown-bin booking, rejects abandoned one",async()=>{
-  const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
+  const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY,
+    SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED:"pilot"};
   assert.equal(rollout.autoMode(pilotEnv),"pilot");
   assert.equal(rollout.automaticEnabled(pilotEnv),true);
   assert.equal(rollout.autoMode({
@@ -516,7 +517,8 @@ test("Fresh Sync pilot accepts a NEW one-Brown-bin booking, rejects abandoned on
 });
 
 test("fresh pilot creates only one customer and one £5 four-weekly Brown job",async()=>{
-  const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
+  const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY,
+    SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED:"pilot"};
   const ledger=fakeBlobStore();
   const pilot=freshPilot();
   const h=makeHarness(pilot,{ledger});
@@ -564,7 +566,8 @@ test("fresh pilot creates only one customer and one £5 four-weekly Brown job",a
 });
 
 test("pilot claim remains permanently held if customer POST result is ambiguous",async()=>{
-  const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
+  const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY,
+    SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED:"pilot"};
   const b=freshPilot();
   const h=makeHarness(b,{customerError:true});
   const opts={channel:"email",env:pilotEnv,runtimeScope:runtime,now};
@@ -585,7 +588,8 @@ test("pilot claim remains permanently held if customer POST result is ambiguous"
 
 test("the exact new site host is required before signed booking dispatch",async()=>{
   const testBooking=freshPilot();
-  const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
+  const pilotEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY,
+    SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED:"pilot"};
   let network=0;
   for(const host of ["", "nibing.uy",
     "deploy-preview-78--nibinguy.netlify.app"]) {
