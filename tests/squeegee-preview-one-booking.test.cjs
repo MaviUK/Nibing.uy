@@ -562,10 +562,10 @@ test("owner recovery POST fails closed when after-response worker is unavailable
   const validScope={hostname:"deploy-preview-77--nibinguy.netlify.app",
     deployContext:"deploy-preview",
     siteId:"d63c829f-3ed7-48e9-9633-a042de3f2e84"};
-  const cookie=session.createTestSessionCookie(process.env,Date.now(),validScope);
+  const cookie=createTestSessionCookie(process.env,Date.now(),validScope);
   const request=new Request(url,{
     method:"POST",headers:{
-      "Cookie":session.COOKIE_NAME+"="+cookie,
+      "Cookie":COOKIE_NAME+"="+cookie,
       "Origin":"https://deploy-preview-77--nibinguy.netlify.app",
       "Content-Type":"application/x-www-form-urlencoded",
     },
