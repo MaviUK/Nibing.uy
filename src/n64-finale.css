@@ -235,3 +235,50 @@
     animation:none !important;
   }
 }
+
+
+/* ── LOCAL XP VS GLOBAL RANKINGS ────────────────────────────────────────────
+   A visitor's device XP is not a public leaderboard entry until a booking
+   is completed and the visitor explicitly opts in to display their name.
+*/
+.n64-public-leaderboard .n64-your-score {
+  box-sizing:border-box;
+  width:100%;
+  padding:11px 14px;
+  margin:0 0 22px;
+  text-align:left;
+  color:#20345c;
+  background:#fff9df;
+  border:4px solid #e8da93;
+  border-radius:0;
+  box-shadow:5px 5px 0 #6683ac;
+}
+.n64-public-leaderboard .n64-your-score > div {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:12px;
+  font-weight:1000;
+  font-size:1.05rem;
+  line-height:1.3;
+}
+.n64-public-leaderboard .n64-your-score > div span {
+  font:1000 clamp(1.15rem,3.4vw,1.5rem)/1.15 "Arial Black","Trebuchet MS",sans-serif;
+  color:#15574c;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.n64-public-leaderboard .n64-your-score small {
+  display:block;
+  margin-top:6px;
+  color:#4d5c75;
+  font-size:.8rem;
+  line-height:1.5;
+  text-align:left;
+}
+@media(max-width:600px){
+ .n64-public-leaderboard .n64-your-score {padding:10px 11px;margin-bottom:20px}
+ .n64-public-leaderboard .n64-your-score > div {font-size:.95rem}
+ .n64-public-leaderboard .n64-your-score small {font-size:.75rem}
+}
