@@ -1044,7 +1044,9 @@ function BookingForm({ onClose, initialAddress = "" }) {
           <p className="mt-2 text-sm font-semibold leading-relaxed">
             {arcadeOptOut
               ? "Your booking XP stays on this device, and your name has not been added to the public leaderboard."
-              : "Your booking automatically adds your name and XP to the global leaderboard. No other form or verification needed."}
+              : whatsAppConfirmation?.arcadeRegistered || window.n64Score?.isRegistered?.()
+                ? "Your name and XP have been added to the global leaderboard. Nothing else to submit."
+                : "Your booking is confirmed. Your name and XP are syncing to the global leaderboard automatically; no extra form is needed."}
           </p>
         </div>
 
