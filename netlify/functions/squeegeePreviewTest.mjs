@@ -119,17 +119,38 @@ async function getDiagnostic(bookingId) {
   return {status,stored:savedStatus,shadow:shadowStatus,claim:claimStatus,
     firstClean,round};
 }
-function authPage(){
+// Exactly one same-site return destination is supported. No external URLs,
+ // no arbitrary query strings and no redirect to a write endpoint.
+export function safeOwnerReturnPath(value) {
+  return value==="/api/squeegee-preview-auto-recover"
+    ? value:null;
+}
+function returnField(returnTo) {
+  return returnTo
+    ? '<input type="hidden" name="returnTo" value="'+safe(returnTo)+'">'
+    : '';
+}
+function redirectTo(path) {
+  return new Response(null,{status:303,headers:{
+    "Location":path,
+    "Cache-Control":"no-store",
+    "Referrer-Policy":"no-referrer",
+  }});
+}
+function authPage(returnTo=null){
   return page('<p>This lets NI Bin Guy approve <strong>one</strong> test booking without enabling imports for anyone else.</p>'+
   '<p>Request an access code to your usual business bookings mailbox. The code is not shown on this page.</p>'+
+  (returnTo?'<div class="notice"><strong>Two-bin recovery:</strong> After verifying your code, you will return directly to the same recovery page in this browser.</div>':'')+
   '<form method="post"><input type="hidden" name="action" value="request">'+
+  returnField(returnTo)+
   '<button type="submit">Email my one-time test code</button></form>'+
   '<div class="notice">Do not submit a normal booking until you have entered the code and the test is armed.</div>');
 }
-function challengePage(challengeId){
+function challengePage(challengeId,returnTo=null){
   return page('<p>A 10-digit code has been sent to your bookings email. Enter it here within 15 minutes.</p>'+
   '<form method="post"><input type="hidden" name="action" value="verify">'+
   '<input type="hidden" name="challengeId" value="'+safe(challengeId)+'">'+
+  returnField(returnTo)+
   '<label for="code">Access code</label><input id="code" name="code" type="text" inputmode="numeric" maxlength="10" pattern="[0-9]{10}" autocomplete="one-time-code" required>'+
   '<button type="submit">Arm one test booking</button></form>');
 }
@@ -191,8 +212,12 @@ export default async function handler(request,context) {
     const scope=runtimeScope(request,context);
     const active=getAuthorized(request,scope);
     if(request.method==="GET"){
-      if(!active) return authPage();
       const params=new URL(request.url).searchParams;
+      const returnTo=safeOwnerReturnPath(params.get("returnTo"));
+      if(!active) return authPage(returnTo);
+      // Explicitly navigating here from recovery in this same browser should
+      // never strand an already authorised owner at the old test-status page.
+      if(returnTo)return redirectTo(returnTo);
       const bookingId=params.get("bookingId")?.trim()||"";
       const diagnostic=bookingId?await getDiagnostic(bookingId):null;
       let squeegeeCheck=null;
@@ -211,12 +236,13 @@ export default async function handler(request,context) {
     if(request.method!=="POST") return new Response("Method not allowed",{status:405});
     const data=await request.formData();
     const action=String(data.get("action")||"");
+    const returnTo=safeOwnerReturnPath(data.get("returnTo"));
     if(action==="request"){
       phase="request_code";
       const issued=await session.issueOwnerCode({
         runtimeScope:scope, store:ownerAuthStore(), sendCode:sendOwnerTestCode,
       });
-      if(issued.ok)return challengePage(issued.challengeId);
+      if(issued.ok)return challengePage(issued.challengeId,returnTo);
       return page("<p>Unable to issue test access. Try again after the request limit resets or check Preview 1 booking emails.</p>",503);
     }
     if(action==="verify"){
@@ -229,7 +255,7 @@ export default async function handler(request,context) {
       });
       if(!verified.ok)return page("<p>The code is invalid, expired or already used. Please start again.</p>",403);
       const headers=new Headers({
-        "Location":"/api/squeegee-preview-test",
+        "Location":returnTo||"/api/squeegee-preview-test",
         "Cache-Control":"no-store",
         "Referrer-Policy":"no-referrer",
       });
