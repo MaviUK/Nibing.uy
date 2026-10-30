@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      # Second read-only diagnostic: inspect metadata types of the verified customer jobs only.
+      # Third read-only diagnostic after function deployment is ready; metadata only.
       - name: "Check exact booking status only (GET; no Squeegee writes)"
         shell: bash
         run: |
@@ -30,3 +30,25 @@ jobs:
           done
           echo "No readable Preview 1 diagnostic available; original booking not retried"
           exit 1
+
+      - name: "Public Squeegee API docs - job GET endpoint signatures only"
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import html,re,urllib.request
+          u="https://api02.sqgee.com/api/v3/docs"
+          try:
+            req=urllib.request.Request(u,headers={"User-Agent":"NBG-Preview1-read-only-docs"})
+            with urllib.request.urlopen(req,timeout=12) as response:
+              text=response.read(160000).decode("utf-8","replace")
+            print("PUBLIC DOCS LENGTH",len(text))
+            clean=html.unescape(re.sub(r'<[^>]+>'," ",text))
+            clean=re.sub(r"\s+"," ",clean)
+            for needle in ["/jobs","customer jobs","get job","list jobs","GET /","Jobs API","job services"]:
+              hits=list(re.finditer(re.escape(needle),clean,re.IGNORECASE))
+              print("DOC KEYWORD",needle,"COUNT",len(hits))
+              for hit in hits[:7]:
+                print("PUBLIC DOC CONTEXT",clean[max(0,hit.start()-90):hit.end()+240][:340])
+          except Exception as error:
+            print("PUBLIC DOCS GET FAILED",type(error).__name__,str(error)[:180])
+          PY
