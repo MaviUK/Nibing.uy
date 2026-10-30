@@ -1027,9 +1027,17 @@ function BookingForm({ onClose, initialAddress = "" }) {
   });
 
   if (!res.ok) {
-    const errorText = await res.text();
-    console.error("Email failed:", errorText);
-    alert("Failed to send booking email: " + errorText);
+    const errorDetails = await res.json().catch(() => ({}));
+    console.warn("Booking request was not confirmed:", res.status, errorDetails?.reason || errorDetails?.error || "unknown");
+    if (res.status === 403) {
+      alert("The booking security check was not accepted. No confirmation was sent. Please try again.");
+    } else if (res.status === 409) {
+      alert("This booking reference has already been used. Check your confirmation email before making another booking.");
+    } else if (res.status === 429) {
+      alert("Too many booking attempts. Please try again a little later.");
+    } else {
+      alert("We couldn't confirm whether the booking was received. Please check your email before trying again to avoid a duplicate.");
+    }
     return;
   }
 
