@@ -5,53 +5,46 @@ on:
       - preview/n64-retro-site
     paths:
       - .github/workflows/squeegee-controlled-test.yml
-
 permissions:
   contents: read
   id-token: write
-
 jobs:
-  controlled-test-once:
+  inspect-blocked-test:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - name: Create precisely ONE approved £0 test customer and 4-weekly Round 11 job (NO RETRIES)
+      - name: Read only atomic claim and test customer status (NO WRITES)
         shell: python
         run: |
-          import json, os, urllib.parse, urllib.request, urllib.error
+          import json, os, time, urllib.parse, urllib.request, urllib.error
           audience="ni-bin-guy-squeegee-preview77-test-20261030"
           identity_url=os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
           identity_token=os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]
-          join="&" if "?" in identity_url else "?"
-          url=identity_url+join+urllib.parse.urlencode({"audience":audience})
-          identity_req=urllib.request.Request(url,headers={"Authorization":"Bearer "+identity_token})
-          with urllib.request.urlopen(identity_req,timeout=30) as response:
-              id_token=json.load(response)["value"]
-
+          url=identity_url+("&" if "?" in identity_url else "?")+urllib.parse.urlencode({"audience":audience})
+          req=urllib.request.Request(url,headers={"Authorization":"Bearer "+identity_token})
+          with urllib.request.urlopen(req,timeout=30) as res:
+              id_token=json.load(res)["value"]
           endpoint="https://deploy-preview-77--nibinguy.netlify.app/.netlify/functions/squeegeeControlledTest"
-          request=urllib.request.Request(endpoint,data=b'{"mode":"execute"}',
-              headers={"Authorization":"Bearer "+id_token,
-                       "Content-Type":"application/json"},
-              method="POST")
-          # NO retries, including for HTTP 5xx, timeouts, expired tokens or ambiguous outcomes.
-          try:
-              with urllib.request.urlopen(request,timeout=95) as response:
-                  status=response.status
-                  body=json.loads(response.read(5000))
-          except urllib.error.HTTPError as error:
-              status=error.code
-              try: body=json.loads(error.read(4000))
-              except Exception: body={}
-          except Exception as error:
-              print("TEST_OUTCOME: network_uncertain")
-              print("ACTION: Check Squeegee for test reference; NEVER repeat this job automatically")
-              raise SystemExit(1)
-
-          allowed=("status","externalReference","scheduledDate","groupNumber",
-              "recurrence","priceGBP","customerCreated","jobCreated",
-              "requiresManualVerification","reason","httpStatus","apiCode")
-          safe={k:body.get(k) for k in allowed if k in body}
-          print("CONTROLLED_TEST_HTTP:",status)
-          print("CONTROLLED_TEST_RESULT:",json.dumps(safe,sort_keys=True))
-          if status!=200 or not body.get("customerCreated") or not body.get("jobCreated"):
-              raise SystemExit("One-time test was not fully confirmed; DO NOT RETRY")
+          for attempt in range(1,13):
+              request=urllib.request.Request(endpoint,data=b'{"mode":"claim-status"}',
+                  headers={"Authorization":"Bearer "+id_token,"Content-Type":"application/json"},method="POST")
+              try:
+                  with urllib.request.urlopen(request,timeout=50) as response:
+                      status=response.status
+                      body=json.loads(response.read(3000))
+              except urllib.error.HTTPError as e:
+                  status=e.code
+                  try: body=json.loads(e.read(1000))
+                  except Exception: body={}
+              except Exception:
+                  status=0
+                  body={}
+              if status==200 and body.get("readOnly") and body.get("authenticated"):
+                  safe={key:body.get(key) for key in ("claimExists","claimState","claimHasEtag",
+                      "scanComplete","existingTestCustomer","customerPagesScanned","customersScanned")}
+                  print("CLAIM_AUDIT_RESULT:",json.dumps(safe,sort_keys=True))
+                  break
+              print("CLAIM_AUDIT_ATTEMPT:",attempt,"HTTP:",status)
+              if status==401:raise SystemExit("Signed auth rejected")
+              if attempt==12:raise SystemExit("Read-only claim check not available")
+              time.sleep(8)
