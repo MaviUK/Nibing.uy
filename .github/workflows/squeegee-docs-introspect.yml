@@ -1,0 +1,64 @@
+name: Inspect Squeegee API documentation (preview only)
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/squeegee-docs-introspect.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-api-documentation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Read public API documentation without any keys
+        shell: python
+        run: |
+          import json, urllib.request, urllib.error, re, html
+          from urllib.parse import urljoin, urlparse
+          host = "api02.sqgee.com"
+          docs = "https://api02.sqgee.com/api/v3/docs"
+          def probe(url, max_bytes=500000):
+              if urlparse(url).scheme != "https" or urlparse(url).hostname != host:
+                  raise ValueError("Non-Squeegee host blocked")
+              req=urllib.request.Request(url,headers={"User-Agent":"NI-Bin-Guy-Preview-API-Inspector/1.0","Accept":"text/html,application/json,application/yaml"})
+              try:
+                  with urllib.request.urlopen(req,timeout=20) as response:
+                      data=response.read(max_bytes).decode("utf-8","replace")
+                      return response.status,response.headers.get("content-type",""),data
+              except urllib.error.HTTPError as e:
+                  return e.code,e.headers.get("content-type",""),e.read(1000).decode("utf-8","replace")
+          try:
+              status,mime,data=probe(docs)
+              print("Docs status:",status,"Type:",mime,"Bytes:",len(data))
+              print("HTML opening (sanitised):",re.sub(r"[A-Za-z0-9_-]{40,}", "[redacted]",data[:1400]))
+              found=[]
+              for match in re.finditer(r"""(?:url|spec-url|schema|openapi|swagger)["']?\\s*[:=]\\s*["']([^"']+)""",data,re.I):
+                  found.append(match.group(1))
+              for match in re.finditer(r"""(?:src|href)=["']([^"']+(?:swagger|openapi|docs|api)[^"']*)["']""",data,re.I):
+                  found.append(match.group(1))
+              print("Possible documentation refs:",found[:25])
+              for raw in dict.fromkeys(found[:10]):
+                  endpoint=urljoin(docs,html.unescape(raw))
+                  if urlparse(endpoint).hostname != host: continue
+                  try:
+                      s,typ,text=probe(endpoint,2000000)
+                      print("Reference status:",s,"Type:",typ,"Path:",urlparse(endpoint).path)
+                      if "json" in typ or text.lstrip().startswith("{"):
+                          spec=json.loads(text)
+                          if "paths" in spec:
+                              print("OpenAPI version:",spec.get("openapi") or spec.get("swagger"))
+                              print("Servers:",spec.get("servers"))
+                              print("Security schemes:",json.dumps(spec.get("components",{}).get("securitySchemes",{}))[:1000])
+                              for path,methods in spec.get("paths",{}).items():
+                                  if isinstance(methods,dict):
+                                      for method,d in methods.items():
+                                          if method.lower() in ("get","post","put","patch","delete"):
+                                              print("Operation:",method.upper(),path, d.get("operationId",""),d.get("summary",""))
+                  except Exception as e:
+                      print("Reference fetch failed:",str(e)[:200])
+          except Exception as e:
+              print("Documentation fetch failed:",str(e)[:400])
