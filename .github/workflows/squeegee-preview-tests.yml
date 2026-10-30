@@ -38,6 +38,8 @@ on:
       - tests/squeegee-round-cycle.test.cjs
       - tests/squeegee-preview-one-booking.test.cjs
       - tests/squeegee-preview-auto-booking.test.cjs
+      - tests/squeegee-preview-booking-submit-ui.test.cjs
+      - scripts/hardenBookingSubmissions.cjs
       - tests/squeegee-preview-submit-route.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
 
