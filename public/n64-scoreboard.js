@@ -282,34 +282,49 @@
     entryStatus.textContent = "Booking received! Join the scoreboard if you want to enter the prize draw.";
   }
 
+  // One registration path, shared by the post-booking confirmation and the
+  // "already booked" verification form in the visible global leaderboard.
+  // Consent is always explicit and separate from the cleaning booking.
+  async function registerEntry(proof) {
+    if (typeof proof !== "string" || !proof.includes(".")) {
+      throw new Error("We couldn't verify this booking. Use the existing-booking verification form.");
+    }
+    const response = await fetch("/.netlify/functions/arcadeLeaderboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingProof: proof, consent: true, claimed: [...claimed] }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || "Unable to join the leaderboard right now.");
+    }
+    if (typeof data.playerToken !== "string" || !data.playerToken.includes(".")) {
+      throw new Error("Booking registered, but the player session is unavailable. Try again.");
+    }
+    playerToken = data.playerToken;
+    writePlayerCookie();
+    // The booking is confirmed and the customer opted in, so their XP can
+    // now be remembered for next time without retaining any personal details.
+    saved = true;
+    writeCookie();
+    paint();
+    window.dispatchEvent(new Event("n64:score-updated"));
+    window.dispatchEvent(new Event("n64:leaderboard-updated"));
+    return data;
+  }
+
   async function joinLeaderboard(button) {
     if (!bookingProof) return;
     button.disabled = true;
-    entryStatus.textContent = "Registering your score…";
+    entryStatus.textContent = "Adding your booking to the global leaderboard…";
     try {
-      const response = await fetch("/.netlify/functions/arcadeLeaderboard",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({bookingProof,consent:true,claimed:[...claimed]})
-      });
-      const result = await response.json().catch(()=>({}));
-      if(!response.ok) throw new Error(result.error || "Unable to join");
-      entryStatus.textContent = "You're on the leaderboard! Contact details stay private.";
-      if (result.playerToken) {
-        playerToken = result.playerToken;
-        writePlayerCookie();
-        // Booking + opt-in implies saving game points for future visits.
-        saved = true;
-        writeCookie();
-        paint();
-        window.dispatchEvent(new Event("n64:score-updated"));
-      }
+      const result = await registerEntry(bookingProof);
       bookingProof = null;
       consentNode.hidden = true;
+      entryStatus.textContent = "You're registered as " + result.displayName + "!";
       await refreshLeaderboard();
-      window.dispatchEvent(new Event("n64:leaderboard-updated"));
-    } catch(error) {
-      entryStatus.textContent = error.message || "Unable to join right now";
+    } catch (error) {
+      entryStatus.textContent = error?.message || "Unable to register right now.";
       button.disabled = false;
     }
   }
@@ -411,6 +426,7 @@
     awardAction,
     awardBooking,
     offerEntry,
+    registerEntry,
     points: () => xp,
     isRegistered: () => Boolean(playerToken),
     rules: POINTS,
