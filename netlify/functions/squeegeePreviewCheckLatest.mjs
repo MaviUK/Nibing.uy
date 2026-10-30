@@ -64,8 +64,8 @@ export default async function handler(request,context) {
         }
         if(original) {
           auditFound=true;
-          const rawPhone=String(original.phone||"").replace(/[\\s()+.-]/g,"");
-          phoneValid=/^(0\\d{10}|44\\d{10}|0044\\d{10})$/.test(rawPhone);
+          const rawPhone=String(original.phone||"").replace(/[\s()+.-]/g,"");
+          phoneValid=/^(0\d{10}|44\d{10}|0044\d{10})$/.test(rawPhone);
           const result=await matching.matchCustomersAcrossPages(
             original,args=>api.listCustomers(args),{maxPages:100});
           matchReason=safeCode(result.reason);
