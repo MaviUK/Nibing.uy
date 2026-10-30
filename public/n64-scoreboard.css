@@ -33,23 +33,63 @@
 .n64-score-toggle span{font-size:1.15rem;color:#d44e40;}
 .n64-score-toggle small{font-size:.72rem;letter-spacing:.07em;}
 .n64-score-panel {
-  width:min(326px,calc(100vw - 25px));
-  max-height:calc(100dvh - 190px);
+  /* Fixed to the PHONE VIEWPORT, not to the floating XP button. */
+  position:fixed;
+  top:calc(10px + env(safe-area-inset-top, 0px));
+  bottom:calc(10px + env(safe-area-inset-bottom, 0px));
+  left:50%;
+  transform:translateX(-50%);
+  z-index:2;
+  width:min(440px,calc(100vw - 22px));
+  max-width:100%;
+  height:auto;
+  min-height:0;
+  max-height:none;
+  overflow-x:hidden;
   overflow-y:auto;
-  position:absolute;
-  left:0;
-  bottom:58px;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
   margin:0;
-  padding:14px;
+  padding:12px;
   border:4px solid #1d345b;
   background:#fffbe8;
   box-shadow:7px 8px 0 #4b6d9f;
   color:#20345c;
 }
 .n64-score-panel[hidden] {display:none !important;}
-.n64-score-heading{display:flex;justify-content:space-between;align-items:center;gap:7px;border-bottom:3px solid #20345c;padding-bottom:8px;}
-.n64-score-heading strong{font:1000 1rem/1.2 "Arial Black","Trebuchet MS",sans-serif;}
-.n64-score-close{width:29px;height:28px;background:#ffd24d;border:2px solid #20345c;font-size:1.5rem;font-weight:900;line-height:1;cursor:pointer;color:#20345c;}
+.n64-score-heading{
+  position:sticky;
+  top:-12px;
+  z-index:4;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  min-height:57px;
+  padding:10px 5px 10px;
+  border-bottom:3px solid #20345c;
+  background:#fffbe8;
+  box-shadow:0 5px 0 #fffbe8;
+}
+.n64-score-heading strong{
+  font:1000 clamp(.9rem,4.1vw,1.1rem)/1.2 "Arial Black","Trebuchet MS",sans-serif;
+}
+.n64-score-close{
+  flex:0 0 44px;
+  display:grid;
+  place-items:center;
+  width:44px;
+  height:44px;
+  min-width:44px;
+  min-height:44px;
+  background:#ffd24d;
+  border:3px solid #20345c;
+  font-size:1.6rem;
+  font-weight:900;
+  line-height:1;
+  cursor:pointer;
+  color:#20345c;
+}
 .n64-score-earned {margin:11px 0;min-height:19px;font-size:.89rem;font-weight:900;color:#135b4a;}
 .n64-score-hint{font-size:.78rem;margin:4px 0;color:#33496a;line-height:1.35;}
 .n64-score-history{padding:8px 0;margin:10px 0;list-style:none;display:grid;gap:4px;border-top:2px solid #9daac0;border-bottom:2px solid #9daac0;}
@@ -74,14 +114,20 @@
  .n64-score-hud{left:9px;bottom:calc(89px + env(safe-area-inset-bottom, 0px));}
  .n64-score-toggle{padding:7px 9px;min-height:39px;font-size:.79rem;box-shadow:3px 4px 0 #406e9c !important;}
  .n64-score-toggle span{font-size:1rem;}
- .n64-score-panel{bottom:52px;max-height:calc(100dvh - 160px);padding:12px;}
+ .n64-score-panel{
+   top:calc(8px + env(safe-area-inset-top, 0px));
+   bottom:calc(8px + env(safe-area-inset-bottom, 0px));
+   width:calc(100vw - 20px);
+   max-height:none;
+   padding:12px;
+ }
 }
 @media(prefers-reduced-motion:reduce){
  .n64-score-toggle{transition:none;}
 }
 
 /* Visible, prize-ready top-ten leaderboard inside the arcade score HUD. */
-.n64-score-panel{width:min(360px,calc(100vw - 20px));}
+/* Viewport panel sizing is defined above; do not override it here. */
 .n64-board{display:block;margin:13px 0;padding:12px;background:#e9f6ff;border:3px solid #20345c;box-shadow:4px 5px 0 #89afbd;}
 .n64-board>strong{display:block;font-size:.94rem;margin:0 0 12px;}
 .n64-board-list{list-style:none;margin:0;padding:0;display:grid;gap:5px;max-height:260px;overflow:auto;}
@@ -95,3 +141,30 @@
 .n64-join-board{background:#ffda43;color:#20345c;border:3px solid #20345c;min-height:40px;font-weight:1000;cursor:pointer;}
 .n64-join-board:disabled{opacity:.5;cursor:not-allowed;}
 .n64-entry-status{font-size:.75rem;margin:3px 0;}
+
+/* Keep the score HUD unobtrusive when collapsed, and easy to dismiss when open. */
+.n64-score-hud.n64-score-open { z-index:2100; }
+.n64-score-backdrop {
+  position:fixed;
+  inset:0;
+  z-index:0;
+  display:block;
+  width:100vw;
+  height:100dvh;
+  padding:0;
+  background:rgba(6,16,35,.65);
+  border:0;
+  box-shadow:none;
+  cursor:pointer;
+}
+.n64-score-backdrop[hidden] { display:none !important; }
+.n64-score-toggle { position:relative; z-index:1; }
+.n64-score-panel .n64-board { min-width:0; }
+.n64-score-panel .n64-board-list li { min-width:0; }
+.n64-score-panel .n64-board-list li span { min-width:0; overflow-wrap:anywhere; }
+@media(max-width:370px) {
+  .n64-score-panel { padding:9px; }
+  .n64-score-heading { top:-9px; }
+  .n64-board { padding:8px; }
+  .n64-board-list li { gap:5px; }
+}
