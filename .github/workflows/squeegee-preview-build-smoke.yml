@@ -17,6 +17,8 @@ on:
       - netlify/functions/squeegeePreviewAutoRecover.mjs
       - netlify/functions/lib/squeegeeAutomaticBooking.js
       - netlify/functions/lib/squeegeeJobGrouping.js
+      - netlify/functions/lib/ukBookingPhone.js
+      - tests/squeegee-booking-phone-validation.test.cjs
       - netlify/functions/squeegeePreviewAutoSync.mjs
       - netlify/functions/squeegeePreviewAutoStatus.mjs
       - netlify/functions/sendBookingEmail.js
