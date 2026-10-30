@@ -10,12 +10,31 @@
  */
 const BOOKING_RE=/^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i;
 const CODE_RE=/^[a-z][a-z0-9_]{0,100}$/;
+const {DUPLICATE_SIGNAL_CODES}=require("./squeegeeCustomerMatcher");
+const KNOWN_FLAGS=new Set(DUPLICATE_SIGNAL_CODES);
+const FLAG_LABELS=Object.freeze({
+  email_already_registered:"Email is already registered on another Squeegee record",
+  email_used_at_other_property:"Same email is associated with another service property",
+  multiple_records_with_email:"More than one existing Squeegee record uses this email",
+  address_already_registered:"Service address already exists in Squeegee",
+  address_registered_to_other_name:"Same address has a customer with a different name",
+  multiple_records_at_address:"Multiple Squeegee customer records share this address",
+  same_name_address_contact_changed:"Same name and address, but email and phone differ",
+  possible_duplicate_address:"Possible address duplication or differently formatted street",
+  phone_already_registered:"Phone number is already registered",
+  phone_used_at_other_property:"Phone number is also used at another property",
+});
+function allowedFlags(value){
+  if(!Array.isArray(value))return [];
+  return [...new Set(value.filter(code=>KNOWN_FLAGS.has(code)))];
+}
 
 function emailContent(bookingId,reason,extra={}) {
   if(!BOOKING_RE.test(String(bookingId||"")) ||
      !CODE_RE.test(String(reason||"")))return null;
   const matchReason=CODE_RE.test(String(extra?.matchReason||""))?
     extra.matchReason:"";
+  const duplicateFlags=allowedFlags(extra?.duplicateFlags);
   return {
     subject:"NI Bin Guy — Squeegee booking needs review: "+bookingId,
     text:[
@@ -25,6 +44,7 @@ function emailContent(bookingId,reason,extra={}) {
         "UNCONFIRMED / may be partially created":"HELD — no automatic retry"),
       "Reason: "+reason,
       matchReason?"Customer match: "+matchReason:"",
+      ...duplicateFlags.map(flag=>"Duplicate flag: "+FLAG_LABELS[flag]),
       "",
       "Open the existing website booking email for contact details.",
       "Inspect Squeegee and verify the correct customer, property and job.",
@@ -39,10 +59,47 @@ async function notifyOwnerOfSyncHold(bookingId,reason,extra={},{
 }={}) {
   const email=emailContent(bookingId,reason,extra);
   if(!email)return {sent:false,reason:"invalid_alert_details"};
+  return deliverOwnerEmail(email,{env,send});
+}
+
+
+/** Informational message about repeated email/address/phone data after a
+ * successful import. Never claims duplicates necessarily represent errors.
+ * The already-delivered admin booking email supplies customer details.
+ */
+function duplicateSignalsEmailContent(bookingId,flags){
+  if(!BOOKING_RE.test(String(bookingId||"")))return null;
+  const codes=allowedFlags(flags);
+  if(!codes.length)return null;
+  return {
+    subject:"NI Bin Guy — duplicate details flagged: "+bookingId,
+    text:[
+      "The website booking has been processed by the Squeegee integration.",
+      "Booking reference: "+bookingId,
+      "",
+      "Existing Squeegee details matched:",
+      ...codes.map(flag=>"- "+FLAG_LABELS[flag]),
+      "",
+      "Repeated email addresses are often legitimate for different properties.",
+      "This is an informational flag, not proof that a duplicate job was created.",
+      "Check the normal booking email for the new customer details.",
+      "Do not submit the booking again solely because of these flags.",
+      "Preview 1 only. Production and Preview 2 are unchanged.",
+    ].join("\n"),
+  };
+}
+async function notifyOwnerOfDuplicateSignals(bookingId,flags,{
+  env=process.env,send=null,
+}={}){
+  const content=duplicateSignalsEmailContent(bookingId,flags);
+  if(!content)return {sent:false,reason:"no_valid_duplicate_flags"};
+  return deliverOwnerEmail(content,{env,send});
+}
+
+async function deliverOwnerEmail(email,{env=process.env,send=null}={}){
   if(typeof send!=="function" &&
-     (!env.RESEND_API_KEY || !env.BOOKINGS_TO)) {
+     (!env.RESEND_API_KEY || !env.BOOKINGS_TO))
     return {sent:false,reason:"owner_alert_not_configured"};
-  }
   try{
     const deliver=send||((args)=>{
       const {Resend}=require("resend");
@@ -61,4 +118,5 @@ async function notifyOwnerOfSyncHold(bookingId,reason,extra={},{
   }
 }
 
-module.exports={emailContent,notifyOwnerOfSyncHold};
+module.exports={emailContent,notifyOwnerOfSyncHold,
+  duplicateSignalsEmailContent,notifyOwnerOfDuplicateSignals,allowedFlags};
