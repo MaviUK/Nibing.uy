@@ -45,5 +45,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      # Route tests import the deployed ESM entrypoint, which imports Netlify Blobs.
+      # Install locked dependencies; the tests use fake credentials and no live API.
+      - name: Install locked dependencies
+        run: npm ci
       - name: Test dates, prices, customer matching and job mapping (no live API calls)
         run: node --test tests/squeegee-*.test.cjs
