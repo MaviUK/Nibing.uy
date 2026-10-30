@@ -135,6 +135,53 @@ async function getRecaptchaToken(action) {
   });
 }
 
+/*
+ * Preview 1 uses a server-signed browser work challenge, rate-limited by
+ * Netlify, rather than the production-domain reCAPTCHA key. No extra customer
+ * form, name field or checkbox is needed; the live website keeps reCAPTCHA.
+ */
+const N64_BOOKING_PREVIEW_HOST = "deploy-preview-77--nibinguy.netlify.app";
+
+async function getPreviewBookingProof() {
+  if (!window.crypto?.subtle) {
+    throw new Error("Secure browser verification is unavailable");
+  }
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 8000);
+  let challenge;
+  try {
+    const response = await fetch("/.netlify/functions/previewBookingChallenge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    challenge = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(challenge?.error || "Unable to start preview verification");
+    }
+  } finally {
+    window.clearTimeout(timer);
+  }
+  if (typeof challenge.ticket !== "string" || challenge.ticket.length > 800 ||
+      challenge.difficulty !== 12) {
+    throw new Error("Invalid preview security challenge");
+  }
+
+  // A small, responsive SHA-256 work check, averaging ~4,096 attempts on
+  // Android. The API verifies the same work and accepts each ticket once.
+  const encoder = new TextEncoder();
+  for (let counter = 0; counter <= 200000; counter++) {
+    const work = encoder.encode(challenge.ticket + ":" + counter);
+    const digest = new Uint8Array(await window.crypto.subtle.digest("SHA-256", work));
+    if (digest[0] === 0 && (digest[1] & 0xf0) === 0) {
+      return { ticket: challenge.ticket, work: counter };
+    }
+  }
+  throw new Error("Preview security check took too long");
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
    Discount + Plans
    ──────────────────────────────────────────────────────────────────────────── */
@@ -924,12 +971,26 @@ function BookingForm({ onClose, initialAddress = "" }) {
       await window.nbgEnsureBookingSchedule();
     }
 
-    // ✅ reCAPTCHA token (v3)
+    // Production still uses reCAPTCHA v3. Preview 1 has an isolated
+    // one-use, signed security challenge because the key does not validate
+    // reliably on the deploy-preview hostname.
     const recaptchaAction = "booking_submit";
-    const recaptchaToken = await getRecaptchaToken(recaptchaAction);
-    if (!recaptchaToken) {
-      alert("Anti-bot check not ready. Please try again in a moment.");
-      return;
+    let recaptchaToken = null;
+    let previewProof = null;
+    if (window.location.hostname === N64_BOOKING_PREVIEW_HOST) {
+      try {
+        previewProof = await getPreviewBookingProof();
+      } catch (error) {
+        console.warn("Preview security check unavailable:", error?.message);
+        alert("The preview booking security check could not be completed. Please try again in a moment.");
+        return;
+      }
+    } else {
+      recaptchaToken = await getRecaptchaToken(recaptchaAction);
+      if (!recaptchaToken) {
+        alert("Anti-bot check not ready. Please try again in a moment.");
+        return;
+      }
     }
 
     const loc = selectedPlaceRef.current?.geometry?.location;
@@ -960,6 +1021,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
       termsVersion: TERMS_VERSION,
       termsAcceptanceText: TOS_PREFIX,
       recaptchaToken,
+      previewProof,
       recaptchaAction,
     }),
   });
