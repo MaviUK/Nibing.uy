@@ -174,13 +174,13 @@ function armedPage(diagnostic,bookingId,squeegeeCheck=null){
   const instructions=bookingId
     ? '<div class="notice"><strong>Existing booking under investigation.</strong>'+
       '<p>Do not submit another booking or send another confirmation email. The original test will be checked using read-only records below.</p></div>'
-    : '<p>Complete <strong>ONE NEW CUSTOMER</strong> booking on Preview 1. Select exactly <strong>one domestic bin, four-weekly at £5</strong>, using <strong>Email booking</strong>. You must use an address not already in Squeegee with an actual clean date shown.</p>'+
-      '<p>This creates a <strong>real Squeegee test customer and recurring job</strong>, clearly prefixed TEST API. Do not dispatch or bill it; remove the test record after checking.</p>'+
-      '<p>Use this browser within 20 minutes. Normal booking confirmation emails and leaderboard processing still run.</p>'+
-      '<p><a href="/">Open Preview 1 booking form</a></p>';
+    : '<div class="notice"><strong>The one-time Squeegee test is complete and its reservation is permanently used.</strong>'+
+      '<p>No further TEST API creation is authorised by this page. The separate automatic integration is being prepared on Preview 1.</p></div>'+
+      '<p><a href="/">Open Preview 1 booking website</a></p>';
   return page('<div class="notice"><strong>Owner test authorised for this browser.</strong></div>'+
   instructions+
-  '<form method="get"><label for="bookingId">Check status using booking reference</label>'+
+  '<p><a href="/api/squeegee-preview-auto-status">View automatic booking sync status (READ ONLY)</a></p>'+
+  '<form method="get"><label for="bookingId">Check one-time test status using booking reference</label>'+
   '<input id="bookingId" type="text" name="bookingId" placeholder="NBG-..." value="'+safe(bookingId||"")+'">'+
   '<button type="submit">Check Squeegee test status</button></form>'+state);
 }
