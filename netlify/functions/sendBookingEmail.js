@@ -1,6 +1,7 @@
 // netlify/functions/sendBookingEmail.js
 const { Resend } = require("resend");
 const { signBooking } = require("./lib/arcadeBookingProof");
+const { autoEnrollBooking } = require("./arcadeLeaderboard");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
 
@@ -347,6 +348,17 @@ exports.handler = async (event) => {
       console.error("Resend customer error:", customerResult.error);
     }
 
+    // A customer is added to the global rankings automatically after the
+    // booking email has been accepted, without a second form or another tap.
+    // Prize contact information is kept in the private preview store.
+    let arcadeEntry = null;
+    try {
+      arcadeEntry = await autoEnrollBooking(payload);
+    } catch (error) {
+      // A leaderboard outage must NEVER make an accepted cleaning booking fail.
+      console.warn("Arcade auto-enrolment temporarily unavailable:", error?.message || "unknown");
+    }
+
     const durationMs = Date.now() - startedAt;
     console.log(`Booking email completed in ${durationMs}ms`);
 
@@ -360,6 +372,9 @@ exports.handler = async (event) => {
         success: true,
         customerConfirmationSent: !customerResult?.error,
         arcadeBookingProof: signBooking(payload),
+        arcadeRegistered: Boolean(arcadeEntry?.registered),
+        arcadePlayerToken: arcadeEntry?.playerToken || null,
+        arcadeDisplayName: arcadeEntry?.displayName || null,
       }),
     };
   } catch (error) {
