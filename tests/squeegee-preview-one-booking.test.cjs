@@ -562,24 +562,72 @@ test("owner recovery route rejects unauthorised users before any storage or writ
   }
 });
 
+test("signed owner recovery form authorises mobile no-Origin and Origin:null safely",async()=>{
+  const {issueRecoveryFormToken,verifyRecoveryFormToken,acceptableRecoveryOrigin}=
+    await import("../netlify/functions/squeegeePreviewRecoverOriginal.mjs");
+  const runtime={hostname:"deploy-preview-77--nibinguy.netlify.app",
+    deployContext:"deploy-preview",siteId:"d63c829f-3ed7-48e9-9633-a042de3f2e84"};
+  const t=Date.parse("2026-10-30T16:05:00Z");
+  const fakeEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
+  const sessionCookie=createTestSessionCookie(fakeEnv,t,runtime);
+  const proof=issueRecoveryFormToken(sessionCookie,runtime,fakeEnv,t);
+  assert.match(proof,/^\d{13}\.[0-9a-f]{32}\.[0-9a-f]{64}$/);
+  assert.equal(verifyRecoveryFormToken(proof,sessionCookie,runtime,fakeEnv,t),true);
+  assert.equal(verifyRecoveryFormToken(proof,sessionCookie,runtime,fakeEnv,
+    t+12*60*1000),true);
+  assert.equal(verifyRecoveryFormToken(proof,sessionCookie,runtime,fakeEnv,
+    t+12*60*1000+1),false);
+  assert.equal(verifyRecoveryFormToken(proof,sessionCookie,runtime,fakeEnv,
+    t-31000),false);
+  assert.equal(verifyRecoveryFormToken(proof,sessionCookie+"bad",runtime,fakeEnv,t),false);
+  assert.equal(verifyRecoveryFormToken(proof,sessionCookie,
+    {...runtime,hostname:"deploy-preview-78--nibinguy.netlify.app"},fakeEnv,t),false);
+  assert.equal(verifyRecoveryFormToken(proof,sessionCookie,
+    {...runtime,deployContext:"production"},fakeEnv,t),false);
+  assert.equal(verifyRecoveryFormToken(proof,sessionCookie,runtime,
+    {SQUEEGEE_API_KEY:"another-strong-fake-secret-only-for-tests-12345"},t),false);
+  assert.equal(verifyRecoveryFormToken(proof.slice(0,-1)+"0",
+    sessionCookie,runtime,fakeEnv,t),false);
+  assert.equal(verifyRecoveryFormToken("",sessionCookie,runtime,fakeEnv,t),false);
+  const url="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-recover-original";
+  const req=headers=>new Request(url,{headers});
+  assert.equal(acceptableRecoveryOrigin(req({}),runtime),true);
+  assert.equal(acceptableRecoveryOrigin(req({"Origin":"null"}),runtime),true);
+  assert.equal(acceptableRecoveryOrigin(req({
+    "Origin":"https://deploy-preview-77--nibinguy.netlify.app",
+    "Sec-Fetch-Site":"same-origin",
+  }),runtime),true);
+  assert.equal(acceptableRecoveryOrigin(req({"Origin":"https://evil.example"}),runtime),false);
+  assert.equal(acceptableRecoveryOrigin(req({
+    "Origin":"null","Sec-Fetch-Site":"cross-site",
+  }),runtime),false);
+  assert.equal(acceptableRecoveryOrigin(req({
+    "Origin":"https://deploy-preview-77--nibinguy.netlify.app",
+    "Sec-Fetch-Site":"same-site",
+  }),runtime),false);
+});
+
 test("owner recovery POST fails closed when after-response worker is unavailable",async()=>{
   const previousKey=process.env.SQUEEGEE_API_KEY;
   process.env.SQUEEGEE_API_KEY=env.SQUEEGEE_API_KEY;
   try {
-  const {default:handler}=await import(
+  const {default:handler,issueRecoveryFormToken}=await import(
     "../netlify/functions/squeegeePreviewRecoverOriginal.mjs");
   const url="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-recover-original";
   const validScope={hostname:"deploy-preview-77--nibinguy.netlify.app",
     deployContext:"deploy-preview",
     siteId:"d63c829f-3ed7-48e9-9633-a042de3f2e84"};
-  const cookie=createTestSessionCookie(process.env,Date.now(),validScope);
+  const now=Date.now();
+  const cookie=createTestSessionCookie(process.env,now,validScope);
+  const csrf=issueRecoveryFormToken(cookie,validScope,process.env,now);
   const request=new Request(url,{
     method:"POST",headers:{
       "Cookie":COOKIE_NAME+"="+cookie,
-      "Origin":"https://deploy-preview-77--nibinguy.netlify.app",
+      "Origin":"null",
+      "Sec-Fetch-Site":"same-origin",
       "Content-Type":"application/x-www-form-urlencoded",
     },
-    body:"action=confirm-original",
+    body:"action=confirm-original&csrf="+encodeURIComponent(csrf),
   });
   const result=await handler(request,{
     deploy:{context:"deploy-preview"},site:{id:validScope.siteId},
