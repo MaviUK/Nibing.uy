@@ -22,6 +22,33 @@ export default async function handler(req,context){
   const input=await req.json().catch(()=>({}));
   // Explicitly DISABLED: the single authorised write attempt stopped before
   // any Squeegee POST when the atomic lock was not acquired.
+  if(input.mode==="cas-check"){
+    try{
+      const {changeClaimState}=await import("./lib/squeegeeIdempotencyClaims.js").then(m=>m.default||m);
+      const {getStore}=await import("@netlify/blobs");
+      const store=getStore({name:"squeegee-preview1-write-claims",consistency:"strong"});
+      const key="claim-v1/test/diagnostic-claim-injected-store-20261030";
+      const old=await store.getWithMetadata(key,{consistency:"strong",type:"json"});
+      if(!old?.etag||old?.data?.state!=="reserved"){
+        return json(409,{testOnly:true,noSqueegeeWrites:true,reason:"diagnostic_claim_missing"});
+      }
+      const result=await changeClaimState({
+        key,etag:old.etag,bookingId:"NBG-P77TEST-ABCDEFGH",
+        state:"request_in_progress",store,
+      });
+      const saved=await store.getWithMetadata(key,{consistency:"strong",type:"json"});
+      return json(200,{
+        testOnly:true,noSqueegeeWrites:true,
+        casChanged:Boolean(result.changed),
+        casReason:result.reason||null,
+        casEtagPresent:Boolean(result.etag),
+        casPersisted:Boolean(saved?.data?.state==="request_in_progress"),
+      });
+    }catch(e){
+      return json(502,{testOnly:true,noSqueegeeWrites:true,
+        errorClass:e?.name||"Error"});
+    }
+  }
   if(input.mode==="claim-helper-check"){
     try{
       const {claimOnce}=await import("./lib/squeegeeIdempotencyClaims.js").then(m=>m.default||m);
