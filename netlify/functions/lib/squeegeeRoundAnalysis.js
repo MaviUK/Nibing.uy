@@ -61,11 +61,11 @@ function analyzeSqueegeeTownGroups(groups, customers, { minCell = 5, minDominant
     for (const job of jobs) {
       const groupId = groupIdFromJob(job);
       if (!groupId) continue;
-      const label = groupById.get(groupId);
-      if (!label) { unresolvedGroupAssignments++; continue; }
       const dedupeKey = customerId + "\u001f" + groupId;
       if (seenCustomerGroup.has(dedupeKey)) continue;
       seenCustomerGroup.add(dedupeKey);
+      const label = groupById.get(groupId);
+      if (!label) { unresolvedGroupAssignments++; continue; }
       groupAssignments++;
       if (!town) { unknownTownAssignments++; continue; }
       const entry = counts.get(groupId) || { label, distribution: new Map(), knownTotal: 0 };
