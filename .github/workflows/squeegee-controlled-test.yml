@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - name: Authenticate with GitHub OIDC and inspect one zero-priced test (NO writes)
+      - name: Verify complete customer scan and zero-priced test preflight (NO writes)
         shell: python
         run: |
           import json, os, time, urllib.parse, urllib.request, urllib.error
