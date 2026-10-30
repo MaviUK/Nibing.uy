@@ -149,3 +149,12 @@ Implementation:
 - GitHub Actions tests for round cycling, shifts, missing/duplicate account groups, bad IDs and prepared booking date+group mapping: **78/78 passing** as of this update.
 
 **Still no Squeegee POST**, no real customer/job creation, no production changes and no merge. Before first write, verify round weekday ordering in Squeegee and explicitly obtain owner's test-record approval. Continue keeping the existing website's bookings, confirmation emails, WhatsApp and arcade score working.
+
+
+### Verified against authenticated account groups (GET only)
+
+A one-off Preview 1 probe `GET /api/v3/public/job-groups` verified the owner-supplied November cycle, and returned **14 account job groups**. The resolver now maps the following proposed dates to valid account-group UUIDs (UUIDs never left Netlify): 2 Nov → 11, 3 Nov → 12, 4 Nov → 13, 5 Nov → 14, 9 Nov → 16, 16 Nov → 01, 30 Nov → 11.
+
+The same read-only probe confirmed the corresponding numbered groups are **not returned** for these proposed dates: Fri 6 Nov → 15, Fri 13 Nov → 20, Fri 20 Nov → 05, Mon 23 Nov → 06, Fri 27 Nov → 10. Across all 20 potential rounds, `05, 06, 07, 10, 15, 20` are currently absent from the API. Do not fabricate them or assign a different round. **The API's group-label match proves availability only, not that the guessed Monday-Friday day order matches the actual Squeegee timetable.**
+
+The temporary public diagnostic endpoint and one-shot GitHub Actions workflow have both been removed. Squeegee customer/job writes remain blocked; the normal website booking form, confirmation emails and arcade score were not changed by the mapping.
