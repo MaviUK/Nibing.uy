@@ -79,11 +79,22 @@ export default async function handler(request, context) {
       connected: true,
       rootType: Array.isArray(value) ? "array" : typeof value,
       rootKeys,
-      arrayFields: arrays.map(({ key, rows }) => ({
-        key,
-        firstItemKeys: rows[0] && typeof rows[0] === "object"
-          ? Object.keys(rows[0]).slice(0, 40) : [],
-      })),
+      arrayFields: arrays.map(({ key, rows }) => {
+        const first = rows[0] && typeof rows[0] === "object" ? rows[0] : null;
+        const nested = key === "customers" && first ? {
+          addressType: Array.isArray(first.address) ? "array" : typeof first.address,
+          addressKeys: first.address && typeof first.address === "object"
+            ? Object.keys(first.address).slice(0, 20) : [],
+          jobsType: Array.isArray(first.jobs) ? "array" : typeof first.jobs,
+          firstJobKeys: Array.isArray(first.jobs) && first.jobs[0] && typeof first.jobs[0] === "object"
+            ? Object.keys(first.jobs[0]).slice(0, 30) : [],
+        } : null;
+        return {
+          key,
+          firstItemKeys: first ? Object.keys(first).slice(0, 40) : [],
+          nested,
+        };
+      }),
     };
   } else {
     customerSchema = {
