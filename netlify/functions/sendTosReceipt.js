@@ -7,6 +7,7 @@ const { autoEnrollBooking } = require("./arcadeLeaderboard");
 const { handler: sendAutomaticBookingConfirmation } = require("./sendAutomaticBookingConfirmation");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 const { stageWithoutBlockingBooking } = require("./lib/squeegeeBookingStage");
+const { dispatchAcceptedBooking } = require("./lib/squeegeePreviewAutoDispatch");
 
 let getStatusStore = null;
 try {
@@ -262,6 +263,19 @@ exports.handler = async (event) => {
         });
       } catch (_) {
         console.warn("Read-only Squeegee WhatsApp preparation unavailable");
+      }
+      // Preview 1 only: the WhatsApp owner/customer confirmations and
+      // leaderboard entry already succeeded. No second emails or score awards.
+      // Only the signed server-to-server event can reach the sync worker.
+      try {
+        const dispatched=await dispatchAcceptedBooking(payload,{
+          channel:"whatsapp",eventHost:String(event?.headers?.host||event?.headers?.Host||"").toLowerCase(),
+        });
+        if(dispatched.reason==="dispatch_uncertain_reconcile") {
+          console.warn("Preview 1 WhatsApp Squeegee dispatch uncertain; no automatic retry");
+        }
+      } catch {
+        console.warn("Preview 1 WhatsApp Squeegee dispatch unavailable");
       }
     } else if (
       confirmationResponse?.statusCode === 409 &&
