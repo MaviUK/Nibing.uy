@@ -59,11 +59,28 @@ function overlappingJobs(existingJobs,plannedJobs,serviceIds=null) {
     }
   }
   for(const old of existingJobs) {
-    if(!old || !Array.isArray(old.services))return "cannot_inspect_existing_jobs";
-    if(old.services.some(id=>typeof id!=="string" ||
-       !/^[0-9a-f-]{36}$/i.test(id)))return "cannot_inspect_existing_jobs";
-    if(old.services.some(id=>plannedServices.has(id)))
-      return "existing_job_for_selected_bin_requires_review";
+    if(!old || !Array.isArray(old.services))
+      return "cannot_inspect_existing_jobs";
+    // Real Squeegee GET /customers/:id returns job.services as
+    // [{_id,description,quantity}], not the plain UUID strings used by
+    // the initial fake tests. Always extract and verify the actual UUID.
+    for(const service of old.services) {
+      let id;
+      if(typeof service==="string"){
+        id=service;
+      }else if(service && typeof service==="object" && !Array.isArray(service)){
+        if(service._id!==undefined && service.id!==undefined &&
+           service._id!==service.id)
+          return "cannot_inspect_existing_jobs";
+        id=service._id??service.id;
+      }else{
+        return "cannot_inspect_existing_jobs";
+      }
+      try{id=api.requireUuid(id,"existing service ID");}
+      catch{return "cannot_inspect_existing_jobs";}
+      if(plannedServices.has(id))
+        return "existing_job_for_selected_bin_requires_review";
+    }
   }
   return null;
 }
