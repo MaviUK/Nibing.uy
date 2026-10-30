@@ -73,7 +73,7 @@ async function executeOneApprovedTestBooking(payload, {
   if (!verifyTestSessionCookie(cookie, env, now, runtimeScope)) {
     return privateStatus("not_started", "operator_authorization_missing_or_expired");
   }
-  const eligibility=isEligibleOneBooking(payload,now);
+  const eligibility=isEligibleOneBooking(payload);
   if (!eligibility.eligible) {
     return privateStatus("not_started",eligibility.reason);
   }
