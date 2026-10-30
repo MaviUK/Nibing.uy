@@ -1,6 +1,7 @@
 // One-time READ-ONLY diagnosis of the already accepted 20:06 Preview 1 booking.
 // No customer PII, Squeegee API operations, claims or writes. Remove after check.
 import api from "./lib/squeegeeApiV3.js";
+import customerMatcher from "./lib/squeegeeCustomerMatcher.js";
 import {getStore} from "@netlify/blobs";
 const BOOKING_ID="NBG-MVVEKILD-31F3D9F612";
 const knownStages=new Set([
@@ -31,7 +32,65 @@ export default async function handler(request,context) {
         .get("claim-v1/auto-bookings/"+BOOKING_ID,
           {type:"json",consistency:"strong"}),
     ]);
+    // Only the audited booking is used to find its verified existing
+    // customer. GET-only customer matching and GET /customers/:id. No
+    // customer name, address, ID, email, phone or job values are returned.
+    let customerJobShape={check:"not_attempted"};
+    try {
+      const audit=getStore({name:"tos-confirmations",consistency:"strong"});
+      const listed=await audit.list({prefix:"2026-10-30T20:06"});
+      const blobKeys=Array.isArray(listed?.blobs)?listed.blobs:[];
+      if(blobKeys.length>0 && blobKeys.length<=40 && !listed.cursor) {
+        let accepted=null;
+        for(const item of blobKeys) {
+          const record=await audit.get(item.key,{
+            type:"json",consistency:"strong",
+          });
+          if(record?.bookingId===BOOKING_ID) {
+            accepted=record;break;
+          }
+        }
+        if(accepted) {
+          const matched=await customerMatcher.matchCustomersAcrossPages(
+            accepted,args=>api.listCustomers(args),{maxPages:100});
+          if(matched.status==="matched" ||
+             matched.status==="reactivation_required") {
+            const record=await api.getCustomer(matched.customerId);
+            const kind=value=>Array.isArray(value)?"array":
+              value===null?"null":typeof value;
+            const jobs=record?.jobs;
+            const first=Array.isArray(jobs)?jobs[0]:null;
+            const meta={
+              check:"completed",
+              jobsType:kind(jobs),
+              jobsCount:Array.isArray(jobs)?jobs.length:null,
+              customerJobRelatedKeys:record&&typeof record==="object"?
+                Object.keys(record).filter(k=>/job|service|work|appointment/i.test(k)).slice(0,12):[],
+              firstJobKeys:first&&typeof first==="object"?
+                Object.keys(first).slice(0,24):[],
+              firstJobServicesType:kind(first?.services),
+              firstJobServicesCount:Array.isArray(first?.services)?first.services.length:null,
+              firstJobServiceValueType:Array.isArray(first?.services)&&
+                first.services.length?kind(first.services[0]):null,
+              firstJobServiceObjectKeys:Array.isArray(first?.services)&&
+                first.services[0]&&typeof first.services[0]==="object"?
+                  Object.keys(first.services[0]).slice(0,16):[],
+            };
+            customerJobShape=meta;
+          }else{
+            customerJobShape={check:"match_"+matched.status};
+          }
+        }else{
+          customerJobShape={check:"accepted_audit_not_found"};
+        }
+      }else{
+        customerJobShape={check:"audit_page_incomplete_or_missing"};
+      }
+    }catch{
+      customerJobShape={check:"read_only_customer_shape_unavailable"};
+    }
     const body={
+      customerJobShape,
       stage:knownStages.has(status?.stage)?status.stage:
         status?"other":"not_found",
       reason:code(status?.reason),
