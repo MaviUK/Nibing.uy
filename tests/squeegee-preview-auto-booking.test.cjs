@@ -602,3 +602,207 @@ test("the exact new site host is required before signed booking dispatch",async(
   }
   assert.equal(network,0);
 });
+
+
+test("full Preview 1 Email rollout accepts regular and two-bin bookings but not WhatsApp or old replay",async()=>{
+  const fullEnv={SQUEEGEE_API_KEY:env.SQUEEGEE_API_KEY};
+  assert.equal(rollout.autoMode(fullEnv),"full");
+  assert.equal(rollout.automaticEnabled(fullEnv),true);
+  const ordinary=sampleBooking();
+  assert.equal(rollout.acceptedForRollout(ordinary,"email",fullEnv),true);
+  assert.equal(rollout.acceptedForRollout(ordinary,"whatsapp",fullEnv),false);
+  const two=sampleBooking({bins:[
+    {type:"Brown Bin",planId:"domestic_4w",count:1},
+    {type:"Black Bin",planId:"domestic_4w",count:1},
+  ],dates:["2026-11-16","2026-11-17"]});
+  assert.equal(rollout.acceptedForRollout(two,"email",fullEnv),true);
+  assert.equal(rollout.acceptedForRollout({
+    ...ordinary,bookingId:rollout.ABANDONED_BOOKING_ID,
+  },"email",fullEnv),false);
+  assert.equal(rollout.acceptedForRollout(ordinary,"email",{
+    ...fullEnv,SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED:"false",
+  }),false);
+  assert.equal(canAutoSync(fullEnv,runtime),true);
+  assert.equal(canAutoSync(fullEnv,{...runtime,deployContext:"production"}),false);
+  assert.equal(canAutoSync(fullEnv,{...runtime,hostname:"deploy-preview-78--nibinguy.netlify.app"}),false);
+  const h=makeHarness(two);
+  const made=await executeAutomaticPreviewBooking(two,{
+    channel:"email",env:fullEnv,runtimeScope:runtime,now,deps:h.deps,
+  });
+  assert.equal(made.status,"completed");
+  assert.equal(made.createdJobs,2);
+  assert.equal(h.posts.filter(p=>p.kind==="customer").length,1);
+  assert.equal(h.posts.filter(p=>p.kind==="job").length,2);
+});
+
+test("existing account adding a different bin reuses exact property customer and keeps old job",async()=>{
+  const b=sampleBooking({
+    bins:[{type:"Black Bin",planId:"domestic_4w",count:1}],
+  });
+  const existingRow={
+    _id:customerId,name:b.name,email:b.email,
+    address:{addressDescription:b.address},status:"active",
+  };
+  const h=makeHarness(b,{
+    existingRows:[existingRow],
+    existingCustomer:{
+      address:{text:b.address},jobs:[{services:[brownService]}],
+    },
+  });
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,false);
+  assert.equal(r.createdJobs,1);
+  assert.equal(h.posts.length,1);
+  assert.equal(h.posts[0].kind,"job");
+  assert.equal(h.posts[0].id,customerId);
+  assert.deepEqual(h.posts[0].job.services,[blackService]);
+  assert.equal(h.posts[0].job.price,5);
+  assert.equal(h.statuses.at(-1).customerMode,"existing");
+  assert.equal(h.ledger.records.get(activeBinKey(b,b.bins[0]))?.value?.state,"succeeded");
+});
+
+test("same customer already has that bin under one-off: hold rather than create a second regular Brown job",async()=>{
+  const b=sampleBooking();
+  const row={
+    _id:customerId,name:b.name,email:b.email,
+    address:{addressDescription:b.address},status:"active",
+  };
+  const h=makeHarness(b,{
+    existingRows:[row],
+    existingCustomer:{
+      address:{text:b.address},
+      jobs:[{services:[brownOneOffService]}],
+    },
+  });
+  const r=await h.run();
+  assert.equal(r.status,"held");
+  assert.equal(r.reason,"existing_job_for_selected_bin_requires_review");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
+
+test("different property with same email, even same postcode, creates a separate address-specific customer",async()=>{
+  const b=sampleBooking();
+  const otherAddress="8 Example Drive, Bangor BT19 7ZW";
+  const oldRow={
+    _id:customerId,name:b.name,email:b.email,status:"active",
+    address:{addressDescription:otherAddress},
+  };
+  const h=makeHarness(b,{existingRows:[oldRow]});
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,true);
+  assert.equal(r.createdJobs,1);
+  assert.equal(h.posts.length,2);
+  assert.equal(h.posts[0].input.address.text,b.address);
+  assert.notEqual(h.posts[0].input.address.text,otherAddress);
+  assert.match(h.posts[0].input.notes,/Additional service property/);
+  assert.match(h.posts[0].input.notes,/Separate service\/billing account/);
+  assert.equal(h.statuses.at(-1).customerMode,"additional_property");
+});
+
+test("another postcode with same email creates new service address without modifying old customer",async()=>{
+  const b=sampleBooking({modified:x=>({
+    ...x,address:"34 Another Street, Newtownards BT23 4LN",
+    bookingScheduleSnapshot:{
+      ...x.bookingScheduleSnapshot,postcode:"BT23 4LN",
+    },
+  })});
+  const existing={
+    _id:customerId,email:b.email,
+    address:{addressDescription:"8 Example Drive, Bangor BT19 7ZW"},
+    status:"active",
+  };
+  const schedule={
+    matched:true,postcode:"BT23 4LN",town:"NEWTOWNARDS",
+    results:[{bin:"Brown Bin",town:"NEWTOWNARDS",automatic:true,
+      assignedCleanDate:"2026-11-16"}],
+  };
+  const h=makeHarness(b,{existingRows:[existing],schedule});
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,true);
+  assert.equal(h.posts[0].input.address.text,b.address);
+  assert.equal(h.statuses.at(-1).customerMode,"additional_property");
+  assert.equal(h.posts[1].job.price,5);
+});
+
+test("similar house number or different contact at the same property never silently reuses or duplicates",async()=>{
+  const b=sampleBooking();
+  const rows=[
+    {_id:customerId,name:b.name,email:b.email,status:"active",
+      address:{addressDescription:"7 Other Road, Bangor BT19 7ZW"}},
+    {_id:customerId,name:b.name,email:"other@example.org",status:"active",
+      address:{addressDescription:b.address}},
+  ];
+  for(const row of rows){
+    const h=makeHarness(b,{existingRows:[row]});
+    const result=await h.run();
+    assert.equal(result.status,"held");
+    assert.equal(result.reason,"customer_match_ambiguous_or_incomplete");
+    assert.equal(h.posts.length,0);
+    assert.equal(h.ledger.records.size,0);
+  }
+});
+
+test("Squeegee customer id match must also have verified property address before adding jobs",async()=>{
+  const b=sampleBooking();
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,name:b.name,email:b.email,status:"active",
+      address:{addressDescription:b.address},
+    }],
+    existingCustomer:{
+      address:{text:"999 Other Road, Bangor BT19 7ZW"},jobs:[],
+    },
+  });
+  const result=await h.run();
+  assert.equal(result.status,"held");
+  assert.equal(result.reason,"existing_customer_address_unverified");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
+
+test("two new bookings with different first dates cannot race to create the same bin at an existing address",async()=>{
+  const b=sampleBooking();
+  const later=sampleBooking({
+    bookingId:"NBG-ZYXWV-ABCDEFGH",
+    dates:["2026-11-17"],
+  });
+  const ledger=fakeBlobStore();
+  const rows=[{
+    _id:customerId,name:b.name,email:b.email,status:"active",
+    address:{addressDescription:b.address},
+  }];
+  const settings={
+    ledger,existingRows:rows,existingCustomer:{address:{text:b.address},jobs:[]},
+  };
+  const first=makeHarness(b,settings);
+  const second=makeHarness(later,settings);
+  assert.equal((await first.run()).status,"completed");
+  const blocked=await second.run();
+  assert.equal(blocked.status,"held");
+  assert.equal(blocked.reason,"property_bin_already_claimed_or_uncertain");
+  assert.equal(second.posts.length,0);
+  assert.equal(first.posts.length,1);
+  assert.notEqual(jobKey(b,{type:"Brown Bin",planId:"domestic_4w",date:"2026-11-16"}),
+    jobKey(later,{type:"Brown Bin",planId:"domestic_4w",date:"2026-11-17"}));
+  assert.equal(activeBinKey(b,b.bins[0]),activeBinKey(later,later.bins[0]));
+});
+
+test("duplicate bin colour lines are held before any claim or Squeegee POST",async()=>{
+  const b=sampleBooking({
+    bins:[
+      {type:"Brown Bin",planId:"domestic_4w",count:1},
+      {type:"Brown Bin",planId:"domestic_oneoff",count:1},
+    ],
+    dates:["2026-11-16","2026-11-16"],
+  });
+  const h=makeHarness(b);
+  const result=await h.run();
+  assert.equal(result.status,"held");
+  assert.equal(result.reason,"duplicate_bin_types_in_same_booking");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
