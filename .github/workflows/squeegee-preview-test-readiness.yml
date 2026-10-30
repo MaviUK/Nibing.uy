@@ -33,7 +33,7 @@ jobs:
               except Exception:
                   code=0
                   body={}
-              if code==200 and body.get("readOnly") is True:
+              if code==200 and body.get("readOnly") is True and "modernScopeValid" in (body.get("checks") or {}):
                   checks=body.get("checks") or {}
                   for name,value in sorted(checks.items()):
                       print(name+":", "PASS" if value else "FAIL")
