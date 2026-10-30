@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/squeegee-preview-build-smoke.yml
       - src/LandingPage.jsx
+      - scripts/hardenBookingSubmissions.cjs
       - netlify/functions/squeegeePreviewTest.mjs
       - netlify/functions/squeegeePreviewTestSubmit.mjs
       - netlify/functions/lib/squeegeePreviewTestSession.js
