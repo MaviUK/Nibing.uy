@@ -110,7 +110,7 @@ async function getDiagnostic(bookingId) {
   const oneJob=shadow.record?.bookingId===bookingId?
     shadow.record.jobs?.[0]:null;
   const firstClean=typeof oneJob?.date==="string"&&
-    /^\\d{4}-\\d{2}-\\d{2}$/.test(oneJob.date)?oneJob.date:null;
+    /^\d{4}-\d{2}-\d{2}$/.test(oneJob.date)?oneJob.date:null;
   const round=Number.isInteger(oneJob?.roundNumber) &&
     oneJob.roundNumber>=1 && oneJob.roundNumber<=20?
     oneJob.roundNumber:null;
