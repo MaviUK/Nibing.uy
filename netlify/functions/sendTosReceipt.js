@@ -3,6 +3,7 @@
 // the booking is never lost just because the council/round lookup could not match.
 const { Resend } = require("resend");
 const { signBooking } = require("./lib/arcadeBookingProof");
+const { autoEnrollBooking } = require("./arcadeLeaderboard");
 const { handler: sendAutomaticBookingConfirmation } = require("./sendAutomaticBookingConfirmation");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 
@@ -230,10 +231,23 @@ exports.handler = async (event) => {
     } catch (_) {}
 
     if (confirmationResponse?.statusCode >= 200 && confirmationResponse?.statusCode < 300) {
+      // WhatsApp opens immediately on Android. Complete the global score
+      // enrolment on the server, then return the player token with the booking
+      // status when the customer revisits the confirmation screen.
+      let arcadeEntry = null;
+      try {
+        arcadeEntry = await autoEnrollBooking(payload);
+      } catch (error) {
+        // Leaderboard failures must never undo an accepted cleaning booking.
+        console.warn("WhatsApp arcade auto-enrolment unavailable:", error?.message || "unknown");
+      }
       await setBookingStatus(payload.bookingId, "confirmed", {
         automatic: Boolean(confirmationBody?.automatic),
         schedule: confirmationBody?.schedule || schedule || null,
         arcadeBookingProof: signBooking(payload),
+        arcadeRegistered: Boolean(arcadeEntry?.registered),
+        arcadePlayerToken: arcadeEntry?.playerToken || null,
+        arcadeDisplayName: arcadeEntry?.displayName || null,
       });
     } else if (
       confirmationResponse?.statusCode === 409 &&
