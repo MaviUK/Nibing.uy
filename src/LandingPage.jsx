@@ -644,6 +644,14 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const [showTerms, setShowTerms] = useState(false);
   const [termsViewed, setTermsViewed] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  // Lock immediately on the first tap, before schedule/CAPTCHA/email awaits.
+  // Keep the same random booking reference for this attempt to avoid duplicates.
+  const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);
+  const [emailSendingStage, setEmailSendingStage] = useState("checking");
+  const [emailBookingError, setEmailBookingError] = useState("");
+  const [emailBookingUncertain, setEmailBookingUncertain] = useState(false);
+  const emailSubmissionInFlightRef = useRef(false);
+  const emailSubmissionRef = useRef(null);
   const [whatsAppBookingStatus, setWhatsAppBookingStatus] = useState("idle");
   const [whatsAppConfirmation, setWhatsAppConfirmation] = useState(null);
   const [whatsAppBookingId, setWhatsAppBookingId] = useState("");
@@ -833,6 +841,8 @@ function BookingForm({ onClose, initialAddress = "" }) {
   };
 
   const handleSendWhatsApp = async () => {
+    // An email booking already in progress must not also open WhatsApp.
+    if (emailSubmissionInFlightRef.current || whatsAppBookingStatus !== "idle") return;
     if (missingFields) {
       alert("Please complete all fields before sending.");
       return;
@@ -950,6 +960,11 @@ function BookingForm({ onClose, initialAddress = "" }) {
   };
 
   const handleSendEmail = async () => {
+    // A React state update is not synchronous; the ref blocks a second tap
+    // even before the disabled button has had time to render.
+    if (emailSubmissionInFlightRef.current || emailBookingUncertain ||
+        whatsAppBookingStatus !== "idle") return;
+
     if (missingFields) {
       alert("Please complete all fields before sending.");
       return;
@@ -963,96 +978,131 @@ function BookingForm({ onClose, initialAddress = "" }) {
       return;
     }
     if (normalizeCode(discountCode) && discountStatus.state !== "valid") {
-      alert("That discount code isn’t valid for your selected clean(s).");
+      alert("That discount code isn't valid for your selected clean(s).");
       return;
     }
 
-    if (typeof window.nbgEnsureBookingSchedule === "function") {
-      await window.nbgEnsureBookingSchedule();
-    }
+    // Preserve one reference for this booking. If the request reaches Netlify
+    // twice, the server's replay guard rejects the second delivery.
+    emailSubmissionInFlightRef.current = true;
+    const emailSubmissionMeta = emailSubmissionRef.current || createBookingSubmissionMeta();
+    emailSubmissionRef.current = emailSubmissionMeta;
+    setIsEmailSubmitting(true);
+    setEmailSendingStage("checking");
+    setEmailBookingError("");
+    let safeToRetry = false;
+    let requestTimer = null;
 
-    // Production still uses reCAPTCHA v3. Preview 1 has an isolated
-    // one-use, signed security challenge because the key does not validate
-    // reliably on the deploy-preview hostname.
-    const recaptchaAction = "booking_submit";
-    let recaptchaToken = null;
-    let previewProof = null;
-    if (window.location.hostname === N64_BOOKING_PREVIEW_HOST) {
-      try {
+    try {
+      // The booking schedule is informative and must not leave a customer
+      // staring at an unresponsive Send button if its lookup hangs.
+      if (typeof window.nbgEnsureBookingSchedule === "function") {
+        try {
+          await Promise.race([
+            Promise.resolve().then(() => window.nbgEnsureBookingSchedule()),
+            new Promise((resolve) => window.setTimeout(resolve, 5500)),
+          ]);
+        } catch (_) {
+          console.warn("Booking schedule unavailable; date will be confirmed separately.");
+        }
+      }
+
+      setEmailSendingStage("verifying");
+      const recaptchaAction = "booking_submit";
+      let recaptchaToken = null;
+      let previewProof = null;
+      if (window.location.hostname === N64_BOOKING_PREVIEW_HOST) {
         previewProof = await getPreviewBookingProof();
-      } catch (error) {
-        console.warn("Preview security check unavailable:", error?.message);
-        alert("The preview booking security check could not be completed. Please try again in a moment.");
+      } else {
+        recaptchaToken = await getRecaptchaToken(recaptchaAction);
+        if (!recaptchaToken) throw new Error("security_not_ready");
+      }
+
+      const loc = selectedPlaceRef.current?.geometry?.location;
+      const lat = loc ? loc.lat() : null;
+      const lng = loc ? loc.lng() : null;
+
+      setEmailSendingStage("sending");
+      const requestController = new AbortController();
+      requestTimer = window.setTimeout(() => requestController.abort(), 45000);
+      const res = await fetch("/.netlify/functions/sendBookingEmail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: requestController.signal,
+        body: JSON.stringify({
+          ...emailSubmissionMeta,
+          name,
+          email,
+          phone,
+          address,
+          bins,
+          arcadeClaimed: window.n64Score?.activityKeys?.() || [],
+          arcadeOptOut,
+          placeId,
+          lat,
+          lng,
+          discountCode: normalizeCode(discountCode) || null,
+          pricing,
+          termsAccepted: true,
+          termsVersion: TERMS_VERSION,
+          termsAcceptanceText: TOS_PREFIX,
+          recaptchaToken,
+          previewProof,
+          recaptchaAction,
+        }),
+      });
+
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // These failures are rejected before any email send, so it's safe
+        // to create a new security ticket and let the visitor try again.
+        safeToRetry = [400, 401, 403, 422, 429].includes(res.status);
+        const message = res.status === 403
+          ? "The booking security check was not accepted. Nothing was sent; please try again."
+          : res.status === 429
+            ? "Too many booking attempts. Please leave a little time before trying again."
+            : res.status === 409
+              ? "This booking reference was already submitted. Check your confirmation email before trying again."
+              : safeToRetry
+                ? "Your booking wasn't submitted. Please check the details and try again."
+                : "We couldn't confirm the booking. Please check your email before trying again, to avoid a duplicate.";
+        setEmailBookingError(message);
+        if (!safeToRetry) setEmailBookingUncertain(true);
         return;
       }
-    } else {
-      recaptchaToken = await getRecaptchaToken(recaptchaAction);
-      if (!recaptchaToken) {
-        alert("Anti-bot check not ready. Please try again in a moment.");
-        return;
+
+      // Emails have been accepted by Netlify. One booking ID earns points once.
+      try {
+        window.n64Score?.awardBooking(emailSubmissionMeta.bookingId, bins);
+        window.n64Score?.onBookingConfirmed(result, arcadeOptOut, emailSubmissionMeta.bookingId);
+      } catch (scoreError) {
+        console.warn("Arcade score sync deferred; booking succeeded:", scoreError);
       }
+      setWhatsAppConfirmation({
+        ...result,
+        bookingId: result.bookingId || emailSubmissionMeta.bookingId,
+        source: "email",
+        schedule: null,
+      });
+      setWhatsAppBookingStatus("confirmed");
+      // Intentionally keep the submission ref locked after a successful send.
+    } catch (error) {
+      console.warn("Booking email request was not completed:", error?.name || "unknown");
+      if (error?.message === "security_not_ready" ||
+          /preview security|security challenge|security check|security verification/i.test(error?.message || "")) {
+        safeToRetry = true;
+        setEmailBookingError("The security check could not be completed. No email was sent; please try again.");
+      } else {
+        setEmailBookingUncertain(true);
+        setEmailBookingError(
+          "We couldn't confirm whether the email was sent. Check your inbox before booking again, or contact NI Bin Guy."
+        );
+      }
+    } finally {
+      if (requestTimer) window.clearTimeout(requestTimer);
+      setIsEmailSubmitting(false);
+      if (safeToRetry) emailSubmissionInFlightRef.current = false;
     }
-
-    const loc = selectedPlaceRef.current?.geometry?.location;
-    const lat = loc ? loc.lat() : null;
-    const lng = loc ? loc.lng() : null;
-
-   try {
-  const emailSubmissionMeta = createBookingSubmissionMeta();
-  // 1) Send your original booking email first
-  const res = await fetch("/.netlify/functions/sendBookingEmail", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ...emailSubmissionMeta,
-      name,
-      email,
-      phone,
-      address,
-      bins,
-      arcadeClaimed: window.n64Score?.activityKeys?.() || [],
-      arcadeOptOut,
-      placeId,
-      lat,
-      lng,
-      discountCode: normalizeCode(discountCode) || null,
-      pricing,
-      termsAccepted: true,
-      termsVersion: TERMS_VERSION,
-      termsAcceptanceText: TOS_PREFIX,
-      recaptchaToken,
-      previewProof,
-      recaptchaAction,
-    }),
-  });
-
-  if (!res.ok) {
-    const errorDetails = await res.json().catch(() => ({}));
-    console.warn("Booking request was not confirmed:", res.status, errorDetails?.reason || errorDetails?.error || "unknown");
-    if (res.status === 403) {
-      alert("The booking security check was not accepted. No confirmation was sent. Please try again.");
-    } else if (res.status === 409) {
-      alert("This booking reference has already been used. Check your confirmation email before making another booking.");
-    } else if (res.status === 429) {
-      alert("Too many booking attempts. Please try again a little later.");
-    } else {
-      alert("We couldn't confirm whether the booking was received. Please check your email before trying again to avoid a duplicate.");
-    }
-    return;
-  }
-
-  // The server accepted the booking email. Award XP per requested bin/plan.
-  window.n64Score?.awardBooking(emailSubmissionMeta.bookingId, bins);
-  const acceptedBooking = await res.json().catch(() => ({}));
-  // The server has enrolled this booking automatically if it was not opted out.
-  // Attach the signed player token to the existing first-party XP cookie.
-  window.n64Score?.onBookingConfirmed(acceptedBooking, arcadeOptOut, emailSubmissionMeta.bookingId);
-  setWhatsAppConfirmation({ ...acceptedBooking, source: "email", schedule: null });
-  setWhatsAppBookingStatus("confirmed");
-} catch (err) {
-  console.error(err);
-  alert("Error sending booking.");
-}
   };
 
   if (whatsAppBookingStatus === "confirmed") {
