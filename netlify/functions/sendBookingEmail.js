@@ -7,6 +7,7 @@ const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
 const { validateBookingSubmission, claimBookingSubmission, submissionErrorResponse } = require("./lib/bookingSubmissionGuard");
 const { stageWithoutBlockingBooking } = require("./lib/squeegeeBookingStage");
+const { dispatchAcceptedBooking } = require("./lib/squeegeePreviewAutoDispatch");
 
 // Optional audit logging. If Netlify Blobs is unavailable, logging is skipped.
 let getStoreSafe = null;
@@ -396,6 +397,20 @@ exports.handler = async (event) => {
       await stageWithoutBlockingBooking(payload, { channel: "email" });
     } catch (_) {
       console.warn("Read-only Squeegee booking preparation unavailable");
+    }
+
+    // Preview 1 only: notify the signed modern Squeegee worker AFTER a
+    // successful admin booking email and normal leaderboard processing.
+    // Never change the existing confirmation result if syncing is unavailable.
+    try {
+      const dispatched=await dispatchAcceptedBooking(payload,{
+        channel:"email",eventHost:String(event?.headers?.host||event?.headers?.Host||"").toLowerCase(),
+      });
+      if(dispatched.reason==="dispatch_uncertain_reconcile") {
+        console.warn("Preview 1 Squeegee dispatch uncertain; do not automatically retry");
+      }
+    } catch {
+      console.warn("Preview 1 Squeegee dispatch unavailable");
     }
 
     const durationMs = Date.now() - startedAt;
