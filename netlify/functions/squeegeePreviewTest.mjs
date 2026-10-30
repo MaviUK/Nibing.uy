@@ -17,9 +17,9 @@ async function sendOwnerTestCode({to,code}) {
     to,
     subject:"NI Bin Guy - Preview 1 Squeegee one-booking test code",
     text:"Your one-time Squeegee test access code is: "+code+
-      "\\n\\nEnter it into the Preview 1 test page within 15 minutes."+
-      "\\nThis only authorises ONE supervised TEST booking, not live customer imports."+
-      "\\nIf you did not request this, ignore the email.",
+      "\n\nEnter it into the Preview 1 test page within 15 minutes."+
+      "\nThis only authorises ONE supervised TEST booking, not live customer imports."+
+      "\nIf you did not request this, ignore the email.",
   });
   if(result?.error) throw new Error("owner_code_email_unavailable");
 }
