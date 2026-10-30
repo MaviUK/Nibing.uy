@@ -29,12 +29,14 @@ const env={
 const customerId="33333333-3333-4333-8333-333333333333";
 const brownService="11111111-1111-4111-8111-111111111111";
 const blackService="11111111-1111-4111-8111-111111111112";
+const blueService="11111111-1111-4111-8111-111111111114";
 const brownOneOffService="11111111-1111-4111-8111-111111111113";
 const group1="22222222-2222-4222-8222-222222222221";
 const group2="22222222-2222-4222-8222-222222222222";
 const accountServices=[
   {id:brownService,description:"Brown"},
   {id:blackService,description:"Black"},
+  {id:blueService,description:"Blue"},
   {id:brownOneOffService,description:"(One Off) Brown"},
 ];
 const accountGroups=[
@@ -830,4 +832,218 @@ test("inactive Squeegee customer is never silently reactivated by existing accou
     assert.equal(h.posts.length,0);
     assert.equal(h.ledger.records.size,0);
   }
+});
+
+
+test("two domestic bins with the same verified date and recurrence make ONE £10 Squeegee job with two services",async()=>{
+  const b=sampleBooking({
+    bins:[
+      {type:"Brown Bin",planId:"domestic_4w",count:1},
+      {type:"Black Bin",planId:"domestic_4w",count:1},
+    ],
+    dates:["2026-11-16","2026-11-16"],
+  });
+  const h=makeHarness(b);
+  const result=await h.run();
+  assert.equal(result.status,"completed");
+  assert.equal(result.createdCustomer,true);
+  assert.equal(result.createdJobs,1);
+  assert.equal(result.binServices,2);
+  const jobs=h.posts.filter(x=>x.kind==="job");
+  assert.equal(h.posts.filter(x=>x.kind==="customer").length,1);
+  assert.equal(jobs.length,1);
+  assert.equal(jobs[0].job.date,"2026-11-16");
+  assert.equal(jobs[0].job.firstAppointment.initialDate,"2026-11-16");
+  assert.equal(jobs[0].job.jobGroup,group1);
+  assert.equal(jobs[0].job.frequencyType,"weeks");
+  assert.equal(jobs[0].job.frequencyInterval,4);
+  assert.equal(jobs[0].job.price,10);
+  assert.deepEqual(jobs[0].job.services,[brownService,blackService]);
+  assert.match(jobs[0].job.notes,/1 x Brown Bin \+ 1 x Black Bin/);
+  assert.deepEqual(h.statuses.at(-1).binsPerJob,[2]);
+  assert.deepEqual(h.statuses.at(-1).firstCleanDates,["2026-11-16"]);
+  assert.deepEqual(h.statuses.at(-1).rounds,[1]);
+  for(const bin of b.bins) {
+    assert.equal(h.ledger.records.get(activeBinKey(b,bin))?.value?.state,"succeeded");
+    assert.equal(h.ledger.records.get(jobKey(b,{
+      date:"2026-11-16",type:bin.type,planId:bin.planId,
+    }))?.value?.state,"succeeded");
+  }
+  const retry=await h.run();
+  assert.equal(retry.status,"held");
+  assert.equal(h.posts.length,2);
+});
+
+test("three bins with two on Monday and one on Tuesday create TWO jobs, never three",async()=>{
+  const b=sampleBooking({
+    bins:[
+      {type:"Brown Bin",planId:"domestic_4w",count:1},
+      {type:"Black Bin",planId:"domestic_4w",count:1},
+      {type:"Blue Bin",planId:"domestic_4w",count:1},
+    ],
+    dates:["2026-11-16","2026-11-16","2026-11-17"],
+  });
+  const h=makeHarness(b);
+  const result=await h.run();
+  assert.equal(result.status,"completed");
+  assert.equal(result.createdJobs,2);
+  assert.equal(result.binServices,3);
+  const posts=h.posts.filter(x=>x.kind==="job");
+  assert.equal(posts.length,2);
+  assert.deepEqual(posts.map(x=>x.job.services),[
+    [brownService,blackService],[blueService],
+  ]);
+  assert.deepEqual(posts.map(x=>x.job.price),[10,5]);
+  assert.deepEqual(posts.map(x=>x.job.date),["2026-11-16","2026-11-17"]);
+  assert.deepEqual(posts.map(x=>x.job.jobGroup),[group1,group2]);
+  assert.deepEqual(h.statuses.at(-1).binsPerJob,[2,1]);
+});
+
+test("same date but different recurrence cannot be merged into one Squeegee job",async()=>{
+  const b=sampleBooking({
+    bins:[
+      {type:"Brown Bin",planId:"domestic_oneoff",count:1},
+      {type:"Black Bin",planId:"domestic_4w",count:1},
+    ],
+    dates:["2026-11-16","2026-11-16"],
+  });
+  const h=makeHarness(b);
+  const result=await h.run();
+  assert.equal(result.status,"completed");
+  assert.equal(result.createdJobs,2);
+  const posts=h.posts.filter(x=>x.kind==="job");
+  assert.equal(posts.length,2);
+  assert.deepEqual(posts.map(p=>p.job.price),[15,5]);
+  assert.deepEqual(posts.map(p=>p.job.frequencyType),["adhoc","weeks"]);
+  assert.equal(posts[0].job.frequencyInterval,undefined);
+  assert.equal(posts[1].job.frequencyInterval,4);
+  assert.deepEqual(posts.map(p=>p.job.services),[
+    [brownOneOffService],[blackService],
+  ]);
+});
+
+test("same-day mixed-bin 7-for-6 discount stays £30 in one job, not £35",async()=>{
+  const b=sampleBooking({
+    bins:[
+      {type:"Brown Bin",planId:"domestic_4w",count:4},
+      {type:"Black Bin",planId:"domestic_4w",count:3},
+    ],
+    dates:["2026-11-16","2026-11-16"],
+  });
+  assert.equal(b.pricing.total,30);
+  assert.equal(b.pricing.multiBuyFreeBins,1);
+  const h=makeHarness(b);
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdJobs,1);
+  const job=h.posts.filter(x=>x.kind==="job")[0].job;
+  assert.equal(job.price,30);
+  assert.deepEqual(job.services,[brownService,blackService]);
+  assert.match(job.notes,/4 x Brown Bin \+ 3 x Black Bin/);
+});
+
+test("existing customer receives one combined new-bin job without modifying their existing other service",async()=>{
+  const b=sampleBooking({
+    bins:[
+      {type:"Brown Bin",planId:"domestic_4w",count:1},
+      {type:"Black Bin",planId:"domestic_4w",count:1},
+    ],
+    dates:["2026-11-16","2026-11-16"],
+  });
+  const customerRow={
+    _id:customerId,name:b.name,email:b.email,status:"active",
+    address:{addressDescription:b.address},
+  };
+  const oldJobs=[{services:[blueService]}];
+  const h=makeHarness(b,{
+    existingRows:[customerRow],
+    existingCustomer:{address:{text:b.address},jobs:oldJobs},
+  });
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,false);
+  assert.equal(r.createdJobs,1);
+  assert.equal(h.posts.length,1);
+  assert.equal(h.posts[0].id,customerId);
+  assert.deepEqual(h.posts[0].job.services,[brownService,blackService]);
+  assert.deepEqual(oldJobs,[{services:[blueService]}]);
+});
+
+test("existing customer with one selected bin already present holds the entire same-date bundle",async()=>{
+  const b=sampleBooking({
+    bins:[
+      {type:"Brown Bin",planId:"domestic_4w",count:1},
+      {type:"Black Bin",planId:"domestic_4w",count:1},
+    ],
+    dates:["2026-11-16","2026-11-16"],
+  });
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,name:b.name,email:b.email,status:"active",
+      address:{addressDescription:b.address},
+    }],
+    existingCustomer:{
+      address:{text:b.address},jobs:[{services:[brownService]}],
+    },
+  });
+  const r=await h.run();
+  assert.equal(r.status,"held");
+  assert.equal(r.reason,"existing_job_for_selected_bin_requires_review");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
+
+test("ambiguous same-day bundled POST locks both services; no automatic retry",async()=>{
+  const b=sampleBooking({
+    bins:[
+      {type:"Brown Bin",planId:"domestic_4w",count:1},
+      {type:"Black Bin",planId:"domestic_4w",count:1},
+    ],
+    dates:["2026-11-16","2026-11-16"],
+  });
+  const h=makeHarness(b,{jobErrorAt:1});
+  const r=await h.run();
+  assert.equal(r.status,"requires_reconciliation");
+  assert.equal(h.posts.filter(x=>x.kind==="customer").length,1);
+  const posted=h.posts.filter(x=>x.kind==="job");
+  assert.equal(posted.length,1);
+  assert.deepEqual(posted[0].job.services,[brownService,blackService]);
+  assert.equal(h.statuses.at(-1).jobCount,1);
+  assert.equal(h.statuses.at(-1).binServicesPlanned,2);
+  for(const bin of b.bins) {
+    assert.equal(h.ledger.records.get(activeBinKey(b,bin))?.value?.state,
+      "requires_reconciliation");
+    assert.equal(h.ledger.records.get(jobKey(b,{
+      date:"2026-11-16",type:bin.type,planId:bin.planId,
+    }))?.value?.state,"requires_reconciliation");
+  }
+  assert.equal((await h.run()).status,"held");
+  assert.equal(h.posts.length,2);
+});
+
+test("grouping rejects a malformed or duplicate service plan before a real job POST",async()=>{
+  const {groupedSqueegeeJobs}=
+    require("../netlify/functions/lib/squeegeeJobGrouping");
+  const base={
+    index:0,status:"ready",bin:"Brown Bin",quantity:1,date:"2026-11-16",
+    input:{
+      date:"2026-11-16",frequencyType:"weeks",frequencyInterval:4,
+      services:[brownService],notes:"Brown",tags:[],
+      firstAppointment:{initialDate:"2026-11-16",tags:[]},
+      price:5,jobGroup:group1,
+    },
+  };
+  assert.throws(()=>groupedSqueegeeJobs([base,{
+    ...base,index:1,bin:"Black Bin",input:{
+      ...base.input,notes:"Black",
+    },
+  }],"NBG-ABCDE-ABCDEFGH"),/Incomplete or inconsistent/);
+  assert.throws(()=>groupedSqueegeeJobs([{
+    ...base,input:{...base.input,price:1.237},
+  }],"NBG-ABCDE-ABCDEFGH"),/Incomplete or inconsistent/);
+  assert.throws(()=>groupedSqueegeeJobs([{
+    ...base,input:{...base.input,firstAppointment:{
+      ...base.input.firstAppointment,initialDate:"2026-11-17",
+    }},
+  }],"NBG-ABCDE-ABCDEFGH"),/Incomplete or inconsistent/);
 });
