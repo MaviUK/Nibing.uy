@@ -62,13 +62,14 @@ async function executeOneApprovedTestBooking(payload, {
   channel="email",
   serverSchedule,
   env=process.env,
+  now=Date.now(),
   deps={},
 }={}) {
   if (!api.isExactPreview1(env) || !env.SQUEEGEE_API_KEY) {
     return privateStatus("not_started", "not_exact_preview_1");
   }
   const cookie = sessionCookieFromHeader(cookieHeader);
-  if (!verifyTestSessionCookie(cookie, env)) {
+  if (!verifyTestSessionCookie(cookie, env, now)) {
     return privateStatus("not_started", "operator_authorization_missing_or_expired");
   }
   const eligibility=isEligibleOneBooking(payload);
@@ -123,7 +124,11 @@ async function executeOneApprovedTestBooking(payload, {
     // Prevent testing an old or distant appointment. Only the customer's
     // immediately assigned upcoming date qualifies.
     const date=job.date;
-    const today=new Date().toLocaleDateString("en-CA",{timeZone:"Europe/London"});
+    const ukParts=new Intl.DateTimeFormat("en-GB",{
+      timeZone:"Europe/London",day:"2-digit",month:"2-digit",year:"numeric",
+    }).formatToParts(new Date(now));
+    const ukDate=Object.fromEntries(ukParts.map(part=>[part.type,part.value]));
+    const today=ukDate.year+"-"+ukDate.month+"-"+ukDate.day;
     if (date < today || Date.parse(date+"T12:00:00Z")-
           Date.parse(today+"T12:00:00Z")>45*24*60*60*1000) {
       await mark("held",{reason:"test_date_outside_45_day_window"});
@@ -184,6 +189,7 @@ async function executeOneApprovedTestBooking(payload, {
       return privateStatus("held","customer_claim_cas_failed");
     }
 
+    let customerPostAttempted=false, jobPostAttempted=false;
     let customerCreated=false, jobCreated=false;
     let customerEtag=customerRunning.etag,jobEtag=jobClaim.etag;
     try {
@@ -194,6 +200,7 @@ async function executeOneApprovedTestBooking(payload, {
           name:("TEST API - "+privatePlan.customerInput.name).slice(0,52),
           notes:"NI Bin Guy PREVIEW 1 Squeegee API TEST - Not a live customer service. Please delete after verification.",
         };
+        customerPostAttempted=true;
         const response=await depsResolved.createCustomer(input);
         customerCreated=true; // Even an unparseable response could mean POST succeeded.
         const id=typeof response==="string" ? response :
@@ -217,6 +224,7 @@ async function executeOneApprovedTestBooking(payload, {
         await mark("creating_job",{
           firstClean:date,round:summary.jobs[0].roundNumber,
         });
+        jobPostAttempted=true;
         await depsResolved.addJob(safeId,job.input);
         jobCreated=true;
         const jobDone=await depsResolved.changeState({
@@ -228,7 +236,7 @@ async function executeOneApprovedTestBooking(payload, {
     } catch {
       // At least one POST may have succeeded. Preserve ALL claims permanently.
       // No retry, no cleanup/delete and no second test until manual review.
-      if (customerCreated && customerEtag) {
+      if (customerPostAttempted && customerEtag) {
         await depsResolved.changeState({
           key:customer.key,etag:customerEtag,bookingId,
           state:"requires_reconciliation",
@@ -245,8 +253,8 @@ async function executeOneApprovedTestBooking(payload, {
         state:"requires_reconciliation",
       });
       await mark("requires_reconciliation",{
-        customerCreationMayHaveSucceeded:customerCreated,
-        jobCreationMayHaveSucceeded:jobCreated,
+        customerCreationMayHaveSucceeded:customerPostAttempted,
+        jobCreationMayHaveSucceeded:jobPostAttempted,
       });
       return privateStatus("requires_reconciliation","do_not_retry_check_squeegee");
     }
@@ -284,7 +292,6 @@ async function scheduleOneApprovedTestAfterBooking(payload,{
   // after responding could silently terminate an in-progress Squeegee POST.
   let context;
   try {
-    ({getContext:()=>context} = {getContext:require("@netlify/functions").getContext});
     context=require("@netlify/functions").getContext();
   } catch { return {scheduled:false,reason:"post_response_worker_unavailable"}; }
   if(typeof context?.waitUntil!=="function") {
