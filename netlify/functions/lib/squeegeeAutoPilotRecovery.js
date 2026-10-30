@@ -96,15 +96,6 @@ async function inspectAcceptedPilot(bookingId,{
   const booking={...original.record,submittedAt:new Date(now).toISOString()};
   if(!rollout.isPilotBooking(booking,"email"))
     return stopped("booking_changed_since_acceptance");
-  if(!auto.canAutoSync(process.env,{
-      hostname:"deploy-preview-77--nibinguy.netlify.app",
-      deployContext:"deploy-preview",
-      siteId:"d63c829f-3ed7-48e9-9633-a042de3f2e84",
-    })) {
-    // For unit tests, the injected env may be absent; only the actual
-    // authenticated route uses its real Netlify process environment.
-    // Do not grant write access from this read-only helper.
-  }
 
   let existingStatus,globalClaim,bookingClaim,propertyClaim;
   try {
