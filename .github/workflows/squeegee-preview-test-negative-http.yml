@@ -1,0 +1,40 @@
+name: Verify unauthorised Squeegee test POST is blocked (Preview 1 only)
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/squeegee-preview-test-negative-http.yml
+
+permissions:
+  contents: read
+
+jobs:
+  block-unauthorised-preview-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Verify one-shot Squeegee test endpoint rejects all requests without owner cookie
+        shell: python
+        run: |
+          import json,urllib.request,urllib.error,time
+          url="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-test-submit"
+          payload=json.dumps({"booking":{"bookingId":"NBG-FAKE1-NOTVALID"},
+                              "bookingProof":"forged"}).encode()
+          for attempt in range(1,12):
+              req=urllib.request.Request(url,data=payload,method="POST",
+                  headers={"Content-Type":"application/json","Accept":"application/json"})
+              try:
+                  with urllib.request.urlopen(req,timeout=25) as response:
+                      status=response.status
+              except urllib.error.HTTPError as exc:
+                  status=exc.code
+              except Exception:
+                  status=0
+              if status==403:
+                  print("UNAUTHORISED_TEST_WRITE_BLOCKED:",True)
+                  break
+              print("Attempt",attempt,"status",status)
+              if status not in (0,404,502,503): raise SystemExit("Unexpected test POST status")
+              if attempt==11: raise SystemExit("Preview test endpoint failed to block public POST")
+              time.sleep(8)
