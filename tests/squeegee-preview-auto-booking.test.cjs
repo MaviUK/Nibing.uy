@@ -1151,3 +1151,120 @@ test("authoritative customer name mismatch after list match prevents appending a
   assert.equal(h.posts.length,0);
   assert.equal(h.ledger.records.size,0);
 });
+
+
+test("successful return booking surfaces all duplicate flags in status and sends one informational owner alert",async()=>{
+  const b=sampleBooking();
+  const sent=[];
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,name:b.name,email:"older@example.org",
+      phoneNumber:"02891469999",status:"active",
+      address:{addressDescription:b.address},
+    }],
+    existingCustomer:{name:b.name,status:"active",
+      address:{text:b.address},jobs:[]},
+    deps:{duplicateAlert:async(id,flags)=>{
+      sent.push({id,flags});return{sent:true};
+    }},
+  });
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,false);
+  assert.equal(r.createdJobs,1);
+  assert.equal(h.posts.length,1);
+  assert.equal(sent.length,1);
+  assert.equal(sent[0].id,b.bookingId);
+  assert.deepEqual(sent[0].flags,[
+    "address_already_registered","same_name_address_contact_changed",
+  ]);
+  assert.deepEqual(h.statuses.at(-1).duplicateFlags,sent[0].flags);
+  assert.deepEqual(r.duplicateFlags,sent[0].flags);
+});
+
+test("email used at a second property is flagged but allowed to create its own address-specific customer",async()=>{
+  const b=sampleBooking();
+  const sent=[];
+  const row={
+    _id:customerId,name:b.name,email:b.email,
+    phoneNumber:"07700900000",status:"active",
+    address:{addressDescription:"23 Another Drive, Holywood BT18 9ZZ"},
+  };
+  const h=makeHarness(b,{
+    existingRows:[row],
+    deps:{duplicateAlert:async(id,flags)=>{
+      sent.push({id,flags});return {sent:true};
+    }},
+  });
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,true);
+  assert.equal(r.createdJobs,1);
+  assert.equal(h.posts[0].kind,"customer");
+  assert.match(h.posts[0].input.notes,/Additional service property/);
+  assert.deepEqual(h.statuses.at(-1).duplicateFlags,[
+    "email_already_registered","email_used_at_other_property",
+  ]);
+  assert.equal(sent.length,1);
+});
+
+test("different customer at the same address is held, with address duplicate flags in the owner hold alert",async()=>{
+  const b=sampleBooking();
+  const sent=[],normalNotices=[];
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,name:"Another Resident",
+      email:"other@example.org",phoneNumber:"07700900000",
+      status:"active",address:{addressDescription:b.address},
+    }],
+    deps:{
+      alert:async(id,reason,extra)=>{normalNotices.push({id,reason,extra});},
+      duplicateAlert:async(...args)=>{sent.push(args);},
+    },
+  });
+  const r=await h.run();
+  assert.equal(r.status,"held");
+  assert.equal(r.reason,"customer_match_ambiguous_or_incomplete");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+  assert.equal(normalNotices.length,1);
+  assert.deepEqual(normalNotices[0].extra.duplicateFlags,[
+    "address_already_registered","address_registered_to_other_name",
+  ]);
+  assert.equal(sent.length,0);
+  assert.deepEqual(h.statuses.at(-1).duplicateFlags,
+    normalNotices[0].extra.duplicateFlags);
+});
+
+test("informational duplicate alert delivery failures never turn a successful Squeegee import into a retry",async()=>{
+  const b=sampleBooking();
+  let attempts=0;
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,name:b.name,email:b.email,
+      address:{addressDescription:b.address},status:"active",
+    }],
+    deps:{duplicateAlert:async()=>{attempts++;
+      throw new Error("fake email failure");}},
+  });
+  const result=await h.run();
+  assert.equal(result.status,"completed");
+  assert.equal(result.createdJobs,1);
+  assert.equal(attempts,1);
+  assert.equal(h.posts.length,1);
+  assert.equal(h.ledger.records.get(BOOKING_CLAIM_PREFIX+b.bookingId)?.value?.state,
+    "succeeded");
+});
+
+test("unique new customer with no repeated information sends no informational duplicate email",async()=>{
+  const b=sampleBooking();
+  let duplicateEmails=0;
+  const h=makeHarness(b,{
+    deps:{duplicateAlert:async()=>{duplicateEmails++;}},
+  });
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.deepEqual(r.duplicateFlags,[]);
+  assert.equal(duplicateEmails,0);
+  assert.deepEqual(h.statuses.at(-1).duplicateFlags,[]);
+});
