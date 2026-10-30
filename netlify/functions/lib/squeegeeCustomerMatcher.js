@@ -4,8 +4,9 @@
  * Pure customer matching rules for the Squeegee v3 CustomerPage response.
  * No network access, and no record creation. Exact normalized address
  * AND full customer name is enough to identify an existing account even when
- * the submitted email/phone has changed. Existing contact/reference matching
- * remains supported; conflicts, duplicates and uncertain addresses hold.
+ * the submitted email/phone has changed. A different service property may
+ * reuse the SAME customer only when full name, email AND phone all match.
+ * Conflicts, duplicate identities and uncertain addresses hold for review.
  */
 const { normalizedPostcode, externalCustomerReference } = require("./squeegeeBookingPlan");
 const { requireUuid } = require("./squeegeeApiV3");
@@ -78,6 +79,15 @@ function matchCustomers(booking, customerList) {
   const wantedPhone=normalPhone(booking.phone);
   const rows=customerList.filter(x=>x && typeof x==="object" &&
     typeof x._id==="string");
+  // Different properties under one person are not necessarily different
+  // customers. Require ALL three independently supplied identity fields,
+  // never just an email (which can be shared by landlords or families).
+  const identityMatches=rows.filter(c=>wantedName && wantedEmail &&
+    wantedPhone.length>=10 && normalName(c.name)===wantedName &&
+    normalEmail(c.email)===wantedEmail &&
+    [c.phoneNumber,c.phoneNumberOther].some(v=>normalPhone(v)===wantedPhone));
+  if(identityMatches.length>1)
+    return {status:"needs_review",reason:"multiple_exact_customer_identities"};
 
   const byRef=rows.filter(c=>String(c._externalId||"")===externalRef);
   if(byRef.length>1)
@@ -99,6 +109,8 @@ function matchCustomers(booking, customerList) {
     );
     if(nearDuplicate)
       return {status:"needs_review",reason:"possible_existing_address"};
+    if(identityMatches.length===1)
+      return checkedCustomer(identityMatches[0],"exact_identity_other_property");
     return {status:"not_found"};
   }
 
@@ -119,6 +131,10 @@ function matchCustomers(booking, customerList) {
   if(nameMatches.length===1 && contactMatches.length===1 &&
      nameMatches[0]._id!==contactMatches[0]._id)
     return {status:"needs_review",reason:"conflicting_name_and_contact_matches"};
+  // A previously duplicated Squeegee account at this property must not
+  // silently supersede the original account with the same complete identity.
+  if(identityMatches.length===1 && addressKey(identityMatches[0].address)!==wantedKey)
+    return {status:"needs_review",reason:"conflicting_property_and_identity_accounts"};
   // If a reference identifies a DIFFERENT row at the same property, hold.
   if(byRef.length===1 &&
      ((nameMatches.length===1 && nameMatches[0]._id!==byRef[0]._id) ||
@@ -224,9 +240,9 @@ async function matchCustomersAcrossPages(booking, listPage, { maxPages = 40 } = 
       const samePhone=wantedPhone.length>=10 &&
         [row.phoneNumber,row.phoneNumberOther]
           .some(p=>normalPhone(p)===wantedPhone);
-      // Include cross-postcode email/phone matches in a complete, deduplicated
-      // scan. They are flags only and cannot turn a different property into
-      // an existing customer match.
+      // Scan all pages for cross-property email/phone identity matches,
+      // not just matches at the current service address. Only a unique
+      // full name + email + phone match authorises cross-property reuse.
       if (String(row._externalId || "") === reference ||
           normalizedPostcode(stringValue(row.address)) === targetPost ||
           sameEmail || samePhone) {
@@ -247,8 +263,8 @@ async function matchCustomersAcrossPages(booking, listPage, { maxPages = 40 } = 
           [row.phoneNumber,row.phoneNumberOther].some(p=>normalPhone(p)===wantedPhone)))
       );
       // Do not expose contact IDs, emails or addresses in the status log.
-      // The new property's Squeegee customer must retain its own address;
-      // no existing account or billing method is changed.
+      // A reused customer keeps its original address and billing details;
+      // the new property must instead be set on the new job.
       return {...result,pagesScanned:page,duplicateFlags,
         relatedContactAtDifferentAddress:
           result.status==="not_found" &&

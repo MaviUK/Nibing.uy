@@ -685,7 +685,7 @@ test("same customer already has that bin under one-off: hold rather than create 
   assert.equal(h.ledger.records.size,0);
 });
 
-test("different property with same email, even same postcode, creates a separate address-specific customer",async()=>{
+test("different property with name and email but no matching phone creates separate customer",async()=>{
   const b=sampleBooking();
   const otherAddress="8 Example Drive, Bangor BT19 7ZW";
   const oldRow={
@@ -705,7 +705,7 @@ test("different property with same email, even same postcode, creates a separate
   assert.equal(h.statuses.at(-1).customerMode,"additional_property");
 });
 
-test("another postcode with same email creates new service address without modifying old customer",async()=>{
+test("another postcode with only matching email creates new service address without modifying old customer",async()=>{
   const b=sampleBooking({modified:x=>({
     ...x,address:"34 Another Street, Newtownards BT23 4LN",
     bookingScheduleSnapshot:{
@@ -731,6 +731,82 @@ test("another postcode with same email creates new service address without modif
   assert.equal(h.posts[1].job.price,5);
 });
 
+test("exact name email and phone across two properties reuses customer with job-specific address",async()=>{
+  const b=sampleBooking({
+    bins:[{type:"Black Bin",planId:"domestic_4w",count:1}],
+  });
+  const oldAddress="34 Ballycrochan Avenue, Bangor BT19 7LA";
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,name:b.name,email:b.email,phoneNumber:b.phone,
+      status:"active",address:{addressDescription:oldAddress},
+    }],
+    existingCustomer:{
+      name:b.name,email:b.email,phoneNumber:b.phone,status:"active",
+      address:{addressDescription:oldAddress},
+      jobs:[{services:[brownService]}],
+    },
+  });
+  const result=await h.run();
+  assert.equal(result.status,"completed");
+  assert.equal(result.createdCustomer,false);
+  assert.equal(result.createdJobs,1);
+  assert.equal(h.posts.length,1);
+  assert.equal(h.posts[0].kind,"job");
+  assert.equal(h.posts[0].id,customerId);
+  assert.deepEqual(h.posts[0].job.jobAddress,{text:b.address});
+  assert.deepEqual(h.posts[0].job.services,[blackService]);
+  assert.equal(h.statuses.at(-1).customerMode,"existing_additional_property");
+});
+test("cross-property full identity must also match authoritative customer detail",async()=>{
+  const b=sampleBooking();
+  const oldAddress="34 Ballycrochan Avenue, Bangor BT19 7LA";
+  const h=makeHarness(b,{
+    existingRows:[{_id:customerId,name:b.name,email:b.email,
+      phoneNumber:b.phone,address:{addressDescription:oldAddress}}],
+    existingCustomer:{name:b.name,email:b.email,
+      phoneNumber:"07700999999",address:{addressDescription:oldAddress},
+      jobs:[]},
+  });
+  const result=await h.run();
+  assert.equal(result.status,"held");
+  assert.equal(result.reason,"existing_customer_identity_unverified");
+  assert.equal(h.posts.length,0);
+});
+test("cross-property existing job with same bin requires verified old job address",async()=>{
+  const b=sampleBooking();
+  const oldAddress="34 Ballycrochan Avenue, Bangor BT19 7LA";
+  const row={_id:customerId,name:b.name,email:b.email,
+    phoneNumber:b.phone,address:{addressDescription:oldAddress}};
+  for(const job of [
+    {services:[brownService]},
+    {services:[brownService],jobAddress:{text:b.address}},
+  ]){
+    const h=makeHarness(b,{
+      existingRows:[row],
+      existingCustomer:{
+        name:b.name,email:b.email,phoneNumber:b.phone,
+        address:{addressDescription:oldAddress},jobs:[job],
+      },
+    });
+    const result=await h.run();
+    assert.equal(result.status,"held");
+    assert.equal(result.reason,job.jobAddress?
+      "existing_job_for_selected_bin_requires_review":
+      "cannot_inspect_existing_job_addresses");
+    assert.equal(h.posts.length,0);
+  }
+  const safe=makeHarness(b,{
+    existingRows:[row],
+    existingCustomer:{
+      name:b.name,email:b.email,phoneNumber:b.phone,
+      address:{addressDescription:oldAddress},
+      jobs:[{services:[brownService],jobAddress:{text:oldAddress}}],
+    },
+  });
+  assert.equal((await safe.run()).status,"completed");
+  assert.deepEqual(safe.posts[0].job.jobAddress,{text:b.address});
+});
 test("same number and postcode but a different street never reuses a customer",async()=>{
   const b=sampleBooking();
   const row={_id:customerId,name:b.name,email:b.email,status:"active",

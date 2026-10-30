@@ -15,7 +15,7 @@ const rollout=require("./squeegeePreviewAutoRollout");
 const {prepareReadOnlyBooking}=require("./squeegeeBookingPreparation");
 const {groupedSqueegeeJobs}=require("./squeegeeJobGrouping");
 const {fetchAuthoritativeSchedule}=require("./squeegeeBookingStage");
-const {matchCustomersAcrossPages,addressKey,normalName}=require("./squeegeeCustomerMatcher");
+const {matchCustomersAcrossPages,addressKey,normalName,normalEmail,normalPhone}=require("./squeegeeCustomerMatcher");
 const {resolveSqueegeeServiceIds}=require("./squeegeeServiceCatalog");
 const {normalizedBinType}=require("./squeegeeBookingPlan");
 const {customerKey,jobKey,activeBinKey,claimOnce,changeClaimState}=require("./squeegeeIdempotencyClaims");
@@ -43,7 +43,9 @@ function validUpcomingDate(date,now) {
     Date.parse(today+"T12:00:00Z"))/86400000;
   return Number.isInteger(days) && days>=0 && days<=MAX_DAYS_AHEAD;
 }
-function overlappingJobs(existingJobs,plannedJobs,serviceIds=null) {
+function overlappingJobs(existingJobs,plannedJobs,serviceIds=null,{
+  differentProperty=false,requestedAddress=null,
+}={}) {
   if(!Array.isArray(existingJobs))return "cannot_inspect_existing_jobs";
   const plannedServices=new Set(plannedJobs.flatMap(job=>job.input.services));
   if(serviceIds && typeof serviceIds==="object") {
@@ -78,8 +80,20 @@ function overlappingJobs(existingJobs,plannedJobs,serviceIds=null) {
       }
       try{id=api.requireUuid(id,"existing service ID");}
       catch{return "cannot_inspect_existing_jobs";}
-      if(plannedServices.has(id))
+      if(plannedServices.has(id)) {
+        if(differentProperty) {
+          // A cross-property booking may have the same bin colour as a job
+          // at another service address. Never guess an old job's location:
+          // an omitted jobAddress in the GET response cannot prove where it
+          // is actually serviced, so hold rather than risk a duplicate.
+          const oldAddress=addressKey(old.jobAddress);
+          const newAddress=addressKey(requestedAddress);
+          if(!oldAddress || !newAddress)
+            return "cannot_inspect_existing_job_addresses";
+          if(oldAddress!==newAddress)continue;
+        }
         return "existing_job_for_selected_bin_requires_review";
+      }
     }
   }
   return null;
@@ -215,9 +229,9 @@ async function executeAutomaticPreviewBooking(payload,{
 
     const customerMatch=await matchCustomersAcrossPages(payload,
       args=>use.listCustomers(args),{maxPages:100});
-    // Duplicates are observation-only signals. Different properties may
-    // legitimately use the same email; alerts MUST NOT affect which customer
-    // is reused or whether an eligible job can be added.
+    // Email/phone duplicate flags remain informational. The independent
+    // identity matcher can reuse a customer at another service property
+    // only after matching full name + email + phone across all pages.
     duplicateFlags=Array.isArray(customerMatch.duplicateFlags)?
       customerMatch.duplicateFlags:[];
     if(!["matched","not_found","reactivation_required"].includes(customerMatch.status))
@@ -226,18 +240,37 @@ async function executeAutomaticPreviewBooking(payload,{
       });
     const existing=customerMatch.status!=="not_found";
     const anotherProperty=customerMatch.relatedContactAtDifferentAddress===true;
-    const customerMode=existing?"existing":
+    const matchedByIdentity=customerMatch.reason==="exact_identity_other_property" ||
+      customerMatch.matchReason==="exact_identity_other_property";
+    const customerMode=existing?
+      (matchedByIdentity?"existing_additional_property":"existing"):
       anotherProperty?"additional_property":"new";
     let customerId=existing?customerMatch.customerId:null;
+    let differentProperty=false;
     if(existing) {
       let record;
       try{record=await use.getCustomer(customerId);}
       catch{return await held("existing_customer_details_unavailable");}
-      // A matched name+address is sufficient even if contact details changed.
-      // Recheck authoritative customer details; never trust only a list row.
+      // Verify against authoritative details, not just list results.
+      // Cross-property matching requires the same full name, email and
+      // phone. Never overwrite an existing customer's primary address.
       const recordAddress=addressKey(record?.address);
-      if(!recordAddress || recordAddress!==addressKey(payload.address))
+      const bookingAddress=addressKey(payload.address);
+      if(!recordAddress || !bookingAddress ||
+         (!matchedByIdentity && recordAddress!==bookingAddress))
         return await held("existing_customer_address_unverified");
+      if(matchedByIdentity) {
+        const verifiedPhone=normalPhone(payload.phone);
+        if(!normalName(record?.name) ||
+           normalName(record.name)!==normalName(payload.name) ||
+           !normalEmail(record?.email) ||
+           normalEmail(record.email)!==normalEmail(payload.email) ||
+           verifiedPhone.length<10 ||
+           ![record?.phoneNumber,record?.phoneNumberOther]
+             .some(v=>normalPhone(v)===verifiedPhone))
+          return await held("existing_customer_identity_unverified");
+      }
+      differentProperty=recordAddress!==bookingAddress;
       const matchedByName=customerMatch.reason==="exact_property_and_name" ||
         customerMatch.matchReason==="exact_property_and_name";
       if(matchedByName &&
@@ -264,7 +297,9 @@ async function executeAutomaticPreviewBooking(payload,{
           matchReason:"inactive_exact_customer",
         });
       const catalog=resolveSqueegeeServiceIds(services.value);
-      const overlap=overlappingJobs(record?.jobs,plan.jobs,catalog.serviceIds);
+      const overlap=overlappingJobs(record?.jobs,plan.jobs,catalog.serviceIds,{
+        differentProperty,requestedAddress:payload.address,
+      });
       if(overlap)return await held(overlap);
     }
 
@@ -395,7 +430,12 @@ async function executeAutomaticPreviewBooking(payload,{
             binsOnJob:entries.length,
           });
           postAttempted=true;
-          await use.addJob(customerId,group.input);
+          // One Squeegee customer can own jobs at multiple service addresses.
+          // Explicit jobAddress prevents a new property's bins being routed
+          // to the customer's original billing/service address.
+          await use.addJob(customerId,differentProperty?
+            {...group.input,jobAddress:{...plan.customerInput.address}}:
+            group.input);
           completed++;
           for(const entry of entries){
             const done=await use.changeState({

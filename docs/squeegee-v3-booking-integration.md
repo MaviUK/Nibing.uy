@@ -360,7 +360,9 @@ Owner requested that duplicate customer information be **flagged**, especially r
 
 **Example outcomes:**
 
-- Email previously used at a different address, new verified address: flag it and proceed with a separate service-property customer. This is legitimate for landlords/households.
+- Matching full name, email **and** phone at a new verified address: reuse one existing customer and post the new job with an explicit `jobAddress`; leave the customer's original address and payment setup untouched. A unique identity must be verified against the authoritative customer details first.
+- Matching email alone at a different address: signal it, but do **not** automatically merge different people or landlords. Ambiguous multiple identities or existing conflicting accounts are held for manual review.
+- Existing cross-property jobs with the same bin service cannot safely be disambiguated if Squeegee omits their job addresses on readback: hold rather than risk duplication. Website-created active-bin claims remain per property.
 - Same full customer name and same full address, but new email/phone: flag the changed contact and reuse the existing verified Squeegee customer; never overwrite their stored contact details.
 - Exact address already registered under a DIFFERENT name, no corroborating contact: flag and **hold**; don't assign another person's job to that record.
 - Same property and one selected bin already has a job: hold as before; duplicate flags do not permit a second job.

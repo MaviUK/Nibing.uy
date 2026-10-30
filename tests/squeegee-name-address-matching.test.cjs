@@ -51,6 +51,49 @@ test("conflicting name and contact matches at the same address require review",(
   assert.equal(found.status,"needs_review");
   assert.equal(found.reason,"conflicting_name_and_contact_matches");
 });
+test("same name + email + phone at another address reuses the existing customer",()=>{
+  const request={...booking,email:existing.email,phone:existing.phoneNumber,
+    address:"33 Ballycrochan Avenue, Bangor BT19 7LA"};
+  const old={...existing,address:{addressDescription:
+    "34 Ballycrochan Avenue, Bangor BT19 7LA"}};
+  const found=matchCustomers(request,[old]);
+  assert.equal(found.status,"matched");
+  assert.equal(found.reason,"exact_identity_other_property");
+  assert.equal(found.customerId,A);
+});
+test("same email and name at another address, but changed phone, does not auto-link",()=>{
+  const found=matchCustomers({...booking,email:existing.email,
+    address:"33 Ballycrochan Avenue, Bangor BT19 7LA"},[{
+      ...existing,address:{addressDescription:
+        "34 Ballycrochan Avenue, Bangor BT19 7LA"},
+  }]);
+  assert.equal(found.status,"not_found");
+});
+test("two records with the same complete identity require manual review",()=>{
+  const request={...booking,email:existing.email,phone:existing.phoneNumber,
+    address:"33 Ballycrochan Avenue, Bangor BT19 7LA"};
+  const found=matchCustomers(request,[
+    {...existing,address:{addressDescription:
+      "34 Ballycrochan Avenue, Bangor BT19 7LA"}},
+    {...existing,_id:B,address:{addressDescription:
+      "35 Ballycrochan Avenue, Bangor BT19 7LA"}},
+  ]);
+  assert.equal(found.status,"needs_review");
+  assert.equal(found.reason,"multiple_exact_customer_identities");
+});
+test("a previously duplicated customer at the new property creates an identity conflict",()=>{
+  const request={...booking,email:existing.email,phone:existing.phoneNumber,
+    address:"33 Ballycrochan Avenue, Bangor BT19 7LA"};
+  const found=matchCustomers(request,[
+    {...existing,address:{addressDescription:
+      "34 Ballycrochan Avenue, Bangor BT19 7LA"}},
+    {...existing,_id:B,email:"different@example.org",
+      phoneNumber:"07000000000",address:{addressDescription:
+      "33 Ballycrochan Avenue, Bangor BT19 7LA"}},
+  ]);
+  assert.equal(found.status,"needs_review");
+  assert.equal(found.reason,"conflicting_property_and_identity_accounts");
+});
 test("nearby property with same house number+postcode but other street is not reused",()=>{
   const found=matchCustomers(booking,[{
     ...existing,address:{addressDescription:"78 Other Road, Bangor BT20 5NF"},
