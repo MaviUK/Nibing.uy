@@ -53,6 +53,20 @@ function jobKey(booking, job) {
   // bin / service / clean date for manual review instead of double-booking.
   return PREFIX + "/jobs/" + digest([customer, planId, bin, date]);
 }
+/**
+ * Additional per-property, per-bin permanent claim (ignores clean date and
+ * one-off/4w plan). Stops two accepted bookings with different first dates
+ * from racing to add the *same bin* to an existing Squeegee customer.
+ * Existing service checks still happen first; a held claim is never reset
+ * automatically. Different bin colours remain independent.
+ */
+function activeBinKey(booking,bin) {
+  const type=normalizedBinType(bin?.type);
+  if(!["black","brown","green","blue"].includes(type))
+    throw new Error("Unrecognised bin type for active service claim");
+  return PREFIX+"/active-bin/"+digest([customerKey(booking),type]);
+}
+
 function validEtag(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -128,5 +142,5 @@ async function changeClaimState({
  * If 2 fails: never POST. If 3 times out: never POST again automatically.
  */
 module.exports = {
-  customerKey, jobKey, claimOnce, changeClaimState, validEtag,
+  customerKey, jobKey, activeBinKey, claimOnce, changeClaimState, validEtag,
 };
