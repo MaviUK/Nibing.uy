@@ -11,10 +11,15 @@ on:
       - netlify/functions/lib/squeegeeCustomerMatcher.js
       - netlify/functions/lib/squeegeeServiceCatalog.js
       - netlify/functions/lib/squeegeeBookingPreparation.js
+      - netlify/functions/lib/squeegeeBookingStage.js
+      - netlify/functions/lib/squeegeeIdempotencyClaims.js
+      - netlify/functions/sendBookingEmail.js
+      - netlify/functions/sendTosReceipt.js
       - tests/squeegee-integration.test.cjs
       - tests/squeegee-booking-pricing.test.cjs
       - tests/squeegee-schedule-check.test.cjs
       - tests/squeegee-booking-preparation.test.cjs
+      - tests/squeegee-idempotency-claims.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
 
 permissions:
