@@ -17,16 +17,15 @@ const reply = (status, data) => new Response(JSON.stringify(data), {
 
 export default async function handler(request, context) {
   const host = new URL(request.url).hostname;
-  const runtimeBranch = process.env.BRANCH || Netlify.env.get("BRANCH") || "";
+  // Netlify does not supply BRANCH in deployed Functions runtime. The
+  // exact Preview 1 hostname plus Netlify's verified deploy context, together
+  // with the branch-scoped secret value, keep this diagnostic isolated.
   const guard = {
     hostMatch: host === PREVIEW_HOST,
     deployContext: context?.deploy?.context || null,
-    branchPresent: Boolean(runtimeBranch),
-    branchMatch: runtimeBranch === PREVIEW_BRANCH,
   };
-  if (!guard.hostMatch || guard.deployContext !== "deploy-preview" || !guard.branchMatch) {
-    // Diagnostic booleans only; no credential or customer data is returned.
-    return reply(404, { error: "Preview guard failed", checks: guard });
+  if (!guard.hostMatch || guard.deployContext !== "deploy-preview") {
+    return reply(404, { error: "Not found" });
   }
   if (request.method !== "GET") {
     return reply(405, { error: "Method not allowed" });
