@@ -29,7 +29,7 @@ async function originalAcceptedBooking(bookingId,auditStore,now=Date.now()) {
   // accepted fields are revalidated with a fresh SERVER timestamp. This is
   // NOT a new website submission; only the signed owner may reach this flow.
   const booking={...audit.record,submittedAt:new Date(now).toISOString()};
-  const eligible=isEligibleOneBooking(booking);
+  const eligible=isEligibleOneBooking(booking,now);
   if(!eligible.eligible)return {reason:"accepted_booking_"+eligible.reason};
   if(booking.bookingId!==RECOVERY_BOOKING_ID)
     return {reason:"accepted_booking_reference_mismatch"};
