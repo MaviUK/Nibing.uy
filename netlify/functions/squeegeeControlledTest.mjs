@@ -22,6 +22,31 @@ export default async function handler(req,context){
   const input=await req.json().catch(()=>({}));
   // Explicitly DISABLED: the single authorised write attempt stopped before
   // any Squeegee POST when the atomic lock was not acquired.
+  if(input.mode==="execute"){
+    try{
+      const {getStore}=await import("@netlify/blobs");
+      const claims=await import("./lib/squeegeeIdempotencyClaims.js").then(m=>m.default||m);
+      const store=getStore({name:"squeegee-preview1-write-claims",consistency:"strong"});
+      const result=await writer.runControlledTest({
+        claim:args=>claims.claimOnce({...args,store}),
+        update:(key,etag,state)=>claims.changeClaimState({
+          key,etag,bookingId:writer.TEST_BOOKING_ID,state,store,
+        }).then(updateResult=>{
+          if(!updateResult.changed||!updateResult.etag){
+            throw Error("Atomic compare-and-swap not confirmed");
+          }
+          return updateResult.etag;
+        }),
+      });
+      return json(result.customerCreated&&result.jobCreated?200:409,result);
+    }catch{
+      return json(502,{
+        testOnly:true,readOnly:false,
+        status:"unknown_or_blocked",
+        reason:"Do not retry; verify test reference in Squeegee",
+      });
+    }
+  }
   if(input.mode==="cas-check"){
     try{
       const {changeClaimState}=await import("./lib/squeegeeIdempotencyClaims.js").then(m=>m.default||m);
@@ -192,6 +217,7 @@ export default async function handler(req,context){
       readOnly:true,
       authenticated:true,
       oneControlledTest:true,
+      controlledWriteCodeDeployed:true,
       date:data.FIRST_DATE,
       round:data.GROUP_NUMBER,
       frequency:"every_4_weeks",
