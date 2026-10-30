@@ -9,6 +9,8 @@
   if (window.n64Score) return;
 
   const COOKIE_NAME = "nbg_arcade_score_v1";
+  const PLAYER_COOKIE_NAME = "nbg_arcade_player_v1";
+  const PLAYER_COOKIE_MAX_AGE = 90 * 24 * 60 * 60;
   const COOKIE_MAX_AGE = 180 * 24 * 60 * 60;
   const POINTS = Object.freeze({
     level: 50,
@@ -55,6 +57,16 @@
     }
   }
 
+  // This cookie contains only a signed pseudonymous player reference.
+  // It is created after an explicit, verified booking + prize opt-in.
+  function readPlayerCookie() {
+    const entry = document.cookie.split("; ")
+      .find((part) => part.startsWith(PLAYER_COOKIE_NAME + "="));
+    if (!entry) return null;
+    const token = decodeURIComponent(entry.slice(PLAYER_COOKIE_NAME.length + 1));
+    return token.length < 700 && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token) ? token : null;
+  }
+
   const stored = readCookie();
   let saved = Boolean(stored);
   let xp = stored ? stored.xp : 0;
@@ -63,6 +75,10 @@
   let root, scoreNode, recentNode, historyNode, savedNode, saveButton, resetButton;
   let refreshQueued = false;
   let bookingProof = null;
+  let playerToken = readPlayerCookie();
+  let progressTimer = null;
+  let progressSyncing = false;
+  let progressSyncAgain = false;
   let boardNode, consentNode, entryStatus, boardNote;
 
   function deleteCookie() {
@@ -70,6 +86,18 @@
       document.cookie = COOKIE_NAME + "=; Path=/; Max-Age=0; SameSite=Lax"
         + (location.protocol === "https:" ? "; Secure" : "");
     } catch (_) {}
+  }
+
+  function writePlayerCookie() {
+    if (!playerToken) return;
+    document.cookie = PLAYER_COOKIE_NAME + "=" + encodeURIComponent(playerToken)
+      + "; Path=/; Max-Age=" + PLAYER_COOKIE_MAX_AGE + "; SameSite=Lax"
+      + (location.protocol === "https:" ? "; Secure" : "");
+  }
+
+  function deletePlayerCookie() {
+    document.cookie = PLAYER_COOKIE_NAME + "=; Path=/; Max-Age=0; SameSite=Lax"
+      + (location.protocol === "https:" ? "; Secure" : "");
   }
 
   function writeCookie() {
@@ -134,6 +162,7 @@
     history = [[label, points], ...history].slice(0, MAX_HISTORY);
     writeCookie();
     redraw();
+    scheduleProgressSync();
     return true;
   }
 
@@ -168,6 +197,53 @@
     return award(key, Math.min(total, 30000), "Booking sent: " + binCount + " bin" + (binCount === 1 ? "" : "s"));
   }
 
+
+  // Debounced: several points earned together trigger one server update.
+  // The signed token never exposes name, email, address or phone.
+  function scheduleProgressSync() {
+    if (!playerToken) return;
+    if (progressTimer) window.clearTimeout(progressTimer);
+    progressTimer = window.setTimeout(() => {
+      progressTimer = null;
+      void syncProgress();
+    }, 1200);
+  }
+
+  async function syncProgress() {
+    if (!playerToken) return;
+    if (progressSyncing) { progressSyncAgain = true; return; }
+    progressSyncing = true;
+    const token = playerToken;
+    try {
+      const response = await fetch("/.netlify/functions/arcadeLeaderboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync", playerToken: token, claimed: [...claimed] }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 401 || response.status === 403) {
+        if (playerToken === token) {
+          playerToken = null;
+          deletePlayerCookie();
+          if (boardNote) boardNote.textContent = "XP session expired. Your local XP remains saved.";
+        }
+        return;
+      }
+      if (!response.ok) throw new Error(data.error || "XP sync failed");
+      if (data.changed) {
+        window.dispatchEvent(new Event("n64:leaderboard-updated"));
+      }
+    } catch (_) {
+      // Offline browsers retain the XP cookie; resync on next connection.
+      if (boardNote) boardNote.textContent = "Offline: local XP saved; global XP will sync when connected.";
+    } finally {
+      progressSyncing = false;
+      if (progressSyncAgain) {
+        progressSyncAgain = false;
+        scheduleProgressSync();
+      }
+    }
+  }
 
   async function refreshLeaderboard() {
     if (!boardNode) return;
@@ -218,6 +294,14 @@
       const result = await response.json().catch(()=>({}));
       if(!response.ok) throw new Error(result.error || "Unable to join");
       entryStatus.textContent = "You're on the leaderboard! Contact details stay private.";
+      if (result.playerToken) {
+        playerToken = result.playerToken;
+        writePlayerCookie();
+        // Booking + opt-in implies saving game points for future visits.
+        saved = true;
+        writeCookie();
+        paint();
+      }
       bookingProof = null;
       consentNode.hidden = true;
       await refreshLeaderboard();
@@ -278,6 +362,7 @@
     function setOpen(open) {
       panel.hidden = !open;
       toggle.setAttribute("aria-expanded", String(open));
+      if (open) void refreshLeaderboard();
     }
 
     toggle.addEventListener("click", () => setOpen(panel.hidden));
@@ -289,6 +374,10 @@
     });
     resetButton.addEventListener("click", () => {
       deleteCookie();
+      deletePlayerCookie();
+      playerToken = null;
+      if (progressTimer) window.clearTimeout(progressTimer);
+      progressTimer = null;
       saved = false;
       xp = 0;
       claimed = new Set();
@@ -302,6 +391,15 @@
     join.addEventListener("click", () => {if(consentCheck.checked) joinLeaderboard(join);});
     paint();
     refreshLeaderboard();
+    window.addEventListener("online", scheduleProgressSync);
+    window.addEventListener("pageshow", scheduleProgressSync);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") scheduleProgressSync();
+    });
+    window.setInterval(() => {
+      if (!panel.hidden && document.visibilityState === "visible") void refreshLeaderboard();
+    }, 15000);
+    if (playerToken) scheduleProgressSync();
   }
 
   window.n64Score = Object.freeze({
