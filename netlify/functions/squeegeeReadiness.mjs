@@ -17,10 +17,16 @@ const reply = (status, data) => new Response(JSON.stringify(data), {
 
 export default async function handler(request, context) {
   const host = new URL(request.url).hostname;
-  if (host !== PREVIEW_HOST ||
-      context?.deploy?.context !== "deploy-preview" ||
-      process.env.BRANCH !== PREVIEW_BRANCH) {
-    return reply(404, { error: "Not found" });
+  const runtimeBranch = process.env.BRANCH || Netlify.env.get("BRANCH") || "";
+  const guard = {
+    hostMatch: host === PREVIEW_HOST,
+    deployContext: context?.deploy?.context || null,
+    branchPresent: Boolean(runtimeBranch),
+    branchMatch: runtimeBranch === PREVIEW_BRANCH,
+  };
+  if (!guard.hostMatch || guard.deployContext !== "deploy-preview" || !guard.branchMatch) {
+    // Diagnostic booleans only; no credential or customer data is returned.
+    return reply(404, { error: "Preview guard failed", checks: guard });
   }
   if (request.method !== "GET") {
     return reply(405, { error: "Method not allowed" });
