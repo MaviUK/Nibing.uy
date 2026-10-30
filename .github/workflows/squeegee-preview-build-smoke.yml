@@ -1,0 +1,28 @@
+name: Preview 1 Squeegee booking website build smoke
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/squeegee-preview-build-smoke.yml
+      - src/LandingPage.jsx
+      - netlify/functions/squeegeePreviewTest.mjs
+      - netlify/functions/squeegeePreviewTestSubmit.mjs
+      - netlify/functions/lib/squeegeePreviewTestSession.js
+      - netlify/functions/lib/squeegeeOneBookingTest.js
+permissions:
+  contents: read
+jobs:
+  check-preview-website-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build preview website
+        run: npm run build
