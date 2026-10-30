@@ -54,6 +54,9 @@ function matchCustomers(booking, customerList) {
   // External reference belongs to a customer identity, not a single job.
   const byRef = rows.filter(c=>String(c._externalId||"")===externalRef);
   if(byRef.length===1) {
+    const status=String(byRef[0].status||"").toLowerCase();
+    if(["inactive","deleted","archived","cancelled","canceled"].includes(status))
+      return {status:"needs_review",reason:"inactive_existing_customer"};
     try { return {status:"matched",reason:"external_reference",customerId:requireUuid(byRef[0]._id,"customerId")}; }
     catch{ return {status:"needs_review",reason:"invalid_customer_id"}; }
   }
