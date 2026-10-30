@@ -15,11 +15,22 @@ export default function ArcadeLeaderboard() {
   const [updatedAt, setUpdatedAt] = useState(null);
   const [changes, setChanges] = useState({});
   const previousPlayers = useRef(null);
+  const [localScore, setLocalScore] = useState({ points: 0, registered: false });
 
   useEffect(() => {
     let mounted = true;
     let busy = false;
     let refreshAgain = false;
+
+    const refreshLocalScore = () => {
+      const api = window.n64Score;
+      setLocalScore({
+        points: Math.max(0, Number(api?.points?.() || 0)),
+        registered: Boolean(api?.isRegistered?.()),
+      });
+    };
+    refreshLocalScore();
+    window.addEventListener("n64:score-updated", refreshLocalScore);
 
     async function refresh() {
       if (!mounted || document.visibilityState === "hidden") return;
@@ -84,6 +95,7 @@ export default function ArcadeLeaderboard() {
       mounted = false;
       window.clearInterval(intervalId);
       window.removeEventListener("n64:leaderboard-updated", refresh);
+      window.removeEventListener("n64:score-updated", refreshLocalScore);
       window.removeEventListener("online", refresh);
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisible);
@@ -103,18 +115,22 @@ export default function ArcadeLeaderboard() {
         </div>
         <h2 id="n64-board-title">Global Leaderboard</h2>
         <p>Watch the high scores change as players book bins and collect XP.</p>
+        <div className="n64-your-score" aria-label="Your device score">
+          <div><strong>★ YOUR SCORE</strong><span>{localScore.points.toLocaleString("en-GB")} XP</span></div>
+          <small>{localScore.registered
+            ? "Your booking is registered. New level points sync to the global leaderboard."
+            : "These are your device points. To join the global rankings, book a clean and opt in to the leaderboard."}</small>
+        </div>
         <div className="n64-live-board-stats">
-          <strong>{totalPlayers.toLocaleString("en-GB")} {totalPlayers === 1 ? "PLAYER" : "PLAYERS"}</strong>
+          <strong>{updatedAt ? totalPlayers.toLocaleString("en-GB") + (totalPlayers === 1 ? " PLAYER" : " PLAYERS") : "— PLAYERS"}</strong>
           <span>{connection === "live" && updatedAt
             ? "Updated " + updatedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
             : "Checking scores…"}
           </span>
         </div>
         <ol aria-label="Live top ten players">
-          {connection === "connecting" && !players.length ? (
-            <li><span>Connecting to the leaderboard…</span></li>
-          ) : !players.length && connection === "live" ? (
-            <li><span>Be the first player on the board!</span></li>
+          {!players.length ? (
+            <li><span>{connection === "live" ? "No registered players yet — be the first!" : "Waiting for live scores…"}</span></li>
           ) : players.map((player, i) => {
             const change = changes[player.name];
             return (
@@ -135,7 +151,7 @@ export default function ArcadeLeaderboard() {
         </ol>
         {connection === "reconnecting" && (
           <p className="n64-board-error" role="status">
-            Connection interrupted. Showing the last available scores and reconnecting automatically.
+            The leaderboard server is temporarily unavailable. Your device XP is unaffected; retrying automatically.
           </p>
         )}
         <small>
