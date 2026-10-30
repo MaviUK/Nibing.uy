@@ -46,7 +46,7 @@ export default async function handler(request,context) {
   const id=new URL(request.url).searchParams.get("bookingId")?.trim()||"";
   const description=!enabled?"OFF":
     mode==="pilot"?"ENABLED — ONE FRESH TEST API BROWN-BIN EMAIL BOOKING ONLY":
-    "ENABLED — scoped to Preview 1";
+    "ENABLED — ALL VALID EMAIL BOOKINGS ON PREVIEW 1 (duplicates held)";
   let content='<div class="notice">Automatic Preview 1 Squeegee sync: <strong>'+
     safe(description)+'</strong></div>'+
     '<p><a href="/api/squeegee-preview-test">Owner test page</a></p>'+
