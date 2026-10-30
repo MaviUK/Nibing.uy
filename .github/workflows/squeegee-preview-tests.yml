@@ -18,6 +18,7 @@ on:
       - netlify/functions/lib/squeegeePreviewTestSession.js
       - netlify/functions/lib/squeegeeOneBookingTest.js
       - netlify/functions/lib/squeegeePreviewAutoDispatch.js
+      - netlify/functions/lib/squeegeePreviewAutoRollout.js
       - netlify/functions/lib/squeegeeAutomaticBooking.js
       - netlify/functions/squeegeePreviewAutoSync.mjs
       - netlify/functions/squeegeePreviewAutoStatus.mjs
