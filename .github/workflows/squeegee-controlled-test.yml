@@ -9,7 +9,7 @@ permissions:
   contents: read
   id-token: write
 jobs:
-  injected-store-lock-diagnostics:
+  verify-injected-store-after-deployment:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
