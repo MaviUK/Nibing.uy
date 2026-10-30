@@ -305,6 +305,7 @@ exports.handler = async (event) => {
     const auditPromise = buildAuditPromise({
       channel: "email",
       bookingId: submission.bookingId,
+      arcadeOptOut: payload.arcadeOptOut === true,
       name,
       email,
       phone,
