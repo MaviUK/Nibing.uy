@@ -18,6 +18,8 @@ on:
       - netlify/functions/lib/squeegeePreviewTestSession.js
       - netlify/functions/lib/squeegeeOneBookingTest.js
       - netlify/functions/squeegeePreviewTest.mjs
+      - netlify/functions/squeegeePreviewTestSubmit.mjs
+      - src/LandingPage.jsx
       - netlify/functions/sendBookingEmail.js
       - netlify/functions/sendTosReceipt.js
       - tests/squeegee-integration.test.cjs
