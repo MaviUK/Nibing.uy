@@ -4,6 +4,8 @@ import api from "./lib/squeegeeApiV3.js";
 import testSession from "./lib/squeegeePreviewTestSession.js";
 import controlled from "./lib/squeegeeOneBookingTest.js";
 import arcade from "./lib/arcadeBookingProof.js";
+import claims from "./lib/squeegeeIdempotencyClaims.js";
+import { getStore } from "@netlify/blobs";
 
 const json=(status,data)=>new Response(JSON.stringify(data),{
   status,headers:{"content-type":"application/json; charset=utf-8",
@@ -64,10 +66,30 @@ export default async function handler(request,context) {
   // against council schedule and API account service/group IDs, scans all
   // customers, then performs a global atomic one-use claim. Its write
   // capability is scoped to THIS trusted deploy context.
+  // Keep the worker's durable idempotency records in the same Preview 1
+  // namespaced site stores as the existing claims; do not create a new ledger.
+  // The ESM entrypoint supplies runtime-managed Blob handles explicitly.
+  let claimStore,statusStore;
+  try {
+    claimStore=getStore({name:"squeegee-preview1-write-claims",consistency:"strong"});
+    statusStore=getStore({name:controlled.STATUS_STORE,consistency:"strong"});
+  } catch(error) {
+    console.error("Preview 1 test storage unavailable",error?.name||"unknown");
+    return json(503,{error:"Test storage unavailable; no Squeegee changes attempted"});
+  }
   const task=controlled.executeOneApprovedTestBooking(payload,{
     cookieHeader:request.headers.get("cookie")||"",
     channel:"email",runtimeScope:scope,
-  }).catch(()=>({status:"requires_reconciliation"}));
+    deps:{
+      claim:options=>claims.claimOnce({...options,store:claimStore}),
+      changeState:options=>claims.changeClaimState({...options,store:claimStore}),
+      save:(bookingId,stage,extra)=>controlled.saveTestStatus(
+        bookingId,stage,extra,{store:statusStore}),
+    },
+  }).catch(error=>{
+    console.error("Preview 1 test worker failed safely",error?.name||"unknown");
+    return {status:"requires_reconciliation"};
+  });
   context.waitUntil(task);
   return json(202,{accepted:true,queued:true,bookingId:eligible.bookingId,
     message:"One-booking Squeegee test queued. Check owner test page for result."});
