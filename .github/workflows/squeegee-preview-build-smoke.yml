@@ -16,6 +16,8 @@ on:
       - netlify/functions/lib/squeegeeAutoPilotRecovery.js
       - netlify/functions/squeegeePreviewAutoRecover.mjs
       - netlify/functions/lib/squeegeeAutomaticBooking.js
+      - netlify/functions/lib/squeegeeCustomerMatcher.js
+      - tests/squeegee-name-address-matching.test.cjs
       - netlify/functions/lib/squeegeeJobGrouping.js
       - netlify/functions/lib/ukBookingPhone.js
       - netlify/functions/lib/squeegeeSyncOwnerAlert.js
