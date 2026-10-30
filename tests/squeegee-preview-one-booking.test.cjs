@@ -6,7 +6,7 @@ const {
   sessionCookieFromHeader,COOKIE_NAME,
   issueOwnerCode,verifyOwnerCode,
 } = require("../netlify/functions/lib/squeegeePreviewTestSession");
-const {executeOneApprovedTestBooking,GLOBAL_TEST_KEY,isEligibleOneBooking}=
+const {executeOneApprovedTestBooking,GLOBAL_TEST_KEY,isEligibleOneBooking,saveTestStatus}=
   require("../netlify/functions/lib/squeegeeOneBookingTest");
 const {claimOnce,changeClaimState}=
   require("../netlify/functions/lib/squeegeeIdempotencyClaims");
@@ -103,6 +103,15 @@ const run=(b,h,cookie=validCookie(),extra={})=>
     cookieHeader:cookie,channel:"email",env,now:fixedNow,
     deps:h.deps,...extra,
   });
+
+test("the deployed worker has an exported durable status writer before any Squeegee POST",async()=>{
+  assert.equal(typeof saveTestStatus,"function");
+  const store=fakeStore();
+  const saved=await saveTestStatus("NBG-ABCDE-ABCDEFGH","validating",{}, {store});
+  assert.equal(saved.stage,"validating");
+  assert.equal(store.records.get("NBG-ABCDE-ABCDEFGH")?.value?.stage,"validating");
+  assert.equal(store.records.size,1);
+});
 
 test("a preview-only session cookie is signed, expires, and never authenticates other contexts",()=>{
   assert.equal(isExactPreview1(env),true);
