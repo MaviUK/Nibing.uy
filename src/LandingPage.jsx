@@ -1105,6 +1105,12 @@ function BookingForm({ onClose, initialAddress = "" }) {
     }
   };
 
+  const emailSendingText = emailSendingStage === "sending"
+    ? "Sending your booking emails…"
+    : emailSendingStage === "verifying"
+      ? "Verifying your booking…"
+      : "Preparing your booking…";
+
   if (whatsAppBookingStatus === "confirmed") {
     const scheduleResults = Array.isArray(whatsAppConfirmation?.schedule?.results)
       ? whatsAppConfirmation.schedule.results
@@ -1137,8 +1143,17 @@ function BookingForm({ onClose, initialAddress = "" }) {
         <div>
           <h2 className="text-2xl font-extrabold text-gray-900">Booking confirmed</h2>
           <p className="mt-2 text-gray-600">
-            Your booking has been received and the confirmation has been emailed to <strong>{email}</strong>.
+            {whatsAppConfirmation?.source === "email" && whatsAppConfirmation?.customerConfirmationSent === false ? (
+              <>Your booking has been received, but the confirmation email could not be delivered to <strong>{email}</strong>. Please contact us so we can resend it.</>
+            ) : (
+              <>Your booking has been received and the confirmation has been emailed to <strong>{email}</strong>.</>
+            )}
           </p>
+          {whatsAppConfirmation?.bookingId && (
+            <p className="mt-2 break-words text-sm font-bold text-[#20345c]">
+              Booking reference: {whatsAppConfirmation.bookingId}
+            </p>
+          )}
         </div>
 
         {cleanDateRows.length > 0 ? (
@@ -1187,7 +1202,21 @@ function BookingForm({ onClose, initialAddress = "" }) {
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4" aria-busy={isEmailSubmitting}>
+      {isEmailSubmitting && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0d1932]/80 p-4"
+          role="status" aria-live="polite" aria-label={emailSendingText}
+        >
+          <div className="w-full max-w-sm border-4 border-[#20345c] bg-[#fff8df] px-5 py-7 text-center text-[#20345c] shadow-[7px_8px_0_#6e8ea9]">
+            <span className="mx-auto mb-5 block h-14 w-14 animate-spin rounded-full border-[7px] border-[#20345c] border-t-[#ffda43]" aria-hidden="true" />
+            <strong className="block text-xl font-black">{emailSendingText}</strong>
+            <p className="mt-3 text-sm font-semibold leading-relaxed">
+              Please keep this page open. Your booking is being processed and only needs to be submitted once.
+            </p>
+          </div>
+        </div>
+      )}
       <button onClick={onClose} className="absolute top-3 right-4 text-gray-500 hover:text-red-500 text-2xl z-10" aria-label="Close booking">
         &times;
       </button>
@@ -1325,12 +1354,17 @@ function BookingForm({ onClose, initialAddress = "" }) {
         </div>
       </div>
 
-      <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms || whatsAppBookingStatus === "sending"}>
+      <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-none w-full disabled:opacity-60 disabled:cursor-not-allowed" disabled={!agreeToTerms || whatsAppBookingStatus === "sending" || isEmailSubmitting || emailBookingUncertain}>
         {whatsAppBookingStatus === "sending" ? "Confirming booking…" : "Send via WhatsApp"}
       </button>
-      <button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>
-        Send via Email
+      <button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-none w-full disabled:opacity-60 disabled:cursor-not-allowed" disabled={!agreeToTerms || isEmailSubmitting || whatsAppBookingStatus === "sending" || emailBookingUncertain}>
+        {isEmailSubmitting ? emailSendingText : "Send via Email"}
       </button>
+      {emailBookingError && !isEmailSubmitting && (
+        <div className="border-4 border-[#ad5344] bg-[#fff0db] p-3 text-sm font-semibold text-[#652c28]" role="alert">
+          {emailBookingError}
+        </div>
+      )}
 
       <TermsModal
         open={showTerms}
