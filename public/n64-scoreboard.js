@@ -74,12 +74,12 @@
   let history = stored ? stored.history : [];
   let root, scoreNode, recentNode, historyNode, savedNode, saveButton, resetButton;
   let refreshQueued = false;
-  let bookingProof = null;
   let playerToken = readPlayerCookie();
+  let recoveryAttempted = false;
   let progressTimer = null;
   let progressSyncing = false;
   let progressSyncAgain = false;
-  let boardNode, consentNode, entryStatus, boardNote;
+  let boardNode, boardNote;
 
   function deleteCookie() {
     try {
@@ -105,10 +105,11 @@
     try {
       const keep = [...claimed].filter((key) => permanentKeys.has(key));
       const bookingKeys = [...claimed].filter((key) => key.startsWith("b:")).slice(-MAX_BOOKING_KEYS);
+      const privateKeys = [...claimed].filter((key) => key.startsWith("o:")).slice(-MAX_BOOKING_KEYS);
       const value = encodeURIComponent(JSON.stringify({
         v: 1,
         xp,
-        claimed: keep.concat(bookingKeys),
+        claimed: keep.concat(bookingKeys, privateKeys),
         history: history.slice(0, MAX_HISTORY),
       }));
       document.cookie = COOKIE_NAME + "=" + value + "; Path=/; Max-Age=" + COOKIE_MAX_AGE
@@ -272,22 +273,40 @@
     } catch (_) { boardNote.textContent = "Leaderboard currently unavailable. Your XP remains on this device."; }
   }
 
-  function offerEntry(proof) {
-    if (typeof proof !== "string" || !proof.includes(".")) return;
-    bookingProof = proof;
-    if (!root || !consentNode) return;
-    consentNode.hidden = false;
-    root.querySelector(".n64-score-panel").hidden = false;
-    root.querySelector(".n64-score-toggle").setAttribute("aria-expanded", "true");
-    entryStatus.textContent = "Booking received! Join the scoreboard if you want to enter the prize draw.";
+  function bookingKey(id) {
+    if (typeof id !== "string" || !/^[a-z0-9_-]{6,90}$/i.test(id)) return "";
+    return id.slice(-24).toLowerCase();
   }
 
-  // One registration path, shared by the post-booking confirmation and the
-  // "already booked" verification form in the visible global leaderboard.
-  // Consent is always explicit and separate from the cleaning booking.
+  function keepBookingPrivate(id) {
+    const key = bookingKey(id);
+    if (!key) return;
+    claimed.add("o:" + key);
+    // Preserve their opt-out alongside the booking points so a later page
+    // visit cannot mistakenly recover this booking onto the public board.
+    saved = true;
+    writeCookie();
+  }
+
+  function attachPlayerToken(token) {
+    if (typeof token !== "string" || token.length > 700 ||
+        !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)) return false;
+    playerToken = token;
+    writePlayerCookie();
+    saved = true;
+    writeCookie();
+    redraw();
+    window.dispatchEvent(new Event("n64:score-updated"));
+    window.dispatchEvent(new Event("n64:leaderboard-updated"));
+    scheduleProgressSync();
+    return true;
+  }
+
+  // No "Join" button. The server inserts the entry when the booking succeeds.
+  // A client-side retry is automatic if the server was briefly unavailable.
   async function registerEntry(proof) {
     if (typeof proof !== "string" || !proof.includes(".")) {
-      throw new Error("We couldn't verify this booking. Use the existing-booking verification form.");
+      throw new Error("This booking could not be linked to its XP.");
     }
     const response = await fetch("/.netlify/functions/arcadeLeaderboard", {
       method: "POST",
@@ -295,39 +314,60 @@
       body: JSON.stringify({ bookingProof: proof, consent: true, claimed: [...claimed] }),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(data.error || "Unable to join the leaderboard right now.");
+    if (!response.ok || !attachPlayerToken(data.playerToken)) {
+      throw new Error(data.error || "The leaderboard is temporarily unavailable.");
     }
-    if (typeof data.playerToken !== "string" || !data.playerToken.includes(".")) {
-      throw new Error("Booking registered, but the player session is unavailable. Try again.");
-    }
-    playerToken = data.playerToken;
-    writePlayerCookie();
-    // The booking is confirmed and the customer opted in, so their XP can
-    // now be remembered for next time without retaining any personal details.
-    saved = true;
-    writeCookie();
-    paint();
-    window.dispatchEvent(new Event("n64:score-updated"));
-    window.dispatchEvent(new Event("n64:leaderboard-updated"));
     return data;
   }
 
-  async function joinLeaderboard(button) {
-    if (!bookingProof) return;
-    button.disabled = true;
-    entryStatus.textContent = "Adding your booking to the global leaderboard…";
-    try {
-      const result = await registerEntry(bookingProof);
-      bookingProof = null;
-      consentNode.hidden = true;
-      entryStatus.textContent = "You're registered as " + result.displayName + "!";
-      await refreshLeaderboard();
-    } catch (error) {
-      entryStatus.textContent = error?.message || "Unable to register right now.";
-      button.disabled = false;
+  function onBookingConfirmed(result, optOut, submissionId) {
+    if (optOut === true) {
+      keepBookingPrivate(submissionId);
+      return;
+    }
+    if (result?.arcadePlayerToken && attachPlayerToken(result.arcadePlayerToken)) return;
+    if (typeof result?.arcadeBookingProof === "string") {
+      void registerEntry(result.arcadeBookingProof).catch(() => {
+        // Booking points stay on the phone. Future page loads also attempt
+        // recovery using the random booking reference saved in its XP cookie.
+      });
     }
   }
+
+  // Backward compatibility with older preview screens, without displaying
+  // their obsolete "Join Leaderboard" opt-in panel.
+  function offerEntry(proof) {
+    onBookingConfirmed({ arcadeBookingProof: proof }, false, "");
+  }
+
+  // Existing preview bookings have a random booking reference in the XP
+  // cookie. Resolve it against a previously confirmed booking on the server,
+  // then enrol this same visitor automatically without another booking.
+  async function recoverExistingBookings() {
+    if (playerToken || recoveryAttempted) return;
+    recoveryAttempted = true;
+    const previous = [...claimed]
+      .filter((key) => key.startsWith("b:") && !claimed.has("o:" + key.slice(2)))
+      .slice(-3).reverse();
+    for (const key of previous) {
+      if (playerToken) break;
+      try {
+        const response = await fetch("/.netlify/functions/arcadeRecoverBooking", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bookingId: key.slice(2), claimed: [...claimed],
+          }),
+        });
+        if (!response.ok) continue;
+        const result = await response.json();
+        if (attachPlayerToken(result.playerToken)) break;
+      } catch (_) {
+        // Do not block the page or erase the existing local XP.
+      }
+    }
+  }
+
 
   function buildHud() {
     if (root || !document.body) return;
@@ -353,7 +393,6 @@
       '<div class="n64-score-heading"><strong>★ PLAYER SCORE</strong><button type="button" class="n64-score-close" aria-label="Close scoreboard">×</button></div>',
       '<div class="n64-score-earned" aria-live="polite"></div>',
       '<section class="n64-board"><strong>🏆 GLOBAL LEADERBOARD</strong><ol class="n64-board-list"><li>Loading scores…</li></ol><p class="n64-board-note"></p></section>',
-      '<div class="n64-leader-consent" hidden><label><input type="checkbox" class="n64-entry-optin"> I agree to display my name and XP publicly and be contacted using my private booking details if I win a prize.</label><button type="button" class="n64-join-board" disabled>Join leaderboard</button><p class="n64-entry-status" aria-live="polite"></p></div>',
       '<p class="n64-score-hint">Level +50 • Area +25 • Bin day +35</p>',
       '<p class="n64-score-hint">One-off +60/bin • 4-weekly +150/bin</p>',
       '<ol class="n64-score-history"></ol>',
@@ -368,8 +407,6 @@
     scoreNode = root.querySelector("[data-n64-score]");
     boardNode = root.querySelector(".n64-board-list");
     boardNote = root.querySelector(".n64-board-note");
-    consentNode = root.querySelector(".n64-leader-consent");
-    entryStatus = root.querySelector(".n64-entry-status");
     recentNode = root.querySelector(".n64-score-earned");
     historyNode = root.querySelector(".n64-score-history");
     savedNode = root.querySelector(".n64-score-persistence");
@@ -403,10 +440,6 @@
       window.dispatchEvent(new Event("n64:score-updated"));
     });
     document.body.appendChild(root);
-    const consentCheck = root.querySelector(".n64-entry-optin");
-    const join = root.querySelector(".n64-join-board");
-    consentCheck.addEventListener("change", () => {join.disabled = !consentCheck.checked;});
-    join.addEventListener("click", () => {if(consentCheck.checked) joinLeaderboard(join);});
     paint();
     window.dispatchEvent(new Event("n64:score-updated"));
     refreshLeaderboard();
@@ -419,6 +452,7 @@
       if (!panel.hidden && document.visibilityState === "visible") void refreshLeaderboard();
     }, 15000);
     if (playerToken) scheduleProgressSync();
+    else window.setTimeout(recoverExistingBookings, 1100);
   }
 
   window.n64Score = Object.freeze({
@@ -427,6 +461,10 @@
     awardBooking,
     offerEntry,
     registerEntry,
+    attachPlayerToken,
+    onBookingConfirmed,
+    keepBookingPrivate,
+    activityKeys: () => [...claimed].filter(key => permanentKeys.has(key)),
     points: () => xp,
     isRegistered: () => Boolean(playerToken),
     rules: POINTS,
