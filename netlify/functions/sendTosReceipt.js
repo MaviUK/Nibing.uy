@@ -6,6 +6,7 @@ const { signBooking } = require("./lib/arcadeBookingProof");
 const { autoEnrollBooking } = require("./arcadeLeaderboard");
 const { handler: sendAutomaticBookingConfirmation } = require("./sendAutomaticBookingConfirmation");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
+const { stageWithoutBlockingBooking } = require("./lib/squeegeeBookingStage");
 
 let getStatusStore = null;
 try {
@@ -250,6 +251,18 @@ exports.handler = async (event) => {
         arcadePlayerToken: arcadeEntry?.playerToken || null,
         arcadeDisplayName: arcadeEntry?.displayName || null,
       });
+
+      // WhatsApp already calculated the server-side cleaning dates. Reuse
+      // those dates for read-only Squeegee preparation after confirmation.
+      // This may not change the existing booking/WhatsApp/XP outcome.
+      try {
+        await stageWithoutBlockingBooking(payload, {
+          channel: "whatsapp",
+          serverSchedule: schedule,
+        });
+      } catch (_) {
+        console.warn("Read-only Squeegee WhatsApp preparation unavailable");
+      }
     } else if (
       confirmationResponse?.statusCode === 409 &&
       confirmationBody?.reason === "duplicate_submission"
