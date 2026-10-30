@@ -46,6 +46,7 @@ on:
       - tests/squeegee-round-cycle.test.cjs
       - tests/squeegee-preview-one-booking.test.cjs
       - tests/squeegee-preview-auto-booking.test.cjs
+      - tests/squeegee-name-address-matching.test.cjs
       - tests/squeegee-preview-auto-recover.test.cjs
       - tests/squeegee-preview-booking-submit-ui.test.cjs
       - scripts/hardenBookingSubmissions.cjs
