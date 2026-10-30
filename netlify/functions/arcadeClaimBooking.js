@@ -108,7 +108,9 @@ async function proofForBooking(reference, email) {
     if (normalizeEmail(audit?.email) !== email || audit?.termsAccepted !== true) return null;
     const created = Date.parse(audit.createdAt || "");
     if (!Number.isFinite(created) || Date.now() - created > BOOKING_WINDOW) return null;
-    const bookingId = "AUDIT-" + crypto.createHash("sha256").update(reference.key).digest("hex").slice(0, 32);
+    const bookingId = (typeof audit.bookingId === "string" && /^NBG-[A-Z0-9-]{8,60}$/i.test(audit.bookingId))
+      ? audit.bookingId
+      : "AUDIT-" + crypto.createHash("sha256").update(reference.key).digest("hex").slice(0, 32);
     return signBooking({
       bookingId, name: audit.name, email: audit.email,
       phone: audit.phone, address: audit.address, bins: audit.bins,
