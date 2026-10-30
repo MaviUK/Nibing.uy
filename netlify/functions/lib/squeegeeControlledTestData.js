@@ -27,7 +27,7 @@ function createTestJob({serviceId,groupId}){
 }
 function pickUnique(rows,name){
   const matched=(Array.isArray(rows)?rows:[]).filter(r=>String(r?.description||"").trim()===name);
-  if(matched.length!==1||!/^[0-9a-f]{8}(-[0-9a-f]{4}){4}$/i.test(matched[0].id)){
+  if(matched.length!==1||!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(String(matched[0].id||""))){
     return {ok:false,error:"No unique valid ID for "+name};
   }
   return {ok:true,id:matched[0].id};
