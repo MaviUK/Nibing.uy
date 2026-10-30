@@ -14,8 +14,10 @@ const api=require("./squeegeeApiV3");
 const rollout=require("./squeegeePreviewAutoRollout");
 const {prepareReadOnlyBooking}=require("./squeegeeBookingPreparation");
 const {fetchAuthoritativeSchedule}=require("./squeegeeBookingStage");
-const {matchCustomersAcrossPages}=require("./squeegeeCustomerMatcher");
-const {customerKey,jobKey,claimOnce,changeClaimState}=require("./squeegeeIdempotencyClaims");
+const {matchCustomersAcrossPages,addressKey}=require("./squeegeeCustomerMatcher");
+const {resolveSqueegeeServiceIds}=require("./squeegeeServiceCatalog");
+const {normalizedBinType}=require("./squeegeeBookingPlan");
+const {customerKey,jobKey,activeBinKey,claimOnce,changeClaimState}=require("./squeegeeIdempotencyClaims");
 const {validateBookingSubmission}=require("./bookingSubmissionGuard");
 
 const STATUS_STORE="squeegee-preview1-auto-sync-status";
@@ -38,9 +40,21 @@ function validUpcomingDate(date,now) {
     Date.parse(today+"T12:00:00Z"))/86400000;
   return Number.isInteger(days) && days>=0 && days<=MAX_DAYS_AHEAD;
 }
-function overlappingJobs(existingJobs,plannedJobs) {
+function overlappingJobs(existingJobs,plannedJobs,serviceIds=null) {
   if(!Array.isArray(existingJobs))return "cannot_inspect_existing_jobs";
   const plannedServices=new Set(plannedJobs.flatMap(job=>job.input.services));
+  if(serviceIds && typeof serviceIds==="object") {
+    // A Brown one-off and Brown 4-weekly job use different service UUIDs.
+    // Never add a second job for the same physical bin just because the plan
+    // differs. Include all verified service IDs for each requested bin type.
+    const selectedTypes=new Set(plannedJobs.map(job=>normalizedBinType(job.bin)));
+    for(const values of Object.values(serviceIds)) {
+      for(const type of selectedTypes) {
+        const id=values?.[type];
+        if(id)plannedServices.add(id);
+      }
+    }
+  }
   for(const old of existingJobs) {
     if(!old || !Array.isArray(old.services))return "cannot_inspect_existing_jobs";
     if(old.services.some(id=>typeof id!=="string" ||
@@ -90,6 +104,12 @@ async function executeAutomaticPreviewBooking(payload,{
   const bins=Array.isArray(payload?.bins)?payload.bins.filter(x=>x?.type):[];
   if(!bins.length || bins.length>MAX_BOOKING_JOBS)
     return outcome("held","too_many_or_no_booking_lines");
+  // Each job is a distinct bin colour at this property. Repeated colours in
+  // one booking cannot be safely distinguished as two separate wheelie bins
+  // with this Squeegee API shape. Hold them before claiming anything.
+  const distinctBins=new Set(bins.map(x=>normalizedBinType(x.type)));
+  if(distinctBins.size!==bins.length)
+    return outcome("held","duplicate_bin_types_in_same_booking");
   if(payload.termsAccepted!==true)
     return outcome("held","booking_terms_not_accepted");
 
@@ -146,17 +166,26 @@ async function executeAutomaticPreviewBooking(payload,{
     if(!["matched","not_found"].includes(customerMatch.status))
       return await held("customer_match_ambiguous_or_incomplete");
     const existing=customerMatch.status==="matched";
+    const anotherProperty=customerMatch.relatedContactAtDifferentAddress===true;
+    const customerMode=existing?"existing":
+      anotherProperty?"additional_property":"new";
     let customerId=existing?customerMatch.customerId:null;
     if(existing) {
       let record;
       try{record=await use.getCustomer(customerId);}
       catch{return await held("existing_customer_details_unavailable");}
-      const overlap=overlappingJobs(record?.jobs,plan.jobs);
+      // Never attach a second-address job to a customer's primary address:
+      // Squeegee's verified public job-create input has no address override.
+      const recordAddress=addressKey(record?.address);
+      if(!recordAddress || recordAddress!==addressKey(payload.address))
+        return await held("existing_customer_address_unverified");
+      const catalog=resolveSqueegeeServiceIds(services.value);
+      const overlap=overlappingJobs(record?.jobs,plan.jobs,catalog.serviceIds);
       if(overlap)return await held(overlap);
     }
 
     await mark("ready_for_claims",{
-      jobs:plan.jobs.length,customerMode:existing?"existing":"new",
+      jobs:plan.jobs.length,customerMode,
       dates:plan.jobs.map(j=>j.date),
       rounds:summary.jobs.map(j=>j.roundNumber),
     });
@@ -195,12 +224,19 @@ async function executeAutomaticPreviewBooking(payload,{
     const jobs=[];
     for(const job of plan.jobs) {
       const bin=bins[job.index];
+      // No two concurrent bookings may add the same bin at the same property,
+      // even if they differ by plan or website first-clean date.
+      const activeBin=await use.claim({
+        key:activeBinKey(payload,bin),bookingId,channel,
+      });
+      if(!activeBin.acquired)
+        return await held("property_bin_already_claimed_or_uncertain");
       const record=await use.claim({
         key:jobKey(payload,{date:job.date,type:bin.type,planId:bin.planId}),
         bookingId,channel,
       });
       if(!record.acquired)return await held("job_claimed_or_uncertain");
-      jobs.push({job,claim:record});
+      jobs.push({job,claim:record,activeBin});
     }
     const bookingRunning=await use.changeState({
       key:bookingClaim.key,etag:bookingClaim.etag,bookingId,
@@ -229,7 +265,9 @@ async function executeAutomaticPreviewBooking(payload,{
           postAttempted=true;
           const response=await use.createCustomer({
             ...plan.customerInput,
-            notes:"NI Bin Guy website booking (Preview 1) - verify before operational launch.",
+            notes:anotherProperty
+              ? "NI Bin Guy website booking (Preview 1). Additional service property for an existing contact. Separate service/billing account; do not merge without review."
+              : "NI Bin Guy website booking (Preview 1) - verify before operational launch.",
           });
           customerCreated=true;
           const rawId=typeof response==="string"?response:
@@ -244,6 +282,12 @@ async function executeAutomaticPreviewBooking(payload,{
         }
         for(let index=0;index<jobs.length;index++){
           const entry=jobs[index];
+          const activeRunning=await use.changeState({
+            key:entry.activeBin.key,etag:entry.activeBin.etag,bookingId,
+            state:"request_in_progress",
+          });
+          if(!activeRunning.changed)throw new Error("active_bin_claim_transition_failed");
+          entry.activeEtag=activeRunning.etag;
           const jobRunning=await use.changeState({
             key:entry.claim.key,etag:entry.claim.etag,bookingId,
             state:"request_in_progress",
@@ -259,6 +303,12 @@ async function executeAutomaticPreviewBooking(payload,{
           });
           if(!done.changed)throw new Error("job_claim_commit_uncertain");
           entry.etag=done.etag;
+          const activeDone=await use.changeState({
+            key:entry.activeBin.key,etag:entry.activeEtag,bookingId,
+            state:"succeeded",
+          });
+          if(!activeDone.changed)throw new Error("active_bin_claim_commit_uncertain");
+          entry.activeEtag=activeDone.etag;
         }
       },runtimeScope,env);
       const done=await use.changeState({
@@ -273,7 +323,7 @@ async function executeAutomaticPreviewBooking(payload,{
         pilotClaim.etag=pilotDone.etag;
       }
       await mark("created_customer_and_jobs",{
-        customerMode:existing?"existing":"new",
+        customerMode,
         createdCustomer:customerCreated,
         createdJobs:completed,firstCleanDates:plan.jobs.map(j=>j.date),
         rounds:summary.jobs.map(j=>j.roundNumber),
@@ -304,6 +354,12 @@ async function executeAutomaticPreviewBooking(payload,{
         if(entry.etag) {
           try{await use.changeState({
             key:entry.claim.key,etag:entry.etag,bookingId,
+            state:"requires_reconciliation",
+          });}catch{}
+        }
+        if(entry.activeEtag) {
+          try{await use.changeState({
+            key:entry.activeBin.key,etag:entry.activeEtag,bookingId,
             state:"requires_reconciliation",
           });}catch{}
         }
