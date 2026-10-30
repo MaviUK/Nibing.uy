@@ -8,16 +8,17 @@
  * in PR #77's isolated source instead, with the THREE independent runtime
  * site/context/hostname gates in squeegeeApiV3.isExactPreview1.
  *
- * Initial activation is one TEST API email booking only, then a permanently
- * consumed global Blob claim holds further test writes pending verification.
+ * The new, one-use, Fresh Sync email test uses a NEW immutable claim key.
+ * Previously accepted booking references and claims must never be cleared
+ * or reused. All further automatic writes stop after the one test claim.
  * WhatsApp stays off. No override or retry is exposed to customers.
  */
 const PREVIEW1_ONE_EMAIL_PILOT_ENABLED=true;
-const PILOT_CLAIM_KEY="claim-v1/auto-pilot/preview77-first-email";
-// Exactly the already-accepted, owner-supplied October 30th test booking.
-// Reject all other new TEST API submissions until this one is reconciled.
-const PILOT_BOOKING_ID="NBG-MVV99LDX-7BEDD59D85";
-const PILOT_NAME="TEST API - Pilot 2";
+// Fresh one-use pilot: NEVER clear/reuse the old pilot claim or the old
+// accepted booking. A new key is required to keep their histories immutable.
+const PILOT_CLAIM_KEY="claim-v1/auto-pilot/preview77-fresh-brown-v1";
+const ABANDONED_BOOKING_ID="NBG-MVV99LDX-7BEDD59D85";
+const PILOT_NAME="TEST API - Fresh Sync";
 
 function autoMode(env=process.env) {
   // Explicit false is a kill switch. A later, separately approved general
@@ -30,16 +31,18 @@ function automaticEnabled(env=process.env) {
   return autoMode(env)!=="off";
 }
 function isPilotBooking(booking,channel) {
+  // This is a new normal website booking. Its random booking ID cannot be
+  // known in advance; the CAS pilot claim is what permits just ONE booking.
+  // Never replay or reissue a previously accepted booking for this pilot.
   if(channel!=="email" ||
-     booking?.bookingId!==PILOT_BOOKING_ID ||
+     booking?.bookingId===ABANDONED_BOOKING_ID ||
+     !/^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i.test(String(booking?.bookingId||"")) ||
      String(booking?.name||"").trim()!==PILOT_NAME ||
      booking?.termsAccepted!==true ||
-     !Array.isArray(booking?.bins) || booking.bins.length!==2) return false;
-  const kinds=booking.bins.map(bin=>{
-    if(bin?.planId!=="domestic_4w" || Number(bin?.count)!==1) return null;
-    return String(bin.type||"").trim();
-  }).sort();
-  return kinds[0]==="Black Bin" && kinds[1]==="Brown Bin";
+     !Array.isArray(booking?.bins) || booking.bins.length!==1) return false;
+  const bin=booking.bins[0];
+  return bin?.type==="Brown Bin" &&
+    bin.planId==="domestic_4w" && Number(bin.count)===1;
 }
 function acceptedForRollout(booking,channel,env=process.env) {
   const mode=autoMode(env);
@@ -53,7 +56,7 @@ function acceptedForRollout(booking,channel,env=process.env) {
   return mode==="full" || isPilotBooking(booking,channel);
 }
 module.exports={
-  PILOT_CLAIM_KEY,PILOT_BOOKING_ID,PILOT_NAME,
+  PILOT_CLAIM_KEY,ABANDONED_BOOKING_ID,PILOT_NAME,
   autoMode,automaticEnabled,
   isPilotBooking,acceptedForRollout,
 };
