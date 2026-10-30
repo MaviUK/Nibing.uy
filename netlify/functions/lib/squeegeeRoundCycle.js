@@ -4,10 +4,12 @@
  * NI Bin Guy's confirmed 20-round, four-week rota.
  *
  * Owner confirmed: Monday 2026-11-02 = Round 11 (Week 3).
- * Verified: Week 1=1-5, Week 2=6-10, Week 3=11-15, Week 4=16-20;
- * Round 11 is Monday 2026-11-02. Other weekday-to-round assignments are
- * NOT yet confirmed. Some unconfigured groups relate to Friday collections;
- * that does not prove every numbered group is a weekday or clean day.
+ * Owner confirmed one numbered round runs per day, sequentially Monday
+ * through Friday within each of the four weeks:
+ * Week 1=1-5, Week 2=6-10, Week 3=11-15, Week 4=16-20.
+ * Monday 2026-11-02 is Round 11. Absence of some Squeegee groups is
+ * intentional because some bin-collection areas aren't covered; do not
+ * create missing groups or substitute another group's UUID.
  *
  * Website rule: on an NI Monday bank holiday, Monday-Friday's work moves to
  * Tuesday-Saturday. Christmas/Boxing Day substitute Mondays are intentionally
@@ -103,13 +105,10 @@ function roundForCleaningDate(dateString) {
   }
   const weeksFromAnchor=Math.round((monday.getTime()-utcDate(CYCLE_ANCHOR_MONDAY).getTime())/(7*DAY_MS));
   const weekIndex=normalizedMod(ANCHOR_WEEK_INDEX+weeksFromAnchor,4);
-  // An illustrative Monday-Friday candidate is NOT an operational
-  // assignment. In particular, groups 06 and 07 are absent from the current
-  // account even though they would fall Mon/Tue under that assumption.
-  const candidateRoundNumber=WEEK_GROUPS[weekIndex][operationalDayIndex-1];
-  const weekdayMappingVerified =
-    weekIndex === ANCHOR_WEEK_INDEX && operationalDayIndex === 1 && !shifted;
-  const roundNumber=weekdayMappingVerified ? 11 : null;
+  // One round per operational day, as confirmed by the owner. Missing
+  // account groups are handled separately in resolveSqueegeeRoundJobGroup.
+  const roundNumber=WEEK_GROUPS[weekIndex][operationalDayIndex-1];
+  const weekdayMappingVerified=true;
   return {
     matched:true,
     date:dateString,
@@ -117,16 +116,13 @@ function roundForCleaningDate(dateString) {
     weekNumber:weekIndex+1,
     operationalDayIndex,
     roundNumber,
-    roundLabel:roundNumber===null ? null : String(roundNumber).padStart(2,"0"),
-    candidateRoundNumber,
+    roundLabel:String(roundNumber).padStart(2,"0"),
     weekdayMappingVerified,
     bankHolidayShifted:shifted,
     // A four-weekly recurrence anchored to a shifted Tuesday/Saturday can
     // carry the WRONG day into a normal non-bank-holiday week.
     recurringDateNeedsReview:shifted,
-    source:weekdayMappingVerified
-      ? "owner_confirmed_round11_monday_2026_11_02_cycle"
-      : "owner_confirmed_week_cycle_weekday_order_unverified",
+    source:"owner_confirmed_distinct_daily_rounds_monday_2026_11_02_anchor",
   };
 }
 
@@ -143,11 +139,8 @@ function resolveSqueegeeRoundJobGroup(dateString, accountGroups, { recurring=fal
   if (recurring && rotation.recurringDateNeedsReview) {
     return {...rotation,status:"bank_holiday_recurrence_review",jobGroupId:null};
   }
-  // An account group label existing does not prove which date it serves.
-  // Only Round 11 on Week 3 Monday was directly confirmed by the owner.
-  if (!rotation.weekdayMappingVerified) {
-    return {...rotation,status:"weekday_mapping_unverified",jobGroupId:null};
-  }
+  // A computed round is NOT permission to create its group. Look up the
+  // exact Squeegee account UUID and hold unused/missing numbers.
   if (!Array.isArray(accountGroups)) {
     return {...rotation,status:"job_groups_not_loaded",jobGroupId:null};
   }
