@@ -7,7 +7,6 @@ const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
 const { validateBookingSubmission, claimBookingSubmission, submissionErrorResponse } = require("./lib/bookingSubmissionGuard");
 const { stageWithoutBlockingBooking } = require("./lib/squeegeeBookingStage");
-const { scheduleOneApprovedTestAfterBooking } = require("./lib/squeegeeOneBookingTest");
 
 // Optional audit logging. If Netlify Blobs is unavailable, logging is skipped.
 let getStoreSafe = null;
@@ -397,20 +396,6 @@ exports.handler = async (event) => {
       await stageWithoutBlockingBooking(payload, { channel: "email" });
     } catch (_) {
       console.warn("Read-only Squeegee booking preparation unavailable");
-    }
-
-    // ONE supervised Squeegee test only, after successful booking emails.
-    // The owner's HttpOnly test-session cookie is needed, and the worker
-    // still checks an atomic one-use reservation, exact date, service, group,
-    // server-side prices and that the Squeegee customer does not exist.
-    // Normal bookings (without that cookie) never call a Squeegee POST.
-    try {
-      await scheduleOneApprovedTestAfterBooking(payload, {
-        cookieHeader: event.headers?.cookie || event.headers?.Cookie || "",
-        channel: "email",
-      });
-    } catch (_) {
-      console.warn("Supervised Preview 1 Squeegee test not scheduled");
     }
 
     const durationMs = Date.now() - startedAt;
