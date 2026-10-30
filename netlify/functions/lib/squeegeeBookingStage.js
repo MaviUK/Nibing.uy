@@ -1,6 +1,6 @@
 "use strict";
 
-const { getServices } = require("./squeegeeApiV3");
+const { getServices, getJobGroups } = require("./squeegeeApiV3");
 const { prepareReadOnlyBooking } = require("./squeegeeBookingPreparation");
 const { normalizedPostcode } = require("./squeegeeBookingPlan");
 const { validateBookingSubmission } = require("./bookingSubmissionGuard");
@@ -73,6 +73,7 @@ async function stageAcceptedBooking(payload, {
   channel = "unknown",
   serverSchedule,
   services,
+  jobGroups,
   fetchImpl,
   save,
   keyConfigured = isPreview1ApiConfigured(),
@@ -81,18 +82,22 @@ async function stageAcceptedBooking(payload, {
   if (!metadata.ok) return { staged: false, reason: "invalid_booking_reference" };
   if (!keyConfigured) return { staged: false, reason: "preview_api_unavailable" };
 
-  const [scheduleResult, servicesResult] = await Promise.allSettled([
+  const [scheduleResult, servicesResult, groupResult] = await Promise.allSettled([
     serverSchedule !== undefined
       ? Promise.resolve(serverSchedule)
       : fetchAuthoritativeSchedule(payload, fetchImpl),
     services !== undefined ? Promise.resolve(services) : getServices(),
+    jobGroups !== undefined ? Promise.resolve(jobGroups) : getJobGroups(),
   ]);
 
   const schedule = scheduleResult.status === "fulfilled" ? scheduleResult.value : null;
   const accountServices = servicesResult.status === "fulfilled" ? servicesResult.value : [];
+  const accountGroups = groupResult.status === "fulfilled" ? groupResult.value : [];
   let prepared;
   try {
-    prepared = prepareReadOnlyBooking(payload, schedule, accountServices);
+    prepared = prepareReadOnlyBooking(payload, schedule, accountServices, {
+      jobGroups: accountGroups,
+    });
   } catch {
     return { staged: false, reason: "preparation_failed" };
   }
