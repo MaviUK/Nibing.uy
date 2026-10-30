@@ -1,6 +1,8 @@
 // PREVIEW 1 ONLY — mobile owner approval for one Squeegee test.
 // No production access, no customer records returned, no browser-held API key.
 import session from "./lib/squeegeePreviewTestSession.js";
+import reconcile from "./lib/squeegeeOneBookingReconcile.js";
+import api from "./lib/squeegeeApiV3.js";
 import { getStore } from "@netlify/blobs";
 import { Resend } from "resend";
 
@@ -131,7 +133,7 @@ function challengePage(challengeId){
   '<label for="code">Access code</label><input id="code" name="code" type="text" inputmode="numeric" maxlength="10" pattern="[0-9]{10}" autocomplete="one-time-code" required>'+
   '<button type="submit">Arm one test booking</button></form>');
 }
-function armedPage(diagnostic,bookingId){
+function armedPage(diagnostic,bookingId,squeegeeCheck=null){
   let state="";
   if(bookingId){
     const status=diagnostic?.status;
@@ -149,6 +151,20 @@ function armedPage(diagnostic,bookingId){
       (diagnostic?.firstClean?'<p>Website first clean: '+safe(diagnostic.firstClean)+'</p>':"")+
       (diagnostic?.round?'<p>Website round candidate: '+safe(diagnostic.round)+'</p>':"")+
       '<p><small>Shadow dates or claims do not prove a job was created. Do not retry an uncertain Squeegee POST.</small></p></div>';
+    state+='<form method="get"><input type="hidden" name="bookingId" value="'+safe(bookingId)+'">'+
+      '<input type="hidden" name="checkSqueegee" value="1">'+
+      '<button type="submit">Check Squeegee customer (READ ONLY)</button></form>';
+    if(squeegeeCheck) {
+      state+='<div class="notice"><strong>Squeegee account read-only check</strong>'+
+        '<p>Accepted booking audit: '+safe(squeegeeCheck.audit)+'</p>'+
+        '<p>Matching customer: '+safe(squeegeeCheck.customer)+'</p>'+
+        (Number.isInteger(squeegeeCheck.jobCount)?
+          '<p>Attached jobs: '+safe(squeegeeCheck.jobCount)+'</p>':"")+
+        (Number.isInteger(squeegeeCheck.pagesScanned)?
+          '<p>Pages checked: '+safe(squeegeeCheck.pagesScanned)+'</p>':"")+
+        '<p><small>No Squeegee customer or job was created by this check. Appointment dates and four-week recurrence still require verification inside Squeegee.</small></p>'+
+        '</div>';
+    }
   }
   return page('<div class="notice"><strong>Owner test authorised for this browser.</strong></div>'+
   '<p>Complete <strong>ONE NEW CUSTOMER</strong> booking on Preview 1. Select exactly <strong>one domestic bin, four-weekly at £5</strong>, using <strong>Email booking</strong>. You must use an address not already in Squeegee with an actual clean date shown.</p>'+
@@ -167,9 +183,21 @@ export default async function handler(request,context) {
     const active=getAuthorized(request,scope);
     if(request.method==="GET"){
       if(!active) return authPage();
-      const bookingId=new URL(request.url).searchParams.get("bookingId")?.trim()||"";
+      const params=new URL(request.url).searchParams;
+      const bookingId=params.get("bookingId")?.trim()||"";
       const diagnostic=bookingId?await getDiagnostic(bookingId):null;
-      return armedPage(diagnostic,bookingId);
+      let squeegeeCheck=null;
+      if(bookingId && params.get("checkSqueegee")==="1" &&
+         /^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i.test(bookingId)) {
+        // The code never sends personal data to HTML; the archived booking
+        // is read only after owner session authentication.
+        squeegeeCheck=await reconcile.reconcileAcceptedBooking(bookingId,{
+          auditStore:getStore({name:"tos-confirmations",consistency:"strong"}),
+          listCustomers:options=>api.listCustomers(options),
+          getCustomer:id=>api.getCustomer(id),
+        });
+      }
+      return armedPage(diagnostic,bookingId,squeegeeCheck);
     }
     if(request.method!=="POST") return new Response("Method not allowed",{status:405});
     const data=await request.formData();
