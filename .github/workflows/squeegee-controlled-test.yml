@@ -5,15 +5,17 @@ on:
       - preview/n64-retro-site
     paths:
       - .github/workflows/squeegee-controlled-test.yml
+
 permissions:
   contents: read
   id-token: write
+
 jobs:
-  verify-injected-store-after-deployment:
+  compare-and-swap-diagnostic:
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
-      - name: Verify harmless atomic lock helper; NO Squeegee writes
+      - name: Verify one-time atomic state transition; no Squeegee writes
         shell: python
         run: |
           import json,os,time,urllib.parse,urllib.request,urllib.error
@@ -26,7 +28,7 @@ jobs:
               identity=json.load(response)["value"]
           endpoint="https://deploy-preview-77--nibinguy.netlify.app/.netlify/functions/squeegeeControlledTest"
           for attempt in range(1,13):
-              request=urllib.request.Request(endpoint,data=b'{"mode":"claim-helper-check"}',
+              request=urllib.request.Request(endpoint,data=b'{"mode":"cas-check"}',
                   headers={"Authorization":"Bearer "+identity,
                            "Content-Type":"application/json"},method="POST")
               try:
@@ -41,13 +43,12 @@ jobs:
                   status=0
                   body={}
               if status==200 and body.get("testOnly") and body.get("noSqueegeeWrites"):
-                  allowed=("claimAcquired","claimReason","claimEtagPresent",
-                      "claimPersisted","storedEtagPresent")
-                  print("ATOMIC_CLAIM_HELPER_CHECK:",json.dumps({k:body.get(k) for k in allowed},sort_keys=True))
-                  if not body.get("claimAcquired") or not body.get("claimPersisted"):
-                      raise SystemExit("Atomic claim helper not working; NO Squeegee writes")
+                  allowed=("casChanged","casReason","casEtagPresent","casPersisted")
+                  print("ATOMIC_CAS_CHECK:",json.dumps({k:body.get(k) for k in allowed},sort_keys=True))
+                  if not body.get("casChanged") or not body.get("casPersisted"):
+                      raise SystemExit("Atomic claim compare-and-swap failed; no Squeegee writes")
                   break
-              print("CLAIM_HELPER_ATTEMPT:",attempt,"HTTP:",status)
+              print("CAS_ATTEMPT:",attempt,"HTTP:",status)
               if status==401:raise SystemExit("GitHub OIDC rejected")
-              if attempt==12:raise SystemExit("Atomic helper check unavailable")
+              if attempt==12:raise SystemExit("CAS diagnostic unavailable")
               time.sleep(8)
