@@ -1,6 +1,28 @@
 // PREVIEW 1 ONLY — mobile owner approval for one Squeegee test.
 // No production access, no customer records returned, no browser-held API key.
 import session from "./lib/squeegeePreviewTestSession.js";
+import { getStore } from "@netlify/blobs";
+import { Resend } from "resend";
+
+// Import external services in this ESM entrypoint rather than relying on
+// late CommonJS requires during an owner-authorisation POST.
+function ownerAuthStore() {
+  return getStore({name:session.AUTH_STORE_NAME, consistency:"strong"});
+}
+async function sendOwnerTestCode({to,code}) {
+  if(!process.env.RESEND_API_KEY) throw new Error("owner_code_email_unavailable");
+  const resend=new Resend(process.env.RESEND_API_KEY);
+  const result=await resend.emails.send({
+    from:process.env.RESEND_FROM||"NI Bin Guy <noreply@nibing.uy>",
+    to,
+    subject:"NI Bin Guy - Preview 1 Squeegee one-booking test code",
+    text:"Your one-time Squeegee test access code is: "+code+
+      "\\n\\nEnter it into the Preview 1 test page within 15 minutes."+
+      "\\nThis only authorises ONE supervised TEST booking, not live customer imports."+
+      "\\nIf you did not request this, ignore the email.",
+  });
+  if(result?.error) throw new Error("owner_code_email_unavailable");
+}
 
 const headerMap={
   "Content-Type":"text/html; charset=utf-8",
@@ -89,6 +111,7 @@ function armedPage(status,bookingId){
 }
 export default async function handler(request,context) {
   if(!previewReady(request,context))return new Response("Not found",{status:404});
+  let phase="initial";
   try{
     const scope=runtimeScope(request,context);
     const active=getAuthorized(request,scope);
@@ -102,12 +125,17 @@ export default async function handler(request,context) {
     const data=await request.formData();
     const action=String(data.get("action")||"");
     if(action==="request"){
-      const issued=await session.issueOwnerCode({runtimeScope:scope});
+      phase="request_code";
+      const issued=await session.issueOwnerCode({
+        runtimeScope:scope, store:ownerAuthStore(), sendCode:sendOwnerTestCode,
+      });
       if(issued.ok)return challengePage(issued.challengeId);
       return page("<p>Unable to issue test access. Try again after the request limit resets or check Preview 1 booking emails.</p>",503);
     }
     if(action==="verify"){
+      phase="verify_code";
       const verified=await session.verifyOwnerCode({
+        store:ownerAuthStore(),
         challengeId:String(data.get("challengeId")||""),
         code:String(data.get("code")||""),
         runtimeScope:scope,
@@ -126,7 +154,9 @@ export default async function handler(request,context) {
       return new Response(null,{status:303,headers});
     }
     return page("<p>Unknown request.</p>",400);
-  }catch {
+  }catch(error) {
+    // Safe diagnostics only: never log an OTP, API key, contact or customer data.
+    console.error("Preview 1 owner test setup error",phase,error?.name||"unknown");
     return page("<p>Test setup could not be completed safely. No Squeegee records were changed by this page.</p>",503);
   }
 }
