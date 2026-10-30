@@ -347,8 +347,8 @@ async function ensureBookingSchedule(root = findBookingRoot()) {
 window.nbgEnsureBookingSchedule = ensureBookingSchedule;
 
 // Preserve the exact per-bin dates currently displayed in the booking form.
- // The customer/booking writer must still verify these on the server before
- // attempting any Squeegee writes. A missing or outdated lookup is never a date.
+// The customer/booking writer must still verify these on the server before
+// attempting any Squeegee writes. A missing or outdated lookup is never a date.
 function getBookingScheduleSnapshot(root = findBookingRoot()) {
   if (!root || serviceAreaBlocksLookup(root)) return null;
   const form = getFormData(root);
@@ -360,7 +360,7 @@ function getBookingScheduleSnapshot(root = findBookingRoot()) {
 
   const items = results.map((result, index) => {
     const isoDate = String(result?.assignedCleanDate || "");
-    const confirmed = Boolean(result?.automatic && /^\\d{4}-\\d{2}-\\d{2}$/.test(isoDate));
+    const confirmed = Boolean(result?.automatic && /^\d{4}-\d{2}-\d{2}$/.test(isoDate));
     return {
       type: form.bins[index].type,
       assignedCleanDate: confirmed ? isoDate : null,
