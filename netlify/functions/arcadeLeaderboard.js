@@ -22,10 +22,22 @@ const limitInt = (value, max) =>
   Math.min(max, Math.max(0, Number.isFinite(Number(value)) ? Math.floor(Number(value)) : 0));
 
 function storePair() {
-  // Named preview-only stores keep private contact details out of public APIs.
+  // This Netlify site already provisions explicit Blobs credentials for its
+  // booking-status functions. Reuse the same known-working setup here.
+  // Netlify's automatic injection may not be available on deploy previews.
+  const siteID = process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID;
+  const token = process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN;
+  const open = (name) => {
+    const options = { name, consistency: "strong" };
+    if (siteID && token) {
+      options.siteID = siteID;
+      options.token = token;
+    }
+    return getStore(options);
+  };
   return {
-    public: getStore({ name: "n64-preview-arcade-public", consistency: "strong" }),
-    private: getStore({ name: "n64-preview-arcade-private", consistency: "strong" }),
+    public: open("n64-preview-arcade-public"),
+    private: open("n64-preview-arcade-private"),
   };
 }
 
@@ -76,7 +88,13 @@ async function rebuildSnapshot(store) {
     lastUpdatedAt: lastUpdatedAt || null,
     builtAt: new Date().toISOString(),
   };
-  await store.setJSON(SNAPSHOT_KEY, snapshot);
+  try {
+    await store.setJSON(SNAPSHOT_KEY, snapshot);
+  } catch (error) {
+    // The leaderboard should still load if a read-only or temporarily
+    // unavailable snapshot cache cannot be written to.
+    console.warn("Leaderboard snapshot cache write failed:", error?.message || "unknown");
+  }
   return snapshot;
 }
 
