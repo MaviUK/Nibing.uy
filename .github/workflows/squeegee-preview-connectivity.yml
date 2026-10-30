@@ -44,3 +44,9 @@ jobs:
               print(label.upper()+"_LABELS:",json.dumps(entry.get("descriptions") or []))
           print("DIAGNOSTIC_REASON:",data.get("reason") or data.get("error"))
           print("PREVIEW_GUARD_CHECKS:",data.get("checks"))
+          customer_shape = data.get("customersSchema") or {}
+          print("CUSTOMERS_LIST_CONNECTED:",customer_shape.get("connected"))
+          print("CUSTOMERS_LIST_HTTP_STATUS:",customer_shape.get("status"))
+          print("CUSTOMERS_ROOT_TYPE:",customer_shape.get("rootType"))
+          print("CUSTOMERS_ROOT_KEYS:",json.dumps(customer_shape.get("rootKeys") or []))
+          print("CUSTOMERS_ARRAY_FIELDS:",json.dumps(customer_shape.get("arrayFields") or []))
