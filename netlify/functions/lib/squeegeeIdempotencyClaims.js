@@ -59,11 +59,10 @@ function validEtag(value) {
 
 function getClaimsStore() {
   const { getStore } = require("@netlify/blobs");
-  const siteID = process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID;
-  const token = process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN;
-  const options = { name: STORE_NAME, consistency: "strong" };
-  if (siteID && token) { options.siteID = siteID; options.token = token; }
-  return getStore(options);
+  // Use Netlify's auto-configured runtime credentials. Manually supplying
+  // partial or outdated site/token environment variables can bypass that
+  // runtime configuration and cause conditional writes to fail silently.
+  return getStore({ name: STORE_NAME, consistency: "strong" });
 }
 function validateBookingId(bookingId) {
   if (!BOOKING_RE.test(String(bookingId || ""))) throw new Error("Invalid bookingId");
