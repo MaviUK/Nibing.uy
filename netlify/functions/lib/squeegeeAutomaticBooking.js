@@ -13,6 +13,7 @@
 const api=require("./squeegeeApiV3");
 const rollout=require("./squeegeePreviewAutoRollout");
 const {prepareReadOnlyBooking}=require("./squeegeeBookingPreparation");
+const {groupedSqueegeeJobs}=require("./squeegeeJobGrouping");
 const {fetchAuthoritativeSchedule}=require("./squeegeeBookingStage");
 const {matchCustomersAcrossPages,addressKey}=require("./squeegeeCustomerMatcher");
 const {resolveSqueegeeServiceIds}=require("./squeegeeServiceCatalog");
@@ -104,8 +105,9 @@ async function executeAutomaticPreviewBooking(payload,{
   const bins=Array.isArray(payload?.bins)?payload.bins.filter(x=>x?.type):[];
   if(!bins.length || bins.length>MAX_BOOKING_JOBS)
     return outcome("held","too_many_or_no_booking_lines");
-  // Each job is a distinct bin colour at this property. Repeated colours in
-  // one booking cannot be safely distinguished as two separate wheelie bins
+  // Each selected line is a distinct bin colour at this property. Multiple
+  // lines may later share ONE grouped job if their schedules are identical.
+  // Repeated colours in one booking cannot be distinguished as separate bins
   // with this Squeegee API shape. Hold them before claiming anything.
   const distinctBins=new Set(bins.map(x=>normalizedBinType(x.type)));
   if(distinctBins.size!==bins.length)
@@ -161,6 +163,22 @@ async function executeAutomaticPreviewBooking(payload,{
         blockedReasons:summary.blockedReasons.slice(0,8),
       });
     }
+    // Plans, exact dates, account services and prices have all been verified.
+    // Group compatible bin lines into ONE Squeegee job per identical date,
+    // round and recurrence; conflicting schedules must stay separate.
+    let groupedJobs;
+    try{groupedJobs=groupedSqueegeeJobs(plan.jobs,bookingId);}
+    catch{return await held("cannot_safely_group_bin_jobs");}
+    const groupedPennies=groupedJobs.reduce((sum,group)=>
+      sum+Math.round(group.input.price*100),0);
+    const bookingPennies=Math.round(Number(payload.pricing?.total)*100);
+    if(!Number.isSafeInteger(groupedPennies) ||
+       !Number.isSafeInteger(bookingPennies) ||
+       groupedPennies!==bookingPennies ||
+       !groupedJobs.length || groupedJobs.length>bins.length) {
+      return await held("grouped_job_price_or_service_mismatch");
+    }
+
     const customerMatch=await matchCustomersAcrossPages(payload,
       args=>use.listCustomers(args),{maxPages:100});
     if(!["matched","not_found"].includes(customerMatch.status))
@@ -188,9 +206,11 @@ async function executeAutomaticPreviewBooking(payload,{
     }
 
     await mark("ready_for_claims",{
-      jobs:plan.jobs.length,customerMode,
-      dates:plan.jobs.map(j=>j.date),
-      rounds:summary.jobs.map(j=>j.roundNumber),
+      jobs:groupedJobs.length,binServices:plan.jobs.length,customerMode,
+      dates:groupedJobs.map(group=>group.input.date),
+      rounds:groupedJobs.map(group=>
+        summary.jobs[group.members[0].index].roundNumber),
+      binsPerJob:groupedJobs.map(group=>group.members.length),
     });
 
     // First Preview 1 rollout: ONE TEST API email booking in total. Reserve
@@ -263,7 +283,8 @@ async function executeAutomaticPreviewBooking(payload,{
         async()=>{
         if(!existing) {
           // Existing Squeegee customers are never overwritten.
-          await mark("creating_customer",{jobCount:jobs.length});
+          await mark("creating_customer",{jobCount:groupedJobs.length,
+            binServices:bins.length});
           creatingCustomer=true;
           postAttempted=true;
           const response=await use.createCustomer({
@@ -283,35 +304,49 @@ async function executeAutomaticPreviewBooking(payload,{
           propertyEtag=customerDone.etag;customerClaimSettled=true;
           creatingCustomer=false;
         }
-        for(let index=0;index<jobs.length;index++){
-          const entry=jobs[index];
-          const activeRunning=await use.changeState({
-            key:entry.activeBin.key,etag:entry.activeBin.etag,bookingId,
-            state:"request_in_progress",
+        // Every physical bin retains its own permanent job + active-bin CAS
+        // claim. Transition ALL member claims BEFORE the single grouped POST.
+        // On any uncertain response, never retry the group or any of its bins.
+        const entriesByIndex=new Map(jobs.map(entry=>[entry.job.index,entry]));
+        for(let index=0;index<groupedJobs.length;index++){
+          const group=groupedJobs[index];
+          const entries=group.members.map(member=>entriesByIndex.get(member.index));
+          if(entries.some(entry=>!entry))
+            throw new Error("missing_group_member_claim");
+          for(const entry of entries){
+            const activeRunning=await use.changeState({
+              key:entry.activeBin.key,etag:entry.activeBin.etag,bookingId,
+              state:"request_in_progress",
+            });
+            if(!activeRunning.changed)throw new Error("active_bin_claim_transition_failed");
+            entry.activeEtag=activeRunning.etag;
+            const jobRunning=await use.changeState({
+              key:entry.claim.key,etag:entry.claim.etag,bookingId,
+              state:"request_in_progress",
+            });
+            if(!jobRunning.changed)throw new Error("job_claim_transition_failed");
+            entry.etag=jobRunning.etag;
+          }
+          await mark("creating_job",{
+            jobNumber:index+1,jobCount:groupedJobs.length,
+            binsOnJob:entries.length,
           });
-          if(!activeRunning.changed)throw new Error("active_bin_claim_transition_failed");
-          entry.activeEtag=activeRunning.etag;
-          const jobRunning=await use.changeState({
-            key:entry.claim.key,etag:entry.claim.etag,bookingId,
-            state:"request_in_progress",
-          });
-          if(!jobRunning.changed)throw new Error("job_claim_transition_failed");
-          entry.etag=jobRunning.etag;
-          await mark("creating_job",{jobNumber:index+1,jobCount:jobs.length});
           postAttempted=true;
-          await use.addJob(customerId,entry.job.input);
+          await use.addJob(customerId,group.input);
           completed++;
-          const done=await use.changeState({
-            key:entry.claim.key,etag:entry.etag,bookingId,state:"succeeded",
-          });
-          if(!done.changed)throw new Error("job_claim_commit_uncertain");
-          entry.etag=done.etag;
-          const activeDone=await use.changeState({
-            key:entry.activeBin.key,etag:entry.activeEtag,bookingId,
-            state:"succeeded",
-          });
-          if(!activeDone.changed)throw new Error("active_bin_claim_commit_uncertain");
-          entry.activeEtag=activeDone.etag;
+          for(const entry of entries){
+            const done=await use.changeState({
+              key:entry.claim.key,etag:entry.etag,bookingId,state:"succeeded",
+            });
+            if(!done.changed)throw new Error("job_claim_commit_uncertain");
+            entry.etag=done.etag;
+            const activeDone=await use.changeState({
+              key:entry.activeBin.key,etag:entry.activeEtag,bookingId,
+              state:"succeeded",
+            });
+            if(!activeDone.changed)throw new Error("active_bin_claim_commit_uncertain");
+            entry.activeEtag=activeDone.etag;
+          }
         }
       },runtimeScope,env);
       const done=await use.changeState({
@@ -328,13 +363,18 @@ async function executeAutomaticPreviewBooking(payload,{
       await mark("created_customer_and_jobs",{
         customerMode,
         createdCustomer:customerCreated,
-        createdJobs:completed,firstCleanDates:plan.jobs.map(j=>j.date),
-        rounds:summary.jobs.map(j=>j.roundNumber),
-        recurrence:plan.jobs.map(j=>j.input.frequencyType==="weeks"?
-          "every_"+j.input.frequencyInterval+"_weeks":"one_off"),
+        createdJobs:completed,binServices:plan.jobs.length,
+        binsPerJob:groupedJobs.map(group=>group.members.length),
+        firstCleanDates:groupedJobs.map(group=>group.input.date),
+        rounds:groupedJobs.map(group=>
+          summary.jobs[group.members[0].index].roundNumber),
+        recurrence:groupedJobs.map(group=>
+          group.input.frequencyType==="weeks"
+            ?"every_"+group.input.frequencyInterval+"_weeks":"one_off"),
       });
       return outcome("completed","created_customer_and_jobs",{
-        createdCustomer:customerCreated,createdJobs:completed});
+        createdCustomer:customerCreated,createdJobs:completed,
+        binServices:plan.jobs.length});
     }catch{
       // A pilot is one-use even on partial or uncertain external success.
       if(pilotClaim) {
@@ -374,7 +414,8 @@ async function executeAutomaticPreviewBooking(payload,{
       return await uncertain("partial_or_ambiguous_squeegee_write",{
         customerPostMayHaveSucceeded:creatingCustomer||customerCreated,
         jobPostMayHaveSucceeded:postAttempted,
-        jobsConfirmed:completed,jobCount:jobs.length,
+        jobsConfirmed:completed,jobCount:groupedJobs.length,
+        binServicesPlanned:bins.length,
       });
     }
   }catch{
