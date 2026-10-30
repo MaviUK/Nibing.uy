@@ -44,7 +44,7 @@ function booking() {
       version: 1, postcode: "BT20 4AA", matched: true,
       results: [
         { type: "Black Bin", automatic: true, assignedCleanDate: "2026-11-02" },
-        { type: "Blue Bin", automatic: true, assignedCleanDate: "2026-11-05" },
+        { type: "Blue Bin", automatic: true, assignedCleanDate: "2026-11-30" },
       ],
     },
   };
@@ -54,7 +54,7 @@ function serverSchedule() {
     postcode: "BT20 4AA", town: "BANGOR", matched: true,
     results: [
       { bin: "Black Bin", town: "BANGOR", automatic: true, assignedCleanDate: "2026-11-02" },
-      { bin: "Blue Bin", town: "BANGOR", automatic: true, assignedCleanDate: "2026-11-05" },
+      { bin: "Blue Bin", town: "BANGOR", automatic: true, assignedCleanDate: "2026-11-30" },
     ],
   };
 }
@@ -74,9 +74,9 @@ test("combines verified price, exact dates and correct one-off/four-weekly servi
   assert.equal(result.summary.needsJobGroupMapping, false);
   assert.equal(result.status, "prepared_read_only");
   assert.equal(result.summary.jobs[0].roundNumber, 11);
-  assert.equal(result.summary.jobs[1].roundNumber, 14);
+  assert.equal(result.summary.jobs[1].roundNumber, 11);
   assert.equal(result.privatePlan.jobs[0].input.jobGroup, GROUP_11);
-  assert.equal(result.privatePlan.jobs[1].input.jobGroup, GROUP_14);
+  assert.equal(result.privatePlan.jobs[1].input.jobGroup, GROUP_11);
 });
 
 test("client price changes block all Squeegee price calculations", () => {
@@ -96,7 +96,7 @@ test("date discrepancy keeps only the affected job held for review", () => {
   assert.equal(result.summary.datesVerified, false);
   assert.equal(result.privatePlan.jobs[0].status, "date_to_confirm");
   assert.equal(result.privatePlan.jobs[0].date, null);
-  assert.equal(result.privatePlan.jobs[1].input.date, "2026-11-05");
+  assert.equal(result.privatePlan.jobs[1].input.date, "2026-11-30");
 });
 
 test("does not prepare a job for unmapped commercial plan", () => {
@@ -131,7 +131,7 @@ test("staging an accepted booking never retains any customer PII in its private 
   assert.equal(result.status, "prepared_read_only");
   assert.equal(stored.channel, "email");
   assert.equal(stored.jobs[0].roundNumber, 11);
-  assert.equal(stored.jobs[1].roundNumber, 14);
+  assert.equal(stored.jobs[1].roundNumber, 11);
   assert.equal(stored.readOnly, true);
   const serialized = JSON.stringify(stored);
   assert.equal(serialized.includes("example@example.org"), false);
@@ -174,16 +174,20 @@ test("bad booking references cannot stage records", async () => {
   assert.equal(result.reason, "invalid_booking_reference");
 });
 
-test("missing account round holds only that bin and never sends an ungrouped job", () => {
-  const result = prepareReadOnlyBooking(booking(), serverSchedule(), SERVICES, {
-    jobGroups: [GROUPS[0]],
+test("Thursday remains unverified even when Squeegee Group 14 exists", () => {
+  const b = booking();
+  const sch = serverSchedule();
+  b.bookingScheduleSnapshot.results[1].assignedCleanDate = "2026-11-05";
+  sch.results[1].assignedCleanDate = "2026-11-05";
+  const result = prepareReadOnlyBooking(b, sch, SERVICES, {
+    jobGroups: GROUPS,
   });
   assert.equal(result.status, "held_for_review");
   assert.equal(result.summary.jobs[0].status, "ready");
   assert.equal(result.summary.jobs[0].roundStatus, "mapped");
-  assert.equal(result.summary.jobs[1].roundNumber, 14);
+  assert.equal(result.summary.jobs[1].roundNumber, null);
   assert.equal(result.summary.jobs[1].status, "job_group_mapping_required");
-  assert.equal(result.summary.jobs[1].roundStatus, "round_missing_in_account");
+  assert.equal(result.summary.jobs[1].roundStatus, "weekday_mapping_unverified");
   assert.equal(result.privatePlan.jobs[1].input, null);
   assert.equal(result.summary.approvedToWrite, false);
 });
