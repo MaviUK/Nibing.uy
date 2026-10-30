@@ -601,9 +601,9 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const [whatsAppConfirmation, setWhatsAppConfirmation] = useState(null);
   const [whatsAppBookingId, setWhatsAppBookingId] = useState("");
   const bookedBinScoreRef = useRef([]);
-  const [leaderboardOptIn, setLeaderboardOptIn] = useState(false);
-  const [leaderboardJoining, setLeaderboardJoining] = useState(false);
-  const [leaderboardJoinResult, setLeaderboardJoinResult] = useState({ status: "idle", message: "" });
+  // Automatically list a confirmed customer unless they choose privacy in the
+  // booking form. There is no separate prize entry or leaderboard submission.
+  const [arcadeOptOut, setArcadeOptOut] = useState(false);
 
 
   const canToggleAgree = termsViewed;
@@ -642,7 +642,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
         if (response.ok && result?.status === "confirmed") {
           // The server confirmed the receipt and booking; award once per booking ID.
           window.n64Score?.awardBooking(whatsAppBookingId, bookedBinScoreRef.current);
-          window.n64Score?.offerEntry(result.arcadeBookingProof);
+          window.n64Score?.onBookingConfirmed(result, arcadeOptOut, whatsAppBookingId);
           setWhatsAppConfirmation(result);
           setWhatsAppBookingStatus("confirmed");
           return;
@@ -807,8 +807,6 @@ function BookingForm({ onClose, initialAddress = "" }) {
     bookedBinScoreRef.current = bins.map((bin) => ({ ...bin }));
     setWhatsAppBookingStatus("sending");
     setWhatsAppConfirmation(null);
-    setLeaderboardOptIn(false);
-    setLeaderboardJoinResult({ status: "idle", message: "" });
     setWhatsAppBookingId(submissionMeta.bookingId);
 
     const payload = {
@@ -819,6 +817,8 @@ function BookingForm({ onClose, initialAddress = "" }) {
       phone,
       address,
       bins,
+      arcadeClaimed: window.n64Score?.activityKeys?.() || [],
+      arcadeOptOut,
       discountCode: normalizeCode(discountCode) || null,
       pricing,
       termsAccepted: true,
@@ -949,6 +949,8 @@ function BookingForm({ onClose, initialAddress = "" }) {
       phone,
       address,
       bins,
+      arcadeClaimed: window.n64Score?.activityKeys?.() || [],
+      arcadeOptOut,
       placeId,
       lat,
       lng,
@@ -972,10 +974,9 @@ function BookingForm({ onClose, initialAddress = "" }) {
   // The server accepted the booking email. Award XP per requested bin/plan.
   window.n64Score?.awardBooking(emailSubmissionMeta.bookingId, bins);
   const acceptedBooking = await res.json().catch(() => ({}));
-  // Keep the booking confirmation visible so customers can opt into the
-  // leaderboard before closing. The name only becomes public by consent.
-  setLeaderboardOptIn(false);
-  setLeaderboardJoinResult({ status: "idle", message: "" });
+  // The server has enrolled this booking automatically if it was not opted out.
+  // Attach the signed player token to the existing first-party XP cookie.
+  window.n64Score?.onBookingConfirmed(acceptedBooking, arcadeOptOut, emailSubmissionMeta.bookingId);
   setWhatsAppConfirmation({ ...acceptedBooking, source: "email", schedule: null });
   setWhatsAppBookingStatus("confirmed");
 } catch (err) {
@@ -1038,53 +1039,14 @@ function BookingForm({ onClose, initialAddress = "" }) {
           </div>
         )}
 
-        {typeof whatsAppConfirmation?.arcadeBookingProof === "string" && (
-          <div className="border-4 border-[#20345c] bg-[#fff5cf] p-4 text-left text-[#20345c] shadow-[5px_5px_0_#7f9db8]">
-            <h3 className="text-lg font-black uppercase">★ Join the Global Leaderboard</h3>
-            <p className="mt-2 text-sm leading-relaxed">
-              Your booking earns arcade XP. Join the live rankings under your booking name and be eligible for prizes.
-            </p>
-            {leaderboardJoinResult.status === "success" ? (
-              <p className="mt-3 font-black text-green-800" role="status">{leaderboardJoinResult.message}</p>
-            ) : (
-              <>
-                <label className="mt-3 flex items-start gap-3 text-sm font-semibold">
-                  <input
-                    type="checkbox"
-                    className="mt-1 h-5 w-5 shrink-0 accent-green-700"
-                    checked={leaderboardOptIn}
-                    onChange={(event) => setLeaderboardOptIn(event.target.checked)}
-                  />
-                  <span>I agree to display my booking name and XP publicly. NI Bin Guy may contact me privately
-                    using my booking details if I win a prize.</span>
-                </label>
-                <button type="button"
-                  className="mt-3 w-full border-4 border-[#20345c] bg-[#ffdb4b] px-4 py-3 font-black text-[#20345c] disabled:opacity-50"
-                  disabled={!leaderboardOptIn || leaderboardJoining}
-                  onClick={async () => {
-                    setLeaderboardJoining(true);
-                    setLeaderboardJoinResult({ status: "pending", message: "Registering your score…" });
-                    try {
-                      const register = window.n64Score?.registerEntry;
-                      if (typeof register !== "function") throw new Error("Reload the updated preview and verify your booking to join.");
-                      const entry = await register(whatsAppConfirmation.arcadeBookingProof);
-                      setLeaderboardJoinResult({ status: "success", message: "You're on the leaderboard as " + entry.displayName + "!" });
-                    } catch (error) {
-                      setLeaderboardJoinResult({ status: "error", message: error?.message || "Could not register your score." });
-                    } finally {
-                      setLeaderboardJoining(false);
-                    }
-                  }}
-                >
-                  {leaderboardJoining ? "Joining…" : "★ Join Leaderboard"}
-                </button>
-                {leaderboardJoinResult.status === "error" && (
-                  <p className="mt-2 text-sm font-bold text-red-800" role="alert">{leaderboardJoinResult.message}</p>
-                )}
-              </>
-            )}
-          </div>
-        )}
+        <div className="border-4 border-[#20345c] bg-[#fff5cf] p-4 text-left text-[#20345c] shadow-[5px_5px_0_#7f9db8]" role="status">
+          <h3 className="text-lg font-black uppercase">★ Arcade Score</h3>
+          <p className="mt-2 text-sm font-semibold leading-relaxed">
+            {arcadeOptOut
+              ? "Your booking XP stays on this device, and your name has not been added to the public leaderboard."
+              : "Your booking automatically adds your name and XP to the global leaderboard. No other form or verification needed."}
+          </p>
+        </div>
 
         <button onClick={onClose} className="w-full rounded-none bg-neutral-900 px-5 py-3 font-bold text-white hover:bg-neutral-800">
           Done
@@ -1224,6 +1186,22 @@ function BookingForm({ onClose, initialAddress = "" }) {
 
       <input type="tel" placeholder="Contact Number" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
       <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
+
+      <div className="mt-4 border-4 border-[#20345c] bg-[#fff5cf] p-3 text-[#20345c]">
+        <strong className="block text-sm font-black uppercase">★ Live Arcade Leaderboard</strong>
+        <p className="mt-2 text-xs leading-relaxed">
+          After your booking is confirmed, your booking name and arcade XP
+          are added automatically to the public Global Leaderboard.
+          Your address, postcode, email and phone remain private and are used
+          only for your booking and, if you win, prize fulfilment.
+        </p>
+        <label className="mt-3 flex items-start gap-2 text-xs font-bold">
+          <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-green-700"
+            checked={arcadeOptOut}
+            onChange={(event) => setArcadeOptOut(event.target.checked)} />
+          <span>Keep my name and XP off the public leaderboard (optional).</span>
+        </label>
+      </div>
 
       <div className="mt-4 p-3 rounded-lg border border-gray-500 bg-gray-50">
         <div className="flex items-center justify-between gap-3">
