@@ -37,8 +37,14 @@ function verifiedSchedule() {
   };
 }
 
+const catalog = require("../netlify/functions/lib/squeegeeServiceCatalog");
+const ONEOFF_SERVICE = "33333333-3333-4333-8333-333333333333";
+
 const mappings = () => ({
-  serviceIds: { black: SERVICE, blue: SERVICE },
+  serviceIds: {
+    domestic_4w: { black: SERVICE },
+    domestic_oneoff: { blue: ONEOFF_SERVICE },
+  },
   pricesVerifiedByServer: true,
   jobGroupFor: () => GROUP,
 });
@@ -53,10 +59,12 @@ test("makes exact four-weekly and one-off jobs using verified dates", () => {
   assert.equal(result.jobs[0].input.firstAppointment.initialDate, "2026-11-04");
   assert.equal(result.jobs[0].input.frequencyType, "weeks");
   assert.equal(result.jobs[0].input.frequencyInterval, 4);
+  assert.deepEqual(result.jobs[0].input.services, [SERVICE]);
   assert.equal(result.jobs[0].input.price, 10);
   assert.equal(result.jobs[0].input.jobGroup, GROUP);
   assert.equal(result.jobs[1].input.date, "2026-11-06");
   assert.equal(result.jobs[1].input.frequencyType, "adhoc");
+  assert.deepEqual(result.jobs[1].input.services, [ONEOFF_SERVICE]);
   assert.equal(Object.hasOwn(result.jobs[1].input, "frequencyInterval"), false);
 });
 
@@ -143,4 +151,35 @@ test("GET services uses the documented Bearer authorization and v3 URL", async (
     if (originalKey === undefined) delete process.env.SQUEEGEE_API_KEY;
     else process.env.SQUEEGEE_API_KEY = originalKey;
   }
+});
+
+test("Squeegee regular and one-off services resolve by exact account labels", () => {
+  const resolved = catalog.resolveSqueegeeServiceIds([
+    { id: SERVICE, description: "Black" },
+    { id: ONEOFF_SERVICE, description: "(One Off) Blue" },
+  ]);
+  assert.equal(resolved.serviceIds.domestic_4w.black, SERVICE);
+  assert.equal(resolved.serviceIds.domestic_oneoff.blue, ONEOFF_SERVICE);
+  assert.equal(resolved.serviceIds.domestic_4w.blue, undefined);
+  assert.equal(resolved.unresolved.length, 6);
+  const result = plan.buildSqueegeeBookingPlan(booking(), verifiedSchedule(), {
+    ...mappings(), serviceIds: resolved.serviceIds,
+  });
+  assert.equal(result.readyJobs, 2);
+});
+
+test("never reuse a regular-clean service for a one-off without its exact mapping", () => {
+  const config = mappings();
+  delete config.serviceIds.domestic_oneoff;
+  const result = plan.buildSqueegeeBookingPlan(booking(), verifiedSchedule(), config);
+  assert.equal(result.jobs[0].status, "ready");
+  assert.equal(result.jobs[1].status, "service_mapping_required");
+});
+
+test("commercial bookings stay blocked until commercial service mapping is approved", () => {
+  const b = booking();
+  b.bins[0].planId = "comm_gt660_4w";
+  b.pricing.lines[0].planId = "comm_gt660_4w";
+  const result = plan.buildSqueegeeBookingPlan(b, verifiedSchedule(), mappings());
+  assert.equal(result.jobs[0].status, "service_mapping_required");
 });
