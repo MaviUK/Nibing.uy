@@ -1,67 +1,110 @@
 const crypto = require("node:crypto");
 const { getStore } = require("@netlify/blobs");
-const { verifyBooking, bookingPoints } = require("./lib/arcadeBookingProof");
+const {
+  verifyBooking, bookingPoints, signPlayerSession, verifyPlayerSession
+} = require("./lib/arcadeBookingProof");
 
 const HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
   "Cache-Control": "no-store",
+  "X-Content-Type-Options": "nosniff",
 };
 const out = (statusCode, data) => ({
-  statusCode,
-  headers: HEADERS,
-  body: JSON.stringify(data),
+  statusCode, headers: HEADERS, body: JSON.stringify(data),
 });
-
+const SNAPSHOT_KEY = "leaderboard:top10:v2";
+const SNAPSHOT_MAX_AGE_MS = 35000;
 const LEVEL_KEYS = new Set([
   "l:what-we-do", "l:the-process", "l:bins-we-clean", "l:why-clean-your-bin",
   "l:why-ni-bin-guy", "l:areas-we-cover", "l:customer-portal", "l:level-08-final",
 ]);
-
 const limitInt = (value, max) =>
   Math.min(max, Math.max(0, Number.isFinite(Number(value)) ? Math.floor(Number(value)) : 0));
 
 function storePair() {
-  // The two stores have deliberately different names to keep public ranking
-  // data separate from private, opt-in booking/prize contact information.
+  // Named preview-only stores keep private contact details out of public APIs.
   return {
     public: getStore({ name: "n64-preview-arcade-public", consistency: "strong" }),
     private: getStore({ name: "n64-preview-arcade-private", consistency: "strong" }),
   };
 }
 
-async function topTen(store) {
+function activityXP(claimed) {
+  if (!Array.isArray(claimed) || claimed.length > 200) return 0;
+  // Browser-reported participation is capped, but is NOT fraud-proof.
+  const keys = new Set(claimed.filter((x) => typeof x === "string"));
+  let levels = 0;
+  for (const key of LEVEL_KEYS) if (keys.has(key)) levels++;
+  return levels * 50 + (keys.has("a:coverage") ? 25 : 0)
+    + (keys.has("a:bin-checker") ? 35 : 0);
+}
+
+async function rebuildSnapshot(store) {
+  // Blobs is suitable for this limited preview, not for transactional prizes.
+  // list() WITHOUT paginate:true returns all pages as one collection.
+  const { blobs = [] } = await store.list({ prefix: "player:" });
   const records = [];
-  let cursor;
-  do {
-    const page = await store.list({ prefix: "player:", paginate: true, cursor });
-    for (const blob of page.blobs || []) {
-      const row = await store.get(blob.key, { type: "json" });
-      if (row && typeof row.displayName === "string") {
+  // Bound concurrent reads so many visitors can poll a single small snapshot,
+  // instead of loading every player on every 10-second refresh.
+  for (let i = 0; i < blobs.length; i += 20) {
+    const rows = await Promise.all(blobs.slice(i, i + 20).map(async ({ key }) => {
+      try { return await store.get(key, { type: "json" }); }
+      catch (_) { return null; }
+    }));
+    for (const row of rows) {
+      if (row && typeof row.displayName === "string" && row.displayName.trim()) {
         records.push(row);
       }
     }
-    cursor = page.cursor;
-  } while (cursor && records.length < 500);
-
-  return records
-    .sort((a, b) => limitInt(b.points, 100000) - limitInt(a.points, 100000)
-      || String(a.createdAt || "").localeCompare(String(b.createdAt || "")))
-    .slice(0, 10)
-    .map((row, index) => ({
-      rank: index + 1,
-      name: row.displayName,
-      points: limitInt(row.points, 100000),
-    }));
+  }
+  const ranked = records.sort((a, b) =>
+    limitInt(b.points, 100000) - limitInt(a.points, 100000) ||
+    String(a.createdAt || "").localeCompare(String(b.createdAt || ""))
+  );
+  const entries = ranked.slice(0, 10).map((row, i) => ({
+    rank: i + 1,
+    name: String(row.displayName).slice(0, 45),
+    points: limitInt(row.points, 100000),
+  }));
+  const lastUpdatedAt = records.reduce((last, row) => {
+    const timestamp = row.lastUpdatedAt || row.createdAt || "";
+    return timestamp > last ? timestamp : last;
+  }, "");
+  const snapshot = {
+    entries,
+    totalPlayers: ranked.length,
+    lastUpdatedAt: lastUpdatedAt || null,
+    builtAt: new Date().toISOString(),
+  };
+  await store.setJSON(SNAPSHOT_KEY, snapshot);
+  return snapshot;
 }
 
-function activityXP(claimed) {
-  // The activity keys are capped, deduplicated and counted once each.
-  // They represent browser-reported participation, NOT security-grade proof.
-  const keys = new Set(Array.isArray(claimed) ? claimed.filter(x => typeof x === "string") : []);
-  let levels = 0;
-  for (const key of LEVEL_KEYS) if (keys.has(key)) levels += 1;
-  return levels * 50 + (keys.has("a:coverage") ? 25 : 0)
-    + (keys.has("a:bin-checker") ? 35 : 0);
+async function getSnapshot(store) {
+  const cached = await store.get(SNAPSHOT_KEY, { type: "json" });
+  const age = Date.now() - Date.parse(cached?.builtAt || "");
+  if (Array.isArray(cached?.entries) &&
+      Number.isFinite(age) && age >= 0 && age < SNAPSHOT_MAX_AGE_MS) {
+    return cached;
+  }
+  return rebuildSnapshot(store);
+}
+
+function publicLeaderboard(snapshot) {
+  return {
+    entries: snapshot.entries,
+    totalPlayers: snapshot.totalPlayers,
+    lastUpdatedAt: snapshot.lastUpdatedAt,
+    // Last-check timestamps are generated by clients. Nothing private here.
+  };
+}
+
+async function refreshSnapshotAfterWrite(store) {
+  try { await rebuildSnapshot(store); }
+  catch (error) {
+    // The player record remains valid; a later GET will rebuild the snapshot.
+    console.warn("Leaderboard snapshot refresh failed:", error?.message || "unknown");
+  }
 }
 
 async function notifyOwner(booking, points) {
@@ -87,118 +130,132 @@ async function notifyOwner(booking, points) {
     });
     if (result?.error) console.warn("Prize entry email could not be sent");
   } catch (_) {
-    // The stored entry remains valid if the optional email notice fails.
     console.warn("Prize entry email service temporarily unavailable");
   }
+}
+
+async function updateActivePlayer(body, stores) {
+  // An opted-in booking receives a 90-day signed, pseudonymous session.
+  // Updating XP never resends a customer's name or contact details.
+  const key = verifyPlayerSession(body.playerToken);
+  if (!key) return out(401, { error: "Score session expired or invalid" });
+  const recordKey = "player:" + key;
+  const [player, contact] = await Promise.all([
+    stores.public.get(recordKey, { type: "json" }),
+    stores.private.get(recordKey, { type: "json" }),
+  ]);
+  if (!player || !contact?.consentedAt) {
+    return out(403, { error: "Please opt in after booking before joining rankings" });
+  }
+  const previousActivity = limitInt(contact.progressXP, 460);
+  const nextActivity = Math.max(previousActivity, activityXP(body.claimed));
+  const earned = nextActivity - previousActivity;
+  const oldPoints = limitInt(player.points, 100000);
+  if (!earned) return out(200, { success: true, changed: false, points: oldPoints });
+  const points = Math.min(100000, oldPoints + earned);
+  const timestamp = new Date().toISOString();
+  await stores.private.setJSON(recordKey, {
+    ...contact, points, progressXP: nextActivity, lastUpdatedAt: timestamp,
+  });
+  await stores.public.setJSON(recordKey, {
+    ...player, points, lastUpdatedAt: timestamp,
+  });
+  await refreshSnapshotAfterWrite(stores.public);
+  return out(200, { success: true, changed: true, points });
+}
+
+async function registerBooking(body, stores) {
+  if (body.consent !== true) return out(400, { error: "Prize leaderboard consent required" });
+  const booking = verifyBooking(body.bookingProof);
+  if (!booking) return out(403, { error: "A completed verified booking is required" });
+  const name = String(booking.name || "").replace(/[<>]/g, "").trim().slice(0, 45);
+  if (!name) return out(400, { error: "Missing booking customer name" });
+  const emailKey = crypto.createHash("sha256")
+    .update(String(booking.email).trim().toLowerCase()).digest("hex");
+  const recordKey = "player:" + emailKey;
+
+  const [oldPublic, oldPrivate] = await Promise.all([
+    stores.public.get(recordKey, { type: "json" }),
+    stores.private.get(recordKey, { type: "json" }),
+  ]);
+  const currentActivity = activityXP(body.claimed);
+  const previousActivity = oldPrivate
+    ? limitInt(oldPrivate.progressXP === undefined ? currentActivity : oldPrivate.progressXP, 460)
+    : 0;
+  const activityIncrease = Math.max(0, currentActivity - previousActivity);
+  const nextActivity = Math.max(currentActivity, previousActivity);
+  const bookingIds = new Set(
+    (Array.isArray(oldPrivate?.bookingIds) ? oldPrivate.bookingIds : [])
+      .filter((id) => typeof id === "string").slice(-100)
+  );
+  if (typeof oldPrivate?.bookingId === "string") bookingIds.add(oldPrivate.bookingId);
+  const newBooking = !bookingIds.has(booking.id);
+  const bookingIncrease = newBooking
+    ? Math.min(30000, limitInt(bookingPoints(booking.bins), 30000)) : 0;
+  const previousScore = limitInt(oldPublic?.points || oldPrivate?.points, 100000);
+  const points = Math.min(100000,
+    oldPublic ? previousScore + activityIncrease + bookingIncrease
+      : currentActivity + bookingIncrease
+  );
+  const timestamp = new Date().toISOString();
+  const changed = !oldPublic || newBooking || activityIncrease > 0;
+  if (newBooking) bookingIds.add(booking.id);
+
+  if (changed) {
+    await stores.private.setJSON(recordKey, {
+      name: String(booking.name),
+      email: String(booking.email),
+      phone: String(booking.phone || ""),
+      address: String(booking.address || ""),
+      bookingId: String(booking.id),
+      bookingIds: [...bookingIds].slice(-100),
+      progressXP: nextActivity,
+      points,
+      consentedAt: oldPrivate?.consentedAt || timestamp,
+      lastUpdatedAt: timestamp,
+    });
+    await stores.public.setJSON(recordKey, {
+      displayName: name,
+      points,
+      createdAt: oldPublic?.createdAt || timestamp,
+      lastUpdatedAt: timestamp,
+    });
+    await refreshSnapshotAfterWrite(stores.public);
+    if (newBooking) await notifyOwner(booking, points);
+  }
+
+  return out(200, {
+    success: true,
+    changed,
+    duplicate: !newBooking,
+    points,
+    displayName: oldPublic?.displayName || name,
+    playerToken: signPlayerSession(emailKey),
+  });
 }
 
 exports.handler = async (event) => {
   if (!["GET", "POST"].includes(event.httpMethod)) {
     return out(405, { error: "Method not allowed" });
   }
-
   try {
     const stores = storePair();
     if (event.httpMethod === "GET") {
-      return out(200, { entries: await topTen(stores.public) });
+      return out(200, publicLeaderboard(await getSnapshot(stores.public)));
     }
-
     if (typeof event.body !== "string" || event.body.length > 16000) {
       return out(400, { error: "Invalid leaderboard request" });
     }
-
     let body;
-    try {
-      body = JSON.parse(event.body);
-    } catch (_) {
-      return out(400, { error: "Invalid leaderboard JSON" });
+    try { body = JSON.parse(event.body); }
+    catch (_) { return out(400, { error: "Invalid leaderboard JSON" }); }
+    if (!body || typeof body !== "object") {
+      return out(400, { error: "Invalid leaderboard request" });
     }
-    if (!body || body.consent !== true) {
-      return out(400, { error: "Prize leaderboard consent required" });
-    }
-
-    const booking = verifyBooking(body.bookingProof);
-    if (!booking) {
-      return out(403, { error: "A completed verified booking is required" });
-    }
-    const name = String(booking.name || "").replace(/[<>]/g, "").trim().slice(0, 45);
-    if (!name) return out(400, { error: "Missing booking customer name" });
-
-    const emailKey = crypto.createHash("sha256")
-      .update(String(booking.email).trim().toLowerCase())
-      .digest("hex");
-    const recordKey = "player:" + emailKey;
-
-    const [oldPublic, oldPrivate] = await Promise.all([
-      stores.public.get(recordKey, { type: "json" }),
-      stores.private.get(recordKey, { type: "json" }),
-    ]);
-    const previousScore = limitInt(oldPublic?.points, 100000);
-    const currentActivity = activityXP(body.claimed);
-    // Existing 2026 preview records had no progressXP field. We assume that
-    // their previously displayed total already included current activity, so
-    // upgrading does not accidentally double-award the same levels.
-    const previousActivity = oldPrivate
-      ? limitInt(oldPrivate.progressXP === undefined ? currentActivity : oldPrivate.progressXP, 460)
-      : 0;
-    const nextActivity = Math.max(currentActivity, previousActivity);
-    const activityIncrease = Math.max(0, nextActivity - previousActivity);
-
-    const knownBookingIds = new Set(
-      (Array.isArray(oldPrivate?.bookingIds) ? oldPrivate.bookingIds : [])
-        .filter(id => typeof id === "string").slice(-100)
-    );
-    if (typeof oldPrivate?.bookingId === "string") {
-      knownBookingIds.add(oldPrivate.bookingId);
-    }
-    const firstTimeForBooking = !knownBookingIds.has(booking.id);
-    const earnedForBooking = firstTimeForBooking
-      ? Math.min(30000, limitInt(bookingPoints(booking.bins), 30000))
-      : 0;
-
-    // First registration includes activity + its booking. Later legitimate
-    // bookings ADD per-bin XP, not just the larger of two snapshot totals.
-    const points = Math.min(100000,
-      oldPublic
-        ? previousScore + activityIncrease + earnedForBooking
-        : currentActivity + earnedForBooking
-    );
-
-    const now = new Date().toISOString();
-    const publicRow = {
-      displayName: name,
-      points,
-      createdAt: oldPublic?.createdAt || now,
-    };
-    if (firstTimeForBooking) knownBookingIds.add(booking.id);
-
-    const privateRow = {
-      name: String(booking.name),
-      email: String(booking.email),
-      phone: String(booking.phone || ""),
-      address: String(booking.address || ""),
-      bookingId: String(booking.id),
-      bookingIds: [...knownBookingIds].slice(-100),
-      progressXP: nextActivity,
-      points,
-      consentedAt: oldPrivate?.consentedAt || now,
-      lastUpdatedAt: now,
-    };
-
-    await stores.private.setJSON(recordKey, privateRow);
-    await stores.public.setJSON(recordKey, publicRow);
-
-    if (firstTimeForBooking) {
-      await notifyOwner(booking, points);
-    }
-    return out(200, {
-      success: true,
-      points,
-      displayName: name,
-      duplicate: !firstTimeForBooking,
-    });
+    if (body.action === "sync") return updateActivePlayer(body, stores);
+    return registerBooking(body, stores);
   } catch (error) {
-    console.error("Arcade leaderboard failed:", error?.message || "unknown error");
+    console.error("Arcade leaderboard error:", error?.message || "unknown");
     return out(503, { error: "Leaderboard temporarily unavailable" });
   }
 };
