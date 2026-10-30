@@ -8,6 +8,7 @@ const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
 const { validateBookingSubmission, claimBookingSubmission, submissionErrorResponse } = require("./lib/bookingSubmissionGuard");
 const { stageWithoutBlockingBooking } = require("./lib/squeegeeBookingStage");
 const { dispatchAcceptedBooking } = require("./lib/squeegeePreviewAutoDispatch");
+const { normaliseUkBookingPhone } = require("./lib/ukBookingPhone");
 const { PILOT_NAME } = require("./lib/squeegeePreviewAutoRollout");
 
 // Optional audit logging. If Netlify Blobs is unavailable, logging is skipped.
@@ -190,7 +191,7 @@ exports.handler = async (event) => {
     const {
       name = "",
       address = "",
-      phone = "",
+      phone: rawPhone = "",
       email = "",
       bins = [],
       placeId = "",
@@ -204,6 +205,23 @@ exports.handler = async (event) => {
       termsAcceptanceText = `I confirm I’ve read and agree to the Ni Bin Guy Terms of Service (v${TERMS_VERSION_DEFAULT}).`,
       termsTimestamp = new Date().toISOString(),
     } = payload;
+
+    // Reject postcodes/non-phone text BEFORE claiming a booking ID, emailing
+    // anyone, awarding XP or dispatching any real Squeegee API work.
+    const phone=normaliseUkBookingPhone(rawPhone);
+    if(!phone) {
+      return {
+        statusCode:422,
+        headers:{"Content-Type":"application/json","Cache-Control":"no-store"},
+        body:JSON.stringify({
+          error:"Enter a valid UK contact number (e.g. 028 or 07, 11 digits).",
+          reason:"invalid_booking_phone",
+        }),
+      };
+    }
+    // The independently signed automatic Squeegee worker consumes this
+    // accepted payload; keep its contact number canonical and numeric.
+    payload.phone=phone;
 
     const filteredBins = (Array.isArray(bins) ? bins : []).filter((bin) => bin?.type);
     const binsText =
