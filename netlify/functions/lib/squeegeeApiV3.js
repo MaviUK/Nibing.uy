@@ -8,6 +8,7 @@
  * permitted until owner approval AND a durable idempotency ledger are ready.
  */
 const { AsyncLocalStorage } = require("node:async_hooks");
+const rollout=require("./squeegeePreviewAutoRollout");
 const previewTestContext = new AsyncLocalStorage();
 const API_ORIGIN = "https://api02.sqgee.com";
 const PREFIX = "/api/v3/public";
@@ -49,7 +50,7 @@ function assertWriteAllowed() {
   const singleTest = Boolean(process.env.SQUEEGEE_API_KEY) &&
     previewTestContext.getStore()?.singleApprovedTest === true &&
     previewTestContext.getStore()?.preview1ScopeVerified === true;
-  const automaticPreview = process.env.SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED === "true" &&
+  const automaticPreview = rollout.automaticEnabled(process.env) &&
     Boolean(process.env.SQUEEGEE_API_KEY) &&
     previewTestContext.getStore()?.autoBookingApproved === true &&
     previewTestContext.getStore()?.preview1ScopeVerified === true;
@@ -82,7 +83,7 @@ async function withOneApprovedPreviewTestWrite(proof, operation, runtimeScope) {
  */
 async function withApprovedPreviewAutomaticWrite(proof, operation, runtimeScope, env=process.env) {
   if (!isExactPreview1(env,runtimeScope) ||
-      env.SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED !== "true" ||
+      !rollout.automaticEnabled(env) ||
       !env.SQUEEGEE_API_KEY ||
       proof?.acquired !== true ||
       !/^claim-v1\/auto-bookings\/NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i.test(String(proof.key||"")) ||
