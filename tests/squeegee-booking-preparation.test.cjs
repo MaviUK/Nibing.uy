@@ -8,6 +8,12 @@ const { stageAcceptedBooking, isPreview1ApiConfigured, fetchAuthoritativeSchedul
 
 const BLACK_SERVICE = "11111111-1111-4111-8111-111111111111";
 const BLUE_ONEOFF_SERVICE = "22222222-2222-4222-8222-222222222222";
+const GROUP_11 = "33333333-3333-4333-8333-333333333333";
+const GROUP_14 = "44444444-4444-4444-8444-444444444444";
+const GROUPS = [
+  { id: GROUP_11, description: "11" },
+  { id: GROUP_14, description: "14" },
+];
 const SERVICES = [
   { id: BLACK_SERVICE, description: "Black" },
   { id: BLUE_ONEOFF_SERVICE, description: "(One Off) Blue" },
@@ -54,7 +60,7 @@ function serverSchedule() {
 }
 
 test("combines verified price, exact dates and correct one-off/four-weekly services", () => {
-  const result = prepareReadOnlyBooking(booking(), serverSchedule(), SERVICES);
+  const result = prepareReadOnlyBooking(booking(), serverSchedule(), SERVICES, { jobGroups: GROUPS });
   assert.equal(result.summary.pricingVerified, true);
   assert.equal(result.summary.datesVerified, true);
   assert.equal(result.summary.jobCount, 2);
@@ -65,14 +71,18 @@ test("combines verified price, exact dates and correct one-off/four-weekly servi
   assert.equal(result.privatePlan.jobs[0].input.services[0], BLACK_SERVICE);
   assert.equal(result.privatePlan.jobs[1].input.frequencyType, "adhoc");
   assert.equal(result.privatePlan.jobs[1].input.services[0], BLUE_ONEOFF_SERVICE);
-  assert.equal(result.summary.needsJobGroupMapping, true);
-  assert.equal(result.status, "held_for_review");
+  assert.equal(result.summary.needsJobGroupMapping, false);
+  assert.equal(result.status, "prepared_read_only");
+  assert.equal(result.summary.jobs[0].roundNumber, 11);
+  assert.equal(result.summary.jobs[1].roundNumber, 14);
+  assert.equal(result.privatePlan.jobs[0].input.jobGroup, GROUP_11);
+  assert.equal(result.privatePlan.jobs[1].input.jobGroup, GROUP_14);
 });
 
 test("client price changes block all Squeegee price calculations", () => {
   const b = booking();
   b.pricing.lines[0].lineTotal = 1;
-  const result = prepareReadOnlyBooking(b, serverSchedule(), SERVICES);
+  const result = prepareReadOnlyBooking(b, serverSchedule(), SERVICES, { jobGroups: GROUPS });
   assert.equal(result.summary.pricingVerified, false);
   assert.equal(result.privatePlan, null);
   assert.equal(result.summary.jobCount, 0);
@@ -82,7 +92,7 @@ test("client price changes block all Squeegee price calculations", () => {
 test("date discrepancy keeps only the affected job held for review", () => {
   const b = booking();
   b.bookingScheduleSnapshot.results[0].assignedCleanDate = "2026-11-03";
-  const result = prepareReadOnlyBooking(b, serverSchedule(), SERVICES);
+  const result = prepareReadOnlyBooking(b, serverSchedule(), SERVICES, { jobGroups: GROUPS });
   assert.equal(result.summary.datesVerified, false);
   assert.equal(result.privatePlan.jobs[0].status, "date_to_confirm");
   assert.equal(result.privatePlan.jobs[0].date, null);
@@ -98,7 +108,7 @@ test("does not prepare a job for unmapped commercial plan", () => {
   b.pricing.lines[0].lineTotal = 25;
   b.pricing.subtotal = 40;
   b.pricing.total = 40;
-  const result = prepareReadOnlyBooking(b, serverSchedule(), SERVICES);
+  const result = prepareReadOnlyBooking(b, serverSchedule(), SERVICES, { jobGroups: GROUPS });
   assert.equal(result.summary.pricingVerified, true);
   assert.equal(result.privatePlan.jobs[0].status, "service_mapping_required");
 });
@@ -109,6 +119,7 @@ test("staging an accepted booking never retains any customer PII in its private 
     keyConfigured: true,
     serverSchedule: serverSchedule(),
     services: SERVICES,
+    jobGroups: GROUPS,
     channel: "email",
     save: async (bookingId, summary) => {
       assert.equal(bookingId, "NBG-ABC123-ABCDEFGH");
@@ -117,8 +128,10 @@ test("staging an accepted booking never retains any customer PII in its private 
     },
   });
   assert.equal(result.staged, true);
-  assert.equal(result.status, "held_for_review");
+  assert.equal(result.status, "prepared_read_only");
   assert.equal(stored.channel, "email");
+  assert.equal(stored.jobs[0].roundNumber, 11);
+  assert.equal(stored.jobs[1].roundNumber, 14);
   assert.equal(stored.readOnly, true);
   const serialized = JSON.stringify(stored);
   assert.equal(serialized.includes("example@example.org"), false);
@@ -159,4 +172,33 @@ test("bad booking references cannot stage records", async () => {
   const result = await stageAcceptedBooking(b, { keyConfigured: true, services: SERVICES });
   assert.equal(result.staged, false);
   assert.equal(result.reason, "invalid_booking_reference");
+});
+
+test("missing account round holds only that bin and never sends an ungrouped job", () => {
+  const result = prepareReadOnlyBooking(booking(), serverSchedule(), SERVICES, {
+    jobGroups: [GROUPS[0]],
+  });
+  assert.equal(result.status, "held_for_review");
+  assert.equal(result.summary.jobs[0].status, "ready");
+  assert.equal(result.summary.jobs[0].roundStatus, "mapped");
+  assert.equal(result.summary.jobs[1].roundNumber, 14);
+  assert.equal(result.summary.jobs[1].status, "job_group_mapping_required");
+  assert.equal(result.summary.jobs[1].roundStatus, "round_missing_in_account");
+  assert.equal(result.privatePlan.jobs[1].input, null);
+  assert.equal(result.summary.approvedToWrite, false);
+});
+
+test("shifted bank-holiday recurring job cannot anchor to the wrong weekday", () => {
+  const b = booking();
+  b.bookingScheduleSnapshot.results[0].assignedCleanDate = "2027-05-04";
+  const schedule = serverSchedule();
+  schedule.results[0].assignedCleanDate = "2027-05-04";
+  const result = prepareReadOnlyBooking(b, schedule, SERVICES, {
+    jobGroups: GROUPS,
+  });
+  assert.equal(result.summary.jobs[0].bankHolidayShifted, true);
+  assert.equal(result.summary.jobs[0].roundStatus, "bank_holiday_recurrence_review");
+  assert.equal(result.summary.jobs[0].status, "job_group_mapping_required");
+  assert.equal(result.privatePlan.jobs[0].input, null);
+  assert.equal(result.summary.approvedToWrite, false);
 });
