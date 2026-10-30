@@ -29,17 +29,9 @@ updateFile("src/LandingPage.jsx", (text) => {
     );
   }
 
-  if (
-    !text.includes('const submissionMeta = createBookingSubmissionMeta();') ||
-    !text.includes('      ...submissionMeta,\n      source: "whatsapp",')
-  ) {
-    text = mustReplace(
-      text,
-      '    const payload = {\n      source: "whatsapp",',
-      '    const submissionMeta = createBookingSubmissionMeta();\n\n    const payload = {\n      ...submissionMeta,\n      source: "whatsapp",',
-      "WhatsApp submission metadata"
-    );
-  }
+  // The BookingForm now uses one Submit Booking action. Do not recreate the
+  // retired WhatsApp booking handler during builds. The standalone Contact
+  // Us WhatsApp option and legacy server endpoint remain unaffected.
 
   if (
     !text.includes('const emailSubmissionMeta = createBookingSubmissionMeta();') &&
