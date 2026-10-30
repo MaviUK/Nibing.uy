@@ -601,9 +601,9 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const [whatsAppConfirmation, setWhatsAppConfirmation] = useState(null);
   const [whatsAppBookingId, setWhatsAppBookingId] = useState("");
   const bookedBinScoreRef = useRef([]);
-  // Automatically list a confirmed customer unless they choose privacy in the
-  // booking form. There is no separate prize entry or leaderboard submission.
-  const [arcadeOptOut, setArcadeOptOut] = useState(false);
+  // Preview 1: leaderboard disclosure will move into the Terms of Service.
+  // Do not add a second form or leaderboard checkbox to booking.
+  const arcadeOptOut = false;
 
 
   const canToggleAgree = termsViewed;
@@ -1188,22 +1188,6 @@ function BookingForm({ onClose, initialAddress = "" }) {
 
       <input type="tel" placeholder="Contact Number" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
       <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
-
-      <div className="mt-4 border-4 border-[#20345c] bg-[#fff5cf] p-3 text-[#20345c]">
-        <strong className="block text-sm font-black uppercase">★ Live Arcade Leaderboard</strong>
-        <p className="mt-2 text-xs leading-relaxed">
-          After your booking is confirmed, your booking name and arcade XP
-          are added automatically to the public Global Leaderboard.
-          Your address, postcode, email and phone remain private and are used
-          only for your booking and, if you win, prize fulfilment.
-        </p>
-        <label className="mt-3 flex items-start gap-2 text-xs font-bold">
-          <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-green-700"
-            checked={arcadeOptOut}
-            onChange={(event) => setArcadeOptOut(event.target.checked)} />
-          <span>Keep my name and XP off the public leaderboard (optional).</span>
-        </label>
-      </div>
 
       <div className="mt-4 p-3 rounded-lg border border-gray-500 bg-gray-50">
         <div className="flex items-center justify-between gap-3">
