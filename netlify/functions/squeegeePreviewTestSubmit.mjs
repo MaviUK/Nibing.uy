@@ -77,6 +77,24 @@ export default async function handler(request,context) {
     console.error("Preview 1 test storage unavailable",error?.name||"unknown");
     return json(503,{error:"Test storage unavailable; no Squeegee changes attempted"});
   }
+  // A queued response must not be sent until a durable non-PII marker has
+  // actually been written. This also blocks duplicate requests for the same
+  // already-accepted booking before any Squeegee API call can occur.
+  try {
+    if(typeof controlled.saveTestStatus!=="function") {
+      return json(503,{error:"Test worker unavailable; no Squeegee changes attempted"});
+    }
+    const receipt=await statusStore.setJSON(eligible.bookingId,{
+      bookingId:eligible.bookingId,
+      stage:"accepted_for_validation",updatedAt:new Date().toISOString(),
+    },{onlyIfNew:true});
+    if(receipt?.modified!==true || !receipt.etag) {
+      return json(409,{error:"Test already accepted or its state is uncertain; check status, do not submit again"});
+    }
+  } catch(error) {
+    console.error("Preview 1 durable test receipt unavailable",error?.name||"unknown");
+    return json(503,{error:"Test receipt could not be saved; no Squeegee changes attempted"});
+  }
   const task=controlled.executeOneApprovedTestBooking(payload,{
     cookieHeader:request.headers.get("cookie")||"",
     channel:"email",runtimeScope:scope,
@@ -90,7 +108,13 @@ export default async function handler(request,context) {
     console.error("Preview 1 test worker failed safely",error?.name||"unknown");
     return {status:"requires_reconciliation"};
   });
-  context.waitUntil(task);
+  try {
+    context.waitUntil(task);
+  } catch(error) {
+    // Durable receipt remains, so the same booking must not be retried.
+    console.error("Preview 1 post-response worker registration failed",error?.name||"unknown");
+    return json(503,{error:"Worker dispatch is uncertain; check status and do not retry"});
+  }
   return json(202,{accepted:true,queued:true,bookingId:eligible.bookingId,
     message:"One-booking Squeegee test queued. Check owner test page for result."});
 }
