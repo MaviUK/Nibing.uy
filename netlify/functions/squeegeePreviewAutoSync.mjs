@@ -46,6 +46,9 @@ export default async function handler(request,context) {
   catch{return respond(400,{error:"Invalid JSON"});}
   if(!data || !["email","whatsapp"].includes(data.channel))
     return respond(422,{error:"Invalid booking channel"});
+  if(data.channel==="whatsapp" &&
+     process.env.SQUEEGEE_PREVIEW_AUTO_WHATSAPP_ENABLED!=="true")
+    return respond(403,{error:"WhatsApp automatic sync needs separate approval"});
   const booking=data.booking;
   if(!booking || typeof booking!=="object" || Array.isArray(booking))
     return respond(422,{error:"Invalid booking"});
