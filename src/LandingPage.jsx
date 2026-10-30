@@ -1039,17 +1039,6 @@ function BookingForm({ onClose, initialAddress = "" }) {
           </div>
         )}
 
-        <div className="border-4 border-[#20345c] bg-[#fff5cf] p-4 text-left text-[#20345c] shadow-[5px_5px_0_#7f9db8]" role="status">
-          <h3 className="text-lg font-black uppercase">★ Arcade Score</h3>
-          <p className="mt-2 text-sm font-semibold leading-relaxed">
-            {arcadeOptOut
-              ? "Your booking XP stays on this device, and your name has not been added to the public leaderboard."
-              : whatsAppConfirmation?.arcadeRegistered || window.n64Score?.isRegistered?.()
-                ? "Your name and XP have been added to the global leaderboard. Nothing else to submit."
-                : "Your booking is confirmed. Your name and XP are syncing to the global leaderboard automatically; no extra form is needed."}
-          </p>
-        </div>
-
         <button onClick={onClose} className="w-full rounded-none bg-neutral-900 px-5 py-3 font-bold text-white hover:bg-neutral-800">
           Done
         </button>
