@@ -101,7 +101,8 @@ function makeHarness(booking,options={}){
       if(options.listCustomers)return options.listCustomers();
       return {customers:options.existingRows||[],hasMore:false,page:1,pageSize:100};
     },
-    getCustomer:async()=>options.existingCustomer||{address:{text:booking.address},jobs:[]},
+    getCustomer:async()=>({name:booking.name,address:{text:booking.address},jobs:[],
+      ...(options.existingCustomer||{})}),
     claim:args=>claimOnce({...args,store:ledger}),
     changeState:args=>changeClaimState({...args,store:ledger}),
     withWrite:async(proof,operation,scope)=>{
@@ -730,22 +731,38 @@ test("another postcode with same email creates new service address without modif
   assert.equal(h.posts[1].job.price,5);
 });
 
-test("similar house number or different contact at the same property never silently reuses or duplicates",async()=>{
+test("same number and postcode but a different street never reuses a customer",async()=>{
   const b=sampleBooking();
-  const rows=[
-    {_id:customerId,name:b.name,email:b.email,status:"active",
-      address:{addressDescription:"7 Other Road, Bangor BT19 7ZW"}},
-    {_id:customerId,name:b.name,email:"other@example.org",status:"active",
-      address:{addressDescription:b.address}},
-  ];
-  for(const row of rows){
-    const h=makeHarness(b,{existingRows:[row]});
-    const result=await h.run();
-    assert.equal(result.status,"held");
-    assert.equal(result.reason,"customer_match_ambiguous_or_incomplete");
-    assert.equal(h.posts.length,0);
-    assert.equal(h.ledger.records.size,0);
-  }
+  const row={_id:customerId,name:b.name,email:b.email,status:"active",
+    address:{addressDescription:"7 Other Road, Bangor BT19 7ZW"}};
+  const h=makeHarness(b,{existingRows:[row]});
+  const result=await h.run();
+  assert.equal(result.status,"held");
+  assert.equal(result.reason,"customer_match_ambiguous_or_incomplete");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
+
+test("same exact customer name and property with changed contact reuses existing customer",async()=>{
+  const b=sampleBooking();
+  const row={_id:customerId,name:"an  example test customer",
+    email:"old-contact@example.org",phoneNumber:"02891460000",
+    status:"active",address:{addressDescription:b.address}};
+  const h=makeHarness(b,{
+    existingRows:[row],
+    existingCustomer:{name:"AN EXAMPLE TEST CUSTOMER",
+      status:"active",address:{text:b.address},jobs:[]},
+  });
+  const result=await h.run();
+  assert.equal(result.status,"completed");
+  assert.equal(result.createdCustomer,false);
+  assert.equal(result.createdJobs,1);
+  assert.equal(h.posts.length,1);
+  assert.equal(h.posts[0].kind,"job");
+  assert.equal(h.posts[0].id,customerId);
+  assert.equal(h.posts[0].job.price,5);
+  assert.equal(h.statuses.at(-1).customerMode,"existing");
+  assert.equal(h.ledger.records.get(BOOKING_CLAIM_PREFIX+b.bookingId)?.value?.state,"succeeded");
 });
 
 test("Squeegee customer id match must also have verified property address before adding jobs",async()=>{
