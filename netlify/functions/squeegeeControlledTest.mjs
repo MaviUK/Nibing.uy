@@ -1,8 +1,10 @@
-// Preview 1 ONLY: a one-time, signed GitHub Actions inspection.
-// This first version has NO write path whatsoever.
+// Preview 1 ONLY: a one-time, GitHub OIDC-authenticated controlled test.
+// The approved execute mode uses immutable synthetic test data and fails
+// closed on duplicate or uncertain Squeegee writes.
 import squeegee from "./lib/squeegeeApiV3.js";
 import oidc from "./lib/squeegeeTestOidc.js";
 import data from "./lib/squeegeeControlledTestData.js";
+import writer from "./lib/squeegeeControlledTestWriter.js";
 
 const EXPECTED_HOST="deploy-preview-77--nibinguy.netlify.app";
 const json=(status,result)=>new Response(JSON.stringify(result),{status,
@@ -19,8 +21,21 @@ export default async function handler(req,context){
     return json(401,{error:"GitHub Actions identity verification failed"});
   }
   const input=await req.json().catch(()=>({}));
+  if(input.mode==="execute"){
+    try{
+      const result=await writer.runControlledTest();
+      const succeeded=result.customerCreated===true && result.jobCreated===true;
+      // No API credentials, real contact details or internal UUIDs returned.
+      return json(succeeded?200:409,result);
+    }catch(error){
+      return json(502,{
+        testOnly:true,readOnly:false,status:"test_failed_before_confirmed_completion",
+        reason:"Check the test reference in Squeegee; do not retry automatically",
+      });
+    }
+  }
   if(input.mode!=="inspect"){
-    return json(403,{error:"Test booking creation is not yet enabled"});
+    return json(403,{error:"Unsupported test mode"});
   }
   try {
     const [services,groups]=await Promise.all([
