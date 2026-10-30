@@ -353,11 +353,22 @@ exports.handler = async (event) => {
     // booking email has been accepted, without a second form or another tap.
     // Prize contact information is kept in the private preview store.
     let arcadeEntry = null;
+    let arcadeDeadline;
     try {
-      arcadeEntry = await autoEnrollBooking(payload);
+      // The booking email has already succeeded. Never hold its response
+      // hostage to slow leaderboard storage or snapshot rebuilding.
+      arcadeEntry = await Promise.race([
+        autoEnrollBooking(payload),
+        new Promise((resolve) => {
+          arcadeDeadline = setTimeout(() => resolve({ registered: false }), 1800);
+        }),
+      ]);
     } catch (error) {
-      // A leaderboard outage must NEVER make an accepted cleaning booking fail.
+      // An accepted booking must never fail because global XP is unavailable.
+      // The browser will automatically retry with its signed booking proof.
       console.warn("Arcade auto-enrolment temporarily unavailable:", error?.message || "unknown");
+    } finally {
+      clearTimeout(arcadeDeadline);
     }
 
     const durationMs = Date.now() - startedAt;
