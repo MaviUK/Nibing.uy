@@ -540,6 +540,9 @@ test("recovery refuses any missing or non-unique original booking acceptance",as
 });
 
 test("owner recovery route rejects unauthorised users before any storage or writes",async()=>{
+  const previousKey=process.env.SQUEEGEE_API_KEY;
+  process.env.SQUEEGEE_API_KEY=env.SQUEEGEE_API_KEY;
+  try {
   const {default:handler}=await import(
     "../netlify/functions/squeegeePreviewRecoverOriginal.mjs");
   const scope={
@@ -553,9 +556,16 @@ test("owner recovery route rejects unauthorised users before any storage or writ
     ...scope,deploy:{context:"production"},
   });
   assert.equal(wrong.status,404);
+  } finally {
+    if(previousKey===undefined)delete process.env.SQUEEGEE_API_KEY;
+    else process.env.SQUEEGEE_API_KEY=previousKey;
+  }
 });
 
 test("owner recovery POST fails closed when after-response worker is unavailable",async()=>{
+  const previousKey=process.env.SQUEEGEE_API_KEY;
+  process.env.SQUEEGEE_API_KEY=env.SQUEEGEE_API_KEY;
+  try {
   const {default:handler}=await import(
     "../netlify/functions/squeegeePreviewRecoverOriginal.mjs");
   const url="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-recover-original";
@@ -575,4 +585,8 @@ test("owner recovery POST fails closed when after-response worker is unavailable
     deploy:{context:"deploy-preview"},site:{id:validScope.siteId},
   });
   assert.equal(result.status,503);
+  } finally {
+    if(previousKey===undefined)delete process.env.SQUEEGEE_API_KEY;
+    else process.env.SQUEEGEE_API_KEY=previousKey;
+  }
 });
