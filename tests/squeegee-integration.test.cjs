@@ -213,7 +213,7 @@ test("same address but different contact is held for review rather than creating
   }];
   const found = matcher.matchCustomers(b, customers);
   assert.equal(found.status, "needs_review");
-  assert.equal(found.reason, "same_address_without_contact_match");
+  assert.equal(found.reason, "same_address_without_name_or_contact_match");
 });
 
 test("partial address match blocks auto-creation on possible existing customer", () => {
