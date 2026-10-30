@@ -94,3 +94,10 @@ test("fresh test confirmation reports queue acceptance without claiming job crea
   assert.ok(!booking.includes("squeegee-preview-auto-recover"));
   assert.ok(!booking.includes("squeegee-preview-auto-sync"));
 });
+
+
+test("booking confirmation warns when multiple bins of one colour require manual Squeegee verification",()=>{
+  assert.match(booking,/requiresManualQuantityCheck: bins\.some\(bin=>Number\(bin\.count\)>1\)/);
+  assert.match(booking,/Extra bins of the same colour need manual confirmation/);
+  assert.match(booking,/Please do not submit another booking/);
+});

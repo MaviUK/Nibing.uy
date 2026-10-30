@@ -38,6 +38,17 @@ function emailContent(bookingId,reason,extra={}) {
   const matchReason=CODE_RE.test(String(extra?.matchReason||""))?
     extra.matchReason:"";
   const duplicateFlags=allowedFlags(extra?.duplicateFlags);
+  const requestedBinCounts=Array.isArray(extra?.requestedBinCounts)?
+    extra.requestedBinCounts.filter(x=>typeof x==="string" &&
+      /^(?:[1-9]\\d?|1\\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x)).slice(0,12):[];
+  const quantityAdvice={
+    service_quantity_requires_manual_configuration:
+      "This booking requests multiple physical bins of one colour. The Squeegee API cannot set verified per-service quantities. No customer or job was automatically created. Check the original booking email and manually create the correct service quantities, job price, round and dates in Squeegee.",
+    duplicate_bin_types_in_same_booking:
+      "The booking repeats a bin colour on separate lines. Check whether this means multiple physical bins. No customer or job was automatically created. Review and set the correct service quantities manually.",
+    existing_job_for_selected_bin_requires_review:
+      "The customer already has the selected bin service. Confirm whether the request is an ADDITIONAL physical bin or an accidental repeat. If additional, edit the existing Squeegee job's service quantity and price manually. Do not create a duplicate job.",
+  };
   return {
     subject:"NI Bin Guy — Squeegee booking needs review: "+bookingId,
     text:[
@@ -47,6 +58,8 @@ function emailContent(bookingId,reason,extra={}) {
         "UNCONFIRMED / may be partially created":"HELD — no automatic retry"),
       "Reason: "+reason,
       matchReason?"Customer match: "+matchReason:"",
+      ...requestedBinCounts.map(value=>"Requested: "+value),
+      quantityAdvice[reason]?"Action required: "+quantityAdvice[reason]:"",
       ...duplicateFlags.map(flag=>"Duplicate flag: "+FLAG_LABELS[flag]),
       "",
       "Open the existing website booking email for contact details.",

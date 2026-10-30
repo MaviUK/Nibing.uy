@@ -86,8 +86,16 @@ export default async function handler(request,context) {
         '<ul>'+flags.map(label=>'<li>'+safe(label)+'</li>').join('')+'</ul>'+
         '<p><small>Repeated emails can be legitimate across multiple properties.'+
         ' This alert does not mean a duplicate job was created.</small></p></div>':'';
+      const quantityHelp=status.reason==="service_quantity_requires_manual_configuration"?
+        "Multiple bins of one colour require manual service quantity setup in Squeegee. No customer/job was automatically created for this booking.":
+        status.reason==="existing_job_for_selected_bin_requires_review"?
+        "Check whether this is an additional physical bin or accidental duplicate. Edit the existing Squeegee job quantity/price manually if needed; no new job was created.":
+        status.reason==="duplicate_bin_types_in_same_booking"?
+        "Repeated bin colour lines need manual quantity clarification; no new job was created.":"";
       content+='<div class="notice"><strong>Stage: '+safe(status.stage)+'</strong>'+
         simple("reason")+simple("channel")+simple("customerMode")+
+        simple("manualAction")+previewRows("requestedBinCounts")+
+        (quantityHelp?'<p><strong>Manual action: '+safe(quantityHelp)+'</strong></p>':'')+
         simple("createdCustomer")+simple("createdJobs")+simple("jobsConfirmed")+
         previewRows("firstCleanDates")+previewRows("dates")+previewRows("rounds")+
         previewRows("recurrence")+previewRows("blockedReasons")+

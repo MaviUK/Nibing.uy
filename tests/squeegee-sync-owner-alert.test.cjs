@@ -64,3 +64,19 @@ test("worker holds and uncertainty both invoke best-effort alert, without any cl
   assert.match(worker,/await use\.alert\(bookingId,"requires_reconciliation"/);
   assert.match(worker,/matchReason:customerMatch\.reason/);
 });
+
+
+test("same-colour quantity and repeat-bin owner holds give actionable instructions without exposing PII",()=>{
+  const id="NBG-ABCDE-ABCDEFGH";
+  const multiple=emailContent(id,"service_quantity_requires_manual_configuration",{
+    requestedBinCounts:["2 x Brown Bin","1 x Blue Bin","<script>test</script>"],
+  });
+  assert.match(multiple.text,/Requested: 2 x Brown Bin/);
+  assert.match(multiple.text,/manually create the correct service quantities/);
+  assert.doesNotMatch(multiple.text,/<script>/);
+  const repeat=emailContent(id,"existing_job_for_selected_bin_requires_review",{
+    requestedBinCounts:["1 x Brown Bin"],
+  });
+  assert.match(repeat.text,/ADDITIONAL physical bin or an accidental repeat/);
+  assert.match(repeat.text,/edit the existing Squeegee job/);
+});

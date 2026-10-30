@@ -10,6 +10,8 @@
  * alone and never merge one-off services into recurring four-weekly jobs.
  *
  * This is a pure planner: NO Squeegee network calls or claims happen here.
+ * The public AddJobBody cannot represent quantity >1 for a service UUID.
+ * Reject such plans rather than undercount the physical bins being cleaned.
  * The automatic worker still claims every original bin independently before
  * posting any grouped job and reconciles every member on an ambiguous POST.
  */
@@ -42,7 +44,7 @@ function groupedSqueegeeJobs(perBinJobs,bookingId) {
        (input.frequencyType!=="weeks" && input.frequencyType!=="adhoc") ||
        (input.frequencyType==="weeks" && input.frequencyInterval!==4) ||
        (input.frequencyType==="adhoc" && input.frequencyInterval!==undefined) ||
-       !Number.isInteger(item.quantity) || item.quantity<1 ||
+       !Number.isInteger(item.quantity) || item.quantity!==1 ||
        typeof item.bin!=="string" || !item.bin.trim() ||
        typeof input.price!=="number" ||
        !Number.isFinite(input.price) || input.price<0 ||

@@ -904,6 +904,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
         ...result,
         bookingId: result.bookingId || emailSubmissionMeta.bookingId,
         source: "website",
+        requiresManualQuantityCheck: bins.some(bin=>Number(bin.count)>1),
         schedule: null,
       });
       setBookingStatus("confirmed");
@@ -992,6 +993,15 @@ function BookingForm({ onClose, initialAddress = "" }) {
                 Do not submit another booking; we will check the existing reference.
               </p>
             )}
+          </div>
+        )}
+
+        {bookingConfirmation?.requiresManualQuantityCheck && (
+          <div role="status" className="border-2 border-amber-500 bg-amber-50 p-4 text-left text-sm text-amber-950">
+            <p className="font-extrabold">Extra bins of the same colour need manual confirmation</p>
+            <p className="mt-1">
+              Your booking has been received. We need to check the service quantities before they appear on our Squeegee cleaning rota. Please do not submit another booking; we will confirm the arrangements.
+            </p>
           </div>
         )}
 

@@ -286,17 +286,96 @@ test("two bins on different dates become two jobs with distinct rounds",async()=
   assert.equal(h.posts.filter(p=>p.kind==="customer").length,1);
 });
 
-test("seven-for-six pricing uses verified £30 total and exact per-job quantity notes",async()=>{
+
+test("seven-for-six remains £30 but unrepresentable Brown quantity 7 is held with no Squeegee writes",async()=>{
   const b=sampleBooking({
     bins:[{type:"Brown Bin",planId:"domestic_4w",count:7}],
   });
   assert.equal(b.pricing.total,30);
-  const h=makeHarness(b);
+  const notices=[];
+  const h=makeHarness(b,{deps:{alert:async(...args)=>{notices.push(args);}}});
   const result=await h.run();
-  assert.equal(result.status,"completed");
-  const job=h.posts.find(p=>p.kind==="job").job;
-  assert.equal(job.price,30);
-  assert.match(job.notes,/7 x Brown Bin/);
+  assert.equal(result.status,"held");
+  assert.equal(result.reason,"service_quantity_requires_manual_configuration");
+  assert.equal(h.statuses.at(-1).stage,"held_for_review");
+  assert.deepEqual(h.statuses.at(-1).requestedBinCounts,["7 x Brown Bin"]);
+  assert.equal(h.statuses.at(-1).manualAction,"review_service_quantity");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+  assert.equal(notices.length,1);
+  assert.equal(notices[0][0],b.bookingId);
+});
+
+test("new customer booking two Brown bins is priced £10 but held before creating an incorrect one-service job",async()=>{
+  const b=sampleBooking({bins:[
+    {type:"Brown Bin",planId:"domestic_4w",count:2},
+  ]});
+  assert.equal(b.pricing.total,10);
+  const h=makeHarness(b);
+  const r=await h.run();
+  assert.equal(r.status,"held");
+  assert.equal(r.reason,"service_quantity_requires_manual_configuration");
+  assert.deepEqual(h.statuses.at(-1).requestedBinCounts,["2 x Brown Bin"]);
+  assert.equal(h.statuses.at(-1).manualAction,"review_service_quantity");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
+
+test("same customer requesting another Brown never edits or duplicates the first Brown service",async()=>{
+  const b=sampleBooking();
+  const existingJobs=[{services:[{
+    _id:brownService,description:"Brown",quantity:1,
+  }]}];
+  const alerts=[];
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,name:b.name,email:b.email,
+      address:{addressDescription:b.address},status:"active",
+    }],
+    existingCustomer:{address:{text:b.address},jobs:existingJobs},
+    deps:{alert:async(...args)=>alerts.push(args)},
+  });
+  const r=await h.run();
+  assert.equal(r.status,"held");
+  assert.equal(r.reason,"existing_job_for_selected_bin_requires_review");
+  assert.equal(h.statuses.at(-1).manualAction,"verify_existing_service_quantity");
+  assert.deepEqual(h.statuses.at(-1).requestedBinCounts,["1 x Brown Bin"]);
+  assert.equal(alerts.length,1);
+  assert.equal(alerts[0][1],"existing_job_for_selected_bin_requires_review");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+  assert.deepEqual(existingJobs,[{services:[{
+    _id:brownService,description:"Brown",quantity:1,
+  }]}]);
+});
+
+test("mixed 2 Brown and 1 Blue holds the entire booking with no partial customer or job writes",async()=>{
+  const b=sampleBooking({bins:[
+    {type:"Brown Bin",planId:"domestic_4w",count:2},
+    {type:"Blue Bin",planId:"domestic_4w",count:1},
+  ],dates:["2026-11-16","2026-11-16"]});
+  assert.equal(b.pricing.total,15);
+  const h=makeHarness(b);
+  const r=await h.run();
+  assert.equal(r.status,"held");
+  assert.equal(r.reason,"service_quantity_requires_manual_configuration");
+  assert.deepEqual(h.statuses.at(-1).requestedBinCounts,[
+    "2 x Brown Bin","1 x Blue Bin",
+  ]);
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
+
+test("two one-off Brown bins need manual service quantity setup",async()=>{
+  const b=sampleBooking({bins:[
+    {type:"Brown Bin",planId:"domestic_oneoff",count:2},
+  ]});
+  assert.equal(b.pricing.total,30);
+  const h=makeHarness(b);
+  const r=await h.run();
+  assert.equal(r.reason,"service_quantity_requires_manual_configuration");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
 });
 
 test("one-off uses adhoc frequency and matching one-off service",async()=>{
@@ -1015,7 +1094,8 @@ test("same date but different recurrence cannot be merged into one Squeegee job"
   ]);
 });
 
-test("same-day mixed-bin 7-for-6 discount stays £30 in one job, not £35",async()=>{
+
+test("same-day mixed-bin 7-for-6 is priced £30 but held until service quantities can be set",async()=>{
   const b=sampleBooking({
     bins:[
       {type:"Brown Bin",planId:"domestic_4w",count:4},
@@ -1027,12 +1107,13 @@ test("same-day mixed-bin 7-for-6 discount stays £30 in one job, not £35",async
   assert.equal(b.pricing.multiBuyFreeBins,1);
   const h=makeHarness(b);
   const r=await h.run();
-  assert.equal(r.status,"completed");
-  assert.equal(r.createdJobs,1);
-  const job=h.posts.filter(x=>x.kind==="job")[0].job;
-  assert.equal(job.price,30);
-  assert.deepEqual(job.services,[brownService,blackService]);
-  assert.match(job.notes,/4 x Brown Bin \+ 3 x Black Bin/);
+  assert.equal(r.status,"held");
+  assert.equal(r.reason,"service_quantity_requires_manual_configuration");
+  assert.deepEqual(h.statuses.at(-1).requestedBinCounts,[
+    "4 x Brown Bin","3 x Black Bin",
+  ]);
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
 });
 
 test("existing customer receives one combined new-bin job without modifying their existing other service",async()=>{
@@ -1126,6 +1207,9 @@ test("grouping rejects a malformed or duplicate service plan before a real job P
       price:5,jobGroup:group1,
     },
   };
+  assert.throws(()=>groupedSqueegeeJobs([{
+    ...base,quantity:2,input:{...base.input,price:10},
+  }],"NBG-ABCDE-ABCDEFGH"),/Incomplete or inconsistent/);
   assert.throws(()=>groupedSqueegeeJobs([base,{
     ...base,index:1,bin:"Black Bin",input:{
       ...base.input,notes:"Black",

@@ -28,6 +28,15 @@ const CLAIM_STORE="squeegee-preview1-write-claims";
 const BOOKING_CLAIM_PREFIX="claim-v1/auto-bookings/";
 const MAX_BOOKING_JOBS=12;
 const MAX_DAYS_AHEAD=90;
+const BIN_LABELS=Object.freeze({black:"Black",brown:"Brown",blue:"Blue",green:"Green"});
+function requestedBinCounts(bins) {
+  return (Array.isArray(bins)?bins:[]).map(bin=>{
+    const name=BIN_LABELS[normalizedBinType(bin?.type)];
+    const count=Number(bin?.count);
+    return name && Number.isSafeInteger(count) && count>=1 && count<=200?
+      count+" x "+name+" Bin":null;
+  }).filter(Boolean);
+}
 
 function ukToday(now) {
   const parts=new Intl.DateTimeFormat("en-GB",{
@@ -138,13 +147,9 @@ async function executeAutomaticPreviewBooking(payload,{
   const bins=Array.isArray(payload?.bins)?payload.bins.filter(x=>x?.type):[];
   if(!bins.length || bins.length>MAX_BOOKING_JOBS)
     return outcome("held","too_many_or_no_booking_lines");
-  // Each selected line is a distinct bin colour at this property. Multiple
-  // lines may later share ONE grouped job if their schedules are identical.
-  // Repeated colours in one booking cannot be distinguished as separate bins
-  // with this Squeegee API shape. Hold them before claiming anything.
+  // Repeated bin colours need manual review after the accepted receipt is
+  // safely stored. Never silently combine repeated physical bins into one.
   const distinctBins=new Set(bins.map(x=>normalizedBinType(x.type)));
-  if(distinctBins.size!==bins.length)
-    return outcome("held","duplicate_bin_types_in_same_booking");
   if(payload.termsAccepted!==true)
     return outcome("held","booking_terms_not_accepted");
 
@@ -188,6 +193,19 @@ async function executeAutomaticPreviewBooking(payload,{
   try {
     // If status storage fails, stop immediately (no API write).
     await mark("validating",{channel});
+    // Public Squeegee AddJobBody uses services: UUID[], NOT a verified
+    // quantity per service. No documented existing-job update operation.
+    // Stop entire multi-quantity bookings BEFORE any customer/job POST or
+    // write claim; charging twice for one service would be incorrect.
+    const counts=requestedBinCounts(bins);
+    if(distinctBins.size!==bins.length)
+      return await held("duplicate_bin_types_in_same_booking",{
+        manualAction:"review_service_quantity",requestedBinCounts:counts,
+      });
+    if(bins.some(bin=>Number(bin.count)!==1))
+      return await held("service_quantity_requires_manual_configuration",{
+        manualAction:"review_service_quantity",requestedBinCounts:counts,
+      });
     const [schedule,services,groups]=await Promise.allSettled([
       use.getSchedule(payload),use.getServices(),use.getJobGroups(),
     ]);
@@ -300,7 +318,12 @@ async function executeAutomaticPreviewBooking(payload,{
       const overlap=overlappingJobs(record?.jobs,plan.jobs,catalog.serviceIds,{
         differentProperty,requestedAddress:payload.address,
       });
-      if(overlap)return await held(overlap);
+      if(overlap)return await held(overlap,
+        overlap==="existing_job_for_selected_bin_requires_review"?{
+          manualAction:"verify_existing_service_quantity",
+          requestedBinCounts:requestedBinCounts(bins),
+        }:{});
+
     }
 
     await mark("ready_for_claims",{
