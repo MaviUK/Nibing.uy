@@ -253,3 +253,23 @@ The owner approved further development on PR #77, branch preview/n64-retro-site 
 CI runs fake-only tests (zero real Squeegee writes) for new customers, existing customers adding different bin colours, overlapping services, date/round/price validation, two bins on distinct dates, one-off and 7-for-6 pricing, duplicate and partial job failure protection, status authentication and signed dispatch. Production, Preview 2 and the PR merge state remain untouched.
 
 Before an automatic Preview 1 rollout: inspect the deployed endpoint, safely remove the earlier test from operational planning, agree a controlled fresh email-booking test, verify the actual Squeegee result, then deliberately enable the isolated Preview 1 flag. Never activate automatic production writes from this branch.
+
+
+## 30 October 2026 — Preview 1 automatic Email sync pilot activated
+
+The owner explicitly approved enabling Preview 1 automatic Squeegee syncing after the completed one-booking test and single Submit Booking redesign. This is a **one-booking pilot**, not an unrestricted public or production rollout.
+
+**Why branch-local activation?** The installed Netlify environment-variable management action cannot create a new flag scoped to one named deploy-preview branch without risking changes across other previews. The Squeegee API key is already stored in Netlify's branch context preview/n64-retro-site (Functions scope). To preserve Preview 2, activation uses a central code switch in netlify/functions/lib/squeegeePreviewAutoRollout.js in **PR #77's branch only**. No site-wide Netlify variables or secrets were changed.
+
+**Pilot rules (independent checks in dispatcher, modern endpoint, and worker):**
+
+- Exactly ONE fresh accepted **Email/Submit Booking** request with customer name beginning TEST API - , ONE domestic four-weekly bin, quantity 1, verified date, matching Squeegee round and canonical price £5. Existing booking emails and leaderboard XP remain unchanged.
+- WhatsApp-to-Squeegee creation stays disabled independently.
+- A *global* atomic pilot claim claim-v1/auto-pilot/preview77-first-email is reserved after read-only validation but before ANY Squeegee POST. The claim is never automatically freed or retried, even after uncertainty. Per-booking, per-property, and per-bin claims also apply.
+- After this first eligible booking, **all subsequent automatic pilot writes are blocked**, pending independent read-only verification. Other website form submissions still send normal booking confirmation emails; they will not automatically create Squeegee jobs during this pilot.
+- The exact deploy-preview-77--nibinguy.netlify.app host, trusted deploy-preview runtime context and fixed site ID must all match. Production and Preview 2 cannot enter the guarded write scope.
+- An optional SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED=false environment variable remains a kill switch. Do not set a true value for full rollout without a separate approval; the variable remains absent in this pilot.
+
+**Owner verification:** Open /api/squeegee-preview-auto-status in the authorised Preview 1 browser; it should show ENABLED — ONE TEST API EMAIL BOOKING ONLY (one-use cap). Then use the ordinary Preview 1 booking form with a new address not already in Squeegee, customer name such as TEST API - Pilot 2, one Brown/Black domestic bin on the 4-weekly plan, and a valid contact email. Tap **Submit Booking once**. Expect normal customer/owner emails and one status receipt. Inspect the same reference in the read-only owner status page, then independently verify the actual Squeegee customer, job, first date, round, £5 price and four-week recurrence in Squeegee. The next appointment may appear only when the first clean has been completed.
+
+Never dispatch, bill or clean this test customer. Remove it after verification. Do not resubmit after any unexpected status; inspect claims before enabling wider syncing. Do not merge PR #77 or alter production/Preview 2 without separate approval.
