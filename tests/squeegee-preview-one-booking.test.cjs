@@ -586,7 +586,8 @@ test("signed owner recovery form authorises mobile no-Origin and Origin:null saf
     {...runtime,deployContext:"production"},fakeEnv,t),false);
   assert.equal(verifyRecoveryFormToken(proof,sessionCookie,runtime,
     {SQUEEGEE_API_KEY:"another-strong-fake-secret-only-for-tests-12345"},t),false);
-  assert.equal(verifyRecoveryFormToken(proof.slice(0,-1)+"0",
+  const alteredProof=proof.slice(0,-1)+(proof.endsWith("0")?"1":"0");
+  assert.equal(verifyRecoveryFormToken(alteredProof,
     sessionCookie,runtime,fakeEnv,t),false);
   assert.equal(verifyRecoveryFormToken("",sessionCookie,runtime,fakeEnv,t),false);
   const url="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-recover-original";
