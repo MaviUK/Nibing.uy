@@ -8,6 +8,7 @@
  */
 const crypto=require("node:crypto");
 const {validateBookingSubmission}=require("./bookingSubmissionGuard");
+const rollout=require("./squeegeePreviewAutoRollout");
 
 const PREVIEW_ORIGIN="https://deploy-preview-77--nibinguy.netlify.app";
 const SECRET_DOMAIN="nibinguy-preview77-accepted-booking-auto-sync-v1";
@@ -51,7 +52,7 @@ function verifyAcceptedEvent(body,timestamp,signature,env=process.env,now=Date.n
     Buffer.from(expected,"hex"),Buffer.from(signature,"hex"));
 }
 function autoDispatchConfigured(env=process.env) {
-  return env?.SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED==="true" &&
+  return rollout.automaticEnabled(env) &&
     Boolean(previewInternalSecret(env));
 }
 async function dispatchAcceptedBooking(payload,{
@@ -68,6 +69,8 @@ async function dispatchAcceptedBooking(payload,{
   // behind a separate owner-controlled flag pending security review.
   if(channel==="whatsapp" && env.SQUEEGEE_PREVIEW_AUTO_WHATSAPP_ENABLED!=="true")
     return {queued:false,reason:"whatsapp_auto_sync_requires_separate_approval"};
+  if(!rollout.acceptedForRollout(payload,channel,env))
+    return {queued:false,reason:"outside_approved_preview_email_pilot"};
   const accepted=validateBookingSubmission(payload,{now});
   if(!accepted.ok)return {queued:false,reason:"invalid_or_expired_booking"};
   const booking=acceptedEventBooking(payload);
