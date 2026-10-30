@@ -15,6 +15,9 @@ on:
       - netlify/functions/lib/squeegeeIdempotencyClaims.js
       - netlify/functions/lib/squeegeeRoundAnalysis.js
       - netlify/functions/lib/squeegeeRoundCycle.js
+      - netlify/functions/lib/squeegeePreviewTestSession.js
+      - netlify/functions/lib/squeegeeOneBookingTest.js
+      - netlify/functions/squeegeePreviewTest.mjs
       - netlify/functions/sendBookingEmail.js
       - netlify/functions/sendTosReceipt.js
       - tests/squeegee-integration.test.cjs
@@ -24,6 +27,7 @@ on:
       - tests/squeegee-idempotency-claims.test.cjs
       - tests/squeegee-round-analysis.test.cjs
       - tests/squeegee-round-cycle.test.cjs
+      - tests/squeegee-preview-one-booking.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
 
 permissions:
