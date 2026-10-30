@@ -17,6 +17,9 @@ on:
       - netlify/functions/lib/squeegeeRoundCycle.js
       - netlify/functions/lib/squeegeePreviewTestSession.js
       - netlify/functions/lib/squeegeeOneBookingTest.js
+      - netlify/functions/lib/squeegeePreviewAutoDispatch.js
+      - netlify/functions/lib/squeegeeAutomaticBooking.js
+      - netlify/functions/squeegeePreviewAutoSync.mjs
       - netlify/functions/lib/squeegeeOneBookingReconcile.js
       - netlify/functions/lib/squeegeeAcceptedBookingRecovery.js
       - netlify/functions/squeegeePreviewRecoverOriginal.mjs
@@ -33,6 +36,7 @@ on:
       - tests/squeegee-round-analysis.test.cjs
       - tests/squeegee-round-cycle.test.cjs
       - tests/squeegee-preview-one-booking.test.cjs
+      - tests/squeegee-preview-auto-booking.test.cjs
       - tests/squeegee-preview-submit-route.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
 
