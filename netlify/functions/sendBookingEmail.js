@@ -6,6 +6,7 @@ const { verifyPreviewBooking } = require("./previewBookingChallenge");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
 const { validateBookingSubmission, claimBookingSubmission, submissionErrorResponse } = require("./lib/bookingSubmissionGuard");
+const { stageWithoutBlockingBooking } = require("./lib/squeegeeBookingStage");
 
 // Optional audit logging. If Netlify Blobs is unavailable, logging is skipped.
 let getStoreSafe = null;
@@ -387,6 +388,15 @@ exports.handler = async (event) => {
       console.warn("Arcade auto-enrolment temporarily unavailable:", error?.message || "unknown");
     } finally {
       clearTimeout(arcadeDeadline);
+    }
+
+    // Shadow-mode Squeegee integration: read-only preparation after an
+    // accepted booking. It must not change email, XP or confirmation results.
+    // All real Squeegee customer/job POSTs remain blocked.
+    try {
+      await stageWithoutBlockingBooking(payload, { channel: "email" });
+    } catch (_) {
+      console.warn("Read-only Squeegee booking preparation unavailable");
     }
 
     const durationMs = Date.now() - startedAt;
