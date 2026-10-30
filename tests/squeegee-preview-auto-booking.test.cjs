@@ -251,20 +251,26 @@ test("an existing matched customer with a DIFFERENT bin gets one job and no cust
   assert.equal(h.posts[0].id,customerId);
 });
 
-test("matching existing job service or unreadable jobs block creation safely",async()=>{
+test("registered same-colour bookings are additional; unreadable jobs still block",async()=>{
   const b=sampleBooking();
-  const row={
-    _id:customerId,name:b.name,email:b.email,
-    address:{addressDescription:b.address},status:"active",jobs:[],
-  };
-  for(const jobs of [[{services:[brownService]}],null,[{services:null}]]){
-    const h=makeHarness(b,{existingRows:[row],existingCustomer:{address:{text:b.address},jobs}});
+  const row={_id:customerId,name:b.name,email:b.email,
+    address:{addressDescription:b.address},status:"active",jobs:[]};
+  const additional=makeHarness(b,{
+    existingRows:[row],
+    existingCustomer:{address:{text:b.address},jobs:[{services:[brownService]}]},
+  });
+  assert.equal((await additional.run()).status,"completed");
+  assert.equal(additional.posts.length,1);
+  for(const jobs of [null,[{services:null}]]){
+    const h=makeHarness(b,{existingRows:[row],
+      existingCustomer:{address:{text:b.address},jobs}});
     const r=await h.run();
     assert.equal(r.status,"held");
     assert.equal(h.posts.length,0);
     assert.equal(h.ledger.records.size,0);
   }
-  assert.equal(overlappingJobs([{services:[brownService]}],[{input:{services:[brownService]}}]),
+  assert.equal(overlappingJobs([{services:[brownService]}],
+    [{input:{services:[brownService]}}]),
     "existing_job_for_selected_bin_requires_review");
 });
 
@@ -287,69 +293,99 @@ test("two bins on different dates become two jobs with distinct rounds",async()=
 });
 
 
-test("seven-for-six remains £30 but unrepresentable Brown quantity 7 is held with no Squeegee writes",async()=>{
-  const b=sampleBooking({
-    bins:[{type:"Brown Bin",planId:"domestic_4w",count:7}],
-  });
+test("seven-for-six creates £30 four-weekly Brown job for 7 physical bins with explicit notes",async()=>{
+  const b=sampleBooking({bins:[{type:"Brown Bin",planId:"domestic_4w",count:7}]});
   assert.equal(b.pricing.total,30);
-  const notices=[];
-  const h=makeHarness(b,{deps:{alert:async(...args)=>{notices.push(args);}}});
-  const result=await h.run();
-  assert.equal(result.status,"held");
-  assert.equal(result.reason,"service_quantity_requires_manual_configuration");
-  assert.equal(h.statuses.at(-1).stage,"held_for_review");
+  const quantityNotices=[];
+  const h=makeHarness(b,{deps:{
+    quantityAlert:async(id,details)=>quantityNotices.push({id,details}),
+  }});
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.equal(r.physicalBins,7);
+  const jobs=h.posts.filter(p=>p.kind==="job");
+  assert.equal(jobs.length,1);
+  assert.equal(jobs[0].job.price,30);
+  assert.deepEqual(jobs[0].job.services,[brownService]);
+  assert.match(jobs[0].job.notes,/PHYSICAL BINS: 7 x Brown Bin/);
+  assert.equal(h.statuses.at(-1).quantityVerificationRecommended,true);
+  assert.deepEqual(h.statuses.at(-1).physicalBinsPerJob,[7]);
   assert.deepEqual(h.statuses.at(-1).requestedBinCounts,["7 x Brown Bin"]);
-  assert.equal(h.statuses.at(-1).manualAction,"review_service_quantity");
-  assert.equal(h.posts.length,0);
-  assert.equal(h.ledger.records.size,0);
-  assert.equal(notices.length,1);
-  assert.equal(notices[0][0],b.bookingId);
+  assert.equal(quantityNotices.length,1);
+  assert.deepEqual(quantityNotices[0].details.requestedBinCounts,["7 x Brown Bin"]);
 });
 
-test("new customer booking two Brown bins is priced £10 but held before creating an incorrect one-service job",async()=>{
-  const b=sampleBooking({bins:[
-    {type:"Brown Bin",planId:"domestic_4w",count:2},
-  ]});
+test("new customer buying 2 Brown gets one £10 job; count is unmistakable in notes",async()=>{
+  const b=sampleBooking({bins:[{type:"Brown Bin",planId:"domestic_4w",count:2}]});
   assert.equal(b.pricing.total,10);
   const h=makeHarness(b);
   const r=await h.run();
-  assert.equal(r.status,"held");
-  assert.equal(r.reason,"service_quantity_requires_manual_configuration");
-  assert.deepEqual(h.statuses.at(-1).requestedBinCounts,["2 x Brown Bin"]);
-  assert.equal(h.statuses.at(-1).manualAction,"review_service_quantity");
-  assert.equal(h.posts.length,0);
-  assert.equal(h.ledger.records.size,0);
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,true);
+  assert.equal(r.createdJobs,1);
+  assert.equal(r.physicalBins,2);
+  assert.equal(h.posts.length,2);
+  assert.equal(h.posts[1].job.price,10);
+  assert.match(h.posts[1].job.notes,/PHYSICAL BINS: 2 x Brown Bin/);
+  assert.deepEqual(h.posts[1].job.services,[brownService]);
+  assert.equal(h.ledger.records.get(activeBinKey(b,b.bins[0]))?.value?.state,"succeeded");
 });
 
-test("same customer requesting another Brown never edits or duplicates the first Brown service",async()=>{
+test("existing customer purchasing another Brown creates an extra £5 job without modifying the first",async()=>{
   const b=sampleBooking();
-  const existingJobs=[{services:[{
-    _id:brownService,description:"Brown",quantity:1,
-  }]}];
-  const alerts=[];
+  const oldJobs=[{services:[{_id:brownService,description:"Brown",quantity:1}]}];
+  const notices=[];
   const h=makeHarness(b,{
-    existingRows:[{
-      _id:customerId,name:b.name,email:b.email,
-      address:{addressDescription:b.address},status:"active",
-    }],
-    existingCustomer:{address:{text:b.address},jobs:existingJobs},
-    deps:{alert:async(...args)=>alerts.push(args)},
+    existingRows:[{_id:customerId,name:b.name,email:b.email,
+      address:{addressDescription:b.address},status:"active"}],
+    existingCustomer:{address:{text:b.address},jobs:oldJobs},
+    deps:{quantityAlert:async(id,details)=>notices.push({id,details})},
   });
   const r=await h.run();
-  assert.equal(r.status,"held");
-  assert.equal(r.reason,"existing_job_for_selected_bin_requires_review");
-  assert.equal(h.statuses.at(-1).manualAction,"verify_existing_service_quantity");
-  assert.deepEqual(h.statuses.at(-1).requestedBinCounts,["1 x Brown Bin"]);
-  assert.equal(alerts.length,1);
-  assert.equal(alerts[0][1],"existing_job_for_selected_bin_requires_review");
-  assert.equal(h.posts.length,0);
-  assert.equal(h.ledger.records.size,0);
-  assert.deepEqual(existingJobs,[{services:[{
-    _id:brownService,description:"Brown",quantity:1,
-  }]}]);
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,false);
+  assert.equal(r.createdJobs,1);
+  assert.equal(h.posts.length,1);
+  assert.equal(h.posts[0].id,customerId);
+  assert.equal(h.posts[0].job.price,5);
+  assert.match(h.posts[0].job.notes,/ADDITIONAL BIN PURCHASE/);
+  const {additionalBinKey,additionalJobKey}=
+    require("../netlify/functions/lib/squeegeeIdempotencyClaims");
+  assert.equal(h.ledger.records.get(additionalBinKey(b,b.bins[0]))?.value?.state,"succeeded");
+  assert.equal(h.ledger.records.get(additionalJobKey(b,{
+    date:"2026-11-16",type:"Brown Bin",planId:"domestic_4w",
+  }))?.value?.state,"succeeded");
+  assert.deepEqual(oldJobs,[{services:[{_id:brownService,description:"Brown",quantity:1}]}]);
+  assert.equal(notices.length,1);
+  assert.deepEqual(notices[0].details.additionalExistingBins,["brown"]);
+  assert.equal((await h.run()).status,"held");
+  assert.equal(h.posts.length,1);
 });
 
-test("mixed 2 Brown and 1 Blue holds the entire booking with no partial customer or job writes",async()=>{
+test("second booking with a different ID can add a second Brown after first booking was registered",async()=>{
+  const first=sampleBooking();
+  const later=sampleBooking({bookingId:"NBG-ZYXWV-ABCDEFGH"});
+  let existingJobs=[];
+  const row={_id:customerId,name:first.name,email:first.email,
+    address:{addressDescription:first.address},status:"active"};
+  const h=makeHarness(first,{
+    existingRows:[row],
+    deps:{getCustomer:async()=>({
+      name:first.name,address:{text:first.address},status:"active",
+      jobs:existingJobs,
+    })},
+  });
+  assert.equal((await h.run()).status,"completed");
+  existingJobs=[{services:[{_id:brownService,description:"Brown",quantity:1}]}];
+  const next=await h.run(later);
+  assert.equal(next.status,"completed");
+  assert.equal(h.posts.filter(p=>p.kind==="job").length,2);
+  assert.match(h.posts.at(-1).job.notes,/ADDITIONAL BIN PURCHASE/);
+  assert.equal(h.ledger.records.get(activeBinKey(first,first.bins[0]))?.value?.state,"succeeded");
+  assert.equal((await h.run(later)).status,"held");
+});
+
+test("mixed 2 Brown and 1 Blue becomes one £15 job with all three physical bins noted",async()=>{
   const b=sampleBooking({bins:[
     {type:"Brown Bin",planId:"domestic_4w",count:2},
     {type:"Blue Bin",planId:"domestic_4w",count:1},
@@ -357,25 +393,25 @@ test("mixed 2 Brown and 1 Blue holds the entire booking with no partial customer
   assert.equal(b.pricing.total,15);
   const h=makeHarness(b);
   const r=await h.run();
-  assert.equal(r.status,"held");
-  assert.equal(r.reason,"service_quantity_requires_manual_configuration");
-  assert.deepEqual(h.statuses.at(-1).requestedBinCounts,[
-    "2 x Brown Bin","1 x Blue Bin",
-  ]);
-  assert.equal(h.posts.length,0);
-  assert.equal(h.ledger.records.size,0);
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdJobs,1);
+  assert.equal(r.physicalBins,3);
+  assert.deepEqual(h.posts.filter(x=>x.kind==="job")[0].job.services,[brownService,blueService]);
+  assert.equal(h.posts.at(-1).job.price,15);
+  assert.match(h.posts.at(-1).job.notes,/PHYSICAL BINS: 2 x Brown Bin \+ 1 x Blue Bin/);
+  assert.deepEqual(h.statuses.at(-1).physicalBinsPerJob,[3]);
 });
 
-test("two one-off Brown bins need manual service quantity setup",async()=>{
-  const b=sampleBooking({bins:[
-    {type:"Brown Bin",planId:"domestic_oneoff",count:2},
-  ]});
+test("two one-off Brown bins create one £30 adhoc job with quantity notes",async()=>{
+  const b=sampleBooking({bins:[{type:"Brown Bin",planId:"domestic_oneoff",count:2}]});
   assert.equal(b.pricing.total,30);
   const h=makeHarness(b);
   const r=await h.run();
-  assert.equal(r.reason,"service_quantity_requires_manual_configuration");
-  assert.equal(h.posts.length,0);
-  assert.equal(h.ledger.records.size,0);
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdJobs,1);
+  assert.equal(h.posts.at(-1).job.frequencyType,"adhoc");
+  assert.equal(h.posts.at(-1).job.price,30);
+  assert.match(h.posts.at(-1).job.notes,/2 x Brown Bin/);
 });
 
 test("one-off uses adhoc frequency and matching one-off service",async()=>{
@@ -744,24 +780,19 @@ test("existing account adding a different bin reuses exact property customer and
   assert.equal(h.ledger.records.get(activeBinKey(b,b.bins[0]))?.value?.state,"succeeded");
 });
 
-test("same customer already has that bin under one-off: hold rather than create a second regular Brown job",async()=>{
+test("existing one-off Brown does not prevent purchasing a separate four-weekly Brown",async()=>{
   const b=sampleBooking();
-  const row={
-    _id:customerId,name:b.name,email:b.email,
-    address:{addressDescription:b.address},status:"active",
-  };
-  const h=makeHarness(b,{
-    existingRows:[row],
-    existingCustomer:{
-      address:{text:b.address},
-      jobs:[{services:[brownOneOffService]}],
-    },
-  });
+  const row={_id:customerId,name:b.name,email:b.email,
+    address:{addressDescription:b.address},status:"active"};
+  const h=makeHarness(b,{existingRows:[row],existingCustomer:{
+    address:{text:b.address},jobs:[{services:[brownOneOffService]}],
+  }});
   const r=await h.run();
-  assert.equal(r.status,"held");
-  assert.equal(r.reason,"existing_job_for_selected_bin_requires_review");
-  assert.equal(h.posts.length,0);
-  assert.equal(h.ledger.records.size,0);
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,false);
+  assert.equal(h.posts.length,1);
+  assert.equal(h.posts[0].job.frequencyType,"weeks");
+  assert.match(h.posts[0].job.notes,/ADDITIONAL BIN PURCHASE/);
 });
 
 test("different property with name and email but no matching phone creates separate customer",async()=>{
@@ -852,40 +883,33 @@ test("cross-property full identity must also match authoritative customer detail
   assert.equal(result.reason,"existing_customer_identity_unverified");
   assert.equal(h.posts.length,0);
 });
-test("cross-property existing job with same bin requires verified old job address",async()=>{
+test("cross-property matching old service requires verifiable address; same property means additive job",async()=>{
   const b=sampleBooking();
   const oldAddress="34 Ballycrochan Avenue, Bangor BT19 7LA";
   const row={_id:customerId,name:b.name,email:b.email,
     phoneNumber:b.phone,address:{addressDescription:oldAddress}};
-  for(const job of [
-    {services:[brownService]},
-    {services:[brownService],jobAddress:{text:b.address}},
-  ]){
-    const h=makeHarness(b,{
-      existingRows:[row],
-      existingCustomer:{
-        name:b.name,email:b.email,phoneNumber:b.phone,
-        address:{addressDescription:oldAddress},jobs:[job],
-      },
-    });
-    const result=await h.run();
-    assert.equal(result.status,"held");
-    assert.equal(result.reason,job.jobAddress?
-      "existing_job_for_selected_bin_requires_review":
-      "cannot_inspect_existing_job_addresses");
-    assert.equal(h.posts.length,0);
-  }
-  const safe=makeHarness(b,{
-    existingRows:[row],
-    existingCustomer:{
-      name:b.name,email:b.email,phoneNumber:b.phone,
+  const missing=makeHarness(b,{existingRows:[row],
+    existingCustomer:{name:b.name,email:b.email,phoneNumber:b.phone,
+      address:{addressDescription:oldAddress},jobs:[{services:[brownService]}]}});
+  const ambiguous=await missing.run();
+  assert.equal(ambiguous.status,"held");
+  assert.equal(ambiguous.reason,"cannot_inspect_existing_job_addresses");
+  assert.equal(missing.posts.length,0);
+  const oldProperty=makeHarness(b,{existingRows:[row],
+    existingCustomer:{name:b.name,email:b.email,phoneNumber:b.phone,
       address:{addressDescription:oldAddress},
-      jobs:[{services:[brownService],jobAddress:{text:oldAddress}}],
-    },
-  });
-  assert.equal((await safe.run()).status,"completed");
-  assert.deepEqual(safe.posts[0].job.jobAddress,{text:b.address});
+      jobs:[{services:[brownService],jobAddress:{text:oldAddress}}]}});
+  assert.equal((await oldProperty.run()).status,"completed");
+  assert.deepEqual(oldProperty.posts[0].job.jobAddress,{text:b.address});
+  const sameProperty=makeHarness(b,{existingRows:[row],
+    existingCustomer:{name:b.name,email:b.email,phoneNumber:b.phone,
+      address:{addressDescription:oldAddress},
+      jobs:[{services:[brownService],jobAddress:{text:b.address}}]}});
+  assert.equal((await sameProperty.run()).status,"completed");
+  assert.match(sameProperty.posts[0].job.notes,/ADDITIONAL BIN PURCHASE/);
+  assert.deepEqual(sameProperty.posts[0].job.jobAddress,{text:b.address});
 });
+
 test("same number and postcode but a different street never reuses a customer",async()=>{
   const b=sampleBooking();
   const row={_id:customerId,name:b.name,email:b.email,status:"active",
@@ -965,22 +989,33 @@ test("two new bookings with different first dates cannot race to create the same
   assert.equal(activeBinKey(b,b.bins[0]),activeBinKey(later,later.bins[0]));
 });
 
-test("duplicate bin colour lines are held before any claim or Squeegee POST",async()=>{
-  const b=sampleBooking({
-    bins:[
-      {type:"Brown Bin",planId:"domestic_4w",count:1},
-      {type:"Brown Bin",planId:"domestic_oneoff",count:1},
-    ],
-    dates:["2026-11-16","2026-11-16"],
-  });
+test("repeated Brown booking lines on one date consolidate into one £10 job",async()=>{
+  const b=sampleBooking({bins:[
+    {type:"Brown Bin",planId:"domestic_4w",count:1},
+    {type:"Brown Bin",planId:"domestic_4w",count:1},
+  ],dates:["2026-11-16","2026-11-16"]});
   const h=makeHarness(b);
-  const result=await h.run();
-  assert.equal(result.status,"held");
-  assert.equal(result.reason,"duplicate_bin_types_in_same_booking");
-  assert.equal(h.posts.length,0);
-  assert.equal(h.ledger.records.size,0);
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.equal(r.physicalBins,2);
+  assert.equal(r.createdJobs,1);
+  assert.equal(h.posts.length,2);
+  assert.deepEqual(h.posts[1].job.services,[brownService]);
+  assert.equal(h.posts[1].job.price,10);
+  assert.match(h.posts[1].job.notes,/PHYSICAL BINS: 2 x Brown Bin/);
 });
 
+test("same colour on conflicting recurring and one-off schedules needs review",async()=>{
+  const b=sampleBooking({bins:[
+    {type:"Brown Bin",planId:"domestic_4w",count:1},
+    {type:"Brown Bin",planId:"domestic_oneoff",count:1},
+  ],dates:["2026-11-16","2026-11-16"]});
+  const h=makeHarness(b);
+  const r=await h.run();
+  assert.equal(r.status,"held");
+  assert.equal(r.reason,"conflicting_same_colour_schedules");
+  assert.equal(h.posts.length,0);
+});
 
 test("inactive Squeegee customer is never silently reactivated by existing account booking",async()=>{
   const {externalCustomerReference}=
@@ -1095,25 +1130,44 @@ test("same date but different recurrence cannot be merged into one Squeegee job"
 });
 
 
-test("same-day mixed-bin 7-for-6 is priced £30 but held until service quantities can be set",async()=>{
+test("same-day mixed-bin 7-for-6 creates one £30 job with physical quantities",async()=>{
   const b=sampleBooking({
     bins:[
       {type:"Brown Bin",planId:"domestic_4w",count:4},
       {type:"Black Bin",planId:"domestic_4w",count:3},
-    ],
-    dates:["2026-11-16","2026-11-16"],
+    ],dates:["2026-11-16","2026-11-16"],
   });
   assert.equal(b.pricing.total,30);
   assert.equal(b.pricing.multiBuyFreeBins,1);
   const h=makeHarness(b);
   const r=await h.run();
-  assert.equal(r.status,"held");
-  assert.equal(r.reason,"service_quantity_requires_manual_configuration");
-  assert.deepEqual(h.statuses.at(-1).requestedBinCounts,[
-    "4 x Brown Bin","3 x Black Bin",
-  ]);
-  assert.equal(h.posts.length,0);
-  assert.equal(h.ledger.records.size,0);
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdJobs,1);
+  assert.equal(r.physicalBins,7);
+  const job=h.posts.filter(x=>x.kind==="job")[0].job;
+  assert.equal(job.price,30);
+  assert.deepEqual(job.services,[brownService,blackService]);
+  assert.match(job.notes,/PHYSICAL BINS: 4 x Brown Bin \+ 3 x Black Bin/);
+});
+
+test("Clare-style 2 Black + Brown + Blue creates correct £20 combined job",async()=>{
+  const b=sampleBooking({
+    bins:[
+      {type:"Black Bin",planId:"domestic_4w",count:2},
+      {type:"Brown Bin",planId:"domestic_4w",count:1},
+      {type:"Blue Bin",planId:"domestic_4w",count:1},
+    ],dates:["2026-11-16","2026-11-16","2026-11-16"],
+  });
+  const h=makeHarness(b);
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.equal(r.physicalBins,4);
+  assert.equal(r.createdJobs,1);
+  const job=h.posts.filter(p=>p.kind==="job")[0].job;
+  assert.equal(job.price,20);
+  assert.deepEqual(job.services,[blackService,brownService,blueService]);
+  assert.match(job.notes,/PHYSICAL BINS: 2 x Black Bin \+ 1 x Brown Bin \+ 1 x Blue Bin/);
+  assert.deepEqual(h.statuses.at(-1).physicalBinsPerJob,[4]);
 });
 
 test("existing customer receives one combined new-bin job without modifying their existing other service",async()=>{
@@ -1143,28 +1197,25 @@ test("existing customer receives one combined new-bin job without modifying thei
   assert.deepEqual(oldJobs,[{services:[blueService]}]);
 });
 
-test("existing customer with one selected bin already present holds the entire same-date bundle",async()=>{
-  const b=sampleBooking({
-    bins:[
-      {type:"Brown Bin",planId:"domestic_4w",count:1},
-      {type:"Black Bin",planId:"domestic_4w",count:1},
-    ],
-    dates:["2026-11-16","2026-11-16"],
-  });
-  const h=makeHarness(b,{
-    existingRows:[{
-      _id:customerId,name:b.name,email:b.email,status:"active",
-      address:{addressDescription:b.address},
-    }],
-    existingCustomer:{
-      address:{text:b.address},jobs:[{services:[brownService]}],
-    },
-  });
+test("existing customer adding Brown plus Black creates a new £10 job; original Brown untouched",async()=>{
+  const b=sampleBooking({bins:[
+    {type:"Brown Bin",planId:"domestic_4w",count:1},
+    {type:"Black Bin",planId:"domestic_4w",count:1},
+  ],dates:["2026-11-16","2026-11-16"]});
+  const existingJobs=[{services:[brownService]}];
+  const h=makeHarness(b,{existingRows:[{
+    _id:customerId,name:b.name,email:b.email,status:"active",
+    address:{addressDescription:b.address},
+  }],existingCustomer:{address:{text:b.address},jobs:existingJobs}});
   const r=await h.run();
-  assert.equal(r.status,"held");
-  assert.equal(r.reason,"existing_job_for_selected_bin_requires_review");
-  assert.equal(h.posts.length,0);
-  assert.equal(h.ledger.records.size,0);
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,false);
+  assert.equal(r.createdJobs,1);
+  assert.equal(h.posts.length,1);
+  assert.deepEqual(h.posts[0].job.services,[brownService,blackService]);
+  assert.equal(h.posts[0].job.price,10);
+  assert.match(h.posts[0].job.notes,/ADDITIONAL BIN PURCHASE/);
+  assert.deepEqual(existingJobs,[{services:[brownService]}]);
 });
 
 test("ambiguous same-day bundled POST locks both services; no automatic retry",async()=>{
@@ -1195,7 +1246,7 @@ test("ambiguous same-day bundled POST locks both services; no automatic retry",a
   assert.equal(h.posts.length,2);
 });
 
-test("grouping rejects a malformed or duplicate service plan before a real job POST",async()=>{
+test("grouping handles quantity 2 and still rejects malformed services before any POST",async()=>{
   const {groupedSqueegeeJobs}=
     require("../netlify/functions/lib/squeegeeJobGrouping");
   const base={
@@ -1207,9 +1258,13 @@ test("grouping rejects a malformed or duplicate service plan before a real job P
       price:5,jobGroup:group1,
     },
   };
-  assert.throws(()=>groupedSqueegeeJobs([{
+  const two=groupedSqueegeeJobs([{
     ...base,quantity:2,input:{...base.input,price:10},
-  }],"NBG-ABCDE-ABCDEFGH"),/Incomplete or inconsistent/);
+  }],"NBG-ABCDE-ABCDEFGH");
+  assert.equal(two.length,1);
+  assert.equal(two[0].input.price,10);
+  assert.equal(two[0].physicalBinCount,2);
+  assert.match(two[0].input.notes,/2 x Brown Bin/);
   assert.throws(()=>groupedSqueegeeJobs([base,{
     ...base,index:1,bin:"Black Bin",input:{
       ...base.input,notes:"Black",
@@ -1465,43 +1520,33 @@ test("real Squeegee service-object format permits Blue at existing Brown propert
   assert.equal(h.statuses.at(-1).customerMode,"existing");
 });
 
-test("real Squeegee service-object format rejects duplicate Blue service at property",async()=>{
-  const b=sampleBooking({
-    bins:[{type:"Blue Bin",planId:"domestic_4w",count:1}],
-  });
-  const h=makeHarness(b,{
-    existingRows:[{
-      _id:customerId,name:b.name,email:b.email,
-      address:{addressDescription:b.address},status:"active",
-    }],
-    existingCustomer:{address:{text:b.address},
-      jobs:[{services:[{_id:blueService,description:"Blue",quantity:1}]}]},
-  });
+test("real service-object Blue already registered can be purchased again as an additional Blue job",async()=>{
+  const b=sampleBooking({bins:[{type:"Blue Bin",planId:"domestic_4w",count:1}]});
+  const h=makeHarness(b,{existingRows:[{
+    _id:customerId,name:b.name,email:b.email,
+    address:{addressDescription:b.address},status:"active",
+  }],existingCustomer:{address:{text:b.address},
+    jobs:[{services:[{_id:blueService,description:"Blue",quantity:1}]}]}});
   const r=await h.run();
-  assert.equal(r.status,"held");
-  assert.equal(r.reason,"existing_job_for_selected_bin_requires_review");
-  assert.equal(h.posts.length,0);
-  assert.equal(h.ledger.records.size,0);
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,false);
+  assert.equal(h.posts.length,1);
+  assert.match(h.posts[0].job.notes,/ADDITIONAL BIN PURCHASE/);
 });
 
-test("existing one-off service object also blocks another recurring bin of same colour",async()=>{
+test("existing one-off service can coexist with newly bought recurring bin of same colour",async()=>{
   const b=sampleBooking();
-  const h=makeHarness(b,{
-    existingRows:[{
-      _id:customerId,name:b.name,email:b.email,
-      address:{addressDescription:b.address},status:"active",
-    }],
-    existingCustomer:{
-      address:{text:b.address},
-      jobs:[{services:[{
-        _id:brownOneOffService,description:"(One Off) Brown",quantity:1,
-      }]}],
-    },
-  });
+  const h=makeHarness(b,{existingRows:[{
+    _id:customerId,name:b.name,email:b.email,
+    address:{addressDescription:b.address},status:"active",
+  }],existingCustomer:{address:{text:b.address},
+    jobs:[{services:[{_id:brownOneOffService,
+      description:"(One Off) Brown",quantity:1}]}]}});
   const r=await h.run();
-  assert.equal(r.status,"held");
-  assert.equal(r.reason,"existing_job_for_selected_bin_requires_review");
-  assert.equal(h.posts.length,0);
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,false);
+  assert.equal(h.posts.length,1);
+  assert.match(h.posts[0].job.notes,/ADDITIONAL BIN PURCHASE/);
 });
 
 test("existing job with two service objects is inspected by every UUID",()=>{

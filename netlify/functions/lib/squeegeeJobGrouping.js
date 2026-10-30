@@ -10,8 +10,9 @@
  * alone and never merge one-off services into recurring four-weekly jobs.
  *
  * This is a pure planner: NO Squeegee network calls or claims happen here.
- * The public AddJobBody cannot represent quantity >1 for a service UUID.
- * Reject such plans rather than undercount the physical bins being cleaned.
+ * The public AddJobBody uses services: UUID[] without a documented
+ * quantity field. Preserve physical counts, pricing and collection instructions
+ * in notes; the Squeegee service list itself is not proof of quantity.
  * The automatic worker still claims every original bin independently before
  * posting any grouped job and reconciles every member on an ambiguous POST.
  */
@@ -27,7 +28,9 @@ function groupedSqueegeeJobs(perBinJobs,bookingId) {
 
   const groups=new Map();
   const memberIndices=new Set();
-  const seenServiceIds=new Set();
+  // UUIDs are distinct within one final job, but a line can request 2+
+  // physical bins of the same colour. Repeated same-colour rows combine
+  // counts into the same job if date/round/recurrence match.
   for(const item of perBinJobs) {
     const input=item?.input;
     if(item?.status!=="ready" ||
@@ -38,13 +41,13 @@ function groupedSqueegeeJobs(perBinJobs,bookingId) {
        !UUID_RE.test(String(input.jobGroup||"")) ||
        !Array.isArray(input.services) || input.services.length!==1 ||
        !UUID_RE.test(String(input.services[0]||"")) ||
-       seenServiceIds.has(input.services[0]) ||
+       !Number.isSafeInteger(item.quantity) || item.quantity>200 ||
        !Array.isArray(input.tags) ||
        !Array.isArray(input.firstAppointment.tags) ||
        (input.frequencyType!=="weeks" && input.frequencyType!=="adhoc") ||
        (input.frequencyType==="weeks" && input.frequencyInterval!==4) ||
        (input.frequencyType==="adhoc" && input.frequencyInterval!==undefined) ||
-       !Number.isInteger(item.quantity) || item.quantity!==1 ||
+       !Number.isInteger(item.quantity) || item.quantity<1 ||
        typeof item.bin!=="string" || !item.bin.trim() ||
        typeof input.price!=="number" ||
        !Number.isFinite(input.price) || input.price<0 ||
@@ -53,7 +56,6 @@ function groupedSqueegeeJobs(perBinJobs,bookingId) {
       throw new Error("Incomplete or inconsistent per-bin job plan");
     }
     memberIndices.add(item.index);
-    seenServiceIds.add(input.services[0]);
 
     // A single date is not sufficient: a one-off and a four-weekly clean
     // cannot share a Squeegee recurrence even if collected on the same day.
@@ -72,11 +74,23 @@ function groupedSqueegeeJobs(perBinJobs,bookingId) {
           price:0,
         },
         pricePence:0,
+        counts:new Map(),
       };
       groups.set(groupKey,group);
     }
     group.members.push(item);
-    group.input.services.push(input.services[0]);
+    const id=input.services[0];
+    const previous=group.counts.get(id);
+    if(previous) {
+      if(previous.bin!==item.bin)
+        throw new Error("Inconsistent descriptions for the same service UUID");
+      previous.quantity+=item.quantity;
+      if(!Number.isSafeInteger(previous.quantity)||previous.quantity>200)
+        throw new Error("Service quantity exceeds supported booking limit");
+    }else{
+      group.counts.set(id,{bin:item.bin,quantity:item.quantity});
+      group.input.services.push(id);
+    }
     group.pricePence+=Math.round(input.price*100);
     if(!Number.isSafeInteger(group.pricePence))
       throw new Error("Grouped job price is too large");
@@ -86,15 +100,19 @@ function groupedSqueegeeJobs(perBinJobs,bookingId) {
   // the position of its group. Service order follows the booking bin order.
   return [...groups.values()].map(group=>{
     group.input.price=group.pricePence/100;
-    if(group.members.length>1) {
+    const counts=[...group.counts.values()];
+    group.physicalBinCount=counts.reduce((total,item)=>total+item.quantity,0);
+    if(group.members.length>1||group.physicalBinCount>1) {
       const type=group.input.frequencyType==="weeks"?
         "Every 4 weeks":"One-off clean";
       group.input.notes=[
         "NI Bin Guy website booking: "+bookingId,
-        group.members.map(item=>item.quantity+" x "+item.bin).join(" + "),
+        "PHYSICAL BINS: "+counts.map(item=>item.quantity+" x "+item.bin).join(" + "),
         type,"Website date: "+group.input.date,
+        "Quantity is in these notes; Squeegee service IDs do not carry quantity",
       ].join(" | ");
     }
+    delete group.counts;
     delete group.pricePence;
     return group;
   });

@@ -1,7 +1,8 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {customerKey,jobKey,claimOnce,changeClaimState}=require("../netlify/functions/lib/squeegeeIdempotencyClaims");
+const {customerKey,jobKey,additionalBinKey,additionalJobKey,claimOnce,changeClaimState}=
+  require("../netlify/functions/lib/squeegeeIdempotencyClaims");
 
 function makeStore(){
   const records=new Map();
@@ -131,4 +132,20 @@ test("two different properties sharing a postcode never share a customer claim",
   const a={address:"17 Example Road, Bangor, BT20 4AA"};
   const b={address:"19 Example Road, Bangor, BT20 4AA"};
   assert.notEqual(customerKey(a),customerKey(b));
+});
+
+test("additional purchases have booking-specific claims that never clear original active-bin reservations",async()=>{
+  const a=booking("NBG-ABCDE-ABCDEFGH"),b=booking("NBG-FGHIJ-HIJKLMNO");
+  const bin={type:"Brown Bin",planId:"domestic_4w",count:1};
+  const j={...job,type:"Brown Bin"};
+  assert.notEqual(additionalBinKey(a,bin),additionalBinKey(b,bin));
+  assert.notEqual(additionalJobKey(a,j),additionalJobKey(b,j));
+  assert.equal(additionalBinKey(a,bin),additionalBinKey(a,{...bin,count:2}));
+  const store=makeStore();
+  const one=await claimOnce({key:additionalBinKey(a,bin),bookingId:a.bookingId,store});
+  const duplicate=await claimOnce({key:additionalBinKey(a,bin),bookingId:a.bookingId,store});
+  const second=await claimOnce({key:additionalBinKey(b,bin),bookingId:b.bookingId,store});
+  assert.equal(one.acquired,true);
+  assert.equal(duplicate.acquired,false);
+  assert.equal(second.acquired,true);
 });

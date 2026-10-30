@@ -112,6 +112,38 @@ async function notifyOwnerOfDuplicateSignals(bookingId,flags,{
   return deliverOwnerEmail(content,{env,send});
 }
 
+function quantityBookedEmailContent(bookingId,details={}) {
+  if(!BOOKING_RE.test(String(bookingId||"")))return null;
+  const requested=Array.isArray(details.requestedBinCounts)?
+    details.requestedBinCounts.filter(x=>
+      typeof x==="string" && /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x)).slice(0,12):[];
+  const additional=Array.isArray(details.additionalExistingBins)?
+    details.additionalExistingBins.filter(x=>
+      ["black","brown","green","blue"].includes(x)).slice(0,4):[];
+  return {
+    subject:"NI Bin Guy — Multiple bins synced; check quantities: "+bookingId,
+    text:[
+      "A website booking has been successfully written to Squeegee.",
+      "Booking reference: "+bookingId,
+      ...requested.map(x=>"Booked: "+x),
+      additional.length?
+        "This booking adds bin(s) of colours already present on the customer's account: "+additional.join(", "):"",
+      "",
+      "Total job price and physical bin quantities are recorded in the new job's notes.",
+      "The documented Squeegee public API cannot specify the service quantity field.",
+      "Check the Squeegee job notes and, if necessary, update the displayed service quantity manually.",
+      additional.length?
+        "Existing jobs were not edited: consolidate same-day jobs manually where appropriate.":"",
+      "Do not resubmit the website booking.",
+      "Preview 1 only. Production and Preview 2 are unchanged.",
+    ].filter(Boolean).join("\n"),
+  };
+}
+async function notifyOwnerOfQuantityBooking(bookingId,details={},options={}) {
+  const content=quantityBookedEmailContent(bookingId,details);
+  if(!content)return {sent:false,reason:"invalid_quantity_booking"};
+  return deliverOwnerEmail(content,options);
+}
 async function deliverOwnerEmail(email,{env=process.env,send=null}={}){
   if(typeof send!=="function" &&
      (!env.RESEND_API_KEY || !env.BOOKINGS_TO))
@@ -136,4 +168,5 @@ async function deliverOwnerEmail(email,{env=process.env,send=null}={}){
 
 module.exports={emailContent,notifyOwnerOfSyncHold,
   duplicateSignalsEmailContent,notifyOwnerOfDuplicateSignals,
+  quantityBookedEmailContent,notifyOwnerOfQuantityBooking,
   allowedFlags,duplicateFlagLabels};

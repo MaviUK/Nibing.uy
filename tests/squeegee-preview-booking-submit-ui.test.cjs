@@ -96,8 +96,9 @@ test("fresh test confirmation reports queue acceptance without claiming job crea
 });
 
 
-test("booking confirmation warns when multiple bins of one colour require manual Squeegee verification",()=>{
-  assert.match(booking,/requiresManualQuantityCheck: bins\.some\(bin=>Number\(bin\.count\)>1\)/);
-  assert.match(booking,/Extra bins of the same colour need manual confirmation/);
-  assert.match(booking,/Please do not submit another booking/);
+test("booking confirmation does not block customers buying extra bins",()=>{
+  assert.ok(!booking.includes("Extra bins of the same colour need manual confirmation"));
+  assert.ok(!booking.includes("requiresManualQuantityCheck"));
+  assert.match(booking,/Booking confirmed/);
+  assert.match(booking,/Booking reference:/);
 });

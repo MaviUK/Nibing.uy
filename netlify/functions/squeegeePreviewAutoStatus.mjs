@@ -97,6 +97,8 @@ export default async function handler(request,context) {
         simple("manualAction")+previewRows("requestedBinCounts")+
         (quantityHelp?'<p><strong>Manual action: '+safe(quantityHelp)+'</strong></p>':'')+
         simple("createdCustomer")+simple("createdJobs")+simple("jobsConfirmed")+
+        simple("physicalBins")+previewRows("physicalBinsPerJob")+
+        simple("quantityVerificationRecommended")+previewRows("additionalExistingBins")+
         previewRows("firstCleanDates")+previewRows("dates")+previewRows("rounds")+
         previewRows("recurrence")+previewRows("blockedReasons")+
         '<p><small>A queued response is not proof of a Squeegee job. An ambiguous or partial result must never be retried automatically.</small></p>'+

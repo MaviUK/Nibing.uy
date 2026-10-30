@@ -80,3 +80,25 @@ test("same-colour quantity and repeat-bin owner holds give actionable instructio
   assert.match(repeat.text,/ADDITIONAL physical bin or an accidental repeat/);
   assert.match(repeat.text,/edit the existing Squeegee job/);
 });
+
+test("completed quantity booking owner notice states physical counts, limitations and extra job without customer data",async()=>{
+  const {quantityBookedEmailContent,notifyOwnerOfQuantityBooking}=
+    require("../netlify/functions/lib/squeegeeSyncOwnerAlert");
+  const ref="NBG-ABCDE-ABCDEFGH";
+  const details={requestedBinCounts:["2 x Black Bin","1 x Brown Bin","<script>alert(1)</script>"],
+    additionalExistingBins:["brown"]};
+  const msg=quantityBookedEmailContent(ref,details);
+  assert.match(msg.subject,/Multiple bins synced/);
+  assert.match(msg.text,/Booked: 2 x Black Bin/);
+  assert.doesNotMatch(msg.text,/<script>/);
+  assert.match(msg.text,/service quantity field/);
+  assert.match(msg.text,/Existing jobs were not edited/);
+  let sent;
+  const outcome=await notifyOwnerOfQuantityBooking(ref,details,{
+    env:{BOOKINGS_TO:"info@nibing.uy",RESEND_FROM:"NI Bin Guy <noreply@nibing.uy>"},
+    send:async(args)=>{sent=args;return {data:{id:"fake"}};},
+  });
+  assert.equal(outcome.sent,true);
+  assert.equal(sent.subject,msg.subject);
+  assert.deepEqual(sent.to,["info@nibing.uy"]);
+});

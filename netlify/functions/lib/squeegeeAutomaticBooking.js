@@ -18,9 +18,9 @@ const {fetchAuthoritativeSchedule}=require("./squeegeeBookingStage");
 const {matchCustomersAcrossPages,addressKey,normalName,normalEmail,normalPhone}=require("./squeegeeCustomerMatcher");
 const {resolveSqueegeeServiceIds}=require("./squeegeeServiceCatalog");
 const {normalizedBinType}=require("./squeegeeBookingPlan");
-const {customerKey,jobKey,activeBinKey,claimOnce,changeClaimState}=require("./squeegeeIdempotencyClaims");
+const {customerKey,jobKey,activeBinKey,additionalBinKey,additionalJobKey,claimOnce,changeClaimState}=require("./squeegeeIdempotencyClaims");
 const {validateBookingSubmission}=require("./bookingSubmissionGuard");
-const {notifyOwnerOfSyncHold,notifyOwnerOfDuplicateSignals}=
+const {notifyOwnerOfSyncHold,notifyOwnerOfDuplicateSignals,notifyOwnerOfQuantityBooking}=
   require("./squeegeeSyncOwnerAlert");
 
 const STATUS_STORE="squeegee-preview1-auto-sync-status";
@@ -54,18 +54,30 @@ function validUpcomingDate(date,now) {
 }
 function overlappingJobs(existingJobs,plannedJobs,serviceIds=null,{
   differentProperty=false,requestedAddress=null,
+  allowAdditionalBins=false,additionalTypes=null,
 }={}) {
   if(!Array.isArray(existingJobs))return "cannot_inspect_existing_jobs";
   const plannedServices=new Set(plannedJobs.flatMap(job=>job.input.services));
+  // Map both four-weekly and one-off Squeegee service IDs to a physical
+  // bin colour, so an existing service may be an additional purchase
+  // regardless of its previous plan, without changing the existing job.
+  const selectedTypes=new Set(plannedJobs.map(job=>normalizedBinType(job.bin)));
+  const typeForService=new Map();
+  for(const job of plannedJobs){
+    for(const service of job.input.services)
+      typeForService.set(service,normalizedBinType(job.bin));
+  }
   if(serviceIds && typeof serviceIds==="object") {
     // A Brown one-off and Brown 4-weekly job use different service UUIDs.
     // Never add a second job for the same physical bin just because the plan
     // differs. Include all verified service IDs for each requested bin type.
-    const selectedTypes=new Set(plannedJobs.map(job=>normalizedBinType(job.bin)));
     for(const values of Object.values(serviceIds)) {
       for(const type of selectedTypes) {
         const id=values?.[type];
-        if(id)plannedServices.add(id);
+        if(id){
+          plannedServices.add(id);
+          typeForService.set(id,type);
+        }
       }
     }
   }
@@ -100,6 +112,11 @@ function overlappingJobs(existingJobs,plannedJobs,serviceIds=null,{
           if(!oldAddress || !newAddress)
             return "cannot_inspect_existing_job_addresses";
           if(oldAddress!==newAddress)continue;
+        }
+        if(allowAdditionalBins){
+          if(additionalTypes instanceof Set)
+            additionalTypes.add(typeForService.get(id));
+          continue;
         }
         return "existing_job_for_selected_bin_requires_review";
       }
@@ -147,9 +164,8 @@ async function executeAutomaticPreviewBooking(payload,{
   const bins=Array.isArray(payload?.bins)?payload.bins.filter(x=>x?.type):[];
   if(!bins.length || bins.length>MAX_BOOKING_JOBS)
     return outcome("held","too_many_or_no_booking_lines");
-  // Repeated bin colours need manual review after the accepted receipt is
-  // safely stored. Never silently combine repeated physical bins into one.
-  const distinctBins=new Set(bins.map(x=>normalizedBinType(x.type)));
+  // Quantity >1 and repeated colours are valid purchases, not errors.
+  // Original booking identity still prevents replay of a submission.
   if(payload.termsAccepted!==true)
     return outcome("held","booking_terms_not_accepted");
 
@@ -168,6 +184,8 @@ async function executeAutomaticPreviewBooking(payload,{
     alert:deps.alert||((id,reason,extra)=>notifyOwnerOfSyncHold(id,reason,extra,{env})),
     duplicateAlert:deps.duplicateAlert||((id,flags)=>
       notifyOwnerOfDuplicateSignals(id,flags,{env})),
+    quantityAlert:deps.quantityAlert||((id,details)=>
+      notifyOwnerOfQuantityBooking(id,details,{env})),
   };
   let duplicateFlags=[];
   const mark=(stage,extra={})=>use.save(bookingId,stage,{
@@ -193,19 +211,10 @@ async function executeAutomaticPreviewBooking(payload,{
   try {
     // If status storage fails, stop immediately (no API write).
     await mark("validating",{channel});
-    // Public Squeegee AddJobBody uses services: UUID[], NOT a verified
-    // quantity per service. No documented existing-job update operation.
-    // Stop entire multi-quantity bookings BEFORE any customer/job POST or
-    // write claim; charging twice for one service would be incorrect.
+    // A Squeegee job uses unique service UUIDs but a price and free-form
+    // notes can represent multiple physical bins. Never invent an
+    // undocumented quantity-write property or pretend a UUID carries a count.
     const counts=requestedBinCounts(bins);
-    if(distinctBins.size!==bins.length)
-      return await held("duplicate_bin_types_in_same_booking",{
-        manualAction:"review_service_quantity",requestedBinCounts:counts,
-      });
-    if(bins.some(bin=>Number(bin.count)!==1))
-      return await held("service_quantity_requires_manual_configuration",{
-        manualAction:"review_service_quantity",requestedBinCounts:counts,
-      });
     const [schedule,services,groups]=await Promise.allSettled([
       use.getSchedule(payload),use.getServices(),use.getJobGroups(),
     ]);
@@ -228,6 +237,19 @@ async function executeAutomaticPreviewBooking(payload,{
       return await held("date_price_service_or_round_not_verified",{
         blockedReasons:summary.blockedReasons.slice(0,8),
       });
+    }
+    // Two entries for the same colour may combine only if their exact date,
+    // recurrence and Squeegee round match. Different schedules for the same
+    // colour require manual review rather than conflicting CAS claims.
+    const scheduleByColour=new Map();
+    for(const job of plan.jobs) {
+      const colour=normalizedBinType(job.bin);
+      const signature=JSON.stringify([job.date,job.input.frequencyType,
+        job.input.frequencyInterval??null,job.input.jobGroup]);
+      if(scheduleByColour.has(colour) &&
+         scheduleByColour.get(colour)!==signature)
+        return await held("conflicting_same_colour_schedules");
+      scheduleByColour.set(colour,signature);
     }
     // Plans, exact dates, account services and prices have all been verified.
     // Group compatible bin lines into ONE Squeegee job per identical date,
@@ -265,6 +287,7 @@ async function executeAutomaticPreviewBooking(payload,{
       anotherProperty?"additional_property":"new";
     let customerId=existing?customerMatch.customerId:null;
     let differentProperty=false;
+    const additionalTypes=new Set();
     if(existing) {
       let record;
       try{record=await use.getCustomer(customerId);}
@@ -315,14 +338,15 @@ async function executeAutomaticPreviewBooking(payload,{
           matchReason:"inactive_exact_customer",
         });
       const catalog=resolveSqueegeeServiceIds(services.value);
+      // A new accepted website booking of an already registered colour
+      // means ADDITIONAL physical bins. Leave all earlier jobs and billing
+      // untouched; append one clearly labelled new job and alert the owner
+      // that same-day jobs may need consolidation in Squeegee.
       const overlap=overlappingJobs(record?.jobs,plan.jobs,catalog.serviceIds,{
         differentProperty,requestedAddress:payload.address,
+        allowAdditionalBins:true,additionalTypes,
       });
-      if(overlap)return await held(overlap,
-        overlap==="existing_job_for_selected_bin_requires_review"?{
-          manualAction:"verify_existing_service_quantity",
-          requestedBinCounts:requestedBinCounts(bins),
-        }:{});
+      if(overlap)return await held(overlap);
 
     }
 
@@ -353,9 +377,11 @@ async function executeAutomaticPreviewBooking(payload,{
       pilotClaim={...reserved,etag:started.etag};
     }
 
-    // Permanent per-booking claim prevents a second dispatch; separate
-    // property and job claims protect other booking IDs for the same bin.
-    // A failed claim is never released or automatically retried.
+    // Per-booking reservation prevents replay. Initial service registrations
+    // retain their original per-property active-bin claims. Additional
+    // purchases use new booking-specific immutable claims so customers can
+    // add a second Brown without clearing old protections. A failed claim
+    // is never released or automatically retried.
     const bookingClaim=await use.claim({
       key:BOOKING_CLAIM_PREFIX+bookingId,bookingId,channel});
     if(!bookingClaim.acquired)return await held("booking_already_claimed_or_uncertain");
@@ -365,22 +391,29 @@ async function executeAutomaticPreviewBooking(payload,{
       if(!propertyClaim.acquired)
         return await held("customer_property_claimed_or_uncertain");
     }
-    const jobs=[];
+    const jobs=[],claimedPairs=new Map();
     for(const job of plan.jobs) {
       const bin=bins[job.index];
-      // No two concurrent bookings may add the same bin at the same property,
-      // even if they differ by plan or website first-clean date.
-      const activeBin=await use.claim({
-        key:activeBinKey(payload,bin),bookingId,channel,
-      });
+      const isAddition=additionalTypes.has(normalizedBinType(bin.type));
+      const activeKey=isAddition?
+        additionalBinKey(payload,bin):activeBinKey(payload,bin);
+      const entryKey=isAddition?
+        additionalJobKey(payload,{date:job.date,type:bin.type,planId:bin.planId}):
+        jobKey(payload,{date:job.date,type:bin.type,planId:bin.planId});
+      const pair=activeKey+"|"+entryKey;
+      const previous=claimedPairs.get(pair);
+      if(previous) {
+        previous.indices.push(job.index);
+        continue;
+      }
+      const activeBin=await use.claim({key:activeKey,bookingId,channel});
       if(!activeBin.acquired)
         return await held("property_bin_already_claimed_or_uncertain");
-      const record=await use.claim({
-        key:jobKey(payload,{date:job.date,type:bin.type,planId:bin.planId}),
-        bookingId,channel,
-      });
+      const record=await use.claim({key:entryKey,bookingId,channel});
       if(!record.acquired)return await held("job_claimed_or_uncertain");
-      jobs.push({job,claim:record,activeBin});
+      const entry={job,claim:record,activeBin,indices:[job.index]};
+      jobs.push(entry);
+      claimedPairs.set(pair,entry);
     }
     const bookingRunning=await use.changeState({
       key:bookingClaim.key,etag:bookingClaim.etag,bookingId,
@@ -425,13 +458,15 @@ async function executeAutomaticPreviewBooking(payload,{
           propertyEtag=customerDone.etag;customerClaimSettled=true;
           creatingCustomer=false;
         }
-        // Every physical bin retains its own permanent job + active-bin CAS
-        // claim. Transition ALL member claims BEFORE the single grouped POST.
-        // On any uncertain response, never retry the group or any of its bins.
-        const entriesByIndex=new Map(jobs.map(entry=>[entry.job.index,entry]));
+        // Each unique booking-colour reservation is transitioned before
+        // any job POST. Multiple lines of the same colour and schedule may
+        // share one reservation but still contribute their full price/count.
+        const entriesByIndex=new Map(jobs.flatMap(entry=>
+          entry.indices.map(index=>[index,entry])));
         for(let index=0;index<groupedJobs.length;index++){
           const group=groupedJobs[index];
-          const entries=group.members.map(member=>entriesByIndex.get(member.index));
+          const entries=[...new Set(group.members.map(member=>
+            entriesByIndex.get(member.index)))];
           if(entries.some(entry=>!entry))
             throw new Error("missing_group_member_claim");
           for(const entry of entries){
@@ -450,15 +485,24 @@ async function executeAutomaticPreviewBooking(payload,{
           }
           await mark("creating_job",{
             jobNumber:index+1,jobCount:groupedJobs.length,
-            binsOnJob:entries.length,
+            binsOnJob:group.physicalBinCount,
           });
           postAttempted=true;
           // One Squeegee customer can own jobs at multiple service addresses.
           // Explicit jobAddress prevents a new property's bins being routed
           // to the customer's original billing/service address.
-          await use.addJob(customerId,differentProperty?
-            {...group.input,jobAddress:{...plan.customerInput.address}}:
-            group.input);
+          const hasAdditionalBin=group.members.some(member=>
+            additionalTypes.has(normalizedBinType(member.bin)));
+          const notes=hasAdditionalBin?
+            group.input.notes+
+              " | ADDITIONAL BIN PURCHASE: existing jobs unchanged; review same-day consolidation":
+            group.input.notes;
+          await use.addJob(customerId,{
+            ...group.input,notes,
+            ...(differentProperty?{
+              jobAddress:{...plan.customerInput.address},
+            }:{}),
+          });
           completed++;
           for(const entry of entries){
             const done=await use.changeState({
@@ -490,7 +534,15 @@ async function executeAutomaticPreviewBooking(payload,{
         customerMode,
         createdCustomer:customerCreated,
         createdJobs:completed,binServices:plan.jobs.length,
+        physicalBins:bins.reduce((n,bin)=>n+Number(bin.count),0),
+        physicalBinsPerJob:groupedJobs.map(group=>group.physicalBinCount),
         binsPerJob:groupedJobs.map(group=>group.members.length),
+        requestedBinCounts:counts,
+        additionalExistingBins:[...additionalTypes],
+        quantityVerificationRecommended:bins.some(bin=>Number(bin.count)>1) ||
+          additionalTypes.size>0,
+       physicalBinsPerJob:groupedJobs.map(group=>group.physicalBinCount),
+       additionalExistingBins:[...additionalTypes],
         firstCleanDates:groupedJobs.map(group=>group.input.date),
         rounds:groupedJobs.map(group=>
           summary.jobs[group.members[0].index].roundNumber),
@@ -504,9 +556,18 @@ async function executeAutomaticPreviewBooking(payload,{
       if(duplicateFlags.length) {
         try{await use.duplicateAlert(bookingId,duplicateFlags);}catch{}
       }
+      if(bins.some(bin=>Number(bin.count)>1) || additionalTypes.size>0 ||
+         new Set(bins.map(bin=>normalizedBinType(bin.type))).size!==bins.length) {
+        try{await use.quantityAlert(bookingId,{
+          requestedBinCounts:counts,
+          additionalExistingBins:[...additionalTypes],
+        });}catch{}
+      }
       return outcome("completed","created_customer_and_jobs",{
         createdCustomer:customerCreated,createdJobs:completed,
-        binServices:plan.jobs.length,duplicateFlags});
+        binServices:plan.jobs.length,
+        physicalBins:bins.reduce((n,bin)=>n+Number(bin.count),0),
+        duplicateFlags});
     }catch{
       // A pilot is one-use even on partial or uncertain external success.
       if(pilotClaim) {

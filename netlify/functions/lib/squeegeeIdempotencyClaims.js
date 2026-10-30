@@ -67,6 +67,31 @@ function activeBinKey(booking,bin) {
   return PREFIX+"/active-bin/"+digest([customerKey(booking),type]);
 }
 
+
+/** A NEW accepted booking for a colour already registered at this property
+ * means additional physical bins. Its own immutable keys protect against
+ * replay while preserving v1 first-registration claims.
+ */
+function additionalBinKey(booking,bin) {
+  validateBookingId(booking?.bookingId);
+  const type=normalizedBinType(bin?.type);
+  if(!["black","brown","green","blue"].includes(type))
+    throw new Error("Unrecognised additional bin type");
+  return PREFIX+"/additional-bin/"+digest([
+    customerKey(booking),type,booking.bookingId,
+  ]);
+}
+function additionalJobKey(booking,job) {
+  validateBookingId(booking?.bookingId);
+  const type=normalizedBinType(job?.type);
+  const plan=String(job?.planId||"");
+  const date=String(job?.date||"");
+  if(!["black","brown","green","blue"].includes(type) || !plan || !validDate(date))
+    throw new Error("Missing verified additional job details");
+  return PREFIX+"/additional-job/"+digest([
+    customerKey(booking),type,plan,date,booking.bookingId,
+  ]);
+}
 function validEtag(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -142,5 +167,6 @@ async function changeClaimState({
  * If 2 fails: never POST. If 3 times out: never POST again automatically.
  */
 module.exports = {
-  customerKey, jobKey, activeBinKey, claimOnce, changeClaimState, validEtag,
+  customerKey, jobKey, activeBinKey, additionalBinKey, additionalJobKey,
+  claimOnce, changeClaimState, validEtag,
 };
