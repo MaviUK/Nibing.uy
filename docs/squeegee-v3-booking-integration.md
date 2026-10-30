@@ -255,21 +255,27 @@ CI runs fake-only tests (zero real Squeegee writes) for new customers, existing 
 Before an automatic Preview 1 rollout: inspect the deployed endpoint, safely remove the earlier test from operational planning, agree a controlled fresh email-booking test, verify the actual Squeegee result, then deliberately enable the isolated Preview 1 flag. Never activate automatic production writes from this branch.
 
 
-## 30 October 2026 — Preview 1 automatic Email sync pilot activated
+## 30 October 2026 — Fresh-start automatic Squeegee test (current procedure)
 
-The owner explicitly approved enabling Preview 1 automatic Squeegee syncing after the completed one-booking test and single Submit Booking redesign. This is a **one-booking pilot**, not an unrestricted public or production rollout.
+**This section supersedes the owner OTP and Pilot 2 recovery instructions above.** The owner abandoned the previous two-bin test because its initial one-bin admission rule rejected the submitted booking and the owner-code recovery crossed browser contexts. Do NOT create Squeegee jobs for old accepted booking `NBG-MVV99LDX-7BEDD59D85`. Its email, leaderboard points and accepted audit remain intact and must not be replayed or deleted. The old `/api/squeegee-preview-auto-recover` route now returns HTTP 410 for GET and POST without any storage or Squeegee writes.
 
-**Why branch-local activation?** The installed Netlify environment-variable management action cannot create a new flag scoped to one named deploy-preview branch without risking changes across other previews. The Squeegee API key is already stored in Netlify's branch context preview/n64-retro-site (Functions scope). To preserve Preview 2, activation uses a central code switch in netlify/functions/lib/squeegeePreviewAutoRollout.js in **PR #77's branch only**. No site-wide Netlify variables or secrets were changed.
+The owner has approved exactly ONE entirely fresh test through the normal website **Submit Booking** button on Preview 1 PR #77. No OTP, recovery link or second form submission.
 
-**Pilot rules (independent checks in dispatcher, modern endpoint, and worker):**
+### Exact fresh test
 
-- **Corrected 17:42, 30 October:** The already accepted booking NBG-MVV99LDX-7BEDD59D85 for TEST API - Pilot 2 was submitted with **two bins** (one Brown, one Black, both domestic four-weekly, £5 each, £10 total), not one as the earlier test instructions requested. The initial pilot silently excluded it before Squeegee dispatch. The pilot now admits **only this exact booking ID and these two bin lines**; other new booking IDs do not trigger a Squeegee POST. Existing booking emails and leaderboard XP must not repeat.
-- WhatsApp-to-Squeegee creation stays disabled independently.
-- A *global* atomic pilot claim claim-v1/auto-pilot/preview77-first-email is reserved after read-only validation but before ANY Squeegee POST. The claim is never automatically freed or retried, even after uncertainty. Per-booking, per-property, and per-bin claims also apply.
-- After this first eligible booking, **all subsequent automatic pilot writes are blocked**, pending independent read-only verification. Other website form submissions still send normal booking confirmation emails; they will not automatically create Squeegee jobs during this pilot.
-- The exact deploy-preview-77--nibinguy.netlify.app host, trusted deploy-preview runtime context and fixed site ID must all match. Production and Preview 2 cannot enter the guarded write scope.
-- An optional SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED=false environment variable remains a kill switch. Do not set a true value for full rollout without a separate approval; the variable remains absent in this pilot.
+- Name: **`TEST API - Fresh Sync`**, exactly.
+- Select exactly **one Brown Bin**, four-weekly domestic plan, quantity 1, **£5 per clean**.
+- Use a NEW property address not already in Squeegee, with a valid website-assigned date and round; use a real test inbox and required contact details.
+- Press **Submit Booking** once only. This uses normal email, terms, booking reference and leaderboard logic; the accepted email handler alone signs the Preview 1 Squeegee event. No browser Squeegee POST is available.
+- The confirmation now displays a test-only handoff: **Accepted for Squeegee validation** means the internal worker accepted a durable receipt (HTTP 202), not that a customer/job exists. **Not queued** or uncertain means never submit another booking; inspect the original reference.
+- Logs include a PII-free `Preview 1 Fresh Sync dispatch` with bookingId, queued and reason, so the owner can provide the normal booking reference without sharing an OTP. Afterwards independently verify in the real Squeegee app ONE TEST API customer, ONE Brown job, the exact first date and round, £5 and every-four-weeks setting. The next appointment appears after completion.
+- Never dispatch, clean or bill TEST API jobs. Remove the completed test manually after verification; the earlier Jimmy Smith TEST API record, if still present, requires separate cleanup. This code never deletes any Squeegee customer.
 
-**Owner verification — do not rebook:** The owner has already received the admin confirmation email for NBG-MVV99LDX-7BEDD59D85. The Netlify 17:37:59 email endpoint returned HTTP 200 and no auto-sync endpoint request was logged for that booking. Re-authorise the original owner-code browser if necessary, then open /api/squeegee-preview-auto-recover. Its GET checks the *server-saved acceptance audit*, each displayed website date against the fresh authoritative schedule, both Squeegee round UUIDs, £5 prices, 4-week frequency, all customer pages, and durable receipts/claims. The page shows the two dates and rounds **before** offering the one-time owner POST. Only after reviewing those details can the owner press Create ONE test customer and TWO jobs once; it cannot send another booking email or leaderboard XP. Its permanent pilot claim holds all future automatic pilot writes. Verify actual customer and both jobs in Squeegee, with the next appointment possibly appearing only after completion of the current clean.
+### Isolation and one-use safety
 
-Never dispatch, bill or clean this test customer. Remove it after verification. Do not resubmit after any unexpected status; inspect claims before enabling wider syncing. Do not merge PR #77 or alter production/Preview 2 without separate approval.
+- The only allowed test is this exact name and one domestic four-weekly Brown bin; the old two-bin booking reference is explicitly blocked. All unrelated website bookings still send normal confirmation emails but do not automatically write to Squeegee during the pilot.
+- This NEW test uses an immutable global CAS key `claim-v1/auto-pilot/preview77-fresh-brown-v1`; the earlier `claim-v1/auto-pilot/preview77-first-email` remains untouched. After one claim, future attempts are held even if the result is ambiguous.
+- Each booking is revalidated against the server schedule, actual Squeegee service/group identifiers, price and complete customer search. Separate permanent per-booking/property/job CAS claims prevent duplicates. There is no automatic retry after an uncertain Squeegee POST.
+- The signed dispatcher, function and worker require the exact Preview 1 hostname, trusted Netlify deploy-preview context and site UUID. Production, Preview 2 and main cannot use the write capability.
+- The API key remains Netlify Functions-scoped in the preview/n64-retro-site branch. No global Netlify flag or secret changed. The explicit SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED=false kill switch is respected; WhatsApp-to-Squeegee remains disabled.
+- Fake-only Squeegee regression tests run in GitHub Actions and as the Netlify build gate. Do NOT merge PR #77 or enable unrestricted production imports without separate owner approval.
