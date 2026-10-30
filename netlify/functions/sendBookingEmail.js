@@ -400,27 +400,31 @@ exports.handler = async (event) => {
       console.warn("Read-only Squeegee booking preparation unavailable");
     }
 
-    // Preview 1 only: notify the signed modern Squeegee worker AFTER a
-    // successful admin booking email and normal leaderboard processing.
-    // Never change the existing confirmation result if syncing is unavailable.
+    // Preview 1 only: notify the signed Squeegee worker AFTER accepted
+    // emails/leaderboard. Queue acknowledgement is never proof of a job.
+    const syncHost=String(event?.headers?.host||event?.headers?.Host||"").toLowerCase();
+    const freshPilot=name===PILOT_NAME &&
+      syncHost==="deploy-preview-77--nibinguy.netlify.app";
+    let squeegeePilot=null;
     try {
       const dispatched=await dispatchAcceptedBooking(payload,{
-        channel:"email",eventHost:String(event?.headers?.host||event?.headers?.Host||"").toLowerCase(),
+        channel:"email",eventHost:syncHost,
       });
-      // Keep a PII-free result for the one fresh test so the owner can
-      // distinguish booking email success from Squeegee queue acceptance.
-      // "queued" means accepted for validation, not a created job.
-      if(name===PILOT_NAME) {
-        console.info("Preview 1 Fresh Sync dispatch",{
-          bookingId:submission.bookingId,
+      if(freshPilot) {
+        squeegeePilot={
           queued:dispatched.queued===true,
           reason:dispatched.reason,
+        };
+        // No customer contact information is emitted in this diagnostic.
+        console.info("Preview 1 Fresh Sync dispatch",{
+          bookingId:submission.bookingId,...squeegeePilot,
         });
       }
       if(dispatched.reason==="dispatch_uncertain_reconcile") {
         console.warn("Preview 1 Squeegee dispatch uncertain; do not automatically retry");
       }
     } catch {
+      if(freshPilot) squeegeePilot={queued:false,reason:"dispatch_unavailable"};
       console.warn("Preview 1 Squeegee dispatch unavailable");
     }
 
@@ -443,6 +447,9 @@ exports.handler = async (event) => {
         arcadeRegistered: Boolean(arcadeEntry?.registered),
         arcadePlayerToken: arcadeEntry?.playerToken || null,
         arcadeDisplayName: arcadeEntry?.displayName || null,
+        // Only populated for the explicitly labelled Preview 1 fresh test.
+        // A queued response means internal receipt only, NOT a Squeegee job.
+        squeegeePilot,
       }),
     };
   } catch (error) {
