@@ -1028,11 +1028,9 @@ function BookingForm({ onClose, initialAddress = "" }) {
       setEmailSendingStage("sending");
       const requestController = new AbortController();
       requestTimer = window.setTimeout(() => requestController.abort(), 45000);
-      const res = await fetch("/.netlify/functions/sendBookingEmail", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: requestController.signal,
-        body: JSON.stringify({
+      // Reuse precisely the payload accepted by the ordinary booking email.
+      // The supervised Squeegee test later verifies its server-signed proof.
+      const emailBookingPayload = {
           ...emailSubmissionMeta,
           name,
           email,
@@ -1054,7 +1052,12 @@ function BookingForm({ onClose, initialAddress = "" }) {
           recaptchaToken,
           previewProof,
           recaptchaAction,
-        }),
+      };
+      const res = await fetch("/.netlify/functions/sendBookingEmail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: requestController.signal,
+        body: JSON.stringify(emailBookingPayload),
       });
 
       const result = await res.json().catch(() => ({}));
@@ -1077,6 +1080,29 @@ function BookingForm({ onClose, initialAddress = "" }) {
       }
 
       // Emails have been accepted by Netlify. One booking ID earns points once.
+      // Only the owner's armed Preview 1 browser sends the supervised test
+      // request. The marker is UI-only; real authorization requires the
+      // server's signed HttpOnly cookie and accepted-booking proof.
+      if (window.location.hostname === N64_BOOKING_PREVIEW_HOST &&
+          result.arcadeBookingProof &&
+          document.cookie.split(";").some((item) =>
+            item.trim() === "nbgSqTestArmed=1")) {
+        const { recaptchaToken: unusedRecaptcha, previewProof: unusedPreviewProof,
+          ...testBookingPayload } = emailBookingPayload;
+        fetch("/api/squeegee-preview-test-submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          keepalive: true,
+          body: JSON.stringify({
+            booking: testBookingPayload,
+            bookingProof: result.arcadeBookingProof,
+          }),
+        }).catch(() => {
+          // A test sync failure must NEVER change the successful email booking.
+          console.warn("Supervised Squeegee Preview 1 test not queued");
+        });
+      }
       try {
         window.n64Score?.awardBooking(emailSubmissionMeta.bookingId, bins);
         window.n64Score?.onBookingConfirmed(result, arcadeOptOut, emailSubmissionMeta.bookingId);
