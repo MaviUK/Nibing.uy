@@ -196,7 +196,13 @@
     if (!total || !binCount) return false;
     // Only a random submission reference is retained, never the customer's details.
     const key = "b:" + submissionId.slice(-24).toLowerCase();
-    return award(key, Math.min(total, 30000), "Booking sent: " + binCount + " bin" + (binCount === 1 ? "" : "s"));
+    // Once a booking is confirmed, save the XP and random booking reference
+    // automatically. It is needed to restore an entry after a brief outage.
+    saved = true;
+    const earned = award(key, Math.min(total, 30000), "Booking sent: " + binCount + " bin" + (binCount === 1 ? "" : "s"));
+    writeCookie();
+    redraw();
+    return earned;
   }
 
 
