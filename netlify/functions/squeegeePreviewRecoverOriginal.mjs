@@ -8,8 +8,55 @@ import recovery from "./lib/squeegeeAcceptedBookingRecovery.js";
 import api from "./lib/squeegeeApiV3.js";
 import claims from "./lib/squeegeeIdempotencyClaims.js";
 import {getStore} from "@netlify/blobs";
+import {createHmac,randomBytes,timingSafeEqual} from "node:crypto";
 
 const TARGET=recovery.RECOVERY_BOOKING_ID;
+// A short-lived, session-bound CSRF proof allows Android browsers which omit
+// or send Origin:null on same-page HTML form POSTs. An Origin pointing at a
+// DIFFERENT website always fails. None of these values contain customer data.
+const FORM_TOKEN_AGE_MS=12*60*1000;
+const FORM_PURPOSE="nibinguy-preview77-original-booking-form-v1";
+function formSignature(cookie,issuedAt,nonce,runtime,env) {
+  if(typeof env?.SQUEEGEE_API_KEY!=="string" || env.SQUEEGEE_API_KEY.length<20)
+    return null;
+  const scopedKey=createHmac("sha256",env.SQUEEGEE_API_KEY)
+    .update(FORM_PURPOSE).digest();
+  const message=[
+    "confirm-original",TARGET,runtime?.hostname||"",
+    runtime?.deployContext||"",runtime?.siteId||"",
+    String(issuedAt),nonce,cookie,
+  ].join("\u001f");
+  return createHmac("sha256",scopedKey).update(message).digest("hex");
+}
+export function issueRecoveryFormToken(cookie,runtime,env=process.env,now=Date.now()) {
+  if(typeof cookie!=="string" || cookie.length<40 ||
+     !Number.isSafeInteger(now))return null;
+  const nonce=randomBytes(16).toString("hex");
+  const mac=formSignature(cookie,now,nonce,runtime,env);
+  return mac?String(now)+"."+nonce+"."+mac:null;
+}
+export function verifyRecoveryFormToken(token,cookie,runtime,
+  env=process.env,now=Date.now()) {
+  if(typeof token!=="string" || token.length>160)return false;
+  const match=token.match(/^(\d{13})\.([0-9a-f]{32})\.([0-9a-f]{64})$/);
+  if(!match || typeof cookie!=="string" || cookie.length<40)return false;
+  const issuedAt=Number(match[1]);
+  if(!Number.isSafeInteger(issuedAt) || !Number.isSafeInteger(now) ||
+     issuedAt>now+30*1000 || now-issuedAt>FORM_TOKEN_AGE_MS)return false;
+  const expected=formSignature(cookie,issuedAt,match[2],runtime,env);
+  return expected!==null && timingSafeEqual(
+    Buffer.from(match[3],"hex"),Buffer.from(expected,"hex"));
+}
+export function acceptableRecoveryOrigin(request,runtime) {
+  const origin=request.headers.get("origin");
+  // Referrer-Policy: no-referrer and some mobile browsers can suppress or
+  // null the Origin header. This branch is safe ONLY with the signed token.
+  if(origin && origin!=="null" && origin!=="https://"+runtime.hostname)
+    return false;
+  const site=request.headers.get("sec-fetch-site");
+  if(site && site!=="same-origin" && site!=="none")return false;
+  return true;
+}
 const HEADERS={
   "Content-Type":"text/html; charset=utf-8",
   "Cache-Control":"private, no-store, max-age=0",
@@ -51,7 +98,7 @@ function stores() {
     claimsStore:getStore({name:"squeegee-preview1-write-claims",consistency:"strong"}),
   };
 }
-function recoveryPage(result) {
+function recoveryPage(result,csrfToken=null) {
   if(!result?.ready) {
     let reasons=Array.isArray(result?.blockedReasons)?
       result.blockedReasons.concat(result.heldDates||[]):[];
@@ -62,6 +109,7 @@ function recoveryPage(result) {
       '<p>No Squeegee customer or job was created by this check. Do not submit another website booking.</p></div>'+
       '<p><a href="/api/squeegee-preview-test?bookingId='+TARGET+'">Back to original status</a></p>');
   }
+  if(!csrfToken)return page("<p>Owner confirmation cannot be prepared safely. No records changed.</p>",503);
   return page('<div class="notice"><strong>Read-only checks passed</strong>'+
     '<p>Original accepted booking: '+TARGET+'</p>'+
     '<p>First clean: <strong>'+safe(result.firstClean)+'</strong></p>'+
@@ -74,6 +122,7 @@ function recoveryPage(result) {
     ' Do not dispatch, invoice or clean the test record; inspect and remove it afterwards.</p>'+
     '<form method="post">'+
     '<input type="hidden" name="action" value="confirm-original">'+
+    '<input type="hidden" name="csrf" value="'+safe(csrfToken)+'">'+
     '<button type="submit">Create ONE Squeegee test customer + job</button></form>'+
     '<p><small>Only press once. A missing or ambiguous result must be reconciled, never retried.</small></p>'+
     '<p><a href="/api/squeegee-preview-test?bookingId='+TARGET+'">Back without creating anything</a></p>');
@@ -94,18 +143,26 @@ export default async function handler(request,context) {
     return new Response("Method not allowed",{status:405});
 
   if(request.method==="POST") {
-    // SameSite=Strict session cookie plus exact Origin protect the write
-    // against cross-site form submissions. No arbitrary customer data is sent.
-    if(request.headers.get("origin")!=="https://"+runtime.hostname)
-      return page("<p>Same-origin authorisation required. No records changed.</p>",403);
+    // Verify both a fresh owner-cookie-bound CSRF proof and same-origin
+    // browser metadata if supplied. Missing/Origin:null alone is not trusted;
+    // an attacker cannot mint a token for this owner's HttpOnly session.
+    if(!acceptableRecoveryOrigin(request,runtime))
+      return page("<p>Cross-site request blocked. No records changed.</p>",403);
     if(!request.headers.get("content-type")?.toLowerCase()
        .startsWith("application/x-www-form-urlencoded"))
       return page("<p>Invalid form. No records changed.</p>",415);
     let body;
     try{body=await request.formData();}
     catch{return page("<p>Invalid form. No records changed.</p>",400);}
-    if(body.get("action")!=="confirm-original" || [...body.keys()].length!==1)
-      return page("<p>Unexpected request. No records changed.</p>",403);
+    if(body.get("action")!=="confirm-original" ||
+       body.getAll("action").length!==1 ||
+       body.getAll("csrf").length!==1 ||
+       [...body.keys()].length!==2 ||
+       !verifyRecoveryFormToken(String(body.get("csrf")||""),
+         session.sessionCookieFromHeader(request.headers.get("cookie")),
+         runtime,process.env,Date.now())) {
+      return page("<p>Owner confirmation expired or invalid. Open the recovery page again to review; no records changed.</p>",403);
+    }
     if(typeof context?.waitUntil!=="function")
       return page("<p>Reliable worker unavailable. No Squeegee records changed.</p>",503);
   }
@@ -120,7 +177,9 @@ export default async function handler(request,context) {
       error?.name||"unknown");
     return page("<p>Recovery preflight failed safely. No Squeegee records changed.</p>",503);
   }
-  if(request.method==="GET")return recoveryPage(checked);
+  if(request.method==="GET")return recoveryPage(checked,
+    issueRecoveryFormToken(session.sessionCookieFromHeader(
+      request.headers.get("cookie")),runtime));
   if(!checked.ready)return recoveryPage(checked);
 
   // A durable, permanent receipt is written BEFORE responding to the owner.
