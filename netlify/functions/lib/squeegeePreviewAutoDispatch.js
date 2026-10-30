@@ -63,6 +63,11 @@ async function dispatchAcceptedBooking(payload,{
     return {queued:false,reason:"not_exact_preview_1"};
   if(!["email","whatsapp"].includes(channel))
     return {queued:false,reason:"unrecognised_channel"};
+  // WhatsApp opens before its background confirmation and does not use
+  // the Preview 1 email-work challenge. Keep its Squeegee write path locked
+  // behind a separate owner-controlled flag pending security review.
+  if(channel==="whatsapp" && env.SQUEEGEE_PREVIEW_AUTO_WHATSAPP_ENABLED!=="true")
+    return {queued:false,reason:"whatsapp_auto_sync_requires_separate_approval"};
   const accepted=validateBookingSubmission(payload,{now});
   if(!accepted.ok)return {queued:false,reason:"invalid_or_expired_booking"};
   const booking=acceptedEventBooking(payload);
