@@ -20,7 +20,8 @@ const {resolveSqueegeeServiceIds}=require("./squeegeeServiceCatalog");
 const {normalizedBinType}=require("./squeegeeBookingPlan");
 const {customerKey,jobKey,activeBinKey,claimOnce,changeClaimState}=require("./squeegeeIdempotencyClaims");
 const {validateBookingSubmission}=require("./bookingSubmissionGuard");
-const {notifyOwnerOfSyncHold}=require("./squeegeeSyncOwnerAlert");
+const {notifyOwnerOfSyncHold,notifyOwnerOfDuplicateSignals}=
+  require("./squeegeeSyncOwnerAlert");
 
 const STATUS_STORE="squeegee-preview1-auto-sync-status";
 const CLAIM_STORE="squeegee-preview1-write-claims";
@@ -129,9 +130,15 @@ async function executeAutomaticPreviewBooking(payload,{
     withWrite:deps.withWrite||api.withApprovedPreviewAutomaticWrite,
     save:deps.save||saveAutoStatus,
     alert:deps.alert||((id,reason,extra)=>notifyOwnerOfSyncHold(id,reason,extra,{env})),
+    duplicateAlert:deps.duplicateAlert||((id,flags)=>
+      notifyOwnerOfDuplicateSignals(id,flags,{env})),
   };
-  const mark=(stage,extra={})=>use.save(bookingId,stage,extra);
+  let duplicateFlags=[];
+  const mark=(stage,extra={})=>use.save(bookingId,stage,{
+    ...extra,duplicateFlags,
+  });
   const held=async(reason,extra={})=>{
+    extra={...extra,duplicateFlags};
     await mark("held_for_review",{reason,...extra});
     // The normal website/admin booking email already succeeded. A separate
     // PII-free owner notice prevents an unimported job being silently missed.
@@ -140,9 +147,10 @@ async function executeAutomaticPreviewBooking(payload,{
     return outcome("held",reason);
   };
   const uncertain=async(reason,extra={})=>{
+    extra={...extra,duplicateFlags};
     try{await mark("requires_reconciliation",{reason,...extra});}catch{}
     try{await use.alert(bookingId,"requires_reconciliation",{
-      matchReason:reason,
+      matchReason:reason,duplicateFlags,
     });}catch{}
     return outcome("requires_reconciliation",reason);
   };
@@ -190,6 +198,11 @@ async function executeAutomaticPreviewBooking(payload,{
 
     const customerMatch=await matchCustomersAcrossPages(payload,
       args=>use.listCustomers(args),{maxPages:100});
+    // Duplicates are observation-only signals. Different properties may
+    // legitimately use the same email; alerts MUST NOT affect which customer
+    // is reused or whether an eligible job can be added.
+    duplicateFlags=Array.isArray(customerMatch.duplicateFlags)?
+      customerMatch.duplicateFlags:[];
     if(!["matched","not_found","reactivation_required"].includes(customerMatch.status))
       return await held("customer_match_ambiguous_or_incomplete",{
         matchReason:customerMatch.reason||"unspecified_match_reason",
@@ -405,9 +418,15 @@ async function executeAutomaticPreviewBooking(payload,{
           group.input.frequencyType==="weeks"
             ?"every_"+group.input.frequencyInterval+"_weeks":"one_off"),
       });
+      // One PII-free informational email per successful flagged booking.
+      // Never fail a completed import or retry a Squeegee write because an
+      // owner's duplicate-information notification could not be sent.
+      if(duplicateFlags.length) {
+        try{await use.duplicateAlert(bookingId,duplicateFlags);}catch{}
+      }
       return outcome("completed","created_customer_and_jobs",{
         createdCustomer:customerCreated,createdJobs:completed,
-        binServices:plan.jobs.length});
+        binServices:plan.jobs.length,duplicateFlags});
     }catch{
       // A pilot is one-use even on partial or uncertain external success.
       if(pilotClaim) {
