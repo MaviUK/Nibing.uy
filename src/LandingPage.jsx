@@ -937,13 +937,13 @@ function BookingForm({ onClose, initialAddress = "" }) {
     const lng = loc ? loc.lng() : null;
 
    try {
-  const submissionMeta = createBookingSubmissionMeta();
+  const emailSubmissionMeta = createBookingSubmissionMeta();
   // 1) Send your original booking email first
   const res = await fetch("/.netlify/functions/sendBookingEmail", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      ...submissionMeta,
+      ...emailSubmissionMeta,
       name,
       email,
       phone,
@@ -970,7 +970,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
   }
 
   // The server accepted the booking email. Award XP per requested bin/plan.
-  window.n64Score?.awardBooking(submissionMeta.bookingId, bins);
+  window.n64Score?.awardBooking(emailSubmissionMeta.bookingId, bins);
   const acceptedBooking = await res.json().catch(() => ({}));
   // Keep the booking confirmation visible so customers can opt into the
   // leaderboard before closing. The name only becomes public by consent.
