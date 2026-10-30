@@ -183,3 +183,63 @@ test("commercial bookings stay blocked until commercial service mapping is appro
   const result = plan.buildSqueegeeBookingPlan(b, verifiedSchedule(), mappings());
   assert.equal(result.jobs[0].status, "service_mapping_required");
 });
+
+const matcher = require("../netlify/functions/lib/squeegeeCustomerMatcher");
+
+test("matches an existing Squeegee customer by full postcode, property and email", () => {
+  const b = booking();
+  const customers = [{
+    _id: SERVICE,
+    name: "Example Customer",
+    address: { text: "17 Example Street, Bangor BT20 4AA" },
+    email: "EXAMPLE@EXAMPLE.ORG",
+    phoneNumber: "+447000000000",
+    _externalId: null,
+    jobs: [],
+  }];
+  const found = matcher.matchCustomers(b, customers);
+  assert.equal(found.status, "matched");
+  assert.equal(found.customerId, SERVICE);
+});
+
+test("same address but different contact is held for review rather than creating a duplicate", () => {
+  const b = booking();
+  const customers = [{
+    _id: SERVICE,
+    name: "Other Resident",
+    address: "17 Example Street, Bangor BT20 4AA",
+    email: "other@example.org",
+    phoneNumber: "07111111111",
+  }];
+  const found = matcher.matchCustomers(b, customers);
+  assert.equal(found.status, "needs_review");
+  assert.equal(found.reason, "same_address_without_contact_match");
+});
+
+test("partial address match blocks auto-creation on possible existing customer", () => {
+  const b=booking();
+  const customers=[{
+    _id:SERVICE, name:"Example Customer",
+    address:"17 Example Rd, Bangor BT20 4AA",
+    email:"example@example.org",
+  }];
+  const found=matcher.matchCustomers(b,customers);
+  assert.equal(found.status,"needs_review");
+  assert.equal(found.reason,"possible_existing_address");
+});
+
+test("duplicate matching customer rows are never silently selected", () => {
+  const b=booking();
+  const one={_id:SERVICE,name:"Example Customer",address:b.address,email:b.email};
+  const two={...one,_id:ONEOFF_SERVICE};
+  assert.equal(matcher.matchCustomers(b,[one,two]).status,"needs_review");
+});
+
+test("external customer reference matches consistently without customer PII in reference", () => {
+  const b=booking();
+  const ref=plan.externalCustomerReference(b);
+  const item={_id:SERVICE,_externalId:ref,address:b.address,email:b.email};
+  const found=matcher.matchCustomers(b,[item]);
+  assert.equal(found.status,"matched");
+  assert.equal(found.reason,"external_reference");
+});
