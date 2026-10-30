@@ -601,6 +601,9 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const [whatsAppConfirmation, setWhatsAppConfirmation] = useState(null);
   const [whatsAppBookingId, setWhatsAppBookingId] = useState("");
   const bookedBinScoreRef = useRef([]);
+  const [leaderboardOptIn, setLeaderboardOptIn] = useState(false);
+  const [leaderboardJoining, setLeaderboardJoining] = useState(false);
+  const [leaderboardJoinResult, setLeaderboardJoinResult] = useState({ status: "idle", message: "" });
 
 
   const canToggleAgree = termsViewed;
@@ -804,6 +807,8 @@ function BookingForm({ onClose, initialAddress = "" }) {
     bookedBinScoreRef.current = bins.map((bin) => ({ ...bin }));
     setWhatsAppBookingStatus("sending");
     setWhatsAppConfirmation(null);
+    setLeaderboardOptIn(false);
+    setLeaderboardJoinResult({ status: "idle", message: "" });
     setWhatsAppBookingId(submissionMeta.bookingId);
 
     const payload = {
@@ -932,11 +937,13 @@ function BookingForm({ onClose, initialAddress = "" }) {
     const lng = loc ? loc.lng() : null;
 
    try {
+  const submissionMeta = createBookingSubmissionMeta();
   // 1) Send your original booking email first
   const res = await fetch("/.netlify/functions/sendBookingEmail", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      ...submissionMeta,
       name,
       email,
       phone,
@@ -963,15 +970,14 @@ function BookingForm({ onClose, initialAddress = "" }) {
   }
 
   // The server accepted the booking email. Award XP per requested bin/plan.
-  window.n64Score?.awardBooking(createBookingSubmissionMeta().bookingId, bins);
+  window.n64Score?.awardBooking(submissionMeta.bookingId, bins);
   const acceptedBooking = await res.json().catch(() => ({}));
-  window.n64Score?.offerEntry(acceptedBooking.arcadeBookingProof);
-
-  // Booking database/Squeegee save removed by request.
-  // The form now only sends the booking email.
-
-  alert("Booking received! We’ll prepare your quote.");
-  onClose?.();
+  // Keep the booking confirmation visible so customers can opt into the
+  // leaderboard before closing. The name only becomes public by consent.
+  setLeaderboardOptIn(false);
+  setLeaderboardJoinResult({ status: "idle", message: "" });
+  setWhatsAppConfirmation({ ...acceptedBooking, source: "email", schedule: null });
+  setWhatsAppBookingStatus("confirmed");
 } catch (err) {
   console.error(err);
   alert("Error sending booking.");
@@ -1032,7 +1038,55 @@ function BookingForm({ onClose, initialAddress = "" }) {
           </div>
         )}
 
-        <button onClick={onClose} className="w-full rounded-lg bg-neutral-900 px-5 py-3 font-bold text-white hover:bg-neutral-800">
+        {typeof whatsAppConfirmation?.arcadeBookingProof === "string" && (
+          <div className="border-4 border-[#20345c] bg-[#fff5cf] p-4 text-left text-[#20345c] shadow-[5px_5px_0_#7f9db8]">
+            <h3 className="text-lg font-black uppercase">★ Join the Global Leaderboard</h3>
+            <p className="mt-2 text-sm leading-relaxed">
+              Your booking earns arcade XP. Join the live rankings under your booking name and be eligible for prizes.
+            </p>
+            {leaderboardJoinResult.status === "success" ? (
+              <p className="mt-3 font-black text-green-800" role="status">{leaderboardJoinResult.message}</p>
+            ) : (
+              <>
+                <label className="mt-3 flex items-start gap-3 text-sm font-semibold">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-5 w-5 shrink-0 accent-green-700"
+                    checked={leaderboardOptIn}
+                    onChange={(event) => setLeaderboardOptIn(event.target.checked)}
+                  />
+                  <span>I agree to display my booking name and XP publicly. NI Bin Guy may contact me privately
+                    using my booking details if I win a prize.</span>
+                </label>
+                <button type="button"
+                  className="mt-3 w-full border-4 border-[#20345c] bg-[#ffdb4b] px-4 py-3 font-black text-[#20345c] disabled:opacity-50"
+                  disabled={!leaderboardOptIn || leaderboardJoining}
+                  onClick={async () => {
+                    setLeaderboardJoining(true);
+                    setLeaderboardJoinResult({ status: "pending", message: "Registering your score…" });
+                    try {
+                      const register = window.n64Score?.registerEntry;
+                      if (typeof register !== "function") throw new Error("Reload the updated preview and verify your booking to join.");
+                      const entry = await register(whatsAppConfirmation.arcadeBookingProof);
+                      setLeaderboardJoinResult({ status: "success", message: "You're on the leaderboard as " + entry.displayName + "!" });
+                    } catch (error) {
+                      setLeaderboardJoinResult({ status: "error", message: error?.message || "Could not register your score." });
+                    } finally {
+                      setLeaderboardJoining(false);
+                    }
+                  }}
+                >
+                  {leaderboardJoining ? "Joining…" : "★ Join Leaderboard"}
+                </button>
+                {leaderboardJoinResult.status === "error" && (
+                  <p className="mt-2 text-sm font-bold text-red-800" role="alert">{leaderboardJoinResult.message}</p>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        <button onClick={onClose} className="w-full rounded-none bg-neutral-900 px-5 py-3 font-bold text-white hover:bg-neutral-800">
           Done
         </button>
       </div>
