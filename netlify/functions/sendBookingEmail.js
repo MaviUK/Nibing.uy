@@ -326,6 +326,9 @@ exports.handler = async (event) => {
       phone,
       address,
       bins,
+      // Audit the dates presented to this customer. These are browser-supplied
+      // and must be independently verified before writing a Squeegee job.
+      bookingScheduleSnapshot: payload.bookingScheduleSnapshot || null,
       placeId,
       lat,
       lng,
