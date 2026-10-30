@@ -2,6 +2,7 @@
 const { Resend } = require("resend");
 const { signBooking } = require("./lib/arcadeBookingProof");
 const { autoEnrollBooking } = require("./arcadeLeaderboard");
+const { verifyPreviewBooking } = require("./previewBookingChallenge");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
 
@@ -219,7 +220,12 @@ exports.handler = async (event) => {
 
     // These two independent network/CPU operations used to run one after the other.
     const [recaptcha, termsPdfAttachment] = await Promise.all([
-      verifyRecaptcha({ token: recaptchaToken, expectedAction: recaptchaAction }),
+      // Staging has its own signed, rate-limited test challenge because
+      // the production reCAPTCHA key may reject Netlify preview hostnames.
+      // Production requests never pass this preview-only verification.
+      payload.previewProof
+        ? verifyPreviewBooking(event, payload.previewProof)
+        : verifyRecaptcha({ token: recaptchaToken, expectedAction: recaptchaAction }),
       buildTermsAcceptancePdfAttachment({
         name,
         email,
