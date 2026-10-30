@@ -965,6 +965,23 @@ function BookingForm({ onClose, initialAddress = "" }) {
           )}
         </div>
 
+        {bookingConfirmation?.squeegeePilot && (
+          <div role="status" className="border-2 border-[#20345c] bg-[#fff4c2] p-4 text-left text-sm text-[#101827]">
+            <p className="font-black">Preview 1 Squeegee test handoff</p>
+            {bookingConfirmation.squeegeePilot.queued === true ? (
+              <p className="mt-1">
+                Accepted for Squeegee validation. This does not yet confirm a customer or job was created. We will verify it in Squeegee.
+              </p>
+            ) : (
+              <p className="mt-1">
+                Your booking email was accepted, but Squeegee syncing was not confirmed
+                ({bookingConfirmation.squeegeePilot.reason || "unknown"}).
+                Do not submit another booking; we will check the existing reference.
+              </p>
+            )}
+          </div>
+        )}
+
         {cleanDateRows.length > 0 ? (
           <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-left">
             <div className="text-sm font-bold uppercase tracking-wide text-green-800">Your clean date{cleanDateRows.length > 1 ? "s" : ""}</div>
