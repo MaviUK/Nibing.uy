@@ -1,7 +1,7 @@
 const crypto = require("node:crypto");
 const { getStore } = require("@netlify/blobs");
 const {
-  verifyBooking, bookingPoints, signPlayerSession, verifyPlayerSession
+  signBooking, verifyBooking, bookingPoints, signPlayerSession, verifyPlayerSession
 } = require("./lib/arcadeBookingProof");
 
 const HEADERS = {
@@ -162,8 +162,8 @@ async function updateActivePlayer(body, stores) {
     stores.public.get(recordKey, { type: "json" }),
     stores.private.get(recordKey, { type: "json" }),
   ]);
-  if (!player || !contact?.consentedAt) {
-    return out(403, { error: "Please opt in after booking before joining rankings" });
+  if (!player || !(contact?.enrolledAt || contact?.consentedAt)) {
+    return out(403, { error: "A confirmed enrolled booking is required" });
   }
   const previousActivity = limitInt(contact.progressXP, 460);
   const nextActivity = Math.max(previousActivity, activityXP(body.claimed));
@@ -182,8 +182,8 @@ async function updateActivePlayer(body, stores) {
   return out(200, { success: true, changed: true, points });
 }
 
-async function registerBooking(body, stores) {
-  if (body.consent !== true) return out(400, { error: "Prize leaderboard consent required" });
+async function registerBooking(body, stores, internalAuto = false) {
+  if (!internalAuto && body.consent !== true) return out(400, { error: "Prize leaderboard consent required" });
   const booking = verifyBooking(body.bookingProof);
   if (!booking) return out(403, { error: "A completed verified booking is required" });
   const name = String(booking.name || "").replace(/[<>]/g, "").trim().slice(0, 45);
@@ -229,7 +229,9 @@ async function registerBooking(body, stores) {
       bookingIds: [...bookingIds].slice(-100),
       progressXP: nextActivity,
       points,
-      consentedAt: oldPrivate?.consentedAt || timestamp,
+      ...(internalAuto ? {} : { consentedAt: oldPrivate?.consentedAt || timestamp }),
+      enrolledAt: oldPrivate?.enrolledAt || oldPrivate?.consentedAt || timestamp,
+      enrollmentMethod: internalAuto ? "automatic-after-booking-notice" : "explicit-opt-in",
       lastUpdatedAt: timestamp,
     });
     await stores.public.setJSON(recordKey, {
@@ -239,7 +241,8 @@ async function registerBooking(body, stores) {
       lastUpdatedAt: timestamp,
     });
     await refreshSnapshotAfterWrite(stores.public);
-    if (newBooking) await notifyOwner(booking, points);
+    // The normal booking email already informs the owner and includes all private details.
+    if (newBooking && !internalAuto) await notifyOwner(booking, points);
   }
 
   return out(200, {
@@ -251,6 +254,35 @@ async function registerBooking(body, stores) {
     playerToken: signPlayerSession(emailKey),
   });
 }
+
+/**
+ * INTERNAL server-to-server entry point, only called after a booking email
+ * or WhatsApp booking has been accepted. This is NOT a public API action.
+ * Customers are automatically listed unless they selected "stay private"
+ * before booking. Never includes their email or phone in the public result.
+ */
+exports.autoEnrollBooking = async function autoEnrollBooking(payload) {
+  if (payload?.arcadeOptOut === true) {
+    return { registered: false, optedOut: true };
+  }
+  const proof = signBooking(payload);
+  if (!proof) throw new Error("A confirmed booking is required for arcade enrolment");
+  const response = await registerBooking({
+    bookingProof: proof,
+    claimed: Array.isArray(payload.arcadeClaimed) ? payload.arcadeClaimed : [],
+  }, storePair(), true);
+  const body = JSON.parse(response.body);
+  if (response.statusCode !== 200 || !body?.success) {
+    throw new Error("Failed to save arcade player: " + response.statusCode);
+  }
+  return {
+    registered: true,
+    playerToken: body.playerToken,
+    displayName: body.displayName,
+    points: body.points,
+    duplicate: body.duplicate,
+  };
+};
 
 exports.handler = async (event) => {
   if (!["GET", "POST"].includes(event.httpMethod)) {
