@@ -8,8 +8,8 @@ const COOKIE_VALID_MS = 20 * 60 * 1000;
 const OTP_VALID_MS = 15 * 60 * 1000;
 const AUTH_STORE_NAME = "squeegee-preview1-owner-test-auth";
 
-function validScope(env = process.env) {
-  return isExactPreview1(env) &&
+function validScope(env = process.env, runtimeScope = null) {
+  return isExactPreview1(env,runtimeScope) &&
     typeof env.SQUEEGEE_API_KEY === "string" &&
     env.SQUEEGEE_API_KEY.trim().length >= 20;
 }
@@ -24,15 +24,15 @@ function safeCompareHex(a,b) {
       !/^[a-f0-9]{64}$/i.test(a) || !/^[a-f0-9]{64}$/i.test(b))return false;
   return crypto.timingSafeEqual(Buffer.from(a,"hex"),Buffer.from(b,"hex"));
 }
-function createTestSessionCookie(env=process.env,now=Date.now()) {
-  if(!validScope(env)) throw new Error("Test session unavailable");
+function createTestSessionCookie(env=process.env,now=Date.now(),runtimeScope=null) {
+  if(!validScope(env,runtimeScope)) throw new Error("Test session unavailable");
   const nonce=crypto.randomBytes(16).toString("hex");
   const expiry=now+COOKIE_VALID_MS;
   const payload=String(expiry)+"."+nonce;
   return payload+"."+sign(env,"test-session",payload);
 }
-function verifyTestSessionCookie(cookie,env=process.env,now=Date.now()) {
-  if(!validScope(env) || typeof cookie!=="string" || cookie.length>256)return false;
+function verifyTestSessionCookie(cookie,env=process.env,now=Date.now(),runtimeScope=null) {
+  if(!validScope(env,runtimeScope) || typeof cookie!=="string" || cookie.length>256)return false;
   const parts=cookie.split(".");
   if(parts.length!==3 || !/^\d{13}$/.test(parts[0]) ||
      !/^[0-9a-f]{32}$/.test(parts[1]))return false;
@@ -64,8 +64,8 @@ function codeIssueSlot(now) {
   return "email-window/"+Math.floor(now/(10*60*1000));
 }
 async function issueOwnerCode({env=process.env,now=Date.now(),store,
-  sendCode}={}){
-  if(!validScope(env))return {ok:false,reason:"preview_unavailable"};
+  sendCode,runtimeScope=null}={}){
+  if(!validScope(env,runtimeScope))return {ok:false,reason:"preview_unavailable"};
   const handle=store||getAuthStore();
   const slot=await handle.setJSON(codeIssueSlot(now),{
     requestedAt:new Date(now).toISOString(),
@@ -100,8 +100,9 @@ async function issueOwnerCode({env=process.env,now=Date.now(),store,
   }catch{return {ok:false,reason:"test_code_email_unavailable"};}
   return {ok:true,challengeId:id,expiresAt:now+OTP_VALID_MS};
 }
-async function verifyOwnerCode({env=process.env,challengeId,code,now=Date.now(),store}={}){
-  if(!validScope(env) ||
+async function verifyOwnerCode({env=process.env,challengeId,code,now=Date.now(),store,
+  runtimeScope=null}={}){
+  if(!validScope(env,runtimeScope) ||
      !/^[a-f0-9]{32}$/.test(String(challengeId||"")) ||
      !/^\d{10}$/.test(String(code||"")))
     return {ok:false};
@@ -115,7 +116,7 @@ async function verifyOwnerCode({env=process.env,challengeId,code,now=Date.now(),
     consumedAt:new Date(now).toISOString(),
   },{onlyIfNew:true});
   if(consumed?.modified!==true || !consumed.etag)return {ok:false};
-  return {ok:true,cookie:createTestSessionCookie(env,now)};
+  return {ok:true,cookie:createTestSessionCookie(env,now,runtimeScope)};
 }
 module.exports={
   COOKIE_NAME,COOKIE_VALID_MS,OTP_VALID_MS,AUTH_STORE_NAME,
