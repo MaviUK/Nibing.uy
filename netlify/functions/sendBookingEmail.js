@@ -8,6 +8,7 @@ const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
 const { validateBookingSubmission, claimBookingSubmission, submissionErrorResponse } = require("./lib/bookingSubmissionGuard");
 const { stageWithoutBlockingBooking } = require("./lib/squeegeeBookingStage");
 const { dispatchAcceptedBooking } = require("./lib/squeegeePreviewAutoDispatch");
+const { PILOT_NAME } = require("./lib/squeegeePreviewAutoRollout");
 
 // Optional audit logging. If Netlify Blobs is unavailable, logging is skipped.
 let getStoreSafe = null;
@@ -406,6 +407,16 @@ exports.handler = async (event) => {
       const dispatched=await dispatchAcceptedBooking(payload,{
         channel:"email",eventHost:String(event?.headers?.host||event?.headers?.Host||"").toLowerCase(),
       });
+      // Keep a PII-free result for the one fresh test so the owner can
+      // distinguish booking email success from Squeegee queue acceptance.
+      // "queued" means accepted for validation, not a created job.
+      if(name===PILOT_NAME) {
+        console.info("Preview 1 Fresh Sync dispatch",{
+          bookingId:submission.bookingId,
+          queued:dispatched.queued===true,
+          reason:dispatched.reason,
+        });
+      }
       if(dispatched.reason==="dispatch_uncertain_reconcile") {
         console.warn("Preview 1 Squeegee dispatch uncertain; do not automatically retry");
       }
