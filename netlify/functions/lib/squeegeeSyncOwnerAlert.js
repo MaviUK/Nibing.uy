@@ -40,7 +40,7 @@ function emailContent(bookingId,reason,extra={}) {
   const duplicateFlags=allowedFlags(extra?.duplicateFlags);
   const requestedBinCounts=Array.isArray(extra?.requestedBinCounts)?
     extra.requestedBinCounts.filter(x=>typeof x==="string" &&
-      /^(?:[1-9]\\d?|1\\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x)).slice(0,12):[];
+      /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x)).slice(0,12):[];
   const quantityAdvice={
     service_quantity_requires_manual_configuration:
       "This booking requests multiple physical bins of one colour. The Squeegee API cannot set verified per-service quantities. No customer or job was automatically created. Check the original booking email and manually create the correct service quantities, job price, round and dates in Squeegee.",
