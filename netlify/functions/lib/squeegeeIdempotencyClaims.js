@@ -24,11 +24,21 @@ function digest(parts) {
   ).digest("hex");
 }
 function customerKey(input) {
-  const email = String(input?.email || "").toLowerCase().trim();
   const address = String(input?.address || "").trim();
   const postcode = normalizedPostcode(address);
-  if (!postcode || !email || !address) throw new Error("Missing customer identity");
-  return PREFIX + "/customers/" + digest([email, address, postcode]);
+  if (!postcode || !address) throw new Error("Missing customer property identity");
+  // Claim per property, not per email: two submissions at the same address
+  // with different contact details must not concurrently create customers.
+  // Hash includes full normalized address to keep distinct flats separate.
+  const normalized = address.toUpperCase()
+    .replace(new RegExp(postcode.replace(/\s/g, "").slice(0,-3) + "\\s*" +
+      postcode.slice(-3), "gi"), " ")
+    .replace(/\bRD\b/g, "ROAD").replace(/\bST\b/g, "STREET")
+    .replace(/\bAVE\b/g, "AVENUE")
+    .replace(/\bUNITED KINGDOM\b/g, "").replace(/\bNORTHERN IRELAND\b/g, "")
+    .replace(/[^A-Z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+  if (normalized.length < 5) throw new Error("Incomplete property identity");
+  return PREFIX + "/customers/" + digest([postcode, normalized]);
 }
 function jobKey(booking, job) {
   const customer = customerKey(booking);
