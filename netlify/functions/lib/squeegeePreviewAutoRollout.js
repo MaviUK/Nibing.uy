@@ -14,7 +14,10 @@
  */
 const PREVIEW1_ONE_EMAIL_PILOT_ENABLED=true;
 const PILOT_CLAIM_KEY="claim-v1/auto-pilot/preview77-first-email";
-const PILOT_NAME_RE=/^TEST API - [^\r\n]{2,80}$/i;
+// Exactly the already-accepted, owner-supplied October 30th test booking.
+// Reject all other new TEST API submissions until this one is reconciled.
+const PILOT_BOOKING_ID="NBG-MVV99LDX-7BEDD59D85";
+const PILOT_NAME="TEST API - Pilot 2";
 
 function autoMode(env=process.env) {
   // Explicit false is a kill switch. A later, separately approved general
@@ -27,13 +30,16 @@ function automaticEnabled(env=process.env) {
   return autoMode(env)!=="off";
 }
 function isPilotBooking(booking,channel) {
-  return channel==="email" &&
-    PILOT_NAME_RE.test(String(booking?.name||"").trim()) &&
-    booking?.termsAccepted===true &&
-    Array.isArray(booking?.bins) && booking.bins.length===1 &&
-    booking.bins[0]?.type &&
-    booking.bins[0].planId==="domestic_4w" &&
-    Number(booking.bins[0].count)===1;
+  if(channel!=="email" ||
+     booking?.bookingId!==PILOT_BOOKING_ID ||
+     String(booking?.name||"").trim()!==PILOT_NAME ||
+     booking?.termsAccepted!==true ||
+     !Array.isArray(booking?.bins) || booking.bins.length!==2) return false;
+  const kinds=booking.bins.map(bin=>{
+    if(bin?.planId!=="domestic_4w" || Number(bin?.count)!==1) return null;
+    return String(bin.type||"").trim();
+  }).sort();
+  return kinds[0]==="Black Bin" && kinds[1]==="Brown Bin";
 }
 function acceptedForRollout(booking,channel,env=process.env) {
   const mode=autoMode(env);
@@ -47,6 +53,7 @@ function acceptedForRollout(booking,channel,env=process.env) {
   return mode==="full" || isPilotBooking(booking,channel);
 }
 module.exports={
-  PILOT_CLAIM_KEY,autoMode,automaticEnabled,
+  PILOT_CLAIM_KEY,PILOT_BOOKING_ID,PILOT_NAME,
+  autoMode,automaticEnabled,
   isPilotBooking,acceptedForRollout,
 };
