@@ -49,7 +49,13 @@ function assertWriteAllowed() {
   const singleTest = Boolean(process.env.SQUEEGEE_API_KEY) &&
     previewTestContext.getStore()?.singleApprovedTest === true &&
     previewTestContext.getStore()?.preview1ScopeVerified === true;
-  if (!normal && !singleTest) throw new Error("Squeegee writes are disabled for this deployment");
+  const automaticPreview = process.env.SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED === "true" &&
+    Boolean(process.env.SQUEEGEE_API_KEY) &&
+    previewTestContext.getStore()?.autoBookingApproved === true &&
+    previewTestContext.getStore()?.preview1ScopeVerified === true;
+  if (!normal && !singleTest && !automaticPreview) {
+    throw new Error("Squeegee writes are disabled for this deployment");
+  }
 }
 async function withOneApprovedPreviewTestWrite(proof, operation, runtimeScope) {
   // The scope is constructed by the modern, preview-specific handler from
@@ -66,6 +72,25 @@ async function withOneApprovedPreviewTestWrite(proof, operation, runtimeScope) {
   return await previewTestContext.run({
     singleApprovedTest:true,preview1ScopeVerified:true,
   }, operation);
+}
+
+/**
+ * Unlike the one-time test, this grant is per-booking and can only be entered
+ * after the preview worker obtains a real atomic claim and advances it with
+ * compare-and-set BEFORE any customer/job POST. Preview 2 and production
+ * can never enter this AsyncLocalStorage context.
+ */
+async function withApprovedPreviewAutomaticWrite(proof, operation, runtimeScope, env=process.env) {
+  if (!isExactPreview1(env,runtimeScope) ||
+      env.SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED !== "true" ||
+      !env.SQUEEGEE_API_KEY ||
+      proof?.acquired !== true ||
+      !/^claim-v1\\/auto-bookings\\/NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i.test(String(proof.key||"")) ||
+      typeof proof.etag !== "string" || proof.etag.length < 4 ||
+      typeof operation !== "function") {
+    throw new Error("Preview-only automatic booking write capability unavailable");
+  }
+  return previewTestContext.run({autoBookingApproved:true,preview1ScopeVerified:true},operation);
 }
 
 function requireUuid(value, field) {
@@ -169,6 +194,7 @@ module.exports = {
   assertWriteAllowed,
   isExactPreview1,
   withOneApprovedPreviewTestWrite,
+  withApprovedPreviewAutomaticWrite,
   listCustomers,
   getCustomer,
   getCustomerIdForExternalId,
