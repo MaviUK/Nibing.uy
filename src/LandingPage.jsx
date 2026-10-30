@@ -10,11 +10,10 @@ const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
 
 /**
  * Ni Bin Guy — Landing Page
- * - WhatsApp + Email booking
+ * - Single Submit Booking action (automated email confirmation + preview sync)
  * - ToS gating + modal (Confirm & Agree)
  * - Google Places Autocomplete
  * - 10-Second Challenge modal
- * - WhatsApp bookings now send a ToS receipt via Netlify function
  *
  * UPDATED:
  * - Discount code field
@@ -652,10 +651,8 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const [emailBookingUncertain, setEmailBookingUncertain] = useState(false);
   const emailSubmissionInFlightRef = useRef(false);
   const emailSubmissionRef = useRef(null);
-  const [whatsAppBookingStatus, setWhatsAppBookingStatus] = useState("idle");
-  const [whatsAppConfirmation, setWhatsAppConfirmation] = useState(null);
-  const [whatsAppBookingId, setWhatsAppBookingId] = useState("");
-  const bookedBinScoreRef = useRef([]);
+  const [bookingStatus, setBookingStatus] = useState("idle");
+  const [bookingConfirmation, setBookingConfirmation] = useState(null);
   // Preview 1: leaderboard disclosure will move into the Terms of Service.
   // Do not add a second form or leaderboard checkbox to booking.
   const arcadeOptOut = false;
@@ -672,70 +669,12 @@ function BookingForm({ onClose, initialAddress = "" }) {
   useEffect(() => {
     const panel = document.querySelector("[data-auto-schedule-panel]");
     if (!panel) return;
-    panel.style.display = whatsAppBookingStatus === "idle" ? "" : "none";
+    panel.style.display = bookingStatus === "idle" ? "" : "none";
     return () => {
       panel.style.display = "";
     };
-  }, [whatsAppBookingStatus]);
+  }, [bookingStatus]);
 
-  useEffect(() => {
-    if (!whatsAppBookingId || whatsAppBookingStatus !== "sending") return;
-
-    let cancelled = false;
-    let attempts = 0;
-    let timer = null;
-
-    const checkStatus = async () => {
-      if (cancelled) return;
-      attempts += 1;
-      try {
-        const response = await fetch(`/.netlify/functions/bookingStatus?bookingId=${encodeURIComponent(whatsAppBookingId)}`, {
-          cache: "no-store",
-        });
-        const result = await response.json().catch(() => ({}));
-
-        if (response.ok && result?.status === "confirmed") {
-          // The server confirmed the receipt and booking; award once per booking ID.
-          window.n64Score?.awardBooking(whatsAppBookingId, bookedBinScoreRef.current);
-          window.n64Score?.onBookingConfirmed(result, arcadeOptOut, whatsAppBookingId);
-          setWhatsAppConfirmation(result);
-          setWhatsAppBookingStatus("confirmed");
-          return;
-        }
-
-        if (response.ok && result?.status === "error") {
-          setWhatsAppConfirmation(result);
-          setWhatsAppBookingStatus("error");
-          return;
-        }
-      } catch (error) {
-        console.warn("Booking status check failed:", error);
-      }
-
-      if (!cancelled && attempts < 12) {
-        timer = window.setTimeout(checkStatus, 1500);
-      }
-    };
-
-    const onReturn = () => {
-      if (document.visibilityState === "visible") {
-        attempts = 0;
-        window.clearTimeout(timer);
-        checkStatus();
-      }
-    };
-
-    document.addEventListener("visibilitychange", onReturn);
-    window.addEventListener("focus", onReturn);
-    timer = window.setTimeout(checkStatus, 1200);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onReturn);
-      window.removeEventListener("focus", onReturn);
-    };
-  }, [whatsAppBookingId, whatsAppBookingStatus]);
 
   const missingFields = useMemo(() => !name || !email || !address || !phone || bins.some((b) => !b.type), [name, email, address, phone, bins]);
 
@@ -821,152 +760,11 @@ function BookingForm({ onClose, initialAddress = "" }) {
     };
   }, [bins, discountCode]);
 
-  const buildBinDetails = () => {
-    return pricing.lines
-      .map((l) => {
-        const typeName = l.type.replace(" Bin", "");
-        const unitText = `£${money(l.unitPrice)}`;
-        const planText = `${l.planLabel} (${unitText})`;
-        return `${l.count}x ${typeName} — ${planText} = £${money(l.lineTotal)}`;
-      })
-      .join("%0A");
-  };
-
-  const buildPricingSummary = () => {
-    const code = normalizeCode(discountCode);
-    const codeLine =
-      code && discountStatus.state === "valid" ? `Discount Code: ${code} (applied)` : code ? `Discount Code: ${code} (not applied)` : `Discount Code: None`;
-
-    return `${codeLine}%0A` + `Subtotal: £${money(pricing.subtotal)}%0A` + `Total: £${money(pricing.total)}`;
-  };
-
-  const handleSendWhatsApp = async () => {
-    // An email booking already in progress must not also open WhatsApp.
-    if (emailSubmissionInFlightRef.current || whatsAppBookingStatus !== "idle") return;
-    if (missingFields) {
-      alert("Please complete all fields before sending.");
-      return;
-    }
-    if (!findNiPostcode(address)) {
-      alert("Please include the full BT postcode in your address so we can calculate the correct bin cleaning date.");
-      return;
-    }
-    if (!agreeToTerms) {
-      alert("Please view and agree to the Terms of Service before booking.");
-      return;
-    }
-    if (normalizeCode(discountCode) && discountStatus.state !== "valid") {
-      alert("That discount code isn’t valid for your selected clean(s).");
-      return;
-    }
-
-    const submissionMeta = createBookingSubmissionMeta();
-    bookedBinScoreRef.current = bins.map((bin) => ({ ...bin }));
-    setWhatsAppBookingStatus("sending");
-    setWhatsAppConfirmation(null);
-    setWhatsAppBookingId(submissionMeta.bookingId);
-
-    const payload = {
-      ...submissionMeta,
-      source: "whatsapp",
-      name,
-      email,
-      phone,
-      address,
-      bins,
-      // Captured from the same schedule response displayed on screen.
-      // The server will independently verify dates before any Squeegee writes.
-      bookingScheduleSnapshot: window.nbgGetBookingScheduleSnapshot?.() || null,
-      arcadeClaimed: window.n64Score?.activityKeys?.() || [],
-      arcadeOptOut,
-      discountCode: normalizeCode(discountCode) || null,
-      pricing,
-      termsAccepted: true,
-      termsVersion: TERMS_VERSION,
-      termsAcceptanceText: TOS_PREFIX,
-      termsTimestamp: new Date().toISOString(),
-    };
-
-    // Hand the request to the browser without waiting for the response. Chrome
-    // may suspend this tab while WhatsApp is open, so confirmation is checked
-    // separately from the server when the customer returns.
-    const backgroundUrl = "/.netlify/functions/sendTosReceipt";
-    const backgroundBody = JSON.stringify(payload);
-    let queued = false;
-
-    try {
-      if (navigator.sendBeacon) {
-        const blob = new Blob([backgroundBody], { type: "application/json" });
-        queued = navigator.sendBeacon(backgroundUrl, blob);
-      }
-    } catch (_) {}
-
-    if (!queued) {
-      fetch(backgroundUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: backgroundBody,
-        keepalive: true,
-      }).catch((error) => console.error("WhatsApp booking request failed to queue:", error));
-    }
-
-    const schedulePanel = document.querySelector("[data-auto-schedule-panel]");
-    const scheduleLines = Array.from(schedulePanel?.querySelectorAll(".mt-1") || [])
-      .map((node) => String(node.textContent || "").trim())
-      .filter(Boolean);
-    const scheduleSummary = scheduleLines.length
-      ? scheduleLines.join("\n")
-      : "Clean date: To be confirmed";
-
-    const messageText = [
-      "✅ BOOKING CONFIRMED",
-      "",
-      `Hi, my name is ${name}. I'd like to book the following bin clean:`,
-      "",
-      buildBinDetails().replace(/%0A/g, "\n"),
-      "",
-      "NEXT CLEAN DATE",
-      scheduleSummary,
-      "",
-      buildPricingSummary().replace(/%0A/g, "\n"),
-      "",
-      `Address: ${address}`,
-      `Email: ${email}`,
-      `Phone: ${phone}`,
-      "",
-      TOS_PREFIX,
-    ].join("\n");
-
-    const encodedText = encodeURIComponent(messageText);
-    const phoneDigits = String(PHONE_E164).replace(/\D/g, "");
-    const fallbackUrl = `https://wa.me/${phoneDigits}?text=${encodedText}`;
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-    const launchUrl = isAndroid
-      ? `intent://send?phone=${phoneDigits}&text=${encodedText}#Intent;scheme=whatsapp;package=com.whatsapp;S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`
-      : isIOS
-        ? `whatsapp://send?phone=${phoneDigits}&text=${encodedText}`
-        : fallbackUrl;
-
-    // Open WhatsApp in a separate browsing context so the booking form stays
-    // exactly where it is in the original tab. Because this happens directly
-    // inside the customer's tap, Chrome treats it as a user-initiated launch.
-    const whatsappLink = document.createElement("a");
-    whatsappLink.href = launchUrl;
-    whatsappLink.target = "_blank";
-    whatsappLink.rel = "noopener noreferrer";
-    whatsappLink.style.display = "none";
-    document.body.appendChild(whatsappLink);
-    whatsappLink.click();
-    whatsappLink.remove();
-  };
-
-  const handleSendEmail = async () => {
+  const handleSubmitBooking = async () => {
     // A React state update is not synchronous; the ref blocks a second tap
     // even before the disabled button has had time to render.
     if (emailSubmissionInFlightRef.current || emailBookingUncertain ||
-        whatsAppBookingStatus !== "idle") return;
+        bookingStatus !== "idle") return;
 
     if (missingFields) {
       alert("Please complete all fields before sending.");
@@ -1028,8 +826,9 @@ function BookingForm({ onClose, initialAddress = "" }) {
       setEmailSendingStage("sending");
       const requestController = new AbortController();
       requestTimer = window.setTimeout(() => requestController.abort(), 45000);
-      // Reuse precisely the payload accepted by the ordinary booking email.
-      // The supervised Squeegee test later verifies its server-signed proof.
+      // The existing confirmation endpoint sends customer/owner emails and
+      // securely dispatches the accepted booking to Preview 1 Squeegee sync.
+      // Customers need only tap Submit Booking; never trigger a second POST.
       const emailBookingPayload = {
           ...emailSubmissionMeta,
           name,
@@ -1079,43 +878,22 @@ function BookingForm({ onClose, initialAddress = "" }) {
         return;
       }
 
-      // Emails have been accepted by Netlify. One booking ID earns points once.
-      // Only the owner's armed Preview 1 browser sends the supervised test
-      // request. The marker is UI-only; real authorization requires the
-      // server's signed HttpOnly cookie and accepted-booking proof.
-      if (window.location.hostname === N64_BOOKING_PREVIEW_HOST &&
-          result.arcadeBookingProof &&
-          document.cookie.split(";").some((item) =>
-            item.trim() === "nbgSqTestArmed=1")) {
-        const { recaptchaToken: unusedRecaptcha, previewProof: unusedPreviewProof,
-          ...testBookingPayload } = emailBookingPayload;
-        fetch("/api/squeegee-preview-test-submit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          keepalive: true,
-          body: JSON.stringify({
-            booking: testBookingPayload,
-            bookingProof: result.arcadeBookingProof,
-          }),
-        }).catch(() => {
-          // A test sync failure must NEVER change the successful email booking.
-          console.warn("Supervised Squeegee Preview 1 test not queued");
-        });
-      }
+      // One accepted booking ID earns leaderboard points once. The server
+      // manages Squeegee delivery independently; do not call the retired
+      // supervised one-booking endpoint from the customer-facing form.
       try {
         window.n64Score?.awardBooking(emailSubmissionMeta.bookingId, bins);
         window.n64Score?.onBookingConfirmed(result, arcadeOptOut, emailSubmissionMeta.bookingId);
       } catch (scoreError) {
         console.warn("Arcade score sync deferred; booking succeeded:", scoreError);
       }
-      setWhatsAppConfirmation({
+      setBookingConfirmation({
         ...result,
         bookingId: result.bookingId || emailSubmissionMeta.bookingId,
-        source: "email",
+        source: "website",
         schedule: null,
       });
-      setWhatsAppBookingStatus("confirmed");
+      setBookingStatus("confirmed");
       // Intentionally keep the submission ref locked after a successful send.
     } catch (error) {
       console.warn("Booking email request was not completed:", error?.name || "unknown");
@@ -1136,15 +914,15 @@ function BookingForm({ onClose, initialAddress = "" }) {
     }
   };
 
-  const emailSendingText = emailSendingStage === "sending"
-    ? "Sending your booking emails…"
+  const bookingSendingText = emailSendingStage === "sending"
+    ? "Submitting your booking…"
     : emailSendingStage === "verifying"
       ? "Verifying your booking…"
       : "Preparing your booking…";
 
-  if (whatsAppBookingStatus === "confirmed") {
-    const scheduleResults = Array.isArray(whatsAppConfirmation?.schedule?.results)
-      ? whatsAppConfirmation.schedule.results
+  if (bookingStatus === "confirmed") {
+    const scheduleResults = Array.isArray(bookingConfirmation?.schedule?.results)
+      ? bookingConfirmation.schedule.results
       : [];
 
     const cleanDateRows = scheduleResults
@@ -1174,15 +952,15 @@ function BookingForm({ onClose, initialAddress = "" }) {
         <div>
           <h2 className="text-2xl font-extrabold text-gray-900">Booking confirmed</h2>
           <p className="mt-2 text-gray-600">
-            {whatsAppConfirmation?.source === "email" && whatsAppConfirmation?.customerConfirmationSent === false ? (
+            {bookingConfirmation?.customerConfirmationSent === false ? (
               <>Your booking has been received, but the confirmation email could not be delivered to <strong>{email}</strong>. Please contact us so we can resend it.</>
             ) : (
               <>Your booking has been received and the confirmation has been emailed to <strong>{email}</strong>.</>
             )}
           </p>
-          {whatsAppConfirmation?.bookingId && (
+          {bookingConfirmation?.bookingId && (
             <p className="mt-2 break-words text-sm font-bold text-[#20345c]">
-              Booking reference: {whatsAppConfirmation.bookingId}
+              Booking reference: {bookingConfirmation.bookingId}
             </p>
           )}
         </div>
@@ -1212,36 +990,16 @@ function BookingForm({ onClose, initialAddress = "" }) {
     );
   }
 
-  if (whatsAppBookingStatus === "error") {
-    return (
-      <div className="p-7 text-center space-y-5">
-        <button onClick={onClose} className="absolute top-3 right-4 text-gray-500 hover:text-red-500 text-2xl z-10" aria-label="Close booking">
-          &times;
-        </button>
-        <div className="mx-auto w-16 h-16 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-3xl font-black">!</div>
-        <div>
-          <h2 className="text-2xl font-extrabold text-gray-900">WhatsApp opened</h2>
-          <p className="mt-2 text-gray-600">
-            We couldn't complete the confirmation emails for this booking. Please contact us on WhatsApp and we'll check it for you.
-          </p>
-        </div>
-        <button onClick={onClose} className="w-full rounded-lg bg-neutral-900 px-5 py-3 font-bold text-white hover:bg-neutral-800">
-          Close
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 space-y-4" aria-busy={isEmailSubmitting}>
       {isEmailSubmitting && (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0d1932]/80 p-4"
-          role="status" aria-live="polite" aria-label={emailSendingText}
+          role="status" aria-live="polite" aria-label={bookingSendingText}
         >
           <div className="w-full max-w-sm border-4 border-[#20345c] bg-[#fff8df] px-5 py-7 text-center text-[#20345c] shadow-[7px_8px_0_#6e8ea9]">
             <span className="mx-auto mb-5 block h-14 w-14 animate-spin rounded-full border-[7px] border-[#20345c] border-t-[#ffda43]" aria-hidden="true" />
-            <strong className="block text-xl font-black">{emailSendingText}</strong>
+            <strong className="block text-xl font-black">{bookingSendingText}</strong>
             <p className="mt-3 text-sm font-semibold leading-relaxed">
               Please keep this page open. Your booking is being processed and only needs to be submitted once.
             </p>
@@ -1385,12 +1143,18 @@ function BookingForm({ onClose, initialAddress = "" }) {
         </div>
       </div>
 
-      <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-none w-full disabled:opacity-60 disabled:cursor-not-allowed" disabled={!agreeToTerms || whatsAppBookingStatus === "sending" || isEmailSubmitting || emailBookingUncertain}>
-        {whatsAppBookingStatus === "sending" ? "Confirming booking…" : "Send via WhatsApp"}
+      <button
+        type="button"
+        onClick={handleSubmitBooking}
+        className="w-full rounded-none border-2 border-[#20345c] bg-[#ffda43] px-6 py-3 text-lg font-black text-[#101827] shadow-[4px_4px_0_#20345c] hover:bg-[#ffe573] disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={!agreeToTerms || isEmailSubmitting || bookingStatus !== "idle" || emailBookingUncertain}
+        aria-disabled={!agreeToTerms || isEmailSubmitting || bookingStatus !== "idle" || emailBookingUncertain}
+      >
+        {isEmailSubmitting ? bookingSendingText : "Submit Booking"}
       </button>
-      <button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-none w-full disabled:opacity-60 disabled:cursor-not-allowed" disabled={!agreeToTerms || isEmailSubmitting || whatsAppBookingStatus === "sending" || emailBookingUncertain}>
-        {isEmailSubmitting ? emailSendingText : "Send via Email"}
-      </button>
+      <p className="text-center text-xs font-semibold text-[#20345c]">
+        We'll email your booking confirmation. If your clean date needs a manual check, we'll contact you.
+      </p>
       {emailBookingError && !isEmailSubmitting && (
         <div className="border-4 border-[#ad5344] bg-[#fff0db] p-3 text-sm font-semibold text-[#652c28]" role="alert">
           {emailBookingError}
