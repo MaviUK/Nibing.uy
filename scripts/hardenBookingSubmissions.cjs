@@ -53,7 +53,10 @@ updateFile("src/LandingPage.jsx", (text) => {
     );
   }
 
-  if (!/body:\s*JSON\.stringify\(\{\s*\.\.\.emailSubmissionMeta,\s*name,/.test(text)) {
+  // Both the inline body and the Preview 1 named payload preserve the same
+  // random booking ID and submission timestamp required by the replay guard.
+  if (!/body:\s*JSON\.stringify\(\{\s*\.\.\.emailSubmissionMeta,\s*name,/.test(text) &&
+      !/const emailBookingPayload\s*=\s*\{\s*\.\.\.emailSubmissionMeta,\s*name,/.test(text)) {
     text = mustReplace(
       text,
       '    body: JSON.stringify({\n      name,',
