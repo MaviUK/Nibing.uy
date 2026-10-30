@@ -64,7 +64,7 @@ function validateBookingId(bookingId) {
  * success: some SDK versions can report modified=true with etag empty when
  * a conditional request actually failed.
  */
-async function claimOnce({ key, bookingId, channel, store = getClaimsStore() }) {
+async function claimOnce({ key, bookingId, channel, store = null }) {
   validateBookingId(bookingId);
   if (!key.startsWith(PREFIX + "/")) throw new Error("Invalid claim key");
   const record = {
@@ -73,7 +73,8 @@ async function claimOnce({ key, bookingId, channel, store = getClaimsStore() }) 
     // Do not write name, email, address or phone in claim metadata.
   };
   try {
-    const response = await store.setJSON(key, record, { onlyIfNew: true });
+    const safeStore = store || getClaimsStore();
+    const response = await safeStore.setJSON(key, record, { onlyIfNew: true });
     if (response?.modified === true && validEtag(response.etag)) {
       return { acquired: true, key, etag: response.etag };
     }
@@ -86,7 +87,7 @@ async function claimOnce({ key, bookingId, channel, store = getClaimsStore() }) 
 
 /** CAS state change. A conflicting writer can never be silently overwritten. */
 async function changeClaimState({
-  key, etag, bookingId, state, store = getClaimsStore(),
+  key, etag, bookingId, state, store = null,
 }) {
   validateBookingId(bookingId);
   if (!key.startsWith(PREFIX + "/") || !validEtag(etag)) {
@@ -96,7 +97,8 @@ async function changeClaimState({
     return { changed: false, reason: "invalid_state" };
   }
   try {
-    const response = await store.setJSON(key, {
+    const safeStore = store || getClaimsStore();
+    const response = await safeStore.setJSON(key, {
       bookingId, state, updatedAt: new Date().toISOString(),
     }, { onlyIfMatch: etag });
     if (response?.modified === true && validEtag(response.etag)) {
