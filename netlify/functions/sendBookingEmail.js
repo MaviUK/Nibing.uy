@@ -421,20 +421,23 @@ exports.handler = async (event) => {
     // Preview 1 only: notify the signed Squeegee worker AFTER accepted
     // emails/leaderboard. Queue acknowledgement is never proof of a job.
     const syncHost=String(event?.headers?.host||event?.headers?.Host||"").toLowerCase();
-    const freshPilot=name===PILOT_NAME &&
-      syncHost==="deploy-preview-77--nibinguy.netlify.app";
+    const isPreview1=syncHost==="deploy-preview-77--nibinguy.netlify.app";
+    const freshPilot=name===PILOT_NAME && isPreview1;
+    // EVERY Preview 1 booking must show whether its Squeegee dispatch
+    // was accepted. The receipt alone does not imply a job was created.
     let squeegeePilot=null;
     try {
       const dispatched=await dispatchAcceptedBooking(payload,{
         channel:"email",eventHost:syncHost,
       });
-      if(freshPilot) {
+      if(isPreview1) {
         squeegeePilot={
           queued:dispatched.queued===true,
           reason:dispatched.reason,
         };
         // No customer contact information is emitted in this diagnostic.
-        console.info("Preview 1 Fresh Sync dispatch",{
+        console.info(freshPilot?
+          "Preview 1 Fresh Sync dispatch":"Preview 1 Squeegee dispatch",{
           bookingId:submission.bookingId,...squeegeePilot,
         });
       }
@@ -442,7 +445,7 @@ exports.handler = async (event) => {
         console.warn("Preview 1 Squeegee dispatch uncertain; do not automatically retry");
       }
     } catch {
-      if(freshPilot) squeegeePilot={queued:false,reason:"dispatch_unavailable"};
+      if(isPreview1) squeegeePilot={queued:false,reason:"dispatch_unavailable"};
       console.warn("Preview 1 Squeegee dispatch unavailable");
     }
 
@@ -465,8 +468,8 @@ exports.handler = async (event) => {
         arcadeRegistered: Boolean(arcadeEntry?.registered),
         arcadePlayerToken: arcadeEntry?.playerToken || null,
         arcadeDisplayName: arcadeEntry?.displayName || null,
-        // Only populated for the explicitly labelled Preview 1 fresh test.
-        // A queued response means internal receipt only, NOT a Squeegee job.
+        // Populated for all Preview 1 website bookings only.
+        // Queued means internal receipt, NOT confirmed Squeegee creation.
         squeegeePilot,
       }),
     };

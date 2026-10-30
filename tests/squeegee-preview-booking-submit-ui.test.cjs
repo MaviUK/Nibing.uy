@@ -78,7 +78,11 @@ test("server booking still emails receipts, awards XP and optionally dispatches 
 
 test("fresh test confirmation reports queue acceptance without claiming job creation or requiring OTP",()=>{
   const server=fs.readFileSync(path.join(ROOT,"netlify/functions/sendBookingEmail.js"),"utf8");
+  assert.match(server,/const isPreview1=syncHost===/);
   assert.match(server,/const freshPilot=name===PILOT_NAME/);
+  assert.match(server,/if\(isPreview1\) \{/);
+  assert.match(server,/if\(isPreview1\) squeegeePilot=\{queued:false/);
+  assert.match(booking,/bookingConfirmation\?\.squeegeePilot \? "Booking received"/);
   assert.match(server,/squeegeePilot=\{/);
   assert.match(server,/queued:dispatched.queued===true/);
   assert.match(server,/squeegeePilot,/);

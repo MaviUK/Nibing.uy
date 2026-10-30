@@ -405,3 +405,10 @@ The owner clarified that customers **must be able to buy multiple bins of the sa
 - Booking ID, original accepted receipt, trusted Preview 1 scope and immutable compare-and-set claim protections remain. Initial bin services retain the existing per-property active-bin and date job claims. Additional purchases of an existing colour use separate *per-original-booking* immutable claims to permit real additional-bin purchases without clearing old historical claims. A second dispatch of the same booking cannot write again; uncertain customer/job POSTs are never retried automatically.
 - The earlier test bookings including Clare at 1 Dermott Road and davey at 160 Mill Street were accepted BEFORE this fix and are **not replayed**. They require explicit manual reconciliation, not a second website submission.
 - Production and Preview 2 remain unchanged, and draft PR #77 must not be merged without approval.
+
+
+## 30 October 2026 — All Preview 1 bookings now report the handoff honestly
+
+The earlier UI showed the Squeegee queue acknowledgement only for the exact `TEST API - Fresh Sync` name. Other valid Preview 1 bookings displayed the ordinary “Booking confirmed” screen with no Squeegee status despite the internal `/api/squeegee-preview-auto-sync` endpoint receiving and acknowledging them. This was misleading when the worker subsequently held a booking for review.
+
+All Preview 1 accepted Email bookings now return a `squeegeePilot` receipt with `queued` and `reason`; the customer-facing preview displays **Booking received** plus the existing warning that a queue acknowledgement is NOT proof the Squeegee job was created. The response remains absent on Production and other preview URLs. Only safe reference, stage and limited reason are logged during the internal worker's status transitions, with no customer PII, so future failures can be diagnosed in Netlify logs. Never replay or resubmit old bookings because a status is unclear. The previous booking at 11 Rugby Gardens has a confirmed dispatch HTTP 202 and requires read-only owner status inspection before any reconciliation.

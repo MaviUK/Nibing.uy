@@ -963,7 +963,9 @@ function BookingForm({ onClose, initialAddress = "" }) {
         </div>
 
         <div>
-          <h2 className="text-2xl font-extrabold text-gray-900">Booking confirmed</h2>
+          <h2 className="text-2xl font-extrabold text-gray-900">
+            {bookingConfirmation?.squeegeePilot ? "Booking received" : "Booking confirmed"}
+          </h2>
           <p className="mt-2 text-gray-600">
             {bookingConfirmation?.customerConfirmationSent === false ? (
               <>Your booking has been received, but the confirmation email could not be delivered to <strong>{email}</strong>. Please contact us so we can resend it.</>

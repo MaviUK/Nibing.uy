@@ -188,9 +188,16 @@ async function executeAutomaticPreviewBooking(payload,{
       notifyOwnerOfQuantityBooking(id,details,{env})),
   };
   let duplicateFlags=[];
-  const mark=(stage,extra={})=>use.save(bookingId,stage,{
-    ...extra,duplicateFlags,
-  });
+  const mark=async(stage,extra={})=>{
+    // PII-free operational trace to distinguish accepted dispatch, held
+    // validation, and confirmed job creation without exposing customer data.
+    const saved=await use.save(bookingId,stage,{...extra,duplicateFlags});
+    console.info("Preview 1 Squeegee worker status",{
+      bookingId,stage,
+      ...(typeof extra?.reason==="string"?{reason:extra.reason}:{}),
+    });
+    return saved;
+  };
   const held=async(reason,extra={})=>{
     extra={...extra,duplicateFlags};
     await mark("held_for_review",{reason,...extra});
