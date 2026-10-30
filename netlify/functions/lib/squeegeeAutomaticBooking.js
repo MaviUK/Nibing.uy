@@ -176,6 +176,9 @@ async function executeAutomaticPreviewBooking(payload,{
       catch{return await held("existing_customer_details_unavailable");}
       // Never attach a second-address job to a customer's primary address:
       // Squeegee's verified public job-create input has no address override.
+      const recordStatus=String(record?.status||"").toLowerCase();
+      if(["inactive","deleted","archived","cancelled","canceled"].includes(recordStatus))
+        return await held("existing_customer_inactive");
       const recordAddress=addressKey(record?.address);
       if(!recordAddress || recordAddress!==addressKey(payload.address))
         return await held("existing_customer_address_unverified");
