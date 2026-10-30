@@ -11,6 +11,7 @@
  * Failures are held, not retried. Site-wide Blob store names are preview-only.
  */
 const api=require("./squeegeeApiV3");
+const rollout=require("./squeegeePreviewAutoRollout");
 const {prepareReadOnlyBooking}=require("./squeegeeBookingPreparation");
 const {fetchAuthoritativeSchedule}=require("./squeegeeBookingStage");
 const {matchCustomersAcrossPages}=require("./squeegeeCustomerMatcher");
@@ -64,7 +65,7 @@ function outcome(status,reason,extra={}) {
 }
 function canAutoSync(env,runtimeScope) {
   return api.isExactPreview1(env,runtimeScope) &&
-    env?.SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED==="true" &&
+    rollout.automaticEnabled(env) &&
     typeof env?.SQUEEGEE_API_KEY==="string" &&
     env.SQUEEGEE_API_KEY.trim().length>=20;
 }
@@ -81,6 +82,8 @@ async function executeAutomaticPreviewBooking(payload,{
     return outcome("not_started","automatic_preview_writes_disabled");
   if(!["email","whatsapp"].includes(channel))
     return outcome("not_started","unsupported_booking_channel");
+  if(!rollout.acceptedForRollout(payload,channel,env))
+    return outcome("not_started","outside_approved_preview_email_pilot");
   const valid=validateBookingSubmission(payload,{now});
   if(!valid.ok)return outcome("not_started","invalid_or_expired_booking");
   const bookingId=valid.bookingId;
@@ -157,6 +160,25 @@ async function executeAutomaticPreviewBooking(payload,{
       dates:plan.jobs.map(j=>j.date),
       rounds:summary.jobs.map(j=>j.roundNumber),
     });
+
+    // First Preview 1 rollout: ONE TEST API email booking in total. Reserve
+    // the global pilot slot atomically AFTER read-only validations and customer
+    // matching, but BEFORE any Squeegee customer/job POST. Never release it
+    // automatically even if the worker is interrupted or a POST is uncertain.
+    let pilotClaim=null;
+    if(rollout.autoMode(env)==="pilot") {
+      const reserved=await use.claim({
+        key:rollout.PILOT_CLAIM_KEY,bookingId,channel,
+      });
+      if(!reserved.acquired)
+        return await held("pilot_first_booking_already_consumed_or_uncertain");
+      const started=await use.changeState({
+        key:reserved.key,etag:reserved.etag,bookingId,
+        state:"request_in_progress",
+      });
+      if(!started.changed)return await held("pilot_reservation_uncertain");
+      pilotClaim={...reserved,etag:started.etag};
+    }
 
     // Permanent per-booking claim prevents a second dispatch; separate
     // property and job claims protect other booking IDs for the same bin.
@@ -243,6 +265,13 @@ async function executeAutomaticPreviewBooking(payload,{
         key:bookingClaim.key,etag:bookingRunning.etag,bookingId,state:"succeeded",
       });
       if(!done.changed)throw new Error("booking_claim_commit_uncertain");
+      if(pilotClaim) {
+        const pilotDone=await use.changeState({
+          key:pilotClaim.key,etag:pilotClaim.etag,bookingId,state:"succeeded",
+        });
+        if(!pilotDone.changed)throw new Error("pilot_claim_commit_uncertain");
+        pilotClaim.etag=pilotDone.etag;
+      }
       await mark("created_customer_and_jobs",{
         customerMode:existing?"existing":"new",
         createdCustomer:customerCreated,
@@ -254,6 +283,15 @@ async function executeAutomaticPreviewBooking(payload,{
       return outcome("completed","created_customer_and_jobs",{
         createdCustomer:customerCreated,createdJobs:completed});
     }catch{
+      // A pilot is one-use even on partial or uncertain external success.
+      if(pilotClaim) {
+        try {
+          await use.changeState({
+            key:pilotClaim.key,etag:pilotClaim.etag,bookingId,
+            state:"requires_reconciliation",
+          });
+        }catch{}
+      }
       // Never retry ANY ambiguous external POST, even if only part of the
       // booking was completed. Claims remain occupied for manual review.
       if(propertyClaim && !customerClaimSettled) {
