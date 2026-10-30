@@ -89,4 +89,37 @@ function matchCustomers(booking, customerList) {
   }
   return {status:"needs_review",reason:contactMatches.length>1?"multiple_contact_matches":"same_address_without_contact_match"};
 }
-module.exports={addressKey,normalEmail,normalPhone,matchCustomers};
+// A first-page miss is NOT proof a customer is absent. Confirm all pages.
+async function matchCustomersAcrossPages(booking, listPage, { maxPages = 40 } = {}) {
+  if (typeof listPage !== "function") throw new TypeError("listPage must be a function");
+  if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 100) {
+    throw new RangeError("maxPages must be 1-100");
+  }
+  const targetPost = normalizedPostcode(booking?.address);
+  const reference = externalCustomerReference(booking);
+  const found = new Map();
+  let pagedRequestId;
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const data = await listPage({ page, pagedRequestId });
+    if (!data || typeof data !== "object" || !Array.isArray(data.customers) ||
+        typeof data.hasMore !== "boolean") {
+      return { status: "needs_review", reason: "unexpected_customers_page_shape" };
+    }
+    for (const row of data.customers) {
+      if (typeof row?._id !== "string") continue;
+      if (String(row._externalId || "") === reference ||
+          normalizedPostcode(stringValue(row.address)) === targetPost) {
+        found.set(row._id, row);
+      }
+    }
+    if (!data.hasMore) {
+      return { ...matchCustomers(booking, [...found.values()]), pagesScanned: page };
+    }
+    if (data.pagedRequestId) pagedRequestId = data.pagedRequestId;
+  }
+  // Scanning only part of the database must never cause a new customer write.
+  return { status: "needs_review", reason: "customer_pagination_limit" };
+}
+
+module.exports={addressKey,normalEmail,normalPhone,matchCustomers,matchCustomersAcrossPages};
