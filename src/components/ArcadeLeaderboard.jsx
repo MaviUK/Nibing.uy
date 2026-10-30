@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 
 const REFRESH_MS = 10000;
 const ENDPOINT = "/.netlify/functions/arcadeLeaderboard";
-const CLAIM_ENDPOINT = "/.netlify/functions/arcadeClaimBooking";
 
 export default function ArcadeLeaderboard() {
   const [players, setPlayers] = useState([]);
@@ -12,14 +11,7 @@ export default function ArcadeLeaderboard() {
   const [changes, setChanges] = useState({});
   const previousPlayers = useRef(null);
   const [localScore, setLocalScore] = useState({ points: 0, registered: false });
-  const [claimEmail, setClaimEmail] = useState("");
-  const [claimCode, setClaimCode] = useState("");
-  const [claimStep, setClaimStep] = useState("email");
-  const [claimProof, setClaimProof] = useState("");
-  const [claimConsent, setClaimConsent] = useState(false);
-  const [claimLoading, setClaimLoading] = useState(false);
-  const [claimMessage, setClaimMessage] = useState("");
-  const [claimError, setClaimError] = useState("");
+
 
   useEffect(() => {
     let mounted = true;
@@ -107,80 +99,6 @@ export default function ArcadeLeaderboard() {
     };
   }, []);
 
-  const requestClaim = async () => {
-    if (!claimEmail.trim()) return;
-    setClaimLoading(true);
-    setClaimError("");
-    setClaimMessage("");
-    try {
-      const response = await fetch(CLAIM_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "request", email: claimEmail.trim() }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Unable to send verification code");
-      setClaimStep("code");
-      setClaimMessage("If a recent booking matches that email, we've sent a six-digit verification code. Check your inbox.");
-    } catch (error) {
-      setClaimError(error.message || "Unable to verify booking right now.");
-    } finally {
-      setClaimLoading(false);
-    }
-  };
-
-  const verifyClaim = async () => {
-    if (!/^\d{6}$/.test(claimCode.trim())) {
-      setClaimError("Enter the six-digit code from your email.");
-      return;
-    }
-    setClaimLoading(true);
-    setClaimError("");
-    setClaimMessage("");
-    try {
-      const response = await fetch(CLAIM_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "confirm", email: claimEmail.trim(), code: claimCode.trim(),
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.bookingProof) {
-        throw new Error(data.error || "Couldn't verify this booking.");
-      }
-      setClaimProof(data.bookingProof);
-      setClaimStep("verified");
-      setClaimMessage("Booking verified! You're ready to join the global leaderboard.");
-    } catch (error) {
-      setClaimError(error.message || "Unable to verify booking right now.");
-    } finally {
-      setClaimLoading(false);
-    }
-  };
-
-  const joinAfterClaim = async () => {
-    if (!claimConsent || !claimProof) return;
-    setClaimLoading(true);
-    setClaimError("");
-    try {
-      const register = window.n64Score?.registerEntry;
-      if (typeof register !== "function") {
-        throw new Error("Please reload Preview 1 to load the updated XP scoreboard.");
-      }
-      const entry = await register(claimProof);
-      setClaimStep("joined");
-      setClaimProof("");
-      setClaimCode("");
-      setClaimEmail("");
-      setClaimConsent(false);
-      setClaimMessage("You're on the global leaderboard as " + entry.displayName + "!");
-    } catch (error) {
-      setClaimError(error.message || "Unable to join the leaderboard right now.");
-    } finally {
-      setClaimLoading(false);
-    }
-  };
 
   return (
     <section id="live-leaderboard" className="n64-public-leaderboard" aria-labelledby="n64-board-title">
@@ -194,67 +112,15 @@ export default function ArcadeLeaderboard() {
           </span>
         </div>
         <h2 id="n64-board-title">Global Leaderboard</h2>
-        <p>Watch the high scores change as players book bins and collect XP.</p>
+        <p>High scores update automatically as customers complete bookings and collect XP.</p>
 
         <div className="n64-your-score" aria-label="Your device score">
           <div><strong>★ YOUR SCORE</strong><span>{localScore.points.toLocaleString("en-GB")} XP</span></div>
           <small>{localScore.registered
             ? "Your booking is registered. New level points sync to the global leaderboard."
-            : "Your XP is saved on this device. Already booked? Verify your booking below to add your name to the global rankings."}</small>
+            : "Your XP stays on this device until a verified booking is linked. After a booking, your name and score are added automatically unless you choose to stay private."}</small>
         </div>
 
-        {!localScore.registered && (
-          <div className="n64-claim-booking" aria-label="Join leaderboard after an existing booking">
-            <h3>★ ALREADY BOOKED? JOIN THE BOARD!</h3>
-            {claimStep === "email" && (
-              <form onSubmit={(event) => { event.preventDefault(); void requestClaim(); }}>
-                <label htmlFor="n64-claim-email">Email address used for your booking</label>
-                <input id="n64-claim-email" type="email" required
-                  autoComplete="email" placeholder="you@example.com"
-                  value={claimEmail} onChange={(event) => setClaimEmail(event.target.value)}
-                  disabled={claimLoading} />
-                <button type="submit" disabled={claimLoading}>
-                  {claimLoading ? "Checking booking…" : "Verify my booking"}
-                </button>
-              </form>
-            )}
-            {claimStep === "code" && (
-              <form onSubmit={(event) => { event.preventDefault(); void verifyClaim(); }}>
-                <label htmlFor="n64-claim-code">Six-digit code sent to your booking email</label>
-                <input id="n64-claim-code" type="text" inputMode="numeric"
-                  pattern="[0-9]{6}" maxLength={6} required autoComplete="one-time-code"
-                  placeholder="123456" value={claimCode}
-                  onChange={(event) => setClaimCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
-                  disabled={claimLoading} />
-                <button type="submit" disabled={claimLoading}>
-                  {claimLoading ? "Verifying…" : "Confirm my booking"}
-                </button>
-                <button type="button" className="n64-claim-secondary"
-                  onClick={() => { setClaimStep("email"); setClaimError(""); setClaimMessage(""); }}
-                  disabled={claimLoading}>Use a different email</button>
-              </form>
-            )}
-            {claimStep === "verified" && (
-              <div className="n64-claim-consent">
-                <label htmlFor="n64-prize-consent">
-                  <input type="checkbox" id="n64-prize-consent" checked={claimConsent}
-                    onChange={(event) => setClaimConsent(event.target.checked)} />
-                  <span>I agree to show my booking name and XP on the public leaderboard and
-                    to be contacted privately using my booking details if I win a prize.</span>
-                </label>
-                <button type="button" onClick={() => void joinAfterClaim()}
-                  disabled={claimLoading || !claimConsent}>
-                  {claimLoading ? "Joining…" : "★ Join the leaderboard"}
-                </button>
-              </div>
-            )}
-            <div className="n64-claim-messages" aria-live="polite">
-              {claimMessage && <span className="n64-claim-success">{claimMessage}</span>}
-              {claimError && <span className="n64-claim-error" role="alert">{claimError}</span>}
-            </div>
-            <small>No new booking needed. We'll email a code to verify a booking made in the last 14 days. Your contact details are never shown publicly.</small>
-          </div>
-        )}
 
         <div className="n64-live-board-stats">
           <strong>{updatedAt ? totalPlayers.toLocaleString("en-GB") + (totalPlayers === 1 ? " PLAYER" : " PLAYERS") : "— PLAYERS"}</strong>
@@ -291,7 +157,7 @@ export default function ArcadeLeaderboard() {
         )}
         <small>
           Scores refresh automatically every 10 seconds while this page is open.
-          Only customers who book and opt in appear here. Contact details remain private.
+          Confirmed customers appear automatically unless they opt out during booking. Only names and XP are public; contact details remain private.
         </small>
       </div>
     </section>
