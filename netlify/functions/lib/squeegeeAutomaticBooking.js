@@ -15,7 +15,7 @@ const rollout=require("./squeegeePreviewAutoRollout");
 const {prepareReadOnlyBooking}=require("./squeegeeBookingPreparation");
 const {groupedSqueegeeJobs}=require("./squeegeeJobGrouping");
 const {fetchAuthoritativeSchedule}=require("./squeegeeBookingStage");
-const {matchCustomersAcrossPages,addressKey}=require("./squeegeeCustomerMatcher");
+const {matchCustomersAcrossPages,addressKey,normalName}=require("./squeegeeCustomerMatcher");
 const {resolveSqueegeeServiceIds}=require("./squeegeeServiceCatalog");
 const {normalizedBinType}=require("./squeegeeBookingPlan");
 const {customerKey,jobKey,activeBinKey,claimOnce,changeClaimState}=require("./squeegeeIdempotencyClaims");
@@ -190,11 +190,11 @@ async function executeAutomaticPreviewBooking(payload,{
 
     const customerMatch=await matchCustomersAcrossPages(payload,
       args=>use.listCustomers(args),{maxPages:100});
-    if(!["matched","not_found"].includes(customerMatch.status))
+    if(!["matched","not_found","reactivation_required"].includes(customerMatch.status))
       return await held("customer_match_ambiguous_or_incomplete",{
         matchReason:customerMatch.reason||"unspecified_match_reason",
       });
-    const existing=customerMatch.status==="matched";
+    const existing=customerMatch.status!=="not_found";
     const anotherProperty=customerMatch.relatedContactAtDifferentAddress===true;
     const customerMode=existing?"existing":
       anotherProperty?"additional_property":"new";
@@ -203,14 +203,36 @@ async function executeAutomaticPreviewBooking(payload,{
       let record;
       try{record=await use.getCustomer(customerId);}
       catch{return await held("existing_customer_details_unavailable");}
-      // Never attach a second-address job to a customer's primary address:
-      // Squeegee's verified public job-create input has no address override.
-      const recordStatus=String(record?.status||"").toLowerCase();
-      if(["inactive","deleted","archived","cancelled","canceled"].includes(recordStatus))
-        return await held("existing_customer_inactive");
+      // A matched name+address is sufficient even if contact details changed.
+      // Recheck authoritative customer details; never trust only a list row.
       const recordAddress=addressKey(record?.address);
       if(!recordAddress || recordAddress!==addressKey(payload.address))
         return await held("existing_customer_address_unverified");
+      const matchedByName=customerMatch.reason==="exact_property_and_name" ||
+        customerMatch.matchReason==="exact_property_and_name";
+      if(matchedByName &&
+         (!normalName(record?.name) ||
+          normalName(record.name)!==normalName(payload.name))) {
+        return await held("existing_customer_name_unverified");
+      }
+      const recordStatus=String(record?.status||"").trim().toLowerCase();
+      // Squeegee currently documents an in-app Activate action, but the
+      // verified public v3 API does NOT expose customer reactivation. Hold
+      // this exact matched customer for activation instead of creating a
+      // duplicate or guessing an undocumented mutation endpoint.
+      if(["inactive","deactivated"].includes(recordStatus))
+        return await held("existing_customer_reactivation_required",{
+          matchReason:"inactive_exact_customer",
+        });
+      if(["deleted","archived","cancelled","canceled"].includes(recordStatus))
+        return await held("existing_customer_inactive");
+      // A previously inactive LIST row may be stale; only the authoritative
+      // detail response can permit continued normal append-only job creation.
+      if(customerMatch.status==="reactivation_required" &&
+         recordStatus!=="active")
+        return await held("existing_customer_reactivation_required",{
+          matchReason:"inactive_exact_customer",
+        });
       const catalog=resolveSqueegeeServiceIds(services.value);
       const overlap=overlappingJobs(record?.jobs,plan.jobs,catalog.serviceIds);
       if(overlap)return await held(overlap);
