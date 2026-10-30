@@ -85,7 +85,9 @@ function makeJobPlan(booking, bin, index, dateRow, config) {
   const date = dateRow.assignedCleanDate;
   // Squeegee service and job-group IDs must come from this account's GET
   // /services and GET /job-groups, not invented or hardcoded.
-  const serviceId = config?.serviceIds?.[type] || config?.serviceIds?.default;
+  // Account-specific services differ for one-off and four-weekly cleans.
+  // Never silently use a regular-clean service for a one-off or commercial.
+  const serviceId = config?.serviceIds?.[bin.planId]?.[type] || null;
   if (!serviceId) return { index, bin: bin.type, status: "service_mapping_required", date, input: null };
   try { requireUuid(serviceId, "serviceId"); }
   catch (_) { return { index, bin: bin.type, status: "invalid_service_mapping", date, input: null }; }
