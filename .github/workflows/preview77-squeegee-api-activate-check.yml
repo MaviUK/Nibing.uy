@@ -37,6 +37,12 @@ jobs:
              except Exception:
               import re
               print("SWAGGER CONFIG URLS",re.findall(r"[^\\\"']+(?:json|swagger-ui-init\\.js)",body)[:10])
+              for needle in ["reactivat", "deactivat", "activat", "PATCH", "PUT ", "customer status"]:
+               matches=list(re.finditer(needle,body,re.I))
+               print("DOC TERM",needle,"count",len(matches))
+               for match in matches[:6]:
+                snippet=re.sub(r"<[^>]*>"," ",body[max(0,match.start()-120):match.end()+170])
+                print("CONTEXT",re.sub(r"\\s+"," ",snippet)[:280])
            except Exception as e:
             print("GET",url,"failed",str(e)[:180])
           PY
