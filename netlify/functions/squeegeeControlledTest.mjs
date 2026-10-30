@@ -26,12 +26,12 @@ export default async function handler(req,context){
     try{
       const {claimOnce}=await import("./lib/squeegeeIdempotencyClaims.js").then(m=>m.default||m);
       const {getStore}=await import("@netlify/blobs");
-      const key="claim-v1/test/diagnostic-claim-helper-20261030";
+      const store=getStore({name:"squeegee-preview1-write-claims",consistency:"strong"});
+      const key="claim-v1/test/diagnostic-claim-injected-store-20261030";
       const result=await claimOnce({
         key,bookingId:"NBG-P77TEST-ABCDEFGH",
-        channel:"diagnostic_no_squeegee",
+        channel:"diagnostic_no_squeegee",store,
       });
-      const store=getStore({name:"squeegee-preview1-write-claims",consistency:"strong"});
       const saved=await store.getWithMetadata(key,{
         consistency:"strong",type:"json",
       });
