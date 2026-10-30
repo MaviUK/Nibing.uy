@@ -28,6 +28,9 @@ function allowedFlags(value){
   if(!Array.isArray(value))return [];
   return [...new Set(value.filter(code=>KNOWN_FLAGS.has(code)))];
 }
+function duplicateFlagLabels(flags){
+  return allowedFlags(flags).map(code=>FLAG_LABELS[code]);
+}
 
 function emailContent(bookingId,reason,extra={}) {
   if(!BOOKING_RE.test(String(bookingId||"")) ||
@@ -119,4 +122,5 @@ async function deliverOwnerEmail(email,{env=process.env,send=null}={}){
 }
 
 module.exports={emailContent,notifyOwnerOfSyncHold,
-  duplicateSignalsEmailContent,notifyOwnerOfDuplicateSignals,allowedFlags};
+  duplicateSignalsEmailContent,notifyOwnerOfDuplicateSignals,
+  allowedFlags,duplicateFlagLabels};
