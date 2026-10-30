@@ -22,6 +22,45 @@ export default async function handler(req,context){
   const input=await req.json().catch(()=>({}));
   // Explicitly DISABLED: the single authorised write attempt stopped before
   // any Squeegee POST when the atomic lock was not acquired.
+  if(input.mode==="storage-check"){
+    try{
+      const {getStore}=await import("@netlify/blobs");
+      const store=getStore({name:"squeegee-preview1-write-claims",consistency:"strong"});
+      const conditionalKey="test-diagnostic/20261030-conditional-v1";
+      const plainKey="test-diagnostic/20261030-unconditional-v1";
+      let conditionalResult=null,conditionalError=null,plainResult=null,plainError=null;
+      try{
+        conditionalResult=await store.setJSON(conditionalKey,{testOnly:true,kind:"conditional"},
+          {onlyIfNew:true});
+      }catch(e){conditionalError=e?.name||"Error";}
+      let conditionalPersisted=false;
+      try{
+        const r=await store.getWithMetadata(conditionalKey,{consistency:"strong",type:"json"});
+        conditionalPersisted=Boolean(r?.data?.testOnly===true);
+      }catch{}
+      if(!conditionalPersisted){
+        try{
+          plainResult=await store.setJSON(plainKey,{testOnly:true,kind:"unconditional"});
+        }catch(e){plainError=e?.name||"Error";}
+      }
+      let plainPersisted=false;
+      try{
+        const r=await store.getWithMetadata(plainKey,{consistency:"strong",type:"json"});
+        plainPersisted=Boolean(r?.data?.testOnly===true);
+      }catch{}
+      return json(200,{testOnly:true,noSqueegeeWrites:true,
+        conditionalModified:conditionalResult?.modified??null,
+        conditionalEtagPresent:Boolean(conditionalResult?.etag),
+        conditionalError,
+        conditionalPersisted,
+        plainModified:plainResult?.modified??null,
+        plainEtagPresent:Boolean(plainResult?.etag),
+        plainError,
+        plainPersisted,
+      });
+    }catch(e){return json(502,{testOnly:true,noSqueegeeWrites:true,
+        errorClass:e?.name||"Error"});}
+  }
   if(input.mode==="claim-status"){
     try{
       const {getStore}=await import("@netlify/blobs");
