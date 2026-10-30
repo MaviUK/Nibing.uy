@@ -174,3 +174,27 @@ The owner confirmed no two numbered rounds currently run on the same day. Interp
 The separate restriction on **areas with Friday bin collections** must not be confused with the **day NI Bin Guy performs the clean**. This resolves the earlier apparently conflicting observations for groups 06/07. Holiday shifts keep their existing special logic; when a recurring first appointment falls in a shifted week, it remains held to avoid repeating the wrong weekday.
 
 The Preview 1 tests now cover the full distinct-daily-round sequence and deliberately missing groups. **All real Squeegee customer/job POSTs remain disabled** pending explicit approval for one controlled test booking. Production, Preview 2 and main remain unchanged.
+
+
+## Controlled test booking completed (30 October 2026)
+
+Owner explicitly approved **one controlled test** to validate the new authenticated Squeegee v3 create-customer and add-job endpoints. It was performed exclusively from Preview 1 through a GitHub Actions signed OIDC identity, with fixed synthetic values and the following safeguards:
+
+- Test reference: `NBG-P77-CONTROLLED-TEST-20261030-R11`
+- Name: `NI BIN GUY - API TEST - DO NOT CLEAN`
+- Address: a visibly fictitious **TEST RECORD / DO NOT VISIT**, Bangor BT20 4AA (no real customer, no email, no phone, no coordinates)
+- Service: existing account `Black`; group: existing account `11` (actual IDs obtained by GET; none hard-coded)
+- First appointment submitted: **2026-11-02**, Monday
+- Recurrence submitted: `frequencyType:"weeks", frequencyInterval:4`
+- First appointment submitted with matching `firstAppointment.initialDate:"2026-11-02"`
+- Price: **£0**; notes explicitly `DO NOT VISIT, CLEAN, INVOICE OR BILL`
+- 1,845 customer records scanned across all 19 API pages to rule out an existing test reference/name
+- **GitHub Actions run 41069425934**: Squeegee returned HTTP **200**, `customerCreated:true`, `jobCreated:true`, status `test_customer_and_job_created`. No additional customer/job creation requests or automatic retries were made.
+
+**Idempotency fix found during testing:** The original test's atomic lock failed *before any Squeegee POST*, and a read-only audit confirmed no Squeegee test customer and no stored lock. Netlify Blobs' conditional writes worked when using an injected, runtime-managed `getStore({name,consistency:'strong'})` instance. Both conditional `onlyIfNew` reservation and ETag `onlyIfMatch` state transition were verified on harmless diagnostic markers. The successful test passed that validated store instance explicitly into `claimOnce` and `changeClaimState`, and returned success only after those claim transitions. The generic `getClaimsStore()` helper was changed to use Netlify's runtime-managed credentials rather than manually override them.
+
+**Important remaining verification:** Squeegee's public customer/job GET response does **not** expose first appointment and recurrence settings. Therefore successful POST means Squeegee *accepted the job body*, **not that the actual scheduling UI has been visually checked**. The owner should find the synthetic test customer by exact reference/name in Squeegee, inspect Round 11 / 2 Nov / every 4 weeks, then delete or deactivate that clearly labelled test customer/job so it does not appear in operational planning. The current API docs did not provide a delete endpoint, so no remote deletion was attempted.
+
+**Security cleanup:** The temporary public callable controlled-test Netlify Function and GitHub Action, along with the test-only writer, OIDC verifier, data and tests, were removed from the preview branch immediately after the successful test. The standard booking-email/WhatsApp Squeegee integration is STILL READ-ONLY; general `squeegeeApiV3` POST safeguards remain closed. No production/Preview 2 changes or merge to main were performed.
+
+**Next production feature:** With the documented job/date structure verified by POST and after the owner confirms the in-app recurrence, complete the normal booking-event writer with the same injected atomic-claims protocol, match existing customers safely and turn on automatic Squeegee writes in a separately approved stage.
