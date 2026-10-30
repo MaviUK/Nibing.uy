@@ -377,6 +377,13 @@ test("second booking with a different ID can add a second Brown after first book
   });
   assert.equal((await h.run()).status,"completed");
   existingJobs=[{services:[{_id:brownService,description:"Brown",quantity:1}]}];
+  // Each fresh booking must use its own signed claim proof.
+  h.deps.withWrite=async(proof,operation,scope)=>{
+    assert.equal(scope.hostname,runtime.hostname);
+    assert.equal(proof.acquired,true);
+    assert.equal(proof.key,BOOKING_CLAIM_PREFIX+later.bookingId);
+    return operation();
+  };
   const next=await h.run(later);
   assert.equal(next.status,"completed");
   assert.equal(h.posts.filter(p=>p.kind==="job").length,2);
@@ -1269,7 +1276,7 @@ test("grouping handles quantity 2 and still rejects malformed services before an
     ...base,index:1,bin:"Black Bin",input:{
       ...base.input,notes:"Black",
     },
-  }],"NBG-ABCDE-ABCDEFGH"),/Incomplete or inconsistent/);
+  }],"NBG-ABCDE-ABCDEFGH"),/Inconsistent descriptions/);
   assert.throws(()=>groupedSqueegeeJobs([{
     ...base,input:{...base.input,price:1.237},
   }],"NBG-ABCDE-ABCDEFGH"),/Incomplete or inconsistent/);
