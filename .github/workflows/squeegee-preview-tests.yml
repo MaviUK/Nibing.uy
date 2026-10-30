@@ -17,6 +17,7 @@ on:
       - netlify/functions/lib/squeegeeRoundCycle.js
       - netlify/functions/lib/squeegeePreviewTestSession.js
       - netlify/functions/lib/squeegeeOneBookingTest.js
+      - netlify/functions/lib/squeegeeOneBookingReconcile.js
       - netlify/functions/squeegeePreviewTest.mjs
       - netlify/functions/squeegeePreviewTestSubmit.mjs
       - src/LandingPage.jsx
