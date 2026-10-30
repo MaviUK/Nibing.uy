@@ -303,7 +303,7 @@ exports.handler = async (event) => {
     // Start the optional audit write at the same time as both emails.
     const auditPromise = buildAuditPromise({
       channel: "email",
-      bookingId: payload.bookingId || null,
+      bookingId: submission.bookingId,
       name,
       email,
       phone,
