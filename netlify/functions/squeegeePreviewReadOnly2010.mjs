@@ -75,7 +75,22 @@ export default async function handler(request,context) {
               firstJobServiceObjectKeys:Array.isArray(first?.services)&&
                 first.services[0]&&typeof first.services[0]==="object"?
                   Object.keys(first.services[0]).slice(0,16):[],
+              firstServiceUuidMatchesCatalog:null,
             };
+            // The real job service _id must equal a catalog service UUID,
+            // not merely an instance UUID; output only true/false, no IDs.
+            try {
+              const service=first?.services?.[0];
+              const catalog=await api.getServices();
+              const candidate=Array.isArray(catalog)?catalog.find(row=>
+                row?.description===service?.description):null;
+              if(candidate && typeof service?._id==="string") {
+                meta.firstServiceUuidMatchesCatalog=
+                  candidate.id===service._id;
+              }
+            }catch {
+              meta.firstServiceUuidMatchesCatalog=null;
+            }
             customerJobShape=meta;
           }else{
             customerJobShape={check:"match_"+matched.status};
