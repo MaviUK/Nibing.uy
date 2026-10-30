@@ -1,0 +1,31 @@
+name: "Preview 1 temporary read-only Squeegee diagnosis"
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/preview77-readonly-diagnostic.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: "GET diagnostic status only - no Squeegee writes"
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://deploy-preview-77--nibinguy.netlify.app/api/nibinguy-preview77-readonly-diagnostic"
+          for attempt in $(seq 1 18); do
+            result="$(curl -fsS --retry 0 --max-time 8 "$url" 2>/dev/null || true)"
+            if [[ "$result" == *'"stage"'* ]]; then
+              printf 'READ-ONLY DIAGNOSTIC: %s\n' "$result"
+              exit 0
+            fi
+            sleep 7
+          done
+          echo "Diagnostic not available from Preview 1; no booking was retried"
+          exit 1
