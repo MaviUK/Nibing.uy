@@ -1,0 +1,31 @@
+name: "Preview 1 read-only Blue booking diagnosis"
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/preview77-readonly-2010.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: "Check exact booking status only (GET; no Squeegee writes)"
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://deploy-preview-77--nibinguy.netlify.app/api/preview77-readonly-2010"
+          for attempt in $(seq 1 24); do
+            output="$(curl -fsS --retry 0 --max-time 9 "$url" 2>/dev/null || true)"
+            if [[ "$output" == *'"stage"'* ]]; then
+              printf 'READ-ONLY DIAGNOSTIC: %s\n' "$output"
+              exit 0
+            fi
+            sleep 7
+          done
+          echo "No readable Preview 1 diagnostic available; original booking not retried"
+          exit 1
