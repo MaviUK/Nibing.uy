@@ -38,9 +38,10 @@ export default async function handler(request, context) {
   }
 
   // Only documented GET requests. Never request customer details or write jobs.
-  const [services, groups] = await Promise.allSettled([
+  const [services, groups, customers] = await Promise.allSettled([
     squeegee.getServices(),
     squeegee.getJobGroups(),
+    squeegee.listCustomers({ page: 1 }),
   ]);
   const safeLabel = (value) => String(value || "")
     .replace(/[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}/g, "[email redacted]")
@@ -64,14 +65,41 @@ export default async function handler(request, context) {
   };
   const servicesStatus = summary(services);
   const groupsStatus = summary(groups);
-  const connected = servicesStatus.connected && groupsStatus.connected;
+  // Probe schema only: absolutely no names, contact details, addresses,
+  // emails, UUIDs, customer counts or records are returned.
+  let customerSchema;
+  if (customers.status === "fulfilled") {
+    const value = customers.value;
+    const rootKeys = value && !Array.isArray(value) && typeof value === "object"
+      ? Object.keys(value).slice(0, 30) : [];
+    const arrays = (Array.isArray(value) ? [{ key: "(root)", rows: value }] :
+      Object.entries(value || {}).filter(([, v]) => Array.isArray(v))
+        .map(([key, rows]) => ({ key, rows })));
+    customerSchema = {
+      connected: true,
+      rootType: Array.isArray(value) ? "array" : typeof value,
+      rootKeys,
+      arrayFields: arrays.map(({ key, rows }) => ({
+        key,
+        firstItemKeys: rows[0] && typeof rows[0] === "object"
+          ? Object.keys(rows[0]).slice(0, 40) : [],
+      })),
+    };
+  } else {
+    customerSchema = {
+      connected: false,
+      status: customers.reason?.status || null,
+    };
+  }
 
+  const connected = servicesStatus.connected && groupsStatus.connected;
   return reply(connected ? 200 : 502, {
     connected,
     readOnly: true,
     previewBranch: PREVIEW_BRANCH,
     services: servicesStatus,
     jobGroups: groupsStatus,
+    customersSchema: customerSchema,
   });
 }
 
