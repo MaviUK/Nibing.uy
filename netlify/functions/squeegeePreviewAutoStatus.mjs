@@ -4,6 +4,7 @@ import api from "./lib/squeegeeApiV3.js";
 import owner from "./lib/squeegeePreviewTestSession.js";
 import auto from "./lib/squeegeeAutomaticBooking.js";
 import rollout from "./lib/squeegeePreviewAutoRollout.js";
+import alerts from "./lib/squeegeeSyncOwnerAlert.js";
 import {getStore} from "@netlify/blobs";
 
 const style='<style>body{font:16px/1.5 system-ui;background:#10121c;color:#fafafa;padding:18px}'+
@@ -79,13 +80,19 @@ export default async function handler(request,context) {
         if(!rows.length)return "";
         return '<p>'+safe(key)+': '+rows.map(safe).join(", ")+'</p>';
       };
+      const flags=alerts.duplicateFlagLabels(status.duplicateFlags);
+      const duplicateDetail=flags.length?
+        '<div class="notice"><strong>Duplicate information detected</strong>'+
+        '<ul>'+flags.map(label=>'<li>'+safe(label)+'</li>').join('')+'</ul>'+
+        '<p><small>Repeated emails can be legitimate across multiple properties.'+
+        ' This alert does not mean a duplicate job was created.</small></p></div>':'';
       content+='<div class="notice"><strong>Stage: '+safe(status.stage)+'</strong>'+
         simple("reason")+simple("channel")+simple("customerMode")+
         simple("createdCustomer")+simple("createdJobs")+simple("jobsConfirmed")+
         previewRows("firstCleanDates")+previewRows("dates")+previewRows("rounds")+
         previewRows("recurrence")+previewRows("blockedReasons")+
         '<p><small>A queued response is not proof of a Squeegee job. An ambiguous or partial result must never be retried automatically.</small></p>'+
-        '</div>';
+        '</div>'+duplicateDetail;
     }
   }
   return page(content);
