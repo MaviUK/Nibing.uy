@@ -41,6 +41,13 @@ function fingerprint(event) {
   const agent = String(h["user-agent"] || "").slice(0, 200);
   return hash(ip + "|" + agent);
 }
+// Netlify may expose a different client-IP header when an Edge Function
+// forwards a request to a Function. Bind a ticket to the stable browser
+// User-Agent instead; retain IP+UA limits on challenge issue and redemption.
+function browserBinding(event) {
+  return hash("preview-browser-v2:" +
+    String(event?.headers?.["user-agent"] || "").slice(0, 200));
+}
 function store() {
   const siteID = process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID;
   const token = process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN;
@@ -96,9 +103,10 @@ exports.handler = async (event) => {
     }
     const payload = {
       s: "preview-booking",
+      v: 2,
       t: Date.now(),
       n: crypto.randomBytes(16).toString("hex"),
-      f: fp,
+      f: browserBinding(event),
     };
     const raw = Buffer.from(JSON.stringify(payload)).toString("base64url");
     return reply(200, { ticket: raw + "." + sign(raw), difficulty: DIFFICULTY });
@@ -124,9 +132,9 @@ exports.verifyPreviewBooking = async (event, proof) => {
     return { ok: false, reason: "invalid_preview_payload" };
   }
   const age = Date.now() - Number(payload.t);
-  if (payload.s !== "preview-booking" ||
+  if (payload.s !== "preview-booking" || payload.v !== 2 ||
       typeof payload.n !== "string" || !/^[a-f0-9]{32}$/.test(payload.n) ||
-      payload.f !== fingerprint(event) ||
+      payload.f !== browserBinding(event) ||
       !Number.isFinite(age) || age < 0 || age > MAX_AGE_MS) {
     return { ok: false, reason: "preview_challenge_expired_or_changed" };
   }
@@ -135,7 +143,7 @@ exports.verifyPreviewBooking = async (event, proof) => {
   }
   try {
     const blob = store();
-    if (!await allowed(blob, payload.f, "verify")) {
+    if (!await allowed(blob, fingerprint(event), "verify")) {
       return { ok: false, reason: "preview_rate_limited" };
     }
     const key = "used:" + payload.n;
