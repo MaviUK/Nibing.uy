@@ -38,6 +38,12 @@ jobs:
                   for name,value in sorted(checks.items()):
                       print(name+":", "PASS" if value else "FAIL")
                   print("READINESS:",json.dumps(checks,sort_keys=True))
+                  required=("apiKeyAvailable","resendAvailable",
+                            "modernContextWaitUntil","modernSiteIdPresent",
+                            "modernScopeValid","modernOwnerAccessGate",
+                            "leaderboardProofSecretAvailable")
+                  for key in required:
+                      if not checks.get(key): raise SystemExit("Required Preview 1 readiness check failed: "+key)
                   try:
                       with urllib.request.urlopen(owner,timeout=25) as response:
                           html=response.read(20000).decode("utf8")
