@@ -313,3 +313,25 @@ The new pure grouping module is `netlify/functions/lib/squeegeeJobGrouping.js`. 
 The worker still atomically reserves **individual** active property+bin and property+bin+plan+date claims for every selected bin, even if a group generates one Squeegee POST. Before the grouped POST, it advances ALL of that group's claims to request_in_progress. If Squeegee returns an uncertain/partial result, the entire affected booking requires reconciliation and no automatic retry is attempted. The completed status reports `createdJobs` as the actual number of Squeegee jobs and `binServices` / `binsPerJob` separately to avoid misleading job counts.
 
 This update is Preview 1 only on draft PR #77. Existing Squeegee jobs will not be retroactively merged or edited: the currently verified API workflow only creates new jobs. An existing customer adding a bin that should join a previously created job still needs an owner-reviewed update path rather than a second duplicate service.
+
+### 30 October 2026 — Read-only investigation of held Green-bin booking
+
+The owner reported accepted website booking `NBG-MVVCDC3D-83AB713D58` (one Green domestic four-weekly bin, £5) was missing from Squeegee. The admin confirmation email showed the PHONE field held a postcode instead of a telephone number.
+
+Netlify observability confirmed the booking email handler returned HTTP 200 and the signed Squeegee auto-sync endpoint returned HTTP 202 at 19:04:58 UTC. HTTP 202 denotes durable queue acceptance, NOT actual customer/job creation.
+
+A temporarily deployed **read-only**, exact-reference diagnostic queried the Preview 1 auto-sync status and the original private accepted-booking audit, then examined Squeegee customers exclusively with GET calls. It found:
+
+- `stage=held_for_review`, reason `customer_match_ambiguous_or_incomplete`; whole-booking claim `not_found` (no customer/job POST was authorised).
+- Full customer scan completed 19 pages. The precise matcher reason was `possible_existing_address`.
+- One existing Squeegee record has the same postcode, house number and street line; its saved email does **not** match the accepted booking email. The submitted phone field is invalid (a postcode), so there is no trustworthy phone match.
+- Therefore **do not automatically create a duplicate or attach the new Green job to an unverified existing account**. The owner must inspect the existing customer and reconcile the contact/address manually. Do not re-submit or replay this accepted reference.
+
+The temporary diagnostic function and its GitHub Action were deleted after the aggregate evidence was retrieved. No customer PII or account UUIDs were printed, and no Squeegee API writes were made during diagnosis.
+
+### Prevention and operational visibility
+
+- The Preview 1 customer booking form now requires an 11-digit UK phone number (mobile or NI landline, normalised from +44/0044 if needed) before it creates an accepted booking. `sendBookingEmail.js` independently rejects invalid contact numbers with HTTP 422 **before** email, leaderboard scoring, acceptance claims or automatic Squeegee dispatch. The existing accepted Green booking is preserved and is **not retried**.
+- When automatic Squeegee import is held or requires reconciliation, the Preview 1 worker now sends a **PII-free owner alert** using the existing Resend email sender to the configured `BOOKINGS_TO` inbox (received with Zoho Mail). It includes booking reference, hold reason and any safe match-reason code, and instructs the owner to check the original admin booking email. Provider failure does not change the Squeegee hold or permit a retry. The alert is for NEW held bookings; it does not retroactively resend alerts for the historical Green booking.
+- Exact street and house identity alone is not permission to reuse a Squeegee customer when submitted email and phone cannot be verified. Continue to hold ambiguous cases. A later owner-reviewed reconciliation must explicitly confirm the correct existing record before any new Squeegee job is created.
+- Regression tests cover UK landlines/mobiles, rejecting postcodes, hold alerts, ambiguous match diagnostics and the existing no-write protections. Production, Preview 2 and draft PR #77's unmerged status remain unchanged.
