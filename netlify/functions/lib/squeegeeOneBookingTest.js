@@ -62,14 +62,15 @@ async function executeOneApprovedTestBooking(payload, {
   channel="email",
   serverSchedule,
   env=process.env,
+  runtimeScope=null,
   now=Date.now(),
   deps={},
 }={}) {
-  if (!api.isExactPreview1(env) || !env.SQUEEGEE_API_KEY) {
+  if (!api.isExactPreview1(env,runtimeScope) || !env.SQUEEGEE_API_KEY) {
     return privateStatus("not_started", "not_exact_preview_1");
   }
   const cookie = sessionCookieFromHeader(cookieHeader);
-  if (!verifyTestSessionCookie(cookie, env, now)) {
+  if (!verifyTestSessionCookie(cookie, env, now, runtimeScope)) {
     return privateStatus("not_started", "operator_authorization_missing_or_expired");
   }
   const eligibility=isEligibleOneBooking(payload);
@@ -232,7 +233,7 @@ async function executeOneApprovedTestBooking(payload, {
         });
         if (!jobDone.changed)throw new Error("job_claim_commit_requires_reconciliation");
         jobEtag=jobDone.etag;
-      });
+      },runtimeScope);
     } catch {
       // At least one POST may have succeeded. Preserve ALL claims permanently.
       // No retry, no cleanup/delete and no second test until manual review.
@@ -280,32 +281,8 @@ async function executeOneApprovedTestBooking(payload, {
   }
 }
 
-async function scheduleOneApprovedTestAfterBooking(payload,{
-  cookieHeader,channel,serverSchedule,
-}={}) {
-  // Standard bookings with no operator cookie must remain unaffected.
-  if (!api.isExactPreview1() ||
-      !verifyTestSessionCookie(sessionCookieFromHeader(cookieHeader))) {
-    return {scheduled:false};
-  }
-  // Do not invoke with unresolved background context: a function shutdown
-  // after responding could silently terminate an in-progress Squeegee POST.
-  let context;
-  try {
-    context=require("@netlify/functions").getContext();
-  } catch { return {scheduled:false,reason:"post_response_worker_unavailable"}; }
-  if(typeof context?.waitUntil!=="function") {
-    return {scheduled:false,reason:"post_response_worker_unavailable"};
-  }
-  const task=executeOneApprovedTestBooking(payload,{
-    cookieHeader,channel,serverSchedule,
-  }).catch(()=>privateStatus("requires_reconciliation","unexpected_test_error"));
-  context.waitUntil(task);
-  return {scheduled:true};
-}
 module.exports={
   GLOBAL_TEST_KEY,STATUS_STORE,
   isEligibleOneBooking,
   executeOneApprovedTestBooking,
-  scheduleOneApprovedTestAfterBooking,
 };
