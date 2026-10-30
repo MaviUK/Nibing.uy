@@ -22,6 +22,32 @@ export default async function handler(req,context){
   const input=await req.json().catch(()=>({}));
   // Explicitly DISABLED: the single authorised write attempt stopped before
   // any Squeegee POST when the atomic lock was not acquired.
+  if(input.mode==="claim-helper-check"){
+    try{
+      const {claimOnce}=await import("./lib/squeegeeIdempotencyClaims.js").then(m=>m.default||m);
+      const {getStore}=await import("@netlify/blobs");
+      const key="claim-v1/test/diagnostic-claim-helper-20261030";
+      const result=await claimOnce({
+        key,bookingId:"NBG-P77TEST-ABCDEFGH",
+        channel:"diagnostic_no_squeegee",
+      });
+      const store=getStore({name:"squeegee-preview1-write-claims",consistency:"strong"});
+      const saved=await store.getWithMetadata(key,{
+        consistency:"strong",type:"json",
+      });
+      return json(200,{
+        testOnly:true,noSqueegeeWrites:true,
+        claimAcquired:Boolean(result.acquired),
+        claimReason:result.reason||null,
+        claimEtagPresent:Boolean(result.etag),
+        claimPersisted:Boolean(saved?.data?.state==="reserved"),
+        storedEtagPresent:Boolean(saved?.etag),
+      });
+    }catch(error){
+      return json(502,{testOnly:true,noSqueegeeWrites:true,
+        errorClass:error?.name||"Error"});
+    }
+  }
   if(input.mode==="storage-check"){
     try{
       const {getStore}=await import("@netlify/blobs");
