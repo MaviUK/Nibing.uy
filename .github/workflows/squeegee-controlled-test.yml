@@ -47,7 +47,9 @@ jobs:
               if status==200 and body.get("readOnly") and body.get("authenticated"):
                   safe={k:body.get(k) for k in ("readOnly","authenticated","date","round",
                      "frequency","jobPriceGBP","customerHasRealContact",
-                     "serviceMapped","groupMapped","externalLookup","ledgerReady","ready")}
+                     "serviceMapped","groupMapped","externalLookup","lookupErrorStatus",
+                     "pagesScanned","customersScanned","scanComplete",
+                     "testCustomerFound","ledgerReady","ready")}
                   print("CONTROLLED_TEST_PREFLIGHT:",json.dumps(safe,sort_keys=True))
                   if not body.get("ready"):
                       raise SystemExit("Controlled test is NOT ready; no Squeegee writes were made")
