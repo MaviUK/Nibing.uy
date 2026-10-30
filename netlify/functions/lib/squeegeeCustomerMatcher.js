@@ -34,7 +34,7 @@ function addressKey(value) {
 }
 function normalName(value) {
   return String(value || "").normalize("NFKC").toUpperCase()
-    .replace(/\\s+/g," ").trim();
+    .replace(/\s+/g," ").trim();
 }
 function normalEmail(value) {
   return String(value || "").trim().toLowerCase();
