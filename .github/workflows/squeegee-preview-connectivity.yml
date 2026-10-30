@@ -1,0 +1,44 @@
+name: Verify Preview 1 Squeegee read-only connection
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/squeegee-preview-connectivity.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify-connection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check only Squeegee services and job-groups status (no credentials)
+        shell: python
+        run: |
+          import json, urllib.request, urllib.error
+          url = "https://deploy-preview-77--nibinguy.netlify.app/.netlify/functions/squeegeeReadiness"
+          req = urllib.request.Request(url, headers={"Accept":"application/json", "User-Agent":"NBG-Squeegee-Preview-ReadOnly/1"})
+          try:
+              with urllib.request.urlopen(req,timeout=35) as response:
+                  status=response.status
+                  body=response.read(4000).decode("utf-8","replace")
+          except urllib.error.HTTPError as e:
+              status=e.code
+              body=e.read(4000).decode("utf-8","replace")
+          print("PREVIEW_HTTP_STATUS:",status)
+          try:
+              data=json.loads(body)
+          except Exception:
+              data={}
+          # No keys, PII, service identifiers or upstream response bodies.
+          print("SQUEEGEE_CONNECTED:",data.get("connected"))
+          print("READ_ONLY:",data.get("readOnly"))
+          print("PREVIEW_BRANCH:",data.get("previewBranch"))
+          for label in ("services","jobGroups"):
+              entry=data.get(label) or {}
+              print(label.upper()+"_CONNECTED:",entry.get("connected"))
+              print(label.upper()+"_COUNT:",entry.get("count"))
+              print(label.upper()+"_HTTP_STATUS:",entry.get("status"))
+          print("DIAGNOSTIC_REASON:",data.get("reason") or data.get("error"))
