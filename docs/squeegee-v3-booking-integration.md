@@ -98,3 +98,19 @@ Both booking channels now prepare Squeegee read-only plans **after the existing 
 Pending before any LIVE Squeegee write: match customer across all pages within a bounded limit; verify service and round mapping, personally approve one controlled test booking, implement a restricted writer that consumes the atomic claim protocol, reconcile any ambiguous results and manually inspect job dates/4-week recurrence in Squeegee. The existing website behaviour and leaderboard remain authoritative while in shadow mode.
 
 **No production or Preview 2 change, no merge to main, no live Squeegee record creation/alteration.**
+
+## Historical job-group audit (30 October 2026) — partial, read-only
+
+Using a temporary Preview 1 GET-only endpoint, Squeegee returned **1,200 customers across the first 12 pages**, with `hasMore: true`. This is a **partial sample**, not a complete census; group-to-town associations are descriptive only and never authorised for automatic scheduling.
+
+- 14 numeric job groups, 1,010 distinct customer-group associations in the sample (including addresses where town couldn't be identified).
+- Groups `01`, `02`, `03`, `04`, `16`, `17`, `18`, `19` have customers in BOTH Bangor and Newtownards. Thus **do not map a group by town alone**.
+- Group `13` had 61 recognised Donaghadee customer associations in this sample; this is **not proof** of its service weekday, collection-cycle anchor or cleaning dates.
+- Group `14` had both Donaghadee and Newtownards customers.
+- No personal customer information, raw UUIDs or individual addresses were output; aggregate town cells under 5 were suppressed. The temporary endpoint/workflow were removed after inspection.
+
+A second temporary GET-only probe retrieved one individual customer record's **field names only**, never its personal values. Individual `GET /customers/:id` returned the SAME customer schema as the list: `jobs[]` contained `_id, services, jobGroup, price`, with **no appointment date/recurrence/day/round schedule fields**. The probe was also removed.
+
+**Blocker:** Ask the account owner to open the Squeegee scheduling/rounds UI and show which numeric job group corresponds to each actual cleaning route/weekday/cycle (including bank-holiday rescheduling). Don't infer weekdays from historic town distribution. Until mapping is confirmed, keep `jobGroupFor` unresolved and all Squeegee POSTs disabled.
+
+Duplicate-claim improvement: future customer/job reservations now hash property plus postcode rather than using email, so changing email alone cannot bypass duplicate protection for the same address. This is still code-only, not a live write mechanism.
