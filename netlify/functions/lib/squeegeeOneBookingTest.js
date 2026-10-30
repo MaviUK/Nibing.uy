@@ -284,5 +284,6 @@ async function executeOneApprovedTestBooking(payload, {
 module.exports={
   GLOBAL_TEST_KEY,STATUS_STORE,
   isEligibleOneBooking,
+  saveTestStatus,
   executeOneApprovedTestBooking,
 };
