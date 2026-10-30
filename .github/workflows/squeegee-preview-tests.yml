@@ -20,6 +20,7 @@ on:
       - netlify/functions/lib/squeegeePreviewAutoDispatch.js
       - netlify/functions/lib/squeegeeAutomaticBooking.js
       - netlify/functions/squeegeePreviewAutoSync.mjs
+      - netlify/functions/squeegeePreviewAutoStatus.mjs
       - netlify/functions/lib/squeegeeOneBookingReconcile.js
       - netlify/functions/lib/squeegeeAcceptedBookingRecovery.js
       - netlify/functions/squeegeePreviewRecoverOriginal.mjs
