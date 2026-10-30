@@ -12,6 +12,8 @@ const {claimOnce,changeClaimState}=
   require("../netlify/functions/lib/squeegeeIdempotencyClaims");
 const {withOneApprovedPreviewTestWrite,isExactPreview1,assertWriteAllowed}=
   require("../netlify/functions/lib/squeegeeApiV3");
+const {reconcileAcceptedBooking,findAcceptedAudit}=
+  require("../netlify/functions/lib/squeegeeOneBookingReconcile");
 
 const env={
   CONTEXT:"deploy-preview",REVIEW_ID:"77",
@@ -305,4 +307,106 @@ test("one booking test can run with trusted context even without reserved runtim
   });
   assert.equal(result.status,"test_completed");
   assert.equal(h.events.length,2);
+});
+
+
+function mockAcceptedAuditStore(rows=[]) {
+  return {
+    async list({prefix}) {
+      return {blobs:rows.filter(item=>item.key.startsWith(prefix))
+        .map(item=>({key:item.key}))};
+    },
+    async get(key) {return rows.find(x=>x.key===key)?.row||null;},
+  };
+}
+function mockAcceptedAuditRecord() {
+  return {
+    bookingId:"NBG-ABCDE-ABCDEFGH",channel:"email",termsAccepted:true,
+    name:"Original Test Person",email:"test.person@example.org",
+    address:"17 Example Street, Bangor BT20 4AA",phone:"07000000000",
+    bins:[{type:"Black Bin",planId:"domestic_4w",count:1}],
+  };
+}
+const archived=(row=mockAcceptedAuditRecord())=>mockAcceptedAuditStore([{
+  key:"2026-10-30T15:28:57.700Z__test.person@example.org.json",
+  row,
+}]);
+
+test("reconciliation never accesses Squeegee when accepted booking audit is absent",async()=>{
+  let requested=false;
+  const result=await reconcileAcceptedBooking("NBG-ABCDE-ABCDEFGH",{
+    auditStore:mockAcceptedAuditStore(),
+    listCustomers:async()=>{requested=true;throw Error("unexpected");},
+    getCustomer:async()=>{requested=true;throw Error("unexpected");},
+  });
+  assert.equal(result.audit,"not_found");
+  assert.equal(result.customer,"not_checked");
+  assert.equal(requested,false);
+});
+
+test("owner-only reconciliation scans the existing customers without creating any records",async()=>{
+  let reads=0;
+  const result=await reconcileAcceptedBooking("NBG-ABCDE-ABCDEFGH",{
+    auditStore:archived(),
+    listCustomers:async()=>{reads++;return{
+      customers:[],hasMore:false,page:1,pageSize:100,
+    };},
+    getCustomer:async()=>{throw Error("not expected");},
+  });
+  assert.equal(result.audit,"found");
+  assert.equal(result.customer,"not_found");
+  assert.equal(result.pagesScanned,1);
+  assert.equal(reads,1);
+  assert.ok(!JSON.stringify(result).includes("test.person@example.org"));
+});
+
+test("read-only reconciliation recognizes the labelled API test customer",async()=>{
+  const id="33333333-3333-4333-8333-333333333333";
+  let details=0;
+  const result=await reconcileAcceptedBooking("NBG-ABCDE-ABCDEFGH",{
+    auditStore:archived(),
+    listCustomers:async()=>({customers:[{
+      _id:id,email:"test.person@example.org",status:"active",
+      name:"TEST API - Original Test Person",
+      address:{addressDescription:"17 Example Street, Bangor BT20 4AA"},
+      jobs:[{_id:"55555555-5555-4555-8555-555555555555"}],
+    }],hasMore:false,page:1,pageSize:100}),
+    getCustomer:async customerId=>{
+      assert.equal(customerId,id);details++;
+      return {
+        name:"TEST API - Original Test Person",
+        jobs:[{_id:"55555555-5555-4555-8555-555555555555"}],
+      };
+    },
+  });
+  assert.equal(result.customer,"test_customer_found");
+  assert.equal(result.jobCount,1);
+  assert.equal(details,1);
+  assert.ok(!JSON.stringify(result).includes("Original Test Person"));
+});
+
+test("incomplete customer pagination is never mistaken for no existing customer",async()=>{
+  let reads=0;
+  const result=await reconcileAcceptedBooking("NBG-ABCDE-ABCDEFGH",{
+    auditStore:archived(),
+    listCustomers:async()=>{reads++;return{customers:[],hasMore:true,page:1,pageSize:100};},
+    getCustomer:async()=>{throw Error("not expected");},
+  });
+  assert.equal(reads,40);
+  assert.equal(result.customer,"requires_review");
+});
+
+test("invalid accepted audit cannot trigger live Squeegee reads",async()=>{
+  const invalid=mockAcceptedAuditRecord();
+  invalid.termsAccepted=false;
+  let reads=0;
+  const result=await reconcileAcceptedBooking("NBG-ABCDE-ABCDEFGH",{
+    auditStore:archived(invalid),
+    listCustomers:async()=>{reads++;return{};},
+    getCustomer:async()=>{reads++;return{};},
+  });
+  assert.equal(result.audit,"not_eligible_test_audit");
+  assert.equal(reads,0);
+  const missing=await findAcceptedAudit("invalid",archived());
+  assert.equal(missing.status,"invalid_reference");
 });
