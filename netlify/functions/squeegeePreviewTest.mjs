@@ -128,6 +128,7 @@ export function safeOwnerReturnPath(value) {
   if(value==="/api/squeegee-preview-auto-recover" ||
      value==="/api/squeegee-preview-owner-recovery" ||
      value==="/api/squeegee-preview-owner-recovery-v2" ||
+     value==="/api/squeegee-preview-held-groomsport-recovery" ||
      value==="/api/squeegee-preview-auto-status" ||
      value==="/api/squeegee-preview-leaderboard-history")
     return value;
