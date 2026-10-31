@@ -18,7 +18,7 @@ const {fetchAuthoritativeSchedule}=require("./squeegeeBookingStage");
 const {matchCustomersAcrossPages,addressKey,normalName,normalEmail,normalPhone}=require("./squeegeeCustomerMatcher");
 const {resolveSqueegeeServiceIds}=require("./squeegeeServiceCatalog");
 const {normalizedBinType}=require("./squeegeeBookingPlan");
-const {customerKey,jobKey,activeBinKey,additionalBinKey,additionalJobKey,claimOnce,changeClaimState}=require("./squeegeeIdempotencyClaims");
+const {customerKey,jobKey,activeBinKey,additionalBinKey,additionalJobKey,binServiceIdentity,claimOnce,changeClaimState}=require("./squeegeeIdempotencyClaims");
 const {validateBookingSubmission}=require("./bookingSubmissionGuard");
 const {notifyOwnerOfSyncHold,notifyOwnerOfDuplicateSignals,notifyOwnerOfQuantityBooking}=
   require("./squeegeeSyncOwnerAlert");
@@ -58,29 +58,37 @@ function validUpcomingDate(date,now) {
 }
 function overlappingJobs(existingJobs,plannedJobs,serviceIds=null,{
   differentProperty=false,requestedAddress=null,
-  allowAdditionalBins=false,additionalTypes=null,
+  allowAdditionalBins=false,additionalTypes=null,additionalIdentities=null,
 }={}) {
   if(!Array.isArray(existingJobs))return "cannot_inspect_existing_jobs";
   const plannedServices=new Set(plannedJobs.flatMap(job=>job.input.services));
-  // Map both four-weekly and one-off Squeegee service IDs to a physical
-  // bin colour, so an existing service may be an additional purchase
-  // regardless of its previous plan, without changing the existing job.
-  const selectedTypes=new Set(plannedJobs.map(job=>normalizedBinType(job.bin)));
-  const typeForService=new Map();
+  // Compare only the exact physical bin size + colour. A Black 660L
+  // service does not mean the customer already has a Black 1100L service.
+  const selected=new Map();
+  const identityForService=new Map();
   for(const job of plannedJobs){
-    for(const service of job.input.services)
-      typeForService.set(service,normalizedBinType(job.bin));
+    let identity=null;
+    try { identity=binServiceIdentity({type:job.bin,sizeLitres:job.sizeLitres}); }
+    catch { /* Incomplete test input: still run fail-closed UUID inspection. */ }
+    if(identity) {
+      const [type,size]=identity.split("|");
+      selected.set(identity,{type,size});
+      for(const id of job.input.services)
+        identityForService.set(id,identity);
+    }
   }
   if(serviceIds && typeof serviceIds==="object") {
-    // A Brown one-off and Brown 4-weekly job use different service UUIDs.
-    // Never add a second job for the same physical bin just because the plan
-    // differs. Include all verified service IDs for each requested bin type.
-    for(const values of Object.values(serviceIds)) {
-      for(const type of selectedTypes) {
-        const id=values?.[type];
-        if(id){
+    // Include both 4-weekly and one-off variants for the *same capacity*.
+    // Large account services have the shape serviceIds[plan][size][colour].
+    for(const [identity,{type,size}] of selected){
+      for(const [planId,values] of Object.entries(serviceIds)){
+        const large=planId==="comm_gt660_4w"||planId==="comm_gt660_oneoff";
+        const id=large?
+          (size==="standard"?null:values?.[size]?.[type]):
+          (size==="standard"?values?.[type]:null);
+        if(id) {
           plannedServices.add(id);
-          typeForService.set(id,type);
+          identityForService.set(id,identity);
         }
       }
     }
@@ -118,8 +126,12 @@ function overlappingJobs(existingJobs,plannedJobs,serviceIds=null,{
           if(oldAddress!==newAddress)continue;
         }
         if(allowAdditionalBins){
+          const identity=identityForService.get(id);
+          if(!identity)return "cannot_inspect_existing_jobs";
           if(additionalTypes instanceof Set)
-            additionalTypes.add(typeForService.get(id));
+            additionalTypes.add(identity.split("|")[0]);
+          if(additionalIdentities instanceof Set)
+            additionalIdentities.add(identity);
           continue;
         }
         return "existing_job_for_selected_bin_requires_review";
@@ -332,18 +344,18 @@ async function executeAutomaticPreviewBooking(payload,{
         browserSnapshotPresent:Boolean(payload.bookingScheduleSnapshot),
       });
     }
-    // Two entries for the same colour may combine only if their exact date,
-    // recurrence and Squeegee round match. Different schedules for the same
-    // colour require manual review rather than conflicting CAS claims.
-    const scheduleByColour=new Map();
+    // Compare schedules only for the SAME colour and capacity. Different
+    // sizes are separate Squeegee services, even if their recurrence differs.
+    // Exact same-sized repeat lines still must agree on date and round.
+    const scheduleByService=new Map();
     for(const job of plan.jobs) {
-      const colour=normalizedBinType(job.bin);
+      const identity=binServiceIdentity(bins[job.index]);
       const signature=JSON.stringify([job.date,job.input.frequencyType,
         job.input.frequencyInterval??null,job.input.jobGroup]);
-      if(scheduleByColour.has(colour) &&
-         scheduleByColour.get(colour)!==signature)
+      if(scheduleByService.has(identity) &&
+         scheduleByService.get(identity)!==signature)
         return await held("conflicting_same_colour_schedules");
-      scheduleByColour.set(colour,signature);
+      scheduleByService.set(identity,signature);
     }
     // Plans, exact dates, account services and prices have all been verified.
     // Group compatible bin lines into ONE Squeegee job per identical date,
@@ -383,6 +395,7 @@ async function executeAutomaticPreviewBooking(payload,{
     let customerId=existing?customerMatch.customerId:null;
     let differentProperty=false;
     const additionalTypes=new Set();
+    const additionalIdentities=new Set();
     if(existing) {
       let record;
       try{record=await use.getCustomer(customerId);}
@@ -440,7 +453,7 @@ async function executeAutomaticPreviewBooking(payload,{
       // that same-day jobs may need consolidation in Squeegee.
       const overlap=overlappingJobs(record?.jobs,plan.jobs,catalog.serviceIds,{
         differentProperty,requestedAddress:payload.address,
-        allowAdditionalBins:true,additionalTypes,
+        allowAdditionalBins:true,additionalTypes,additionalIdentities,
       });
       if(overlap)return await held(overlap);
 
@@ -490,12 +503,14 @@ async function executeAutomaticPreviewBooking(payload,{
     const jobs=[],claimedPairs=new Map();
     for(const job of plan.jobs) {
       const bin=bins[job.index];
-      const isAddition=additionalTypes.has(normalizedBinType(bin.type));
+      const isAddition=additionalIdentities.has(binServiceIdentity(bin));
       const activeKey=isAddition?
         additionalBinKey(payload,bin):activeBinKey(payload,bin);
       const entryKey=isAddition?
-        additionalJobKey(payload,{date:job.date,type:bin.type,planId:bin.planId}):
-        jobKey(payload,{date:job.date,type:bin.type,planId:bin.planId});
+        additionalJobKey(payload,{date:job.date,type:bin.type,planId:bin.planId,
+          sizeLitres:bin.sizeLitres}):
+        jobKey(payload,{date:job.date,type:bin.type,planId:bin.planId,
+          sizeLitres:bin.sizeLitres});
       const pair=activeKey+"|"+entryKey;
       const previous=claimedPairs.get(pair);
       if(previous) {
@@ -588,7 +603,9 @@ async function executeAutomaticPreviewBooking(payload,{
           // Explicit jobAddress prevents a new property's bins being routed
           // to the customer's original billing/service address.
           const hasAdditionalBin=group.members.some(member=>
-            additionalTypes.has(normalizedBinType(member.bin)));
+            additionalIdentities.has(binServiceIdentity({
+              type:member.bin,sizeLitres:member.sizeLitres,
+            })));
           const notes=hasAdditionalBin?
             group.input.notes+
               " | ADDITIONAL BIN PURCHASE: existing jobs unchanged; review same-day consolidation":
@@ -629,18 +646,27 @@ async function executeAutomaticPreviewBooking(payload,{
       // Quantity is not writable through the documented Squeegee v3 job
       // service UUID array. The actual job has already been created with
       // the correct *total price* and physical quantities in its notes.
-      // Highlight each repeated colour for manual quantity adjustment.
+      // Count physical bins per exact colour + capacity. A Black 660L
+      // and Black 1100L are not a single service needing quantity 2.
       const binQuantities=new Map();
       for(const bin of bins){
         const colour=normalizedBinType(bin?.type);
         const count=Number(bin?.count);
         if(!BIN_LABELS[colour] || !Number.isSafeInteger(count) ||
            count<1 || count>200)continue;
-        binQuantities.set(colour,(binQuantities.get(colour)||0)+count);
+        const identity=binServiceIdentity(bin);
+        const previous=binQuantities.get(identity);
+        if(previous)previous.quantity+=count;
+        else binQuantities.set(identity,{
+          colour,sizeLitres:bin?.sizeLitres||null,quantity:count,
+        });
       }
-      const quantityChanges=[...binQuantities].filter(([,n])=>n>1)
-        .map(([colour,quantity])=>({
-          bin:BIN_LABELS[colour]+" Bin",quantity,
+      const quantityChanges=[...binQuantities.values()]
+        .filter(x=>x.quantity>1)
+        .map(({colour,sizeLitres,quantity})=>({
+          bin:BIN_LABELS[colour]+" Bin"+
+            (sizeLitres?" ("+sizeLitres+"L)":""),
+          quantity,
         }));
       const quantityInstructions=quantityChanges.map(item=>
         "Set "+item.bin+" quantity to "+item.quantity);
