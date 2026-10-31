@@ -126,7 +126,8 @@ async function getDiagnostic(bookingId) {
 export function safeOwnerReturnPath(value) {
   if(typeof value!=="string"||value.length>160)return null;
   if(value==="/api/squeegee-preview-auto-recover" ||
-     value==="/api/squeegee-preview-auto-status")
+     value==="/api/squeegee-preview-auto-status" ||
+     value==="/api/squeegee-preview-leaderboard-history")
     return value;
   const selected=/^\/api\/squeegee-preview-auto-status\?bookingId=(NBG-[A-Z0-9]+-[A-Z0-9]{8,12})$/i.exec(value);
   return selected?
