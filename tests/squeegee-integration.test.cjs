@@ -162,7 +162,7 @@ test("Squeegee regular and one-off services resolve by exact account labels", ()
   assert.equal(resolved.serviceIds.domestic_oneoff.blue, ONEOFF_SERVICE);
   assert.equal(resolved.serviceIds.domestic_4w.blue, undefined);
   // Two exact labels now each serve domestic and commercial-under-360 plans.
-  assert.equal(resolved.unresolved.length, 16);
+  assert.equal(resolved.unresolved.length, 24);
   assert.equal(resolved.serviceIds.comm_lt360_4w.black, SERVICE);
   assert.equal(resolved.serviceIds.comm_lt360_oneoff.blue, ONEOFF_SERVICE);
   const result = plan.buildSqueegeeBookingPlan(booking(), verifiedSchedule(), {
@@ -321,4 +321,28 @@ test("commercial under 360L maps only by exact colour and frequency; larger bins
   assert.equal(catalog.resolvedServiceIdForBin(resolved.serviceIds,{
     planId:"comm_gt660_oneoff",type:"Green Bin",sizeLitres:660,
   }),null);
+});
+
+test("domestic and commercial under 360L share the same Squeegee service for each colour",()=>{
+  const colours=["Black","Brown","Green","Blue"];
+  const services=[];
+  for(let i=0;i<colours.length;i++){
+    const first=String(10+i*2).padStart(8,"0");
+    const second=String(11+i*2).padStart(8,"0");
+    services.push(
+      {id:first+"-0000-4000-8000-000000000001",description:colours[i]},
+      {id:second+"-0000-4000-8000-000000000001",description:"(One Off) "+colours[i]}
+    );
+  }
+  const mapped=catalog.resolveSqueegeeServiceIds(services);
+  for(let i=0;i<colours.length;i++){
+    const colour=colours[i].toLowerCase();
+    const regular=services[i*2].id;
+    const once=services[i*2+1].id;
+    assert.equal(mapped.serviceIds.domestic_4w[colour],regular);
+    assert.equal(mapped.serviceIds.comm_lt360_4w[colour],regular);
+    assert.equal(mapped.serviceIds.domestic_oneoff[colour],once);
+    assert.equal(mapped.serviceIds.comm_lt360_oneoff[colour],once);
+    assert.notEqual(regular,once);
+  }
 });

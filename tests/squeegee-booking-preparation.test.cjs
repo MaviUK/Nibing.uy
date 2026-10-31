@@ -273,7 +273,7 @@ test("commercial bins under 360L use the exact standard colour and frequency, pr
   assert.deepEqual(result.summary.unmappedServices, []);
 });
 
-test("commercial over 660L does not silently use 660L or 1100L Squeegee services", () => {
+test("missing 660L one-off service in Squeegee list cannot be replaced by 660L recurring or 1100L one-off", () => {
   const b = booking();
   b.bins[1].planId = "comm_gt660_oneoff";
   b.bins[1].sizeLitres = 660;

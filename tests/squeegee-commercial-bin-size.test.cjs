@@ -87,11 +87,12 @@ test("1100L commercial Green one-off uses the exact Squeegee 1100L one-off servi
   assert.equal(prepared.privatePlan.jobs[0].sizeLitres,1100);
   assert.match(prepared.privatePlan.jobs[0].input.notes,/Commercial bin size: 1100L/);
 });
-test("one-off 660L and recurring 1100L never silently use another service",()=>{
+test("1100L four-weekly remains unmapped until the account has an exact service",()=>{
   for(const [planId,size,type] of [
-    ["comm_gt660_oneoff",660,"Green Bin"],
     ["comm_gt660_4w",1100,"Blue Bin"],
-    ["comm_gt660_4w",660,"Black Bin"],
+    ["comm_gt660_4w",1100,"Black Bin"],
+    ["comm_gt660_4w",1100,"Brown Bin"],
+    ["comm_gt660_4w",1100,"Green Bin"],
   ]){
     const b=booking(planId,size,type);
     const prepared=prepare(b);
@@ -188,5 +189,43 @@ test("both booking forms show a conditional required 660L/1100L selector",()=>{
   ]){
     assert.match(fs.readFileSync(path.join(root,file),"utf8"),
       /validateCommercialBinSizes/);
+  }
+});
+
+test("all twelve existing 660L/1100L Squeegee services match exact colour, size and frequency",()=>{
+  // Labels independently transcribed from the owner's Squeegee Services screenshot.
+  const recordedLabels=[
+    "Black 660L (4 weekly)","Brown 660L (4 weekly)",
+    "Green 660L (4 weekly)","Blue 660L (4 weekly)",
+    "Black 660L (one-off)","Brown 660L (one-off)",
+    "Green 660L (one-off)","Blue 660L (one-off)",
+    "Black 1100L (one-off)","Brown 1100L (one-off)",
+    "Green 1100L (one-off)","Blue 1100L (one-off)",
+  ];
+  const squeegeeServices=recordedLabels.map((description,index)=>({
+    id:String(index+15).padStart(8,"0")+"-0000-4000-8000-000000000001",
+    description,
+  }));
+  const resolved=resolveSqueegeeServiceIds(squeegeeServices);
+  assert.equal(resolved.unresolved.length,16); // Only the 16 standard service entries absent.
+  for(const row of squeegeeServices){
+    const label=row.description;
+    const colour=label.split(" ")[0],size=label.includes("1100L")?1100:660;
+    const planId=label.includes("(4 weekly)")?"comm_gt660_4w":"comm_gt660_oneoff";
+    const b=booking(planId,size,colour+" Bin");
+    assert.equal(resolvedServiceIdForBin(resolved.serviceIds,b.bins[0]),row.id,label);
+    const p=prepareReadOnlyBooking(b,schedule(b.bins[0].type),squeegeeServices,{jobGroups});
+    assert.equal(p.status,"prepared_read_only",label);
+    assert.equal(p.privatePlan.jobs[0].input.services[0],row.id,label);
+    assert.equal(p.privatePlan.jobs[0].input.price,planId.endsWith("oneoff")?45:15,label);
+    assert.match(p.privatePlan.jobs[0].input.notes,
+      new RegExp("Commercial bin size: "+size+"L"));
+  }
+  for(const colour of ["Black","Brown","Green","Blue"]){
+    const b=booking("comm_gt660_4w",1100,colour+" Bin");
+    assert.equal(resolvedServiceIdForBin(resolved.serviceIds,b.bins[0]),null);
+    const p=prepareReadOnlyBooking(b,schedule(b.bins[0].type),squeegeeServices,{jobGroups});
+    assert.equal(p.status,"held_for_review",colour+" 1100L 4-weekly");
+    assert.equal(p.privatePlan.jobs[0].status,"service_mapping_required");
   }
 });

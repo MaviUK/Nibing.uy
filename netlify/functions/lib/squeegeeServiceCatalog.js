@@ -34,19 +34,30 @@ const SERVICE_DESCRIPTIONS = Object.freeze({
   }),
 });
 
-// Exact sizes and frequencies from the owner's Squeegee services.
-// Missing size/frequency/colour combinations are intentionally NOT mapped.
+// Actual Squeegee service labels shown by the owner on 31 October 2026.
+// All four colours have 660L 4-weekly, 660L one-off and 1100L one-off.
+// No 1100L 4-weekly service is shown; never substitute another size.
 const LARGE_SERVICE_DESCRIPTIONS = Object.freeze({
   comm_gt660_4w: Object.freeze({
     660: Object.freeze({
-      blue: "Blue 660L (4 weekly)",
+      black: "Black 660L (4 weekly)",
+      brown: "Brown 660L (4 weekly)",
       green: "Green 660L (4 weekly)",
+      blue: "Blue 660L (4 weekly)",
     }),
   }),
   comm_gt660_oneoff: Object.freeze({
+    660: Object.freeze({
+      black: "Black 660L (one-off)",
+      brown: "Brown 660L (one-off)",
+      green: "Green 660L (one-off)",
+      blue: "Blue 660L (one-off)",
+    }),
     1100: Object.freeze({
-      blue: "Blue 1100L (one-off)",
+      black: "Black 1100L (one-off)",
+      brown: "Brown 1100L (one-off)",
       green: "Green 1100L (one-off)",
+      blue: "Blue 1100L (one-off)",
     }),
   }),
 });
