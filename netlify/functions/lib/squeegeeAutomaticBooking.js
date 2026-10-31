@@ -742,7 +742,10 @@ async function executeAutomaticPreviewBooking(payload,{
       // manual quantity instructions and any duplicate flags. Preserve the
       // legacy informational notices for non-email/unspecified channels that
       // do not have a signed completed owner receipt.
-      if(!quantityNeedsAttention && duplicateFlags.length) {
+      if(!quantityNeedsAttention && duplicateFlags.length && !use.completedAlert) {
+        // Legacy/unconfirmed owner-receipt paths retain their independent
+        // information notice. Completed Preview 1 email bookings instead
+        // embed meaningful cross-account signals in the ONE signed receipt.
         try{await use.duplicateAlert(bookingId,duplicateFlags);}catch{}
       }
       if(quantityNeedsAttention && !use.completedAlert){

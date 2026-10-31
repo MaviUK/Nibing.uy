@@ -2509,3 +2509,73 @@ test("real returning Blue one-off booking matches County Down address and adds j
   assert.equal((await h.run()).status,"held");
   assert.equal(h.posts.length,1);
 });
+
+
+test("successful returning-customer booking sends only ONE owner email when contacts overlap",async()=>{
+  const b=sampleBooking();
+  const notice=[];
+  const existing={
+    _id:customerId,name:b.name,email:b.email,phoneNumber:b.phone,
+    address:{addressDescription:b.address},status:"active",
+  };
+  const phoneElsewhere={
+    _id:"99999999-9999-4999-8999-999999999999",
+    name:"Different Resident",email:"different@example.org",
+    phoneNumber:b.phone,status:"active",
+    address:{addressDescription:"10 Different Road, Bangor BT19 5AB"},
+  };
+  const h=makeHarness(b,{
+    existingRows:[existing,phoneElsewhere],
+    existingCustomer:{
+      name:b.name,email:b.email,phoneNumber:b.phone,status:"active",
+      address:{text:b.address},jobs:[],
+    },
+    deps:{
+      completedAlert:async(id,details)=>{
+        notice.push({kind:"completed",id,details});return{sent:true};
+      },
+      duplicateAlert:async()=>{notice.push({kind:"duplicate"});return{sent:true};},
+    },
+  });
+  const result=await h.run();
+  assert.equal(result.status,"completed");
+  assert.equal(result.createdCustomer,false);
+  assert.equal(result.createdJobs,1);
+  assert.equal(h.posts.filter(x=>x.kind==="job").length,1);
+  assert.deepEqual(notice.map(n=>n.kind),["completed"]);
+  assert.equal(notice[0].id,b.bookingId);
+  assert.ok(notice[0].details.duplicateFlags.includes("address_already_registered"));
+  assert.ok(notice[0].details.duplicateFlags.includes("phone_used_at_other_property"));
+  assert.equal(h.statuses.at(-1).ownerAlertDelivery,"sent");
+  assert.equal((await h.run()).status,"held");
+  assert.equal(notice.length,1);
+});
+
+test("ordinary same-customer matches do not trigger a SECOND duplicate owner email",async()=>{
+  const b=sampleBooking();
+  const notices=[];
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,name:b.name,email:b.email,phoneNumber:b.phone,
+      address:{addressDescription:b.address},status:"active",
+    }],
+    existingCustomer:{
+      name:b.name,status:"active",address:{text:b.address},jobs:[],
+    },
+    deps:{
+      completedAlert:async(id,details)=>{
+        notices.push({kind:"receipt",flags:details.duplicateFlags});
+        return{sent:true};
+      },
+      duplicateAlert:async()=>{notices.push({kind:"duplicate"});return{sent:true};},
+    },
+  });
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,false);
+  assert.equal(r.createdJobs,1);
+  assert.deepEqual(notices.map(x=>x.kind),["receipt"]);
+  assert.ok(notices[0].flags.includes("email_already_registered"));
+  assert.ok(notices[0].flags.includes("phone_already_registered"));
+  assert.ok(notices[0].flags.includes("address_already_registered"));
+});

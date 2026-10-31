@@ -687,6 +687,41 @@ function completedQuantityAttentionContent(bookingId,receipt,details={}) {
   return {...receipt,subject,text,html};
 }
 
+// Successful imports already have a complete owner booking receipt. Do not
+// send a second "duplicate details" email merely because an existing
+// customer's address/email/phone matches their own account. Preserve the
+// genuinely cross-record/ambiguous signals INSIDE the one owner receipt.
+const INFORMATIVE_MATCH_FLAGS=new Set([
+  "email_used_at_other_property",
+  "phone_used_at_other_property",
+  "multiple_records_with_email",
+  "multiple_records_at_address",
+  "address_registered_to_other_name",
+  "same_name_address_contact_changed",
+  "possible_duplicate_address",
+]);
+function completedOwnerReceiptWithMatchNotes(receipt,details={}) {
+  const flags=allowedFlags(details?.duplicateFlags)
+    .filter(flag=>INFORMATIVE_MATCH_FLAGS.has(flag));
+  if(!flags.length)return receipt;
+  const labels=flags.map(flag=>FLAG_LABELS[flag]);
+  const heading="SQUEEGEE CONTACT MATCHES — FOR INFORMATION";
+  const text=receipt.text+"\n\n"+heading+"\n"+
+    labels.map(label=>"- "+label).join("\n")+"\n"+
+    "This booking was imported successfully. Contact details can legitimately "+
+    "appear on more than one property. These warnings do not prove a "+
+    "duplicate customer or job was created.";
+  const html=receipt.html+
+    '<div style="margin:20px 0;padding:14px;border-left:4px solid #e5b43d;'+
+      'background:#fff8e4;color:#1c2330;font:14px/1.5 Arial,sans-serif">'+
+    '<strong>'+emailHtmlEscape(heading)+'</strong>'+
+    '<ul>'+labels.map(label=>'<li>'+emailHtmlEscape(label)+'</li>').join("")+'</ul>'+
+    '<p style="margin:8px 0 0">The booking was imported successfully. '+
+      'Shared contact details can be legitimate; these warnings do not '+
+      'prove a duplicate customer or job was created.</p></div>';
+  return {...receipt,text,html};
+}
+
 async function notifyOwnerOfCompletedBooking(bookingId,receipt,{
   env=process.env,send=null,attachments=undefined,attention=null,
 }={}) {
@@ -698,7 +733,8 @@ async function notifyOwnerOfCompletedBooking(bookingId,receipt,{
   const safe=normalOwnerReceipt(receipt);
   if(!safe)return {sent:false,reason:"missing_completed_owner_receipt"};
   const selected=attention?.quantityAttentionRequired===true?
-    completedQuantityAttentionContent(bookingId,safe,attention):safe;
+    completedQuantityAttentionContent(bookingId,safe,attention):
+    completedOwnerReceiptWithMatchNotes(safe,attention);
   if(!selected)return {sent:false,reason:"invalid_quantity_attention_details"};
   return deliverOwnerEmail({
     ...selected,

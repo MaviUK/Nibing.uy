@@ -590,3 +590,66 @@ test("urgent owner email safely identifies failed API stage and status when avai
   assert.match(result.html,/Failure stage/);
   assert.doesNotMatch(result.text,/Squeegee timed out/);
 });
+
+
+test("confirmed owner receipt includes real cross-property contact matches but not expected self-matches",async()=>{
+  const {notifyOwnerOfCompletedBooking}=require(
+    "../netlify/functions/lib/squeegeeSyncOwnerAlert");
+  const id="NBG-3FYB9UY4";
+  const original={
+    subject:"🗑️ New Bin Cleaning Booking (website)",
+    text:"New Bin Cleaning Booking\nCustomer: Gavin\n1 x Brown Bin (1100L)",
+    html:"<h2>New Bin Cleaning Booking</h2><p>"+("Verified original booking. ".repeat(8))+"</p>",
+    termsBody:"Website terms accepted. ".repeat(8),
+    binsText:"1 x Brown Bin (1100L)",
+    pricingText:"Brown 1100L one-off £45",
+  };
+  const emails=[];
+  const details={
+    quantityAttentionRequired:false,customerMode:"existing",
+    duplicateFlags:[
+      "email_already_registered",
+      "address_already_registered",
+      "phone_already_registered",
+      "phone_used_at_other_property",
+    ],
+  };
+  const result=await notifyOwnerOfCompletedBooking(id,original,{
+    attention:details,
+    send:async email=>{emails.push(email);return {data:{id:"test-email"}};},
+  });
+  assert.equal(result.sent,true);
+  assert.equal(emails.length,1);
+  assert.equal(emails[0].subject,original.subject);
+  assert.match(emails[0].text,/New Bin Cleaning Booking/);
+  assert.match(emails[0].text,/Phone number is also used at another property/);
+  assert.match(emails[0].html,/Phone number is also used at another property/);
+  assert.doesNotMatch(emails[0].text,/Service address already exists in Squeegee/);
+  assert.doesNotMatch(emails[0].text,/Phone number is already registered/);
+  assert.doesNotMatch(emails[0].text,/Email is already registered on another/);
+  assert.doesNotMatch(emails[0].subject,/duplicate details flagged/i);
+  assert.equal(original.text,"New Bin Cleaning Booking\nCustomer: Gavin\n1 x Brown Bin (1100L)");
+});
+
+test("successful normal booking with only self-match flags stays an unchanged single owner receipt",async()=>{
+  const {notifyOwnerOfCompletedBooking}=require(
+    "../netlify/functions/lib/squeegeeSyncOwnerAlert");
+  const receipt={
+    subject:"🗑️ New Bin Cleaning Booking (website)",
+    text:"New Bin Cleaning Booking\nCustomer name and bin details",
+    html:"<p>"+("Original owner booking. ".repeat(8))+"</p>",
+    termsBody:"Website terms agreed. ".repeat(8),
+    binsText:"1 x Brown Bin",pricingText:"One-off £15",
+  };
+  const sent=[];
+  const outcome=await notifyOwnerOfCompletedBooking("NBG-3FYB9UY4",receipt,{
+    attention:{quantityAttentionRequired:false,
+      duplicateFlags:["address_already_registered","email_already_registered",
+        "phone_already_registered"]},
+    send:async message=>{sent.push(message);return {data:{id:"ok"}};},
+  });
+  assert.equal(outcome.sent,true);
+  assert.equal(sent.length,1);
+  assert.equal(sent[0].text,receipt.text);
+  assert.equal(sent[0].html,receipt.html);
+});

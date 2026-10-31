@@ -129,7 +129,10 @@ export default async function handler(request,context) {
     // priced for all 3 bins, but the service UUID field still reads one.
     // Replace the normal owner receipt with ONE action email asking to
     // adjust the Squeegee quantity; never email both.
-    const attention=details?.quantityAttentionRequired===true?{
+    // Always forward informational match flags to the owner receipt.
+    // They are NOT a separate email on successful imports. A normal
+    // returning-customer match is expected, not a duplicate booking.
+    const attention=details && typeof details==="object"?{
       ...details,
       customerName:booking.name,
       serviceAddress:booking.address,
