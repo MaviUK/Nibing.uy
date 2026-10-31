@@ -105,16 +105,6 @@ export default async function handler(request,context) {
         '<ul>'+flags.map(label=>'<li>'+safe(label)+'</li>').join('')+'</ul>'+
         '<p><small>Repeated emails can be legitimate across multiple properties.'+
         ' This alert does not mean a duplicate job was created.</small></p></div>':'';
-      const mergeHelp=[
-        "existing_job_merge_required","existing_job_round_unverified",
-        "existing_bin_round_disagreement","existing_job_property_unverified",
-      ].includes(status.reason)?
-        '<p><strong>Merge into existing job — owner review required.</strong> '+
-        'No second Squeegee job was created. Check the existing appointment '+
-        'date, round and recurrence in Squeegee. If they match, add the '+
-        'booked services/physical quantities and update the original job price. '+
-        'The public API does not yet support this edit. Use the normal booking '+
-        'email to identify the customer.</p>':"";
       const quantityHelp=status.reason==="service_quantity_requires_manual_configuration"?
         "Multiple bins of one colour require manual service quantity setup in Squeegee. No customer/job was automatically created for this booking.":
         status.reason==="existing_job_for_selected_bin_requires_review"?
@@ -124,9 +114,7 @@ export default async function handler(request,context) {
       content+='<div class="notice"><strong>Stage: '+safe(status.stage)+'</strong>'+
         simple("reason")+dateDiagnosis+heldDetail+
         simple("channel")+simple("customerMode")+
-        simple("manualAction")+mergeHelp+previewRows("requestedBinCounts")+
-        previewRows("mergeFirstCleanDates")+previewRows("mergeRoundNumbers")+
-        simple("newBookingPrice")+
+        simple("manualAction")+previewRows("requestedBinCounts")+
         (quantityHelp?'<p><strong>Manual action: '+safe(quantityHelp)+'</strong></p>':'')+
         simple("createdCustomer")+simple("createdJobs")+simple("jobsConfirmed")+
         simple("physicalBins")+previewRows("physicalBinsPerJob")+

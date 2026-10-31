@@ -102,20 +102,16 @@ function overlappingJobs(existingJobs,plannedJobs,serviceIds=null,{
       try{id=api.requireUuid(id,"existing service ID");}
       catch{return "cannot_inspect_existing_jobs";}
       if(plannedServices.has(id)) {
-        // Explicit service addresses distinguish multiple properties even
-        // when this booking is at the customer's PRIMARY address.
-        // Without an explicit job address, a secondary-property booking
-        // still holds rather than guessing where the old service runs.
-        const explicit=old.jobAddress!==undefined &&
-          old.jobAddress!==null && old.jobAddress!=="";
-        if(explicit){
+        if(differentProperty) {
+          // A cross-property booking may have the same bin colour as a job
+          // at another service address. Never guess an old job's location:
+          // an omitted jobAddress in the GET response cannot prove where it
+          // is actually serviced, so hold rather than risk a duplicate.
           const oldAddress=addressKey(old.jobAddress);
           const newAddress=addressKey(requestedAddress);
-          if(!oldAddress||!newAddress)
+          if(!oldAddress || !newAddress)
             return "cannot_inspect_existing_job_addresses";
           if(oldAddress!==newAddress)continue;
-        }else if(differentProperty){
-          return "cannot_inspect_existing_job_addresses";
         }
         if(allowAdditionalBins){
           if(additionalTypes instanceof Set)
@@ -128,64 +124,6 @@ function overlappingJobs(existingJobs,plannedJobs,serviceIds=null,{
   }
   return null;
 }
-
-/**
- * Check whether the public API's append-only Add Job operation would create
- * a SECOND job for an existing cleaning round. This is a candidate match,
- * not proof that the appointments have the same date/frequency: Squeegee's
- * customer GET does not return sufficient appointment information to merge.
- *
- * Returns only PII-free status codes and indices for owner review.
- */
-function reviewExistingSameRoundJobs(existingJobs,groupedJobs,{
-  customerAddress,bookingAddress,additionalTypes=null,
-}={}) {
-  if(!Array.isArray(existingJobs))
-    return {reason:"cannot_inspect_existing_jobs",candidateIndices:[]};
-  const mainAddress=addressKey(customerAddress);
-  const requestedAddress=addressKey(bookingAddress);
-  if(!mainAddress||!requestedAddress)
-    return {reason:"existing_job_property_unverified",candidateIndices:[]};
-  const proposed=groupedJobs.map(group=>{
-    try{return api.requireUuid(group.input.jobGroup,"planned jobGroup");}
-    catch{return null;}
-  });
-  if(proposed.some(id=>!id))
-    return {reason:"new_job_group_unverified",candidateIndices:[]};
-  const candidates=new Set();
-  let applicable=0;
-  for(const old of existingJobs) {
-    if(!old||!Array.isArray(old.services))
-      return {reason:"cannot_inspect_existing_jobs",candidateIndices:[]};
-    const explicit=old.jobAddress!==undefined && old.jobAddress!==null &&
-      old.jobAddress!=="";
-    const oldAddress=explicit?addressKey(old.jobAddress):mainAddress;
-    if(!oldAddress)
-      return {reason:"existing_job_property_unverified",candidateIndices:[]};
-    if(oldAddress!==requestedAddress)continue;
-    applicable++;
-    let group=old.jobGroup;
-    if(group && typeof group==="object" && !Array.isArray(group)) {
-      if(group._id && group.id && group._id!==group.id)
-        return {reason:"existing_job_round_unverified",candidateIndices:[]};
-      group=group._id??group.id;
-    }
-    try{group=api.requireUuid(group,"existing jobGroup");}
-    catch{return {reason:"existing_job_round_unverified",candidateIndices:[]};}
-    proposed.forEach((id,index)=>{
-      if(id===group)candidates.add(index);
-    });
-  }
-  if(candidates.size)
-    return {reason:"existing_job_merge_required",
-      candidateIndices:[...candidates].sort((a,b)=>a-b)};
-  // A second physical bin of an already listed colour must not become a
-  // separate job just because the proposed round differs from the old one.
-  if(applicable>0 && additionalTypes instanceof Set && additionalTypes.size>0)
-    return {reason:"existing_bin_round_disagreement",candidateIndices:[]};
-  return null;
-}
-
 async function saveAutoStatus(bookingId,stage,extra={}, {store}={}) {
   const record={
     bookingId,stage,updatedAt:new Date().toISOString(),...extra,
@@ -415,34 +353,15 @@ async function executeAutomaticPreviewBooking(payload,{
           matchReason:"inactive_exact_customer",
         });
       const catalog=resolveSqueegeeServiceIds(services.value);
-      // Identify existing services before the merge review. A customer
-      // may be buying another physical bin, not repeating the old order.
+      // A new accepted website booking of an already registered colour
+      // means ADDITIONAL physical bins. Leave all earlier jobs and billing
+      // untouched; append one clearly labelled new job and alert the owner
+      // that same-day jobs may need consolidation in Squeegee.
       const overlap=overlappingJobs(record?.jobs,plan.jobs,catalog.serviceIds,{
         differentProperty,requestedAddress:payload.address,
         allowAdditionalBins:true,additionalTypes,
       });
       if(overlap)return await held(overlap);
-
-      // No verified Squeegee public API operation can edit an existing job.
-      // If the new bin could join an existing job on the same service
-      // property/round, hold BEFORE any Squeegee POST or write claim.
-      const review=reviewExistingSameRoundJobs(record?.jobs,groupedJobs,{
-        customerAddress:record.address,bookingAddress:payload.address,
-        additionalTypes,
-      });
-      if(review){
-        const targetIndices=review.candidateIndices.length?
-          review.candidateIndices:groupedJobs.map((_,index)=>index);
-        return await held(review.reason,{
-          manualAction:"verify_and_edit_existing_squeegee_job",
-          customerMode,requestedBinCounts:counts,
-          mergeFirstCleanDates:targetIndices.map(index=>
-            groupedJobs[index].input.date),
-          mergeRoundNumbers:targetIndices.map(index=>
-            summary.jobs[groupedJobs[index].members[0].index].roundNumber),
-          newBookingPrice:payload.pricing.total,
-        });
-      }
 
     }
 
@@ -716,6 +635,5 @@ async function executeAutomaticPreviewBooking(payload,{
 module.exports={
   STATUS_STORE,CLAIM_STORE,BOOKING_CLAIM_PREFIX,
   MAX_BOOKING_JOBS,ukToday,validUpcomingDate,overlappingJobs,
-  reviewExistingSameRoundJobs,
   saveAutoStatus,canAutoSync,executeAutomaticPreviewBooking,
 };

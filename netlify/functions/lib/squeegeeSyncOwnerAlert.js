@@ -41,19 +41,6 @@ function emailContent(bookingId,reason,extra={}) {
   const requestedBinCounts=Array.isArray(extra?.requestedBinCounts)?
     extra.requestedBinCounts.filter(x=>typeof x==="string" &&
       /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x)).slice(0,12):[];
-  const mergeDates=Array.isArray(extra?.mergeFirstCleanDates)?
-    extra.mergeFirstCleanDates.filter(x=>typeof x==="string" &&
-      /^\d{4}-\d{2}-\d{2}$/.test(x)).slice(0,12):[];
-  const mergeRounds=Array.isArray(extra?.mergeRoundNumbers)?
-    extra.mergeRoundNumbers.filter(x=>Number.isInteger(x)&&x>=1&&x<=20)
-      .slice(0,12):[];
-  const newBookingPrice=Number.isFinite(extra?.newBookingPrice)&&
-    extra.newBookingPrice>=0 && extra.newBookingPrice<=5000?
-      extra.newBookingPrice:null;
-  const mergeReasons=[
-    "existing_job_merge_required","existing_job_round_unverified",
-    "existing_bin_round_disagreement","existing_job_property_unverified",
-  ];
   const quantityAdvice={
     service_quantity_requires_manual_configuration:
       "This booking requests multiple physical bins of one colour. The Squeegee API cannot set verified per-service quantities. No customer or job was automatically created. Check the original booking email and manually create the correct service quantities, job price, round and dates in Squeegee.",
@@ -61,19 +48,9 @@ function emailContent(bookingId,reason,extra={}) {
       "The booking repeats a bin colour on separate lines. Check whether this means multiple physical bins. No customer or job was automatically created. Review and set the correct service quantities manually.",
     existing_job_for_selected_bin_requires_review:
       "The customer already has the selected bin service. Confirm whether the request is an ADDITIONAL physical bin or an accidental repeat. If additional, edit the existing Squeegee job's service quantity and price manually. Do not create a duplicate job.",
-    existing_job_merge_required:
-      "An existing job at this service property has the same verified Squeegee job group. This is a POSSIBLE same-visit match, not proof of identical appointment date or recurrence. NO second job was created. Open the existing job, compare dates and frequency, then add the new services/physical bin quantities and increase the job price if it is the same visit. If not, schedule the new job separately.",
-    existing_job_round_unverified:
-      "An existing job at this address did not expose a verified Squeegee job group. NO new job was created. Verify the existing appointment and round before adding these services or creating a separate job.",
-    existing_job_property_unverified:
-      "Squeegee did not provide enough information to verify the existing job's service address. NO new job was created. Check the property and existing appointments before merging.",
-    existing_bin_round_disagreement:
-      "A job at this property already contains the booked bin colour, but it is in another Squeegee group. NO new job was created. Verify whether an additional physical bin was purchased and check the correct collection round before editing the existing job or adding a separate one.",
   };
   return {
-    subject:(mergeReasons.includes(reason)?
-      "NI Bin Guy — Edit existing Squeegee job: ":
-      "NI Bin Guy — Squeegee booking needs review: ")+bookingId,
+    subject:"NI Bin Guy — Squeegee booking needs review: "+bookingId,
     text:[
       "A website booking was accepted, but Squeegee import did NOT complete.",
       "Booking reference: "+bookingId,
@@ -82,10 +59,6 @@ function emailContent(bookingId,reason,extra={}) {
       "Reason: "+reason,
       matchReason?"Customer match: "+matchReason:"",
       ...requestedBinCounts.map(value=>"Requested: "+value),
-      ...mergeDates.map(date=>"Proposed first-clean date: "+date),
-      ...mergeRounds.map(round=>"Proposed round: "+round),
-      mergeReasons.includes(reason) && newBookingPrice!==null?
-        "New booking amount per clean: £"+newBookingPrice.toFixed(2):"",
       quantityAdvice[reason]?"Action required: "+quantityAdvice[reason]:"",
       ...duplicateFlags.map(flag=>"Duplicate flag: "+FLAG_LABELS[flag]),
       "",

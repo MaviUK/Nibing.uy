@@ -102,20 +102,3 @@ test("completed quantity booking owner notice states physical counts, limitation
   assert.equal(sent.subject,msg.subject);
   assert.deepEqual(sent.to,["info@nibing.uy"]);
 });
-
-test("existing-job merge owner email requests verified date/frequency before editing and never exposes PII",()=>{
-  const id="NBG-ABCDE-ABCDEFGH";
-  const detail=emailContent(id,"existing_job_merge_required",{
-    requestedBinCounts:["1 x Blue Bin","2 x Brown Bin","<script>"],
-    mergeFirstCleanDates:["2026-11-10","wrong"],
-    mergeRoundNumbers:[17,99],
-    newBookingPrice:15,
-  });
-  assert.match(detail.subject,/Edit existing Squeegee job/);
-  assert.match(detail.text,/NO second job was created/);
-  assert.match(detail.text,/Proposed first-clean date: 2026-11-10/);
-  assert.match(detail.text,/Proposed round: 17/);
-  assert.match(detail.text,/New booking amount per clean: £15.00/);
-  assert.match(detail.text,/appointment date or recurrence/);
-  assert.doesNotMatch(detail.text,/99|<script>|wrong/);
-});
