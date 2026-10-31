@@ -80,6 +80,8 @@ test("owner recovery endpoint is owner-session-gated, explicitly confirmed, and 
   );
   assert.match(source,/if\(!ownerAuthenticated\(request,scope\)\)/);
   assert.match(source,/session\.verifyTestSessionCookie/);
+  // Netlify extracts route config statically: it must be a literal path.
+  assert.match(source,/path:"\/api\/squeegee-preview-owner-recovery"/);
   assert.match(source,/if\(request\.method==="POST"\)/);
   assert.match(source,/params\.get\("confirm"\)!=="yes"/);
   assert.match(source,/claims\.claimOnce\(/);

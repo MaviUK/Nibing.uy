@@ -313,6 +313,6 @@ export default async function handler(request,context){
     'After any attempted Squeegee write, automatic retries remain disabled.</small></p>');
 }
 export const config={
-  path:PATH,
+  path:"/api/squeegee-preview-owner-recovery",
   rateLimit:{action:"rate_limit",aggregateBy:"ip",windowSize:60,windowLimit:12},
 };
