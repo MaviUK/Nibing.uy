@@ -170,7 +170,10 @@ async function executeAutomaticPreviewBooking(payload,{
     return outcome("held","booking_terms_not_accepted");
 
   const use={
-    getSchedule:deps.getSchedule||fetchAuthoritativeSchedule,
+    // Recheck authoritatively against the council even when the browser
+    // displayed a date; allow slightly longer for a slow live calendar.
+    getSchedule:deps.getSchedule||(booking=>
+      fetchAuthoritativeSchedule(booking,fetch,{timeoutMs:16000})),
     getServices:deps.getServices||api.getServices,
     getJobGroups:deps.getJobGroups||api.getJobGroups,
     listCustomers:deps.listCustomers||api.listCustomers,
@@ -243,6 +246,11 @@ async function executeAutomaticPreviewBooking(payload,{
        !summary.jobs.every(x=>x.roundStatus==="mapped")) {
       return await held("date_price_service_or_round_not_verified",{
         blockedReasons:summary.blockedReasons.slice(0,8),
+        heldDates:summary.heldDates.slice(0,12).map(row=>({
+          index:row.index,bin:row.bin,reason:row.reason,
+        })),
+        roundStatuses:summary.jobs.slice(0,12).map(row=>row.roundStatus),
+        browserSnapshotPresent:Boolean(payload.bookingScheduleSnapshot),
       });
     }
     // Two entries for the same colour may combine only if their exact date,

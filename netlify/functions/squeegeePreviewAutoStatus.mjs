@@ -11,7 +11,7 @@ const style='<style>body{font:16px/1.5 system-ui;background:#10121c;color:#fafaf
   'main{background:#222638;border:2px solid #f5dd51;padding:22px;max-width:600px;margin:20px auto}'+
   'h1{font-size:26px;line-height:1.2}input,button{font:inherit;box-sizing:border-box;width:100%;padding:12px;margin:8px 0;border:2px solid #f5dd51}'+
   'button{background:#f5dd51;color:#111;font-weight:bold}a{color:#f5dd51}'+
-  '.notice{background:#303950;border-left:4px solid #f5dd51;padding:12px;margin:12px 0}'+
+  '.notice{background:#303950;border-left:4px solid #f5dd51;padding:12px;margin:12px 0;overflow-wrap:anywhere}'+
   'small{color:#cbd1db}</style>';
 const headers={
   "Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store",
@@ -63,6 +63,14 @@ export default async function handler(request,context) {
     }catch {
       return page(content+'<div class="notice">Status storage unavailable. Do not retry an uncertain booking.</div>',503);
     }
+    // A previous read-only staging record can retain per-bin date-check
+    // reasons even if the older automatic worker only saved aggregate codes.
+    let staged=null;
+    try {
+      staged=await getStore({name:"squeegee-preview1-booking-readonly",
+        consistency:"strong"}).get(id,{type:"json",consistency:"strong"});
+    }catch{}
+    if(staged?.bookingId!==id)staged=null;
     if(!status || status.bookingId!==id) {
       content+='<div class="notice"><strong>No automatic sync receipt for this reference.</strong>'+
         '<p>The booking email may have succeeded without an eligible Squeegee dispatch.'+
@@ -80,6 +88,17 @@ export default async function handler(request,context) {
         if(!rows.length)return "";
         return '<p>'+safe(key)+': '+rows.map(safe).join(", ")+'</p>';
       };
+      const dateHolds=Array.isArray(status.heldDates)&&status.heldDates.length?
+        status.heldDates:Array.isArray(staged?.heldDates)?staged.heldDates:[];
+      const dateDiagnosis=status.reason==="date_price_service_or_round_not_verified"?
+        '<p><strong>No Squeegee job was created.</strong> The dates and rounds must be verified before scheduling. Do not resubmit this booking.</p>'+
+        (status.browserSnapshotPresent===false?
+          '<p>The website had no saved date snapshot at submission.</p>':""):"";
+      const heldDetail=dateHolds.length?
+        '<p><strong>Specific date checks:</strong></p><ul>'+
+        dateHolds.slice(0,12).map(row=>
+          '<li>'+safe(row?.bin||"Bin")+': '+safe(row?.reason||"unverified")+'</li>'
+        ).join("")+'</ul>':"";
       const flags=alerts.duplicateFlagLabels(status.duplicateFlags);
       const duplicateDetail=flags.length?
         '<div class="notice"><strong>Duplicate information detected</strong>'+
@@ -93,7 +112,8 @@ export default async function handler(request,context) {
         status.reason==="duplicate_bin_types_in_same_booking"?
         "Repeated bin colour lines need manual quantity clarification; no new job was created.":"";
       content+='<div class="notice"><strong>Stage: '+safe(status.stage)+'</strong>'+
-        simple("reason")+simple("channel")+simple("customerMode")+
+        simple("reason")+dateDiagnosis+heldDetail+
+        simple("channel")+simple("customerMode")+
         simple("manualAction")+previewRows("requestedBinCounts")+
         (quantityHelp?'<p><strong>Manual action: '+safe(quantityHelp)+'</strong></p>':'')+
         simple("createdCustomer")+simple("createdJobs")+simple("jobsConfirmed")+
@@ -101,6 +121,7 @@ export default async function handler(request,context) {
         simple("quantityVerificationRecommended")+previewRows("additionalExistingBins")+
         previewRows("firstCleanDates")+previewRows("dates")+previewRows("rounds")+
         previewRows("recurrence")+previewRows("blockedReasons")+
+        previewRows("roundStatuses")+
         '<p><small>A queued response is not proof of a Squeegee job. An ambiguous or partial result must never be retried automatically.</small></p>'+
         '</div>'+duplicateDetail;
     }
