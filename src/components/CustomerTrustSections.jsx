@@ -190,38 +190,125 @@ export function CustomerReviews() {
   );
 }
 
+const QUESTION_TOPICS = [
+  { id: "pricing", title: "Prices & Plans", subtitle: "What will it cost?", icon: "£", indices: [0, 1] },
+  { id: "service", title: "Our Service", subtitle: "How it works", icon: "✦", indices: [3, 4, 5] },
+  { id: "clean-day", title: "Clean Day", subtitle: "What to expect", icon: "✓", indices: [6, 7, 8] },
+  { id: "booking", title: "Areas & Booking", subtitle: "Where and how", icon: "⌖", indices: [2, 9] },
+];
+
 export function CustomerQuestions({ onBook }) {
+  const [selectedTopicId, setSelectedTopicId] = useState("pricing");
+  const [openQuestion, setOpenQuestion] = useState(0);
+  const selectedTopic = QUESTION_TOPICS.find(({ id }) => id === selectedTopicId) || QUESTION_TOPICS[0];
+
+  const chooseTopic = (topic) => {
+    if (topic.id === selectedTopicId) return;
+    setSelectedTopicId(topic.id);
+    setOpenQuestion(topic.indices[0]);
+  };
+
   return (
     <section
       id="wheelie-bin-cleaning-questions"
       className="n64-trust-section n64-trust-section--questions"
       aria-labelledby="customer-questions-title"
     >
-      <div className="n64-trust-inner">
-        <div className="n64-trust-heading">
-          <span className="n64-trust-eyebrow">? NEED A HAND?</span>
-          <h2 id="customer-questions-title">Customer Questions</h2>
-          <p>Everything you need to know before your bin's next power wash.</p>
+      <div className="n64-trust-inner n64-help-centre">
+        <div className="n64-help-hero">
+          <div className="n64-help-hero__copy">
+            <span className="n64-help-hero__tag">
+              <span aria-hidden="true">★</span> PLAYER HELP DESK
+            </span>
+            <h2 id="customer-questions-title">Customer<br />Questions<span className="n64-help-hero__punctuation">?</span></h2>
+            <p>Need a hand? Choose a topic for quick, straightforward answers.</p>
+            <span className="n64-help-hero__total">10 QUESTIONS <span aria-hidden="true">•</span> 4 TOPICS</span>
+          </div>
+          <div className="n64-help-hero__art" aria-hidden="true">
+            <div className="n64-help-hero__question-mark">?</div>
+            <span className="n64-help-hero__spark n64-help-hero__spark--one">✦</span>
+            <span className="n64-help-hero__spark n64-help-hero__spark--two">✦</span>
+          </div>
         </div>
 
-        <div className="n64-faq-list">
-          {FAQs.map(({ question, answer }, index) => (
-            <details className="n64-faq" key={question}>
-              <summary>
-                <span className="n64-faq__number">{String(index + 1).padStart(2, "0")}</span>
-                <span className="n64-faq__question">{question}</span>
-                <span className="n64-faq__toggle" aria-hidden="true">+</span>
-              </summary>
-              <p>{answer}</p>
-            </details>
-          ))}
-        </div>
+        <div className="n64-help-body">
+          <div className="n64-help-topics-heading">
+            <span className="n64-help-section-index">01</span>
+            <strong>PICK A TOPIC</strong>
+          </div>
+          <div className="n64-help-topics" role="group" aria-label="Choose a question topic">
+            {QUESTION_TOPICS.map((topic) => (
+              <button
+                key={topic.id}
+                type="button"
+                className={"n64-help-topic" + (selectedTopicId === topic.id ? " n64-help-topic--active" : "")}
+                data-topic={topic.id}
+                aria-pressed={selectedTopicId === topic.id}
+                onClick={() => chooseTopic(topic)}
+              >
+                <span className="n64-help-topic__icon" aria-hidden="true">{topic.icon}</span>
+                <span className="n64-help-topic__text">
+                  <strong>{topic.title}</strong>
+                  <small>{topic.subtitle}</small>
+                </span>
+                <span className="n64-help-topic__count" aria-label={topic.indices.length + " questions"}>
+                  {topic.indices.length}
+                </span>
+              </button>
+            ))}
+          </div>
 
-        <div className="n64-faq-cta">
-          <p>All clear? Time to get that bin sparkling.</p>
-          <button type="button" onClick={onBook} className="n64-trust-link n64-trust-link--green">
-            ★ Book a Clean
-          </button>
+          <div className="n64-help-answer-sheet" id="n64-help-answer-sheet">
+            <div className="n64-help-answer-sheet__heading">
+              <div>
+                <span>02 / THE ANSWERS</span>
+                <h3>{selectedTopic.title}</h3>
+              </div>
+              <span className="n64-help-answer-sheet__count">
+                {selectedTopic.indices.length} {selectedTopic.indices.length === 1 ? "ANSWER" : "ANSWERS"}
+              </span>
+            </div>
+            <div className="n64-help-answer-list">
+              {selectedTopic.indices.map((faqIndex) => {
+                const faq = FAQs[faqIndex];
+                const isOpen = openQuestion === faqIndex;
+                return (
+                  <div className={"n64-help-answer" + (isOpen ? " n64-help-answer--open" : "")} key={faq.question}>
+                    <button
+                      className="n64-help-answer__button"
+                      id={"n64-help-question-" + faqIndex}
+                      type="button"
+                      aria-expanded={isOpen}
+                      aria-controls={"n64-help-answer-" + faqIndex}
+                      onClick={() => setOpenQuestion(isOpen ? null : faqIndex)}
+                    >
+                      <span className="n64-help-answer__question">{faq.question}</span>
+                      <span className="n64-help-answer__toggle" aria-hidden="true">{isOpen ? "−" : "+"}</span>
+                    </button>
+                    <div
+                      id={"n64-help-answer-" + faqIndex}
+                      className="n64-help-answer__content"
+                      role="region"
+                      aria-labelledby={"n64-help-question-" + faqIndex}
+                      hidden={!isOpen}
+                    >
+                      <p>{faq.answer}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="n64-help-action">
+            <div>
+              <span className="n64-help-action__eyebrow">MISSION READY?</span>
+              <strong>Time to give that bin a proper clean.</strong>
+            </div>
+            <button type="button" onClick={onBook} className="n64-help-action__button">
+              <span aria-hidden="true">★</span> Book a Clean
+            </button>
+          </div>
         </div>
       </div>
     </section>
