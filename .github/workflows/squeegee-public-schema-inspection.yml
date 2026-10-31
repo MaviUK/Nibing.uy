@@ -1,0 +1,63 @@
+name: Preview 1 Squeegee public job schema inspection
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/squeegee-public-schema-inspection.yml
+permissions:
+  contents: read
+jobs:
+  inspect-public-api-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check public Squeegee API schema without using an API key
+        shell: bash
+        run: |
+          python - <<'PY'
+          import urllib.request,urllib.error,json
+          root="https://api02.sqgee.com"
+          routes=[
+            "/api/v3/docs",
+            "/api/v3/docs/json",
+            "/api/v3/docs/swagger.json",
+            "/api/v3/openapi.json",
+            "/api/v3/swagger.json",
+            "/api/v3/public/openapi.json",
+          ]
+          for route in routes:
+              print("---",route,flush=True)
+              try:
+                  request=urllib.request.Request(root+route,headers={"User-Agent":"NI-Bin-Guy-schema-inspection/1.0","Accept":"application/json, text/html"})
+                  with urllib.request.urlopen(request,timeout=7) as response:
+                      raw=response.read(500000)
+                      content_type=response.headers.get("content-type","")
+                      print("HTTP",response.status,"content-type",content_type,"bytes",len(raw))
+                      try:
+                          doc=json.loads(raw)
+                          print("root-keys",list(doc)[:25])
+                          paths=doc.get("paths",{})
+                          for path,methods in paths.items():
+                              if "job" not in path.lower():continue
+                              print("job-path",path, "methods",list(methods))
+                              for method,schema in methods.items():
+                                  if method.lower() not in ["post","patch","put"]:continue
+                                  req=schema.get("requestBody",{})
+                                  print("job-write-request",method,repr(req)[:3000])
+                          for name,schema in doc.get("components",{}).get("schemas",{}).items():
+                              if "job" in name.lower() or "service" in name.lower():
+                                  if "add" in name.lower() or "jobbody" in name.lower():
+                                      print("component",name,repr(schema)[:3500])
+                      except Exception:
+                          text=raw.decode("utf-8","replace")
+                          print("html-title",text[text.lower().find("<title"):text.lower().find("</title>")+8][:160] if "<title" in text.lower() else text[:130])
+                          for token in ["swagger","openapi","spec-url","scalar","redoc"]:
+                              ix=text.lower().find(token)
+                              if ix>=0:print("hint",token,repr(text[max(0,ix-130):ix+240]))
+              except urllib.error.HTTPError as error:
+                  print("HTTP",error.code)
+              except Exception as error:
+                  print("ERROR",str(error)[:200])
+          PY
