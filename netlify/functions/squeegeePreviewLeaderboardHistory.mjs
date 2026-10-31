@@ -119,6 +119,6 @@ export default async function handler(request, context) {
 }
 
 export const config = {
-  path: PATH,
+  path: "/api/squeegee-preview-leaderboard-history",
   rateLimit: { action: "rate_limit", aggregateBy: "ip", windowSize: 60, windowLimit: 8 },
 };
