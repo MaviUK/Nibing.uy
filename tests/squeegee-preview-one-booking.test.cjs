@@ -710,7 +710,7 @@ test("already-authorised owner is sent back to selected booking instead of old t
     const source=require("node:fs").readFileSync(require("node:path").join(
       __dirname,"../netlify/functions/squeegeePreviewTest.mjs"),"utf8");
     assert.match(source,/const returnTo=safeOwnerReturnPath\(data.get\("returnTo"\)\)/);
-    assert.match(source,/Location:returnTo\|\|"/);
+    assert.match(source,/"Location":returnTo\|\|/);
     assert.match(source,/returnField\(returnTo\)/);
   }finally{
     if(original===undefined)delete process.env.SQUEEGEE_API_KEY;
