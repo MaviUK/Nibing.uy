@@ -37,4 +37,23 @@ function buildOwnerTermsSummary({
       '</p>',
   };
 }
-module.exports={buildOwnerTermsSummary};
+// The customer PDF is staged before the worker starts, but its delivery is
+// only known once the owner send is assembled. Reconcile the sentence to
+// the ACTUAL outgoing attachment rather than trusting the customer receipt.
+function withActualOwnerCertificateStatus(receipt,hasAttachment){
+  if(!receipt || typeof receipt.text!=="string" ||
+     typeof receipt.html!=="string")return receipt;
+  const attached="Terms & Conditions Acceptance Certificate PDF attached (customer copy).";
+  const missing="PDF not attached; see the recorded terms acceptance.";
+  const unavailable="PDF not attached to this owner email; the customer's acceptance remains on record.";
+  const replacement=hasAttachment?attached:unavailable;
+  const htmlAttached=escapeHtml(attached);
+  const htmlMissing=escapeHtml(missing);
+  const htmlReplacement=escapeHtml(replacement);
+  return {...receipt,
+    text:receipt.text.replaceAll(attached,replacement).replaceAll(missing,replacement),
+    html:receipt.html.replaceAll(htmlAttached,htmlReplacement)
+      .replaceAll(htmlMissing,htmlReplacement),
+  };
+}
+module.exports={buildOwnerTermsSummary,withActualOwnerCertificateStatus};

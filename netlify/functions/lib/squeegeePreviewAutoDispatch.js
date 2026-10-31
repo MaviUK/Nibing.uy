@@ -39,7 +39,7 @@ function acceptedEventBooking(payload) {
  */
 function normalOwnerReceipt(value) {
   if(!value || typeof value!=="object" || Array.isArray(value))return null;
-  const {subject,text,html,replyTo,termsBody,binsText,pricingText}=value;
+  const {subject,text,html,replyTo,termsBody,binsText,pricingText,ownerPdfSha256}=value;
   if(typeof subject!=="string" ||
      !subject.startsWith("🗑️ New Bin Cleaning Booking (") ||
      subject.length>220 ||
@@ -50,10 +50,13 @@ function normalOwnerReceipt(value) {
      typeof binsText!=="string" || binsText.length>2500 ||
      typeof pricingText!=="string" || pricingText.length>5000 ||
      (replyTo!==undefined && replyTo!==null &&
-      (typeof replyTo!=="string" || replyTo.length>250)))
+      (typeof replyTo!=="string" || replyTo.length>250)) ||
+     (ownerPdfSha256!==undefined && ownerPdfSha256!==null &&
+      (typeof ownerPdfSha256!=="string" || !/^[a-f0-9]{64}$/.test(ownerPdfSha256))))
     return null;
   return {subject,text,html,termsBody,binsText,pricingText,
-    replyTo:typeof replyTo==="string"?replyTo:null};
+    replyTo:typeof replyTo==="string"?replyTo:null,
+    ...(ownerPdfSha256?{ownerPdfSha256}:{})};
 }
 function signAcceptedEvent(body,timestamp,env=process.env) {
   const secret=previewInternalSecret(env);

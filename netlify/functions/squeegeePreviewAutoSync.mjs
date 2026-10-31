@@ -11,6 +11,8 @@ import rollout from "./lib/squeegeePreviewAutoRollout.js";
 import {getStore} from "@netlify/blobs";
 import {Resend} from "resend";
 import ownerAlerts from "./lib/squeegeeSyncOwnerAlert.js";
+import ownerCertificate from "./lib/squeegeeOwnerCertificate.js";
+import ownerTerms from "./lib/ownerBookingTermsSummary.js";
 // Do NOT import termsPdf at startup: Netlify's ESM build externalises its
 // CommonJS require("pdf-lib"), and a missing runtime dependency causes
 // the ENTIRE internal booking handoff to return HTTP 502 before validation.
@@ -103,28 +105,26 @@ export default async function handler(request,context) {
   const completedAlert=ownerReceipt?async(id,details={})=>{
     ownerNoticeAttempted=true;
     let attachments;
-    try {
-      // Deferred, optional owner PDF: a packaging/runtime issue must NEVER
-      // stop Squeegee API validation or block the owner notification.
-      // This import is isolated inside the confirmed-success callback.
-      const {default:terms}=await import("./lib/termsPdf.js");
-      const pdf=await terms.buildTermsAcceptancePdfAttachment({
-        name:booking.name,email:booking.email,phone:booking.phone,
-        address:booking.address,binsText:ownerReceipt.binsText,
-        pricingText:ownerReceipt.pricingText,
-        termsAccepted:booking.termsAccepted,
-        termsVersion:booking.termsVersion||"August 2026",
-        termsTimestamp:booking.termsTimestamp||booking.submittedAt,
-        termsAcceptanceText:booking.termsAcceptanceText||
-          "I confirm I have read and agree to the NI Bin Guy Terms of Service.",
-        termsBody:ownerReceipt.termsBody,
-        source:booking.source||"website",
-      });
-      if(pdf)attachments=[pdf];
-    }catch{
-      // Send the complete original HTML/text booking email even if a fresh
-      // owner PDF cannot be generated. Customer's PDF was already emailed.
+    let ownerCertificateStore=null;
+    if(ownerReceipt.ownerPdfSha256){
+      try{
+        ownerCertificateStore=getStore({
+          name:ownerCertificate.STORE,consistency:"strong",
+        });
+        // Reuse EXACT customer PDF bytes, saved by sendBookingEmail.js.
+        // No pdf-lib import or regeneration in the async Squeegee worker.
+        const originalPdf=await ownerCertificate.loadCustomerCertificate(
+          bookingId,ownerReceipt.ownerPdfSha256,ownerCertificateStore);
+        attachments=[originalPdf];
+      }catch(error){
+        // Surface a safe diagnostic. The owner receipt must never claim a
+        // PDF attachment that is missing from the actual Resend request.
+        console.error("Preview 77 owner certificate lookup failed:",
+          String(error?.message||"unavailable").slice(0,100));
+      }
     }
+    const verifiedOwnerReceipt=ownerTerms.withActualOwnerCertificateStatus(
+      ownerReceipt,Boolean(attachments?.length));
     // A confirmed import of 3 x Black has one valid new Squeegee job
     // priced for all 3 bins, but the service UUID field still reads one.
     // Replace the normal owner receipt with ONE action email asking to
@@ -139,9 +139,15 @@ export default async function handler(request,context) {
       customerEmail:booking.email,
       customerPhone:booking.phone,
     }:null;
-    return ownerAlerts.notifyOwnerOfCompletedBooking(id,ownerReceipt,{
-      ...alertOptions,attachments,attention,
-    });
+    const outcome=await ownerAlerts.notifyOwnerOfCompletedBooking(
+      id,verifiedOwnerReceipt,{...alertOptions,attachments,attention});
+    if(outcome?.sent===true && attachments?.length && ownerCertificateStore){
+      // The provider accepted the attachment: no need to retain a second
+      // copy of the customer certificate in private preview storage.
+      try{await ownerCertificateStore.delete(bookingId);}
+      catch{console.warn("Preview 77 owner certificate cleanup failed");}
+    }
+    return outcome;
   }:null;
   const basicOwnerDetails={
     customerName:booking.name,serviceAddress:booking.address,

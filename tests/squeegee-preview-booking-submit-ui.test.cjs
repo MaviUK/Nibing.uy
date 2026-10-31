@@ -137,7 +137,9 @@ test("only accepted Preview 1 bookings defer the normal owner booking email",()=
   assert.match(transport,/completedAlert=ownerReceipt\?async\(id,details=\{\}\)=>/);
   assert.match(transport,/ownerAlerts\.notifyOwnerOfCompletedBooking/);
   assert.match(transport,/ownerAlerts\.notifyOwnerOfSyncHold/);
-  assert.match(transport,/terms\.buildTermsAcceptancePdfAttachment/);
+  assert.match(transport,/ownerCertificate\.loadCustomerCertificate/);
+  assert.match(transport,/withActualOwnerCertificateStatus/);
+  assert.doesNotMatch(transport,/import\("\.\/lib\/termsPdf\.js"\)/);
   assert.match(transport,/ownerNoticeAttempted/);
   assert.match(transport,/getStore/);
   // No website change can ever send an additional owner email itself.
@@ -240,8 +242,9 @@ test("owner booking receipt shows concise acceptance and attaches customer certi
   assert.match(sender,/replyTo:email\|\|undefined,attachments/);
   assert.match(sender,/to: email,/);
   assert.match(sender,/replyTo: TO_ADMIN,\s*attachments/);
-  assert.match(preview,/terms\.buildTermsAcceptancePdfAttachment\(/);
-  assert.match(preview,/termsBody:ownerReceipt\.termsBody/);
+  assert.match(sender,/ownerCertificate\.storeCustomerCertificate\(/);
+  assert.match(preview,/ownerCertificate\.loadCustomerCertificate\(/);
+  assert.match(preview,/ownerPdfSha256/);
   assert.match(preview,/ownerAlerts\.notifyOwnerOfCompletedBooking\(id,ownerReceipt/);
   assert.match(preview,/\.\.\.alertOptions,attachments,attention/);
 });

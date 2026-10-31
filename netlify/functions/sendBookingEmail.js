@@ -6,6 +6,7 @@ const { verifyPreviewBooking } = require("./previewBookingChallenge");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
 const { buildOwnerTermsSummary } = require("./lib/ownerBookingTermsSummary");
+const ownerCertificate=require("./lib/squeegeeOwnerCertificate");
 const { validateBookingSubmission, claimBookingSubmission, submissionErrorResponse } = require("./lib/bookingSubmissionGuard");
 const { stageWithoutBlockingBooking } = require("./lib/squeegeeBookingStage");
 const {
@@ -22,10 +23,12 @@ const { PILOT_NAME } = require("./lib/squeegeePreviewAutoRollout");
 let getStoreSafe = null;
 try {
   const { getStore } = require("@netlify/blobs");
-  getStoreSafe = function (name) {
+  getStoreSafe = function (name,consistency) {
     const siteID = process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID;
     const token = process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN;
-    return siteID && token ? getStore({ name, siteID, token }) : getStore({ name });
+    const options={name,...(consistency?{consistency}:{})};
+    return siteID && token ?
+      getStore({...options,siteID,token}):getStore(options);
   };
 } catch (_) {
   // Blobs are optional.
@@ -334,6 +337,23 @@ exports.handler = async (event) => {
       autoDispatchConfigured(process.env) &&
       rollout.acceptedForRollout(payload,"email",process.env) &&
       Boolean(normalOwnerReceipt(ownerReceipt));
+    if(deferAdminForPreview && termsPdfAttachment){
+      try{
+        if(!getStoreSafe)throw new Error("netlify_blobs_not_available");
+        // Store the EXACT original PDF that will be attached to the
+        // customer email, BEFORE signing/dispatching the owner receipt.
+        // Never place 1.2 MB of PDF base64 in the signed event.
+        const saved=await ownerCertificate.storeCustomerCertificate(
+          submission.bookingId,termsPdfAttachment,
+          getStoreSafe(ownerCertificate.STORE,"strong"));
+        ownerReceipt.ownerPdfSha256=saved.sha256;
+      }catch(error){
+        // This booking remains accepted: do not create duplicates or block
+        // the customer. The worker will remove any false "PDF attached"
+        // statement if its original certificate is unavailable.
+        console.error("Preview 77 owner PDF staging failed:",error?.message||"unavailable");
+      }
+    }
     const adminEmailMessage={
       from:FROM_DEFAULT,to:TO_ADMIN,subject:subjectAdmin,
       text:textAdmin,html:htmlAdmin,
