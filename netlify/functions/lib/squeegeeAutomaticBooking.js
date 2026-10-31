@@ -285,6 +285,17 @@ async function executeAutomaticPreviewBooking(payload,{
         schedule.value,services.value,{jobGroups:groups.value});
     }catch{return await held("booking_validation_failed");}
     const plan=prepared.privatePlan,summary=prepared.summary;
+    // A valid web date can coexist with a REJECTED BOOKING REFERENCE.
+    // Make the owner email name the real cause, not an unrelated date.
+    if(summary.blockedReasons.includes("invalid_booking_reference"))
+      return await held("invalid_booking_reference",{
+        blockedReasons:summary.blockedReasons.slice(0,8),
+      });
+    if(summary.blockedReasons.includes("invalid_customer_or_booking") &&
+       summary.datesVerified && summary.pricingVerified)
+      return await held("booking_validation_failed",{
+        blockedReasons:summary.blockedReasons.slice(0,8),
+      });
     if(prepared.status!=="prepared_read_only" ||
        !summary.pricingVerified || !summary.datesVerified ||
        summary.blockedReasons.length || !plan ||

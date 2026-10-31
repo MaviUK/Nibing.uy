@@ -62,8 +62,13 @@ function prepareReadOnlyBooking(booking, serverSchedule, services, { jobGroups }
         jobGroupFor: ({ index }) => rounds[index]?.status === "mapped"
           ? rounds[index].jobGroupId : null,
       });
-    } catch {
-      errors.push("invalid_customer_or_booking");
+    } catch (error) {
+      // Do not mislabel a rejected booking ID as a council-date error.
+      // Expose only these fixed, non-personal diagnostic codes.
+      const invalidReference=/valid original booking reference/i.test(
+        String(error?.message||""));
+      errors.push(invalidReference?
+        "invalid_booking_reference":"invalid_customer_or_booking");
     }
   }
 

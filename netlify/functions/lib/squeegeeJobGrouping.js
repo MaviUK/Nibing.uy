@@ -22,7 +22,7 @@ const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function groupedSqueegeeJobs(perBinJobs,bookingId) {
   if(!Array.isArray(perBinJobs)||perBinJobs.length<1||
      typeof bookingId!=="string"||
-     !/^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i.test(bookingId)) {
+     !/^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i.test(bookingId)) {
     throw new Error("Invalid verified job list or booking ID");
   }
 

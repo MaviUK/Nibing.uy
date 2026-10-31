@@ -175,6 +175,10 @@ const REVIEW_HELP=Object.freeze({
     category:"Cleaning date, round or price could not be verified",
     action:"Confirm the correct collection date, bin colour, four-weekly round and price. Add the booking in Squeegee manually when verified.",
   },
+  invalid_booking_reference:{
+    category:"Booking reference rejected by the Squeegee integration",
+    action:"The customer-facing cleaning date may be correct. This is a system booking-reference problem: check the protected booking status, confirm whether Squeegee has a job, and reconcile manually without asking the customer to book again.",
+  },
   booking_validation_failed:{
     category:"Booking details could not be validated",
     action:"Review the submitted address, selected bins, pricing and booking details. Create the job manually after checking the information.",

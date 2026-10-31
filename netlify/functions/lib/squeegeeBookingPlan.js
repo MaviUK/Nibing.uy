@@ -3,7 +3,7 @@
 const crypto = require("node:crypto");
 const { requireUuid } = require("./squeegeeApiV3");
 
-const BOOKING_ID_RE = /^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i;
+const BOOKING_ID_RE = /^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i;
 const NI_POSTCODE_RE = /\b(BT\d{1,2}\s*\d[A-Z]{2})\b/i;
 const ONE_OFF_PLANS = new Set(["domestic_oneoff", "comm_lt360_oneoff", "comm_gt660_oneoff"]);
 const FOUR_WEEK_PLANS = new Set(["domestic_4w", "comm_lt360_4w", "comm_gt660_4w"]);

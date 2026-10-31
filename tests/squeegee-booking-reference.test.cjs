@@ -118,3 +118,70 @@ test("customer HTML email prominently shows the same two-section reference",()=>
     bookingId:"<script>bad</script>",name:"Example Customer",
   }),/<script>bad<\/script>/);
 });
+
+
+test("short reference completes Squeegee booking planning AND job grouping using the correct website date",()=>{
+  const {prepareReadOnlyBooking}=
+    require("../netlify/functions/lib/squeegeeBookingPreparation");
+  const {groupedSqueegeeJobs}=
+    require("../netlify/functions/lib/squeegeeJobGrouping");
+  const ref="NBG-XGU9MPEE";
+  const date="2026-11-02",post="BT20 4AA";
+  const b={
+    bookingId:ref,name:"Example Customer",email:"example@example.org",
+    phone:"07000000000",address:"17 Example Street, Bangor "+post,
+    bins:[{type:"Black Bin",count:1,planId:"domestic_4w"}],
+    pricing:{
+      lines:[{idx:0,type:"Black Bin",count:1,planId:"domestic_4w",
+        baseUnit:5,unitPrice:5,lineTotal:5,freeCount:0,
+        multiBuyDiscount:0,discounted:false}],
+      subtotal:5,total:5,multiBuyFreeBins:0,multiBuyDiscount:0,
+    },
+    bookingScheduleSnapshot:{
+      version:1,postcode:post,
+      results:[{type:"Black Bin",automatic:true,assignedCleanDate:date}],
+    },
+  };
+  const schedule={
+    postcode:post,town:"BANGOR",
+    results:[{bin:"Black Bin",town:"BANGOR",
+      automatic:true,assignedCleanDate:date}],
+  };
+  const black="11111111-1111-4111-8111-111111111111";
+  const group="22222222-2222-4222-8222-222222222222";
+  for(const bookingId of [ref,"NBG-261031-K7P4R2XM",
+     "NBG-MVWLD81D-B7B2821F3E"]){
+    const checked=prepareReadOnlyBooking({...b,bookingId},
+      schedule,[{id:black,description:"Black"}],{
+        jobGroups:[{id:group,description:"11"}],
+      });
+    assert.equal(checked.status,"prepared_read_only",bookingId);
+    assert.equal(checked.summary.datesVerified,true,bookingId);
+    assert.equal(checked.summary.pricingVerified,true,bookingId);
+    assert.deepEqual(checked.summary.blockedReasons,[],bookingId);
+    assert.equal(checked.privatePlan.readyJobs,1,bookingId);
+    assert.equal(checked.privatePlan.jobs[0].date,date,bookingId);
+    const grouped=groupedSqueegeeJobs(checked.privatePlan.jobs,bookingId);
+    assert.equal(grouped.length,1);
+    assert.equal(grouped[0].input.price,5);
+    assert.equal(grouped[0].input.date,date);
+    assert.equal(grouped[0].input.jobGroup,group);
+  }
+});
+
+test("new short IDs also work in arcade booking recovery and owner-code status return",async()=>{
+  const {getBookingTimestamp}=require("../netlify/functions/arcadeRecoverBooking");
+  assert.deepEqual(getBookingTimestamp("NBG-XGU9MPEE"),
+    {id:"NBG-XGU9MPEE",stamped:null});
+  assert.deepEqual(getBookingTimestamp("nbg-k7p4r2xm"),
+    {id:"NBG-K7P4R2XM",stamped:null});
+  assert.deepEqual(getBookingTimestamp("NBG-261031-K7P4R2XM"),
+    {id:"NBG-261031-K7P4R2XM",stamped:null});
+  assert.equal(getBookingTimestamp("NBG-261031"),null);
+  const {safeOwnerReturnPath}=await import(
+    "../netlify/functions/squeegeePreviewTest.mjs");
+  const url="/api/squeegee-preview-auto-status?bookingId=NBG-XGU9MPEE";
+  assert.equal(safeOwnerReturnPath(url),url);
+  assert.equal(safeOwnerReturnPath(url.toLowerCase()),url);
+  assert.equal(safeOwnerReturnPath(url+"&next=https://evil.example"),null);
+});

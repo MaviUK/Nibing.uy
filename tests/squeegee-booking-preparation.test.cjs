@@ -236,3 +236,18 @@ test("worker can request a bounded longer authoritative calendar lookup",async()
   assert.equal(result.results[0].assignedCleanDate,"2026-11-02");
   assert.equal(attempts,1);
 });
+
+
+test("a rejected booking ID cannot masquerade as a website date mismatch",()=>{
+  const b=booking();
+  b.bookingId="NBG-261031"; // date-only ID is not unique enough
+  const result=prepareReadOnlyBooking(b,serverSchedule(),SERVICES,{
+    jobGroups:GROUPS,
+  });
+  assert.equal(result.status,"held_for_review");
+  assert.equal(result.summary.datesVerified,true);
+  assert.equal(result.summary.pricingVerified,true);
+  assert.ok(result.summary.blockedReasons.includes("invalid_booking_reference"));
+  assert.ok(!result.summary.blockedReasons.includes("unverified_or_changed_dates"));
+  assert.equal(result.privatePlan,null);
+});

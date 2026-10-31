@@ -42,6 +42,12 @@ function acceptRequest(event) {
 
 function getBookingTimestamp(input) {
   const reference = String(input || "").toUpperCase().trim();
+  // New two-section references do not encode time. Trust only the
+  // server-confirmed booking status and its signed, expiring arcade proof.
+  // Keep previously issued YYMMDD references recoverable the same way.
+  if (/^NBG-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/.test(reference) ||
+      /^NBG-\d{6}-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/.test(reference))
+    return { id:reference, stamped:null };
   const match = /^NBG-([A-Z0-9]{7,12})-([A-Z0-9]{8,14})$/.exec(reference);
   if (!match) return null;
   const stamped = parseInt(match[1], 36);
@@ -75,6 +81,9 @@ async function readConfirmedBooking(info) {
     }
   }
   if (status?.arcadeOptOut === true) return null;
+  // No calendar date is encoded in the new short reference. Without the
+  // signed proof above, do not scan arbitrary private audit records.
+  if (info.stamped === null) return null;
 
   const audit = store("tos-confirmations");
   const baseDate = new Date(info.stamped);
@@ -116,6 +125,9 @@ async function readConfirmedBooking(info) {
   return null;
 }
 
+// Pure parser exposed for regression tests. The public endpoint remains
+// exports.handler only; no unauthenticated booking data is returned.
+exports.getBookingTimestamp = getBookingTimestamp;
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return respond(405, { error: "Method not allowed" });
   if (!acceptRequest(event)) return respond(429, { error: "Too many requests" });

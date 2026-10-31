@@ -2180,3 +2180,32 @@ test("Preview 1 signed sync function starts without loading pdf-lib or generatin
   assert.equal(r.status,405);
   assert.match(await r.text(),/Method not allowed/);
 });
+
+
+test("new two-section reference produces the Squeegee job with the verified website date",async()=>{
+  // Regression for an actual Preview 1 failure: web form accepted the
+  // short reference but the old job-planner regex rejected it, falsely
+  // flagging a perfectly valid website cleaning date.
+  const b=sampleBooking({
+    bookingId:"NBG-XGU9MPEE",
+    bins:[{type:"Black Bin",planId:"domestic_4w",count:1}],
+    dates:["2026-11-16"],
+  });
+  const h=makeHarness(b);
+  const r=await h.run();
+  assert.equal(r.status,"completed");
+  assert.equal(r.createdCustomer,true);
+  assert.equal(r.createdJobs,1);
+  assert.equal(h.posts.filter(x=>x.kind==="customer").length,1);
+  const jobs=h.posts.filter(x=>x.kind==="job");
+  assert.equal(jobs.length,1);
+  assert.equal(jobs[0].job.date,"2026-11-16");
+  assert.equal(jobs[0].job.firstAppointment.initialDate,"2026-11-16");
+  assert.equal(jobs[0].job.frequencyInterval,4);
+  assert.equal(jobs[0].job.price,5);
+  assert.deepEqual(jobs[0].job.services,[blackService]);
+  assert.equal(jobs[0].job.jobGroup,group1);
+  assert.equal(h.statuses.at(-1).stage,"created_customer_and_jobs");
+  assert.equal(h.ledger.records.get(BOOKING_CLAIM_PREFIX+b.bookingId)?.value?.state,
+    "succeeded");
+});

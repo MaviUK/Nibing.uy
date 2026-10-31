@@ -89,7 +89,7 @@ async function diagnosticRecord(storeName,key) {
   }
 }
 async function getDiagnostic(bookingId) {
-  if(!/^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i.test(bookingId)) {
+  if(!/^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i.test(bookingId)) {
     return {status:null,stored:"invalid_reference",
       shadow:"not_checked",claim:"not_checked"};
   }
@@ -129,7 +129,7 @@ export function safeOwnerReturnPath(value) {
      value==="/api/squeegee-preview-auto-status" ||
      value==="/api/squeegee-preview-leaderboard-history")
     return value;
-  const selected=/^\/api\/squeegee-preview-auto-status\?bookingId=(NBG-[A-Z0-9]+-[A-Z0-9]{8,12})$/i.exec(value);
+  const selected=/^\/api\/squeegee-preview-auto-status\?bookingId=(NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12}))$/i.exec(value);
   return selected?
     "/api/squeegee-preview-auto-status?bookingId="+selected[1].toUpperCase():null;
 }
@@ -242,7 +242,7 @@ export default async function handler(request,context) {
       const diagnostic=bookingId?await getDiagnostic(bookingId):null;
       let squeegeeCheck=null;
       if(bookingId && params.get("checkSqueegee")==="1" &&
-         /^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i.test(bookingId)) {
+         /^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i.test(bookingId)) {
         // The code never sends personal data to HTML; the archived booking
         // is read only after owner session authentication.
         squeegeeCheck=await reconcile.reconcileAcceptedBooking(bookingId,{

@@ -9,7 +9,7 @@
  */
 const { matchCustomersAcrossPages } = require("./squeegeeCustomerMatcher");
 
-const BOOKING_RE=/^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i;
+const BOOKING_RE=/^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i;
 // The specific already-confirmed form submission, not a general-purpose
 // archive or customer-search endpoint. Do not scan all historic bookings.
 const AUDIT_PREFIXES=Object.freeze([

@@ -538,3 +538,21 @@ test("normal booked single service is not incorrectly replaced by an attention e
   assert.equal(sends[0].subject,receipt.subject);
   assert.equal(sends[0].text,receipt.text);
 });
+
+
+test("a booking-reference failure email does not falsely tell the owner the council dates are wrong",()=>{
+  const ref="NBG-XGU9MPEE";
+  const msg=emailContent(ref,"invalid_booking_reference",{
+    customerName:"Example",
+    serviceAddress:"11 Example Road, Bangor BT20 4AA",
+    customerEmail:"example@example.org",
+    requestedBinCounts:["1 x Black Bin"],
+    firstCleanDates:["2026-11-16"],
+    bookingTotal:5,
+  });
+  assert.match(msg.subject,/Squeegee booking needs review/);
+  assert.match(msg.text,/Booking reference rejected by the Squeegee integration/);
+  assert.match(msg.text,/customer-facing cleaning date may be correct/i);
+  assert.doesNotMatch(msg.text,/Cleaning date, round or price could not be verified/);
+  assert.match(msg.html,/NBG-XGU9MPEE/);
+});
