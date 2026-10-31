@@ -22,11 +22,17 @@ function indexedRows(rows, required, validate, invalidKey, issues) {
   const entries = new Map();
   const conflicts = new Set();
   for (const row of rows) {
-    if (!row || !validId(row[required]) || !validate(row)) {
+    if (!row || !validId(row[required])) {
       issues[invalidKey]++;
       continue;
     }
     const id = row[required];
+    if (!validate(row)) {
+      issues[invalidKey]++;
+      // A malformed duplicate must invalidate the ID's good-looking copy.
+      conflicts.add(id);
+      continue;
+    }
     const fingerprint = JSON.stringify(row);
     const previous = entries.get(id);
     if (previous && previous.fingerprint !== fingerprint) conflicts.add(id);
