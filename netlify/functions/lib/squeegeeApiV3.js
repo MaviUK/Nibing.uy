@@ -54,7 +54,11 @@ function assertWriteAllowed() {
     Boolean(process.env.SQUEEGEE_API_KEY) &&
     previewTestContext.getStore()?.autoBookingApproved === true &&
     previewTestContext.getStore()?.preview1ScopeVerified === true;
-  if (!normal && !singleTest && !automaticPreview) {
+  const ownerPartialRecovery = rollout.automaticEnabled(process.env) &&
+    Boolean(process.env.SQUEEGEE_API_KEY) &&
+    previewTestContext.getStore()?.ownerPartialGreenApproved === true &&
+    previewTestContext.getStore()?.preview1ScopeVerified === true;
+  if (!normal && !singleTest && !automaticPreview && !ownerPartialRecovery) {
     throw new Error("Squeegee writes are disabled for this deployment");
   }
 }
@@ -92,6 +96,22 @@ async function withApprovedPreviewAutomaticWrite(proof, operation, runtimeScope,
     throw new Error("Preview-only automatic booking write capability unavailable");
   }
   return previewTestContext.run({autoBookingApproved:true,preview1ScopeVerified:true},operation);
+}
+
+// A NEW immutable, owner-only claim can authorize exactly one missing
+// Green 1100L job for one already partially successful original booking.
+// It is never a fallback for the original auto-booking claim.
+async function withApprovedPreviewPartialGreenWrite(proof,operation,runtimeScope,env=process.env) {
+  if(!isExactPreview1(env,runtimeScope) ||
+     !rollout.automaticEnabled(env) || !env.SQUEEGEE_API_KEY ||
+     proof?.acquired!==true ||
+     proof?.key!=="claim-v1/owner-partial-green/NBG-4QUNP343" ||
+     typeof proof.etag!=="string" || proof.etag.length<4 ||
+     typeof operation!=="function")
+    throw new Error("Owner-approved partial Green write unavailable");
+  return previewTestContext.run({
+    ownerPartialGreenApproved:true,preview1ScopeVerified:true,
+  },operation);
 }
 
 function requireUuid(value, field) {
@@ -196,6 +216,7 @@ module.exports = {
   isExactPreview1,
   withOneApprovedPreviewTestWrite,
   withApprovedPreviewAutomaticWrite,
+  withApprovedPreviewPartialGreenWrite,
   listCustomers,
   getCustomer,
   getCustomerIdForExternalId,
