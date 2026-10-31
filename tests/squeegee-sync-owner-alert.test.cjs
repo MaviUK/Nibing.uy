@@ -413,3 +413,128 @@ test("unknown safe import reason also receives a branded manual review email",()
   assert.match(out.html,/Example/);
   assert.equal(emailContent("NBG-ABCDE-ABCDEFGH","malicious\nheader"),null);
 });
+
+
+test("3 Black bins owner email says ACCOUNT NEEDS ATTENTION and change quantity to 3, not price",async()=>{
+  const {completedQuantityAttentionContent,notifyOwnerOfCompletedBooking}=
+    require("../netlify/functions/lib/squeegeeSyncOwnerAlert");
+  const id="NBG-ABCDE-ABCDEFGH";
+  const receipt={
+    subject:"🗑️ New Bin Cleaning Booking (website)",
+    text:"New Bin Cleaning Booking\nName: A Customer\nBlack bins booked: 3",
+    html:"<h2>New Bin Cleaning Booking</h2><p>"+("3 Black Bin booking. ".repeat(7))+"</p>",
+    replyTo:"customer@example.org",
+    termsBody:"These are the agreed terms. ".repeat(8),
+    binsText:"3 x Black Bin (plan: domestic_4w)",
+    pricingText:"3 x Black — 4 Weekly @ £5 = £15",
+  };
+  const attention={
+    quantityAttentionRequired:true,
+    quantityChanges:[{bin:"Black Bin",quantity:3}],
+    requestedBinCounts:["3 x Black Bin"],
+    additionalExistingBins:[],
+    firstCleanDates:["2026-11-16"],
+    rounds:[1],bookingTotal:15,
+    customerName:"A Customer",
+    serviceAddress:"78 Groomsport Road, Bangor BT20 5NF",
+    customerEmail:"customer@example.org",
+    customerPhone:"07700900123",
+    duplicateFlags:[],
+  };
+  const out=completedQuantityAttentionContent(id,receipt,attention);
+  assert.match(out.subject,/ACCOUNT NEEDS ATTENTION/);
+  assert.match(out.subject,/Set Black Bin to 3/);
+  assert.match(out.text,/Set Black Bin service quantity to 3/);
+  assert.match(out.text,/created successfully/i);
+  assert.match(out.text,/price has ALREADY been set/i);
+  assert.match(out.text,/Do NOT multiply the price again/);
+  assert.match(out.text,/Total new booking price: £15\.00/);
+  assert.match(out.text,/First clean: 2026-11-16/);
+  assert.match(out.text,/Squeegee round: 1/);
+  assert.match(out.text,/A Customer/);
+  assert.match(out.text,/78 Groomsport Road/);
+  assert.match(out.text,/ORIGINAL ACCEPTED BOOKING/);
+  assert.match(out.text,/Black bins booked: 3/);
+  assert.match(out.html,/NI BIN GUY/);
+  assert.match(out.html,/Account Needs Attention/);
+  assert.match(out.html,/Set Black Bin service quantity to 3/);
+  assert.match(out.html,/£15\.00/);
+  assert.match(out.html,/VIEW BOOKING STATUS \(READ ONLY\)/);
+  assert.equal(out.replyTo,receipt.replyTo);
+  const sends=[];
+  const pdf={filename:"signed-terms.pdf",content:"ZHVtbXk=",contentType:"application/pdf"};
+  const result=await notifyOwnerOfCompletedBooking(id,receipt,{
+    env:{RESEND_FROM:"NI Bin Guy <noreply@nibing.uy>"},
+    send:async message=>{sends.push(message);return {data:{id:"test-only"}};},
+    attachments:[pdf],attention,
+  });
+  assert.equal(result.sent,true);
+  assert.equal(sends.length,1);
+  assert.deepEqual(sends[0].to,["info@nibing.uy"]);
+  assert.match(sends[0].subject,/ACCOUNT NEEDS ATTENTION/);
+  assert.match(sends[0].text,/Set Black Bin service quantity to 3/);
+  assert.match(sends[0].html,/Account Needs Attention/);
+  assert.deepEqual(sends[0].attachments,[pdf]);
+  assert.equal(sends[0].replyTo,"customer@example.org");
+});
+
+test("attention email safely escapes customer HTML and warns when an existing job may need merging",()=>{
+  const {completedQuantityAttentionContent}=require(
+    "../netlify/functions/lib/squeegeeSyncOwnerAlert");
+  const id="NBG-ABCDE-ABCDEFGH";
+  const receipt={
+    subject:"🗑️ New Bin Cleaning Booking (website)",
+    text:"New Bin Cleaning Booking\nCustomer details",
+    html:"<h2>New Booking</h2><p>"+("A separate new job. ".repeat(7))+"</p>",
+  };
+  const attention={
+    quantityAttentionRequired:true,
+    quantityChanges:[{bin:"Black Bin",quantity:3}],
+    additionalExistingBins:["black"],
+    requestedBinCounts:["3 x Black Bin"],
+    customerName:"<script>alert(1)</script>",
+    serviceAddress:"13 <Other> Avenue, Bangor",
+    customerEmail:"customer@example.org",
+    phone:"07700900123",
+    bookingTotal:15,
+    duplicateFlags:["email_used_at_other_property"],
+  };
+  const out=completedQuantityAttentionContent(id,receipt,attention);
+  assert.match(out.text,/An existing job already uses Black Bin/);
+  assert.match(out.text,/preserve its existing bin count/i);
+  assert.match(out.text,/Possible duplicate detail/);
+  assert.match(out.html,/&lt;script&gt;/);
+  assert.match(out.html,/&lt;Other&gt;/);
+  assert.doesNotMatch(out.html,/<script>/);
+  assert.match(out.html,/merge/i);
+});
+
+test("normal booked single service is not incorrectly replaced by an attention email",async()=>{
+  const {notifyOwnerOfCompletedBooking,completedQuantityAttentionContent}=
+    require("../netlify/functions/lib/squeegeeSyncOwnerAlert");
+  const id="NBG-ABCDE-ABCDEFGH";
+  const receipt={
+    subject:"🗑️ New Bin Cleaning Booking (website)",
+    text:"New Bin Cleaning Booking\nCustomer name and bin details",
+    html:"<h2>New Booking</h2><p>"+("Regular booking. ".repeat(7))+"</p>",
+    termsBody:"Website terms agreed. ".repeat(8),
+    binsText:"1 x Black Bin",
+    pricingText:"1 Black — £5",
+  };
+  const attention={
+    quantityAttentionRequired:false,
+    quantityChanges:[],
+    requestedBinCounts:["1 x Black Bin"],bookingTotal:5,
+  };
+  assert.equal(completedQuantityAttentionContent(id,receipt,attention),null);
+  const sends=[];
+  const result=await notifyOwnerOfCompletedBooking(id,receipt,{
+    attention,
+    env:{},
+    send:async message=>{sends.push(message);return {data:{id:"test-only"}};},
+  });
+  assert.equal(result.sent,true);
+  assert.equal(sends.length,1);
+  assert.equal(sends[0].subject,receipt.subject);
+  assert.equal(sends[0].text,receipt.text);
+});

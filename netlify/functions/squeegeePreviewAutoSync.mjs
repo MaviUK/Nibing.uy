@@ -96,7 +96,7 @@ export default async function handler(request,context) {
   let ownerNoticeAttempted=false;
   // A normal admin email is intentionally delayed to avoid sending BOTH a
   // normal booking receipt and a review notice for one held booking.
-  const completedAlert=ownerReceipt?async(id)=>{
+  const completedAlert=ownerReceipt?async(id,details={})=>{
     ownerNoticeAttempted=true;
     let attachments;
     try {
@@ -117,8 +117,19 @@ export default async function handler(request,context) {
       // Send the complete original HTML/text booking email even if a fresh
       // owner PDF cannot be generated. Customer's PDF was already emailed.
     }
+    // A confirmed import of 3 x Black has one valid new Squeegee job
+    // priced for all 3 bins, but the service UUID field still reads one.
+    // Replace the normal owner receipt with ONE action email asking to
+    // adjust the Squeegee quantity; never email both.
+    const attention=details?.quantityAttentionRequired===true?{
+      ...details,
+      customerName:booking.name,
+      serviceAddress:booking.address,
+      customerEmail:booking.email,
+      customerPhone:booking.phone,
+    }:null;
     return ownerAlerts.notifyOwnerOfCompletedBooking(id,ownerReceipt,{
-      ...alertOptions,attachments,
+      ...alertOptions,attachments,attention,
     });
   }:null;
   const basicOwnerDetails={

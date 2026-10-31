@@ -499,8 +499,145 @@ function resolveOwnerEmailSettings(env={}) {
     to:[recipient||"info@nibing.uy"],
   };
 }
+
+/**
+ * Only after a CONFIRMED successful Squeegee customer/job write:
+ * replace (never supplement) the ordinary business booking email with one
+ * black/yellow ACCOUNT NEEDS ATTENTION email. The documented Add Job API
+ * receives one service UUID even if the purchaser bought 3 physical bins.
+ * The job price already includes all the bins: it must not be multiplied.
+ *
+ * The receipt comes from an HMAC-signed, server-authored accepted booking,
+ * never from a browser-chosen sender or recipient. Keep its original full
+ * details and signed terms attachment.
+ */
+function completedQuantityAttentionContent(bookingId,receipt,details={}) {
+  if(!BOOKING_RE.test(String(bookingId||"")) ||
+     !details || details.quantityAttentionRequired!==true)return null;
+  const changes=Array.isArray(details.quantityChanges)?
+    details.quantityChanges.filter(item=>
+      item && typeof item==="object" &&
+      /^(Black|Brown|Blue|Green) Bin$/.test(String(item.bin||"")) &&
+      Number.isSafeInteger(item.quantity) &&
+      item.quantity>=2 && item.quantity<=200).slice(0,12):[];
+  const additional=Array.isArray(details.additionalExistingBins)?
+    [...new Set(details.additionalExistingBins.filter(x=>
+      ["black","brown","blue","green"].includes(x)))].slice(0,4):[];
+  if(!changes.length && !additional.length)return null;
+  const requested=Array.isArray(details.requestedBinCounts)?
+    details.requestedBinCounts.filter(x=>typeof x==="string" &&
+      /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x))
+      .slice(0,12):[];
+  const dates=Array.isArray(details.firstCleanDates)?
+    [...new Set(details.firstCleanDates.filter(x=>
+      typeof x==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(x)))].slice(0,12):[];
+  const rounds=Array.isArray(details.rounds)?
+    [...new Set(details.rounds.filter(x=>
+      Number.isSafeInteger(x)&&x>=1&&x<=20))].slice(0,12):[];
+  const total=Number(details.bookingTotal);
+  const verifiedTotal=Number.isFinite(total)&&total>=0&&total<=5000?
+    "£"+total.toFixed(2):"See created Squeegee job(s)";
+  const name=cleanOwnerField(details.customerName,120);
+  const address=cleanOwnerField(details.serviceAddress,250);
+  const customerEmail=cleanOwnerField(details.customerEmail,180);
+  const phone=cleanOwnerField(details.customerPhone,35);
+  const dup=allowedFlags(details.duplicateFlags);
+  const actionLines=[
+    ...changes.map(item=>
+      "Set "+item.bin+" service quantity to "+item.quantity+
+      " on the newly created Squeegee job."),
+    ...additional.map(colour=>
+      "An existing job already uses "+colour.charAt(0).toUpperCase()+
+      colour.slice(1)+" Bin. The website created an ADDITIONAL job; "+
+      "check whether same-day jobs need to be merged manually."),
+  ];
+  const headline=changes.length===1?
+    "Set "+changes[0].bin+" to "+changes[0].quantity:
+    changes.length?"Check bin quantities":"Review additional bin job";
+  const subject="NI Bin Guy — ACCOUNT NEEDS ATTENTION: "+headline+
+    " — "+bookingId;
+  const refUrl="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId="+bookingId;
+  const text=[
+    "NI BIN GUY — ACCOUNT NEEDS ATTENTION",
+    "Squeegee customer and job(s) were created successfully.",
+    "The public API does not set the service quantity for repeated bins.",
+    "Booking reference: "+bookingId,
+    name?"Customer: "+name:"",
+    address?"Service address: "+address:"",
+    customerEmail?"Email: "+customerEmail:"",
+    phone?"Phone: "+phone:"",
+    ...requested.map(item=>"Booked: "+item),
+    ...dates.map(date=>"First clean: "+date),
+    ...rounds.map(round=>"Squeegee round: "+round),
+    "Total new booking price: "+verifiedTotal,
+    "",
+    "MANUAL ACTION REQUIRED IN SQUEEGEE",
+    ...actionLines.map((action,i)=>(i+1)+". "+action),
+    "The job price has ALREADY been set for the full booked quantity ("+
+      verifiedTotal+"). Do NOT multiply the price again.",
+    "The physical bin quantity is also recorded in the new job's notes.",
+    "If merging with an older same-colour job, preserve its existing bin "+
+      "count and add the new purchased bins; check the combined price.",
+    ...dup.map(code=>"Possible duplicate detail: "+FLAG_LABELS[code]),
+    "Do not create another Squeegee customer or website booking.",
+    "Read-only booking status: "+refUrl,
+    "",
+    "ORIGINAL ACCEPTED BOOKING",
+    receipt.text,
+  ].filter(Boolean).join("\n");
+  const row=(label,value)=>value?
+    '<tr><td style="font-size:13px;color:#596176;padding:8px 12px 8px 0;vertical-align:top;width:39%">'+
+      emailHtmlEscape(label)+'</td><td style="font-size:14px;color:#16191e;padding:8px 0;font-weight:600;vertical-align:top;overflow-wrap:anywhere">'+
+      emailHtmlEscape(value)+'</td></tr>':"";
+  const actionHtml=actionLines.map(action=>
+    '<tr><td style="padding:11px 13px;border-bottom:1px solid #e4e6e9;font-weight:700;font-size:15px;color:#0d1421">'+
+      emailHtmlEscape(action)+'</td></tr>').join("");
+  const html='<!doctype html><html lang="en"><head><meta charset="utf-8">'+
+    '<meta name="viewport" content="width=device-width,initial-scale=1"></head>'+
+    '<body style="margin:0;background:#090909;font-family:Arial,Helvetica,sans-serif">'+
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#090909"><tr><td align="center" style="padding:24px 12px">'+
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:650px;background:#fff;border-collapse:collapse">'+
+    '<tr><td style="background:#080808;color:#fff;text-align:center;padding:28px 22px">'+
+    '<div style="font-size:27px;font-weight:900;letter-spacing:1px">NI BIN GUY</div>'+
+    '<div style="font-size:12px;color:#ffdd42;letter-spacing:2px;margin-top:8px">AUTOMATIC BOOKING REVIEW</div></td></tr>'+
+    '<tr><td style="height:7px;background:#ffdc3f"></td></tr>'+
+    '<tr><td style="padding:25px 23px 10px">'+
+    '<div style="font-size:12px;font-weight:800;color:#805d03;letter-spacing:1px">CUSTOMER AND JOB CREATED IN SQUEEGEE</div>'+
+    '<h1 style="font-size:25px;color:#0a0a0a;margin:9px 0 11px">Account Needs Attention</h1>'+
+    '<p style="font-size:15px;color:#333;line-height:1.6;margin:0">'+
+      'The customer and new job have been created, but Squeegee needs a manual service quantity adjustment.</p></td></tr>'+
+    '<tr><td style="padding:9px 23px 15px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-top:1px solid #e4e6e9;border-bottom:1px solid #e4e6e9">'+
+    row("Booking reference",bookingId)+row("Customer",name)+row("Service address",address)+
+    row("Email",customerEmail)+row("Phone",phone)+
+    row("Physical bins",requested.join(" + "))+row("First clean",dates.join(", "))+
+    row("Round",rounds.join(", "))+row("Website booking total",verifiedTotal)+
+    '</table></td></tr>'+
+    '<tr><td style="padding:10px 23px 18px">'+
+    '<h2 style="font-size:18px;margin:0 0 13px;color:#111">Change these service quantities in Squeegee</h2>'+
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff7da;border:2px solid #ffdc3f">'+
+    actionHtml+'</table>'+
+    '<p style="font-size:14px;line-height:1.6;color:#262626;margin:15px 0 6px">'+
+    '<strong>Price is already set:</strong> '+emailHtmlEscape(verifiedTotal)+
+    ' for the entire new booking. Do not multiply the price again.</p>'+
+    '<p style="font-size:13px;line-height:1.6;color:#555;margin:0 0 12px">'+
+    'Squeegee job notes contain the actual physical bin quantities. '+
+    'If merging an older same-colour job, preserve its existing bins and check the combined price.</p>'+
+    '<a href="'+emailHtmlEscape(refUrl)+'" style="display:block;background:#111;color:#ffdc3f;text-align:center;font-size:14px;font-weight:800;text-decoration:none;padding:15px">'+
+    'VIEW BOOKING STATUS (READ ONLY)</a></td></tr>'+
+    (dup.length?
+      '<tr><td style="padding:0 23px 15px;font-size:12px;color:#5b4c31">'+
+      emailHtmlEscape(dup.map(x=>FLAG_LABELS[x]).join("; "))+'</td></tr>':"")+
+    '<tr><td style="padding:5px 23px 28px">'+
+    '<h2 style="font-size:15px;color:#171717">Original accepted booking details</h2>'+
+    '<div style="font-size:13px;color:#333;line-height:1.5">'+receipt.html+'</div>'+
+    '</td></tr><tr><td style="background:#f1f1f1;font-size:12px;color:#666;padding:18px 23px">'+
+    'Preview 1 only · Manual quantity change required · No automatic job retry'+
+    '</td></tr></table></td></tr></table></body></html>';
+  return {...receipt,subject,text,html};
+}
+
 async function notifyOwnerOfCompletedBooking(bookingId,receipt,{
-  env=process.env,send=null,attachments=undefined,
+  env=process.env,send=null,attachments=undefined,attention=null,
 }={}) {
   if(!BOOKING_RE.test(String(bookingId||"")))
     return {sent:false,reason:"invalid_completed_booking_ref"};
@@ -509,8 +646,11 @@ async function notifyOwnerOfCompletedBooking(bookingId,receipt,{
   const {normalOwnerReceipt}=require("./squeegeePreviewAutoDispatch");
   const safe=normalOwnerReceipt(receipt);
   if(!safe)return {sent:false,reason:"missing_completed_owner_receipt"};
+  const selected=attention?.quantityAttentionRequired===true?
+    completedQuantityAttentionContent(bookingId,safe,attention):safe;
+  if(!selected)return {sent:false,reason:"invalid_quantity_attention_details"};
   return deliverOwnerEmail({
-    ...safe,
+    ...selected,
     attachments:Array.isArray(attachments)?attachments:undefined,
   },{env,send});
 }
@@ -547,5 +687,5 @@ module.exports={emailContent,inactiveSignupEmailContent,genericReviewContent,
   resolveOwnerEmailSettings,
   duplicateSignalsEmailContent,notifyOwnerOfDuplicateSignals,
   quantityBookedEmailContent,notifyOwnerOfQuantityBooking,
-  notifyOwnerOfCompletedBooking,
+  notifyOwnerOfCompletedBooking,completedQuantityAttentionContent,
   allowedFlags,duplicateFlagLabels};

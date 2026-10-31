@@ -1977,3 +1977,185 @@ test("failed owner notification after a partial API write is visible in protecte
   assert.equal(h.statuses.at(-1).ownerAlertReason,"owner_alert_provider_error");
   assert.equal(h.posts.filter(p=>p.kind==="job").length,1);
 });
+
+
+test("3 Black bins create exactly one £15 Squeegee job plus ONE quantity-attention owner email",async()=>{
+  const b=sampleBooking({
+    bins:[{type:"Black Bin",planId:"domestic_4w",count:3}],
+    dates:["2026-11-16"],
+  });
+  const emitted=[],notices=[];
+  const h=makeHarness(b,{deps:{
+    completedAlert:async(id,details)=>{
+      emitted.push({id,details});return{sent:true};
+    },
+    alert:async()=>{notices.push("review");return{sent:true};},
+    quantityAlert:async()=>{notices.push("quantity");return{sent:true};},
+    duplicateAlert:async()=>{notices.push("duplicate");return{sent:true};},
+  }});
+  const result=await h.run();
+  assert.equal(result.status,"completed");
+  assert.equal(result.createdCustomer,true);
+  assert.equal(result.createdJobs,1);
+  const customerPosts=h.posts.filter(x=>x.kind==="customer");
+  const jobPosts=h.posts.filter(x=>x.kind==="job");
+  assert.equal(customerPosts.length,1);
+  assert.equal(jobPosts.length,1);
+  assert.deepEqual(jobPosts[0].job.services,[blackService]);
+  assert.equal(jobPosts[0].job.price,15);
+  assert.match(jobPosts[0].job.notes,/PHYSICAL BINS: 3 x Black Bin/);
+  assert.equal(jobPosts[0].job.frequencyInterval,4);
+  assert.equal(jobPosts[0].job.date,"2026-11-16");
+  assert.equal(emitted.length,1);
+  assert.deepEqual(notices,[]);
+  assert.equal(emitted[0].id,b.bookingId);
+  const attention=emitted[0].details;
+  assert.equal(attention.quantityAttentionRequired,true);
+  assert.deepEqual(attention.quantityChanges,[{bin:"Black Bin",quantity:3}]);
+  assert.deepEqual(attention.requestedBinCounts,["3 x Black Bin"]);
+  assert.equal(attention.bookingTotal,15);
+  assert.equal(attention.createdCustomer,true);
+  assert.equal(attention.createdJobs,1);
+  assert.deepEqual(attention.firstCleanDates,["2026-11-16"]);
+  assert.deepEqual(attention.rounds,[1]);
+  const saved=h.statuses.at(-1);
+  assert.equal(saved.stage,"created_customer_and_jobs");
+  assert.equal(saved.ownerAlertDelivery,"sent");
+  assert.equal(saved.quantityAttentionRequired,true);
+  assert.deepEqual(saved.quantityInstructions,["Set Black Bin quantity to 3"]);
+  assert.equal(saved.manualAction,"check_squeegee_service_quantities_and_same_day_jobs");
+  assert.equal(saved.createdJobs,1);
+  assert.equal(saved.customerName,undefined);
+  assert.equal(saved.customerEmail,undefined);
+  assert.equal(saved.serviceAddress,undefined);
+});
+
+test("mixed booking with 3 Black and 1 Brown still creates one correctly priced £20 job",async()=>{
+  const b=sampleBooking({
+    bins:[
+      {type:"Black Bin",planId:"domestic_4w",count:3},
+      {type:"Brown Bin",planId:"domestic_4w",count:1},
+    ],
+    dates:["2026-11-16","2026-11-16"],
+  });
+  const owners=[],other=[];
+  const h=makeHarness(b,{deps:{
+    completedAlert:async(id,details)=>{owners.push(details);return{sent:true};},
+    quantityAlert:async()=>{other.push("quantity");},
+    duplicateAlert:async()=>{other.push("duplicate");},
+  }});
+  assert.equal((await h.run()).status,"completed");
+  const jobs=h.posts.filter(x=>x.kind==="job");
+  assert.equal(jobs.length,1);
+  assert.equal(jobs[0].job.price,20);
+  assert.deepEqual(jobs[0].job.services,[blackService,brownService]);
+  assert.match(jobs[0].job.notes,/3 x Black Bin/);
+  assert.match(jobs[0].job.notes,/1 x Brown Bin/);
+  assert.equal(owners.length,1);
+  assert.deepEqual(owners[0].quantityChanges,[{bin:"Black Bin",quantity:3}]);
+  assert.deepEqual(other,[]);
+  assert.deepEqual(h.statuses.at(-1).physicalBinsPerJob,[4]);
+});
+
+test("two matching Black 1x lines combine to physical quantity 2 for the owner email",async()=>{
+  const b=sampleBooking({
+    bins:[
+      {type:"Black Bin",planId:"domestic_4w",count:1},
+      {type:"Black Bin",planId:"domestic_4w",count:1},
+    ],
+    dates:["2026-11-16","2026-11-16"],
+  });
+  const owners=[];
+  const h=makeHarness(b,{deps:{
+    completedAlert:async(id,details)=>{owners.push(details);return{sent:true};},
+  }});
+  const out=await h.run();
+  assert.equal(out.status,"completed");
+  assert.equal(h.posts.filter(x=>x.kind==="job").length,1);
+  assert.equal(h.posts.filter(x=>x.kind==="job")[0].job.price,10);
+  assert.deepEqual(owners[0].quantityChanges,[{bin:"Black Bin",quantity:2}]);
+  assert.deepEqual(h.statuses.at(-1).quantityInstructions,
+    ["Set Black Bin quantity to 2"]);
+});
+
+test("normal 1 Black and 1 Brown creates a normal owner email without quantity warnings",async()=>{
+  const b=sampleBooking({
+    bins:[
+      {type:"Black Bin",planId:"domestic_4w",count:1},
+      {type:"Brown Bin",planId:"domestic_4w",count:1},
+    ],
+    dates:["2026-11-16","2026-11-16"],
+  });
+  const owners=[],other=[];
+  const h=makeHarness(b,{deps:{
+    completedAlert:async(id,details)=>{owners.push(details);return{sent:true};},
+    quantityAlert:async()=>{other.push("quantity");},
+  }});
+  assert.equal((await h.run()).status,"completed");
+  assert.equal(h.posts.filter(x=>x.kind==="job").length,1);
+  assert.equal(h.posts.filter(x=>x.kind==="job")[0].job.price,10);
+  assert.equal(owners.length,1);
+  assert.equal(owners[0].quantityAttentionRequired,false);
+  assert.deepEqual(owners[0].quantityChanges,[]);
+  assert.deepEqual(other,[]);
+  assert.equal(h.statuses.at(-1).quantityAttentionRequired,false);
+});
+
+test("customer buying one more registered Black gets one account-attention email without merging Squeegee jobs",async()=>{
+  const b=sampleBooking({
+    bins:[{type:"Black Bin",planId:"domestic_4w",count:1}],
+    dates:["2026-11-16"],
+  });
+  const owners=[],other=[];
+  const original=[{services:[blackService],price:5}];
+  const h=makeHarness(b,{
+    existingRows:[{_id:customerId,name:b.name,email:b.email,
+      address:{addressDescription:b.address},status:"active"}],
+    existingCustomer:{address:{text:b.address},jobs:original},
+    deps:{
+      completedAlert:async(id,details)=>{owners.push(details);return{sent:true};},
+      quantityAlert:async()=>other.push("quantity"),
+    },
+  });
+  const out=await h.run();
+  assert.equal(out.status,"completed");
+  assert.equal(out.createdCustomer,false);
+  assert.equal(out.createdJobs,1);
+  assert.equal(h.posts.filter(x=>x.kind==="customer").length,0);
+  assert.equal(h.posts.filter(x=>x.kind==="job").length,1);
+  assert.equal(owners.length,1);
+  assert.equal(owners[0].quantityAttentionRequired,true);
+  assert.deepEqual(owners[0].quantityChanges,[]);
+  assert.deepEqual(owners[0].additionalExistingBins,["black"]);
+  assert.deepEqual(other,[]);
+  assert.deepEqual(original,[{services:[blackService],price:5}]);
+});
+
+test("failed Squeegee job for 3 Black never emits a misleading successful quantity notice",async()=>{
+  const b=sampleBooking({
+    bins:[{type:"Black Bin",planId:"domestic_4w",count:3}],
+    dates:["2026-11-16"],
+  });
+  let completed=0,review=0,quantity=0;
+  const h=makeHarness(b,{jobErrorAt:1,deps:{
+    completedAlert:async()=>{completed++;return{sent:true};},
+    quantityAlert:async()=>{quantity++;return{sent:true};},
+    alert:async()=>{review++;return{sent:true};},
+  }});
+  const out=await h.run();
+  assert.equal(out.status,"requires_reconciliation");
+  assert.equal(completed,0);
+  assert.equal(quantity,0);
+  assert.equal(review,1);
+  assert.equal(h.statuses.at(-1).stage,"requires_reconciliation");
+});
+
+test("protected status reports manual quantity adjustment and possible email failure without exposing PII",()=>{
+  const source=require("node:fs").readFileSync(
+    require("node:path").join(__dirname,
+    "../netlify/functions/squeegeePreviewAutoStatus.mjs"),"utf8");
+  assert.match(source,/quantityAttentionRequired/);
+  assert.match(source,/previewRows\("quantityInstructions"\)/);
+  assert.match(source,/Squeegee customer\/job were created/);
+  assert.doesNotMatch(source,/status\.customerEmail/);
+});

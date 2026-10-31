@@ -596,6 +596,26 @@ async function executeAutomaticPreviewBooking(payload,{
         if(!pilotDone.changed)throw new Error("pilot_claim_commit_uncertain");
         pilotClaim.etag=pilotDone.etag;
       }
+      // Quantity is not writable through the documented Squeegee v3 job
+      // service UUID array. The actual job has already been created with
+      // the correct *total price* and physical quantities in its notes.
+      // Highlight each repeated colour for manual quantity adjustment.
+      const binQuantities=new Map();
+      for(const bin of bins){
+        const colour=normalizedBinType(bin?.type);
+        const count=Number(bin?.count);
+        if(!BIN_LABELS[colour] || !Number.isSafeInteger(count) ||
+           count<1 || count>200)continue;
+        binQuantities.set(colour,(binQuantities.get(colour)||0)+count);
+      }
+      const quantityChanges=[...binQuantities].filter(([,n])=>n>1)
+        .map(([colour,quantity])=>({
+          bin:BIN_LABELS[colour]+" Bin",quantity,
+        }));
+      const quantityInstructions=quantityChanges.map(item=>
+        "Set "+item.bin+" quantity to "+item.quantity);
+      const quantityNeedsAttention=quantityChanges.length>0 ||
+        additionalTypes.size>0;
       const completedStatus={
         customerMode,
         createdCustomer:customerCreated,
@@ -605,8 +625,11 @@ async function executeAutomaticPreviewBooking(payload,{
         binsPerJob:groupedJobs.map(group=>group.members.length),
         requestedBinCounts:counts,
         additionalExistingBins:[...additionalTypes],
-        quantityVerificationRecommended:bins.some(bin=>Number(bin.count)>1) ||
-          additionalTypes.size>0,
+        quantityVerificationRecommended:quantityNeedsAttention,
+        quantityAttentionRequired:quantityNeedsAttention,
+        quantityInstructions,
+        manualAction:quantityNeedsAttention?
+          "check_squeegee_service_quantities_and_same_day_jobs":null,
         firstCleanDates:groupedJobs.map(group=>group.input.date),
         rounds:groupedJobs.map(group=>
           summary.jobs[group.members[0].index].roundNumber),
@@ -621,7 +644,21 @@ async function executeAutomaticPreviewBooking(payload,{
       if(use.completedAlert){
         let sent=false,failedReason=null;
         try{
-          const delivery=await use.completedAlert(bookingId);
+          // One owner email per successful booking: an ordinary booking
+          // email for a normal import, or ACCOUNT NEEDS ATTENTION when any
+          // physical quantity/previously registered bin needs manual work.
+          const delivery=await use.completedAlert(bookingId,{
+            quantityAttentionRequired:quantityNeedsAttention,
+            quantityChanges,requestedBinCounts:counts,
+            additionalExistingBins:[...additionalTypes],
+            duplicateFlags,
+            firstCleanDates:completedStatus.firstCleanDates,
+            rounds:completedStatus.rounds,
+            recurrence:completedStatus.recurrence,
+            bookingTotal:payload.pricing.total,
+            createdCustomer:customerCreated,createdJobs:completed,
+            customerMode,
+          });
           sent=delivery?.sent===true;
           if(!sent && /^[a-z_]{1,80}$/.test(String(delivery?.reason||"")))
             failedReason=delivery.reason;
@@ -632,16 +669,15 @@ async function executeAutomaticPreviewBooking(payload,{
           ...(failedReason?{ownerAlertReason:failedReason}:{}),
         });}catch{}
       }
-      // Independent informational duplicate/quantity warnings remain best
-      // effort. They never cause a retry or change a completed import.
-      // One PII-free informational email per successful flagged booking.
-      // Never fail a completed import or retry a Squeegee write because an
-      // owner's duplicate-information notification could not be sent.
-      if(duplicateFlags.length) {
+      // Never send a second quantity/duplicate-information email when
+      // the confirmed import's single completedAlert already includes the
+      // manual quantity instructions and any duplicate flags. Preserve the
+      // legacy informational notices for non-email/unspecified channels that
+      // do not have a signed completed owner receipt.
+      if(!quantityNeedsAttention && duplicateFlags.length) {
         try{await use.duplicateAlert(bookingId,duplicateFlags);}catch{}
       }
-      if(bins.some(bin=>Number(bin.count)>1) || additionalTypes.size>0 ||
-         new Set(bins.map(bin=>normalizedBinType(bin.type))).size!==bins.length) {
+      if(quantityNeedsAttention && !use.completedAlert){
         try{await use.quantityAlert(bookingId,{
           requestedBinCounts:counts,
           additionalExistingBins:[...additionalTypes],

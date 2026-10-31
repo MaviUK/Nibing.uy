@@ -162,3 +162,23 @@ test("a failed Squeegee handoff gives the owner one REVIEW email, not a normal s
   assert.match(egress,/ownerNoticeAttempted/);
   assert.match(egress,/if\(result\?\.status==="completed"\)/);
 });
+
+
+test("successful Squeegee imports with repeated Black bins send one owner quantity email",()=>{
+  const source=fs.readFileSync(path.join(ROOT,
+    "netlify/functions/lib/squeegeeAutomaticBooking.js"),"utf8");
+  const egress=fs.readFileSync(path.join(ROOT,
+    "netlify/functions/squeegeePreviewAutoSync.mjs"),"utf8");
+  const alerts=fs.readFileSync(path.join(ROOT,
+    "netlify/functions/lib/squeegeeSyncOwnerAlert.js"),"utf8");
+  assert.match(source,/const quantityChanges=/);
+  assert.match(source,/quantityAttentionRequired:quantityNeedsAttention/);
+  assert.match(source,/use\.completedAlert\(bookingId,\{/);
+  assert.match(source,/if\(quantityNeedsAttention && !use\.completedAlert\)/);
+  assert.match(source,/if\(!quantityNeedsAttention && duplicateFlags\.length\)/);
+  assert.match(egress,/completedAlert=ownerReceipt\?async\(id,details=\{\}\)=>/);
+  assert.match(egress,/attention:?.*undefined|attachments,attention/);
+  assert.match(alerts,/completedQuantityAttentionContent/);
+  assert.match(alerts,/ACCOUNT NEEDS ATTENTION/);
+  assert.match(source,/if\(quantityNeedsAttention && !use\.completedAlert\)/);
+});

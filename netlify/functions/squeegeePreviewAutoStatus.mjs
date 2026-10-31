@@ -126,11 +126,21 @@ export default async function handler(request,context) {
         "Check whether this is an additional physical bin or accidental duplicate. Edit the existing Squeegee job quantity/price manually if needed; no new job was created.":
         status.reason==="duplicate_bin_types_in_same_booking"?
         "Repeated bin colour lines need manual quantity clarification; no new job was created.":"";
+      const completedAttention=
+        status.stage==="created_customer_and_jobs" &&
+        status.quantityAttentionRequired===true?
+          '<p><strong>ACCOUNT NEEDS ATTENTION:</strong> '+
+          'Squeegee customer/job were created with the booked price and '+
+          'physical bin counts in job notes. Manually set the matching '+
+          'Squeegee service quantities (do not multiply the price again). '+
+          'If same-day jobs already exist, merge them manually.</p>':"";
       content+='<div class="notice"><strong>Stage: '+safe(status.stage)+'</strong>'+
         simple("reason")+simple("matchReason")+matchHelp+
         dateDiagnosis+heldDetail+
         simple("channel")+simple("customerMode")+
         simple("manualAction")+previewRows("requestedBinCounts")+
+        simple("quantityAttentionRequired")+
+        previewRows("quantityInstructions")+completedAttention+
         simple("ownerAlertDelivery")+simple("ownerAlertReason")+
         (quantityHelp?'<p><strong>Manual action: '+safe(quantityHelp)+'</strong></p>':'')+
         simple("createdCustomer")+simple("createdJobs")+simple("jobsConfirmed")+
