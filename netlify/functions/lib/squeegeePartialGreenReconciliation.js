@@ -22,34 +22,74 @@ function partialStatusSafe(status,bookingClaim,ownerClaim,partialClaim){
     ownerClaim.state==="requires_reconciliation" &&
     !partialClaim;
 }
-function approvedGroups(audit,prepared){
+// Explain which secure check is blocking the original accepted booking,
+// without returning any customer PII or Squeegee account identifiers.
+function checkApprovedGroups(audit,prepared,now=Date.now()){
   const accepted=react.auditedBooking(audit,BOOKING_ID,ACCEPTED_DAY);
-  if(!accepted.ok)return null;
-  const b=accepted.booking, bins=b.bins;
-  if(bins.length!==3 || b.name.trim().toUpperCase()!=="GAVIN STEVENSON" ||
-    bins[0].type!=="Black Bin" || bins[0].planId!=="domestic_4w" ||
-    bins[1].type!=="Brown Bin" || bins[1].planId!=="domestic_4w" ||
-    bins[2].type!=="Green Bin" || bins[2].planId!=="comm_gt660_oneoff" ||
-    bins[2].sizeLitres!==1100 ||
-    bins.some(x=>x.count!==1) || Number(b.pricing.total)!==55)return null;
-  const groups=react.preparedJobs(prepared,b,Date.now());
-  if(!groups || groups.length!==2)return null;
+  if(!accepted.ok)return {ok:false,reason:"accepted_booking_audit_invalid"};
+  const b=accepted.booking,bins=b.bins;
+  if(bins.length!==3)return {ok:false,reason:"original_bin_count_differs"};
+  const standardRecurring=new Set(["domestic_4w","comm_lt360_4w"]);
+  // Both domestic and commercial-under-360L four-weekly plans are £5
+  // and resolve to the SAME existing Squeegee colour services.
+  if(bins[0].type!=="Black Bin" ||
+     !standardRecurring.has(bins[0].planId) ||
+     bins[1].type!=="Brown Bin" ||
+     !standardRecurring.has(bins[1].planId))
+    return {ok:false,reason:"black_brown_service_plan_differs"};
+  if(bins[2].type!=="Green Bin" ||
+     bins[2].planId!=="comm_gt660_oneoff" ||
+     bins[2].sizeLitres!==1100)
+    return {ok:false,reason:"green_1100L_service_plan_differs"};
+  if(bins.some(bin=>bin.count!==1) ||
+     Number(b.pricing.total)!==55)
+    return {ok:false,reason:"original_quantity_or_total_differs"};
+  if(prepared?.status!=="prepared_read_only" ||
+     !prepared?.summary?.datesVerified ||
+     !prepared?.summary?.pricingVerified ||
+     prepared?.summary?.blockedReasons?.length){
+    const codes=new Set(prepared?.summary?.blockedReasons||[]);
+    const reason=codes.has("unverified_or_changed_dates")?
+      "schedule_reverification_failed":
+      codes.has("job_group_round_mapping_required")?
+        "round_mapping_reverification_failed":
+      codes.has("unmapped_squeegee_services")?
+        "squeegee_service_mapping_failed":
+      codes.has("price_mismatch")?
+        "original_pricing_reverification_failed":
+      "read_only_booking_preparation_failed";
+    return {ok:false,reason};
+  }
+  const groups=react.preparedJobs(prepared,b,now);
+  if(!groups)return {ok:false,reason:"prepared_verified_jobs_invalid"};
+  if(groups.length!==2)return {ok:false,reason:"job_group_count_differs"};
   const [first,missing]=groups;
-  if(first.input.date!==FIRST_DATE || missing.input.date!==FIRST_DATE ||
-     first.input.price!==10 || missing.input.price!==45 ||
-     first.input.frequencyType!=="weeks" ||
+  if(first.input.date!==FIRST_DATE || missing.input.date!==FIRST_DATE)
+    return {ok:false,reason:"first_clean_date_differs"};
+  if(first.input.price!==10 || missing.input.price!==45)
+    return {ok:false,reason:"original_job_prices_differ"};
+  if(first.input.frequencyType!=="weeks" ||
      first.input.frequencyInterval!==4 ||
      first.input.services.length!==2 ||
      missing.input.frequencyType!=="adhoc" ||
      missing.input.frequencyInterval!==undefined ||
-     missing.input.services.length!==1 ||
-     !first.input.jobGroup || !missing.input.jobGroup)return null;
-  const brownBlack=first.members.map(x=>x.bin).sort().join("|");
-  if(brownBlack!=="Black Bin|Brown Bin" ||
+     missing.input.services.length!==1)
+    return {ok:false,reason:"job_frequency_or_service_count_differs"};
+  if(!first.input.jobGroup || !missing.input.jobGroup)
+    return {ok:false,reason:"squeegee_round_group_not_verified"};
+  const blackBrown=first.members.map(x=>x.bin).sort().join("|");
+  if(blackBrown!=="Black Bin|Brown Bin" ||
      missing.members.length!==1 ||
      missing.members[0].bin!=="Green Bin" ||
-     missing.members[0].sizeLitres!==1100)return null;
-  return {booking:b,first,missing};
+     missing.members[0].sizeLitres!==1100)
+    return {ok:false,reason:"grouped_bin_identity_differs"};
+  return {ok:true,booking:b,first,missing};
+}
+function approvedGroups(audit,prepared,now=Date.now()){
+  const verified=checkApprovedGroups(audit,prepared,now);
+  return verified.ok?{
+    booking:verified.booking,first:verified.first,missing:verified.missing,
+  }:null;
 }
 function jobDate(old){
   const value=old.date||old.startDate||old.firstAppointment?.date||
@@ -94,4 +134,4 @@ function inspectJobs(jobs,first,missing){
   return {ok:true,firstFound:1,greenMissing:true};
 }
 module.exports={BOOKING_ID,ACCEPTED_DAY,FIRST_DATE,CLAIM_KEY,PATH,
-  partialStatusSafe,approvedGroups,inspectJobs};
+  partialStatusSafe,approvedGroups,checkApprovedGroups,inspectJobs};

@@ -134,3 +134,39 @@ test("owner-only reconciliation route is read-only on GET and one-use on POST",(
  assert.doesNotMatch(src,/executeAutomaticPreviewBooking\(/);
  assert.match(otp,/value==="\/api\/squeegee-preview-partial-green-reconciliation"/);
 });
+
+
+test("recovery accepts commercial-under-360L colour services equivalent to domestic 4-weekly",()=>{
+  const a=audit();
+  a.bins[0].planId="comm_lt360_4w";
+  a.bins[1].planId="comm_lt360_4w";
+  a.pricing=verifyAndPriceBooking(a.bins,"",{}).canonical;
+  const valid=p.checkApprovedGroups(a,planned(),Date.parse("2026-10-31T22:00:00Z"));
+  assert.equal(valid.ok,true,valid.reason);
+  assert.equal(valid.first.input.price,10);
+  assert.equal(valid.missing.input.price,45);
+});
+
+test("recovery exposes only fixed diagnostic codes when server plan differs",()=>{
+  const at=Date.parse("2026-10-31T22:00:00Z");
+  const a=audit();
+  assert.equal(p.checkApprovedGroups(a,{status:"held_for_review",summary:{
+    datesVerified:false,pricingVerified:true,
+    blockedReasons:["unverified_or_changed_dates"],
+  }},at).reason,"schedule_reverification_failed");
+  assert.equal(p.checkApprovedGroups(a,{status:"held_for_review",summary:{
+    datesVerified:true,pricingVerified:true,
+    blockedReasons:["job_group_round_mapping_required"],
+  }},at).reason,"round_mapping_reverification_failed");
+  const wrong=audit();wrong.bins[0].planId="domestic_oneoff";
+  wrong.pricing=verifyAndPriceBooking(wrong.bins,"",{}).canonical;
+  assert.equal(p.checkApprovedGroups(wrong,planned(),at).reason,
+    "black_brown_service_plan_differs");
+  const altered=planned();altered.privatePlan.jobs[2].input.price=30;
+  assert.equal(p.checkApprovedGroups(a,altered,at).reason,
+    "original_job_prices_differ");
+  const green=audit();green.bins[2].sizeLitres=660;
+  green.pricing=verifyAndPriceBooking(green.bins,"",{}).canonical;
+  assert.equal(p.checkApprovedGroups(green,planned(),at).reason,
+    "green_1100L_service_plan_differs");
+});

@@ -104,8 +104,10 @@ async function preflight(){
  if(!react.exactActiveCustomer(customer,b))
   return {ok:false,reason:"The matching Squeegee customer is not active or verified."};
  const prepared=prepare.prepareReadOnlyBooking(b,calendar,services,{jobGroups:groups});
- const selected=safePartial.approvedGroups(audit,prepared);
- if(!selected)return {ok:false,reason:"Original services, dates, round or £55 pricing could not be reverified."};
+ const selected=safePartial.checkApprovedGroups(audit,prepared);
+ if(!selected.ok)return {ok:false,reason:
+  "Original booking verification stopped at: "+selected.reason+
+  ". No Squeegee jobs were sent."};
  const jobs=safePartial.inspectJobs(customer.jobs,selected.first,selected.missing);
  if(!jobs.ok)return {ok:false,reason:jobs.reason};
  return {ok:true,booking:b,customerId:match.customerId,
