@@ -175,7 +175,7 @@ test("successful Squeegee imports with repeated Black bins send one owner quanti
   assert.match(source,/quantityAttentionRequired:quantityNeedsAttention/);
   assert.match(source,/use\.completedAlert\(bookingId,\{/);
   assert.match(source,/if\(quantityNeedsAttention && !use\.completedAlert\)/);
-  assert.match(source,/if\(!quantityNeedsAttention && duplicateFlags\.length\)/);
+  assert.match(source,/if\(!quantityNeedsAttention && duplicateFlags\.length && !use\.completedAlert\)/);
   assert.match(egress,/completedAlert=ownerReceipt\?async\(id,details=\{\}\)=>/);
   assert.match(egress,/attention:?.*undefined|attachments,attention/);
   assert.match(alerts,/completedQuantityAttentionContent/);
