@@ -2159,3 +2159,24 @@ test("protected status reports manual quantity adjustment and possible email fai
   assert.match(source,/Squeegee customer\/job were created/);
   assert.doesNotMatch(source,/status\.customerEmail/);
 });
+
+
+test("Preview 1 signed sync function starts without loading pdf-lib or generating PDF",async()=>{
+  const fs=require("node:fs"),path=require("node:path");
+  const handlerSource=fs.readFileSync(path.join(__dirname,
+    "../netlify/functions/squeegeePreviewAutoSync.mjs"),"utf8");
+  assert.doesNotMatch(handlerSource,
+    /^import terms from "\.\/lib\/termsPdf\.js";/m);
+  assert.match(handlerSource,
+    /const \{default:terms\}=await import\("\.\/lib\/termsPdf\.js"\)/);
+  // Unauthorised GET is safe and never creates a customer or job.
+  const {default:handler}=await import(
+    "../netlify/functions/squeegeePreviewAutoSync.mjs");
+  const r=await handler(new Request(
+    "https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-sync",
+    {method:"GET"}),{
+      deploy:{context:"deploy-preview"},site:{id:runtime.siteId},
+    });
+  assert.equal(r.status,405);
+  assert.match(await r.text(),/Method not allowed/);
+});

@@ -11,7 +11,11 @@ import rollout from "./lib/squeegeePreviewAutoRollout.js";
 import {getStore} from "@netlify/blobs";
 import {Resend} from "resend";
 import ownerAlerts from "./lib/squeegeeSyncOwnerAlert.js";
-import terms from "./lib/termsPdf.js";
+// Do NOT import termsPdf at startup: Netlify's ESM build externalises its
+// CommonJS require("pdf-lib"), and a missing runtime dependency causes
+// the ENTIRE internal booking handoff to return HTTP 502 before validation.
+// The customer already received their signed terms PDF. Attempt an optional
+// owner copy only AFTER a Squeegee job has definitively succeeded.
 
 const respond=(status,data)=>new Response(JSON.stringify(data),{
   status,headers:{
@@ -100,6 +104,10 @@ export default async function handler(request,context) {
     ownerNoticeAttempted=true;
     let attachments;
     try {
+      // Deferred, optional owner PDF: a packaging/runtime issue must NEVER
+      // stop Squeegee API validation or block the owner notification.
+      // This import is isolated inside the confirmed-success callback.
+      const {default:terms}=await import("./lib/termsPdf.js");
       const pdf=await terms.buildTermsAcceptancePdfAttachment({
         name:booking.name,email:booking.email,phone:booking.phone,
         address:booking.address,binsText:ownerReceipt.binsText,
