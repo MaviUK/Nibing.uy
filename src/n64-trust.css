@@ -1,0 +1,318 @@
+/* N64 preview support pages: real reviews and FAQs, not extra numbered levels. */
+#main-content.n64-world .n64-support-sections,
+#main-content.n64-world .n64-support-sections * {
+  box-sizing:border-box;
+}
+#main-content.n64-world .n64-trust-section {
+  position:relative;
+  width:100%;
+  min-width:0;
+  scroll-margin-top:84px;
+  padding:clamp(50px,7vw,82px) clamp(16px,4vw,42px);
+  color:#20375d;
+  font-family:"Trebuchet MS",Verdana,sans-serif;
+}
+#main-content.n64-world .n64-trust-section--reviews {
+  background:#d7eaf9;
+  border-top:8px solid #20375d;
+}
+#main-content.n64-world .n64-trust-section--questions {
+  background:#ffefc2;
+  border-top:8px solid #20375d;
+  border-bottom:8px solid #20375d;
+}
+#main-content.n64-world .n64-trust-section .n64-trust-inner {
+  width:100%;
+  max-width:1060px;
+  min-width:0;
+  margin:0 auto;
+}
+#main-content.n64-world .n64-trust-heading {
+  text-align:center;
+  margin:0 auto 32px;
+}
+#main-content.n64-world .n64-trust-eyebrow {
+  display:inline-block;
+  padding:7px 12px;
+  border:3px solid #20375d;
+  background:#ffda57;
+  box-shadow:4px 4px 0 #acc1d1;
+  font-size:.72rem;
+  font-weight:1000;
+  letter-spacing:.09em;
+  line-height:1.2;
+}
+#main-content.n64-world .n64-trust-section h2 {
+  margin:19px 0 12px;
+  color:#20375d !important;
+  font:1000 clamp(2rem,5.5vw,3.4rem)/1.05 "Arial Black","Trebuchet MS",sans-serif !important;
+  letter-spacing:-.05em;
+  text-shadow:3px 4px 0 #fff,5px 6px 0 #8da9c3;
+}
+#main-content.n64-world .n64-trust-heading > p {
+  max-width:48ch;
+  margin:0 auto;
+  color:#3a4c6b;
+  font-size:clamp(.92rem,2vw,1.1rem);
+  line-height:1.55;
+}
+#main-content.n64-world .n64-reviews-head {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:18px;
+  padding:20px;
+  border:4px solid #20375d;
+  background:#fffaf0;
+  box-shadow:6px 7px 0 #7296b1;
+}
+#main-content.n64-world .n64-reviews-head__text {min-width:0;}
+#main-content.n64-world .n64-reviews-head__source {
+  display:block;
+  margin-bottom:5px;
+  font-size:.76rem;
+  font-weight:1000;
+  letter-spacing:.1em;
+  color:#52647d;
+}
+#main-content.n64-world .n64-reviews-head__rating {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+  margin:0;
+  color:#20375d;
+}
+#main-content.n64-world .n64-reviews-head__rating strong {
+  font:1000 2.3rem/1 "Arial Black",sans-serif;
+}
+#main-content.n64-world .n64-reviews-head__rating > span {
+  color:#e9a900;
+  font-size:1.22rem;
+  letter-spacing:1px;
+}
+#main-content.n64-world .n64-reviews-head__rating small {
+  font-size:.8rem;
+  font-weight:750;
+  color:#52647d;
+}
+#main-content.n64-world .n64-reviews-head__intro {
+  margin:0;
+  color:#53627a;
+  font-size:.94rem;
+}
+#main-content.n64-world .n64-trust-link {
+  display:inline-flex;
+  justify-content:center;
+  align-items:center;
+  gap:9px;
+  min-height:48px;
+  padding:10px 17px;
+  border:3px solid #20375d !important;
+  border-radius:0 !important;
+  color:#20375d !important;
+  font-size:.92rem;
+  font-weight:1000;
+  text-align:center;
+  line-height:1.2;
+  text-decoration:none !important;
+  cursor:pointer;
+  box-shadow:4px 5px 0 #7a98ad !important;
+  transition:transform .12s,box-shadow .12s,filter .12s;
+}
+#main-content.n64-world .n64-trust-link:hover {filter:brightness(1.05);}
+#main-content.n64-world .n64-trust-link:active {transform:translateY(3px);box-shadow:1px 2px 0 #7a98ad !important;}
+#main-content.n64-world .n64-trust-link:focus-visible {
+  outline:3px solid #168aca;
+  outline-offset:4px;
+}
+#main-content.n64-world .n64-trust-link--yellow {background:#ffda57;}
+#main-content.n64-world .n64-trust-link--white {background:#fffefb;}
+#main-content.n64-world .n64-trust-link--green {
+  background:#1ab983;
+  color:#fff !important;
+  box-shadow:4px 5px 0 #14744e !important;
+}
+#main-content.n64-world .n64-review-cards {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:17px;
+  margin-top:21px;
+}
+#main-content.n64-world .n64-review-card {
+  min-width:0;
+  padding:21px;
+  border:3px solid #20375d;
+  background:#fffefb;
+  box-shadow:5px 6px 0 #aac0d1;
+}
+#main-content.n64-world .n64-review-card:nth-child(3n+2) {background:#fff4d3;}
+#main-content.n64-world .n64-review-card:nth-child(3n) {background:#ecf8f1;}
+#main-content.n64-world .n64-review-card__stars {
+  margin-bottom:11px;
+  color:#d69d00;
+  font-size:1.2rem;
+  line-height:1.2;
+  letter-spacing:2px;
+}
+#main-content.n64-world .n64-review-card__quote {
+  margin:0 0 20px;
+  color:#263955;
+  font-size:.95rem;
+  line-height:1.65;
+  white-space:pre-line;
+  overflow-wrap:anywhere;
+}
+#main-content.n64-world .n64-review-card__footer {
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:5px 14px;
+  padding-top:11px;
+  border-top:2px dashed #b7c4ce;
+  color:#263955;
+  font-size:.83rem;
+}
+#main-content.n64-world .n64-review-card__footer small {
+  color:#66758a;
+  font-size:.75rem;
+}
+#main-content.n64-world .n64-reviews-empty {
+  padding:18px;
+  margin:20px 0 0;
+  border:2px dashed #90a8ba;
+  background:#eff6ff;
+  color:#344b68;
+  line-height:1.5;
+  font-size:.9rem;
+}
+#main-content.n64-world .n64-reviews-facebook {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:16px;
+  padding:19px 20px;
+  margin-top:23px;
+  border:3px solid #20375d;
+  background:#b9e5d3;
+  box-shadow:5px 6px 0 #8bb39f;
+}
+#main-content.n64-world .n64-reviews-facebook strong {
+  display:block;
+  color:#20375d;
+  font-size:.82rem;
+  font-weight:1000;
+  letter-spacing:.06em;
+}
+#main-content.n64-world .n64-reviews-facebook p {
+  margin:4px 0 0;
+  color:#3a5269;
+  font-size:.85rem;
+  line-height:1.4;
+}
+#main-content.n64-world .n64-faq-list {
+  display:grid;
+  gap:13px;
+}
+#main-content.n64-world .n64-faq {
+  width:100%;
+  min-width:0;
+  border:3px solid #20375d;
+  background:#fffdf5;
+  box-shadow:4px 5px 0 #d7be88;
+}
+#main-content.n64-world .n64-faq[open] {background:#fffef9;}
+#main-content.n64-world .n64-faq summary {
+  display:flex;
+  align-items:center;
+  gap:13px;
+  padding:15px 17px;
+  list-style:none;
+  cursor:pointer;
+  color:#20375d;
+  font-size:.94rem;
+  font-weight:1000;
+  line-height:1.4;
+}
+#main-content.n64-world .n64-faq summary::-webkit-details-marker {display:none;}
+#main-content.n64-world .n64-faq summary:focus-visible {outline:3px solid #168aca;outline-offset:3px;}
+#main-content.n64-world .n64-faq__number {
+  flex:none;
+  min-width:38px;
+  padding:5px;
+  background:#ffe086;
+  border:2px solid #20375d;
+  color:#20375d;
+  font-size:.75rem;
+  font-weight:1000;
+  text-align:center;
+}
+#main-content.n64-world .n64-faq__question {
+  flex:1;
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+#main-content.n64-world .n64-faq__toggle {
+  display:grid;
+  flex:none;
+  place-items:center;
+  width:30px;
+  height:30px;
+  border:2px solid #20375d;
+  background:#fff2be;
+  font-size:1.25rem;
+  font-weight:1000;
+  line-height:1;
+}
+#main-content.n64-world .n64-faq[open] .n64-faq__toggle {
+  background:#b6ecdb;
+  transform:rotate(45deg);
+}
+#main-content.n64-world .n64-faq > p {
+  margin:0;
+  padding:2px 20px 19px 68px;
+  color:#42516a;
+  font-size:.93rem;
+  line-height:1.65;
+  overflow-wrap:anywhere;
+}
+#main-content.n64-world .n64-faq-cta {
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:15px;
+  margin:25px 0 0;
+  padding:20px;
+  border:3px solid #20375d;
+  background:#bde9d6;
+  box-shadow:5px 6px 0 #87ae9d;
+  text-align:center;
+}
+#main-content.n64-world .n64-faq-cta p {
+  margin:0;
+  color:#20375d;
+  font-size:.93rem;
+  font-weight:800;
+  line-height:1.4;
+}
+@media(max-width:620px) {
+  #main-content.n64-world .n64-trust-section {padding:50px 16px;}
+  #main-content.n64-world .n64-trust-heading {margin-bottom:24px;}
+  #main-content.n64-world .n64-trust-section h2 {font-size:clamp(1.85rem,8vw,2.55rem);text-shadow:2px 3px 0 #fff,4px 5px 0 #8da9c3;}
+  #main-content.n64-world .n64-reviews-head {padding:16px;gap:13px;}
+  #main-content.n64-world .n64-reviews-head .n64-trust-link {width:100%;}
+  #main-content.n64-world .n64-review-cards {grid-template-columns:1fr;}
+  #main-content.n64-world .n64-review-card {padding:17px;}
+  #main-content.n64-world .n64-reviews-facebook {padding:15px;}
+  #main-content.n64-world .n64-reviews-facebook .n64-trust-link {width:100%;}
+  #main-content.n64-world .n64-faq summary {gap:10px;padding:12px;}
+  #main-content.n64-world .n64-faq > p {padding:1px 15px 17px 60px;}
+  #main-content.n64-world .n64-faq-cta .n64-trust-link {width:100%;}
+}
+@media(prefers-reduced-motion:reduce) {
+  #main-content.n64-world .n64-trust-link {transition:none;}
+}
