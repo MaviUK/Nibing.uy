@@ -76,10 +76,10 @@ function matchCustomers(booking, customerList) {
     return {status:"needs_review",reason:"invalid_booking_address"};
   // Support both historical hash-based customer references and the new
   // concise first-booking references without changing existing accounts.
-  const refs=new Set([
-    externalCustomerReference(booking).toUpperCase(),
-    bookingCustomerReference(booking),
-  ]);
+  const refs=new Set([externalCustomerReference(booking).toUpperCase()]);
+  // Some read-only duplicate checkers do not have a submission reference:
+  // they must still find legacy customers by address, name and contact.
+  if(booking?.bookingId)refs.add(bookingCustomerReference(booking));
   const wantedEmail=normalEmail(booking.email);
   const wantedPhone=normalPhone(booking.phone);
   const rows=customerList.filter(x=>x && typeof x==="object" &&
@@ -226,10 +226,8 @@ async function matchCustomersAcrossPages(booking, listPage, { maxPages = 40 } = 
     throw new RangeError("maxPages must be 1-100");
   }
   const targetPost = normalizedPostcode(booking?.address);
-  const references = new Set([
-    externalCustomerReference(booking).toUpperCase(),
-    bookingCustomerReference(booking),
-  ]);
+  const references=new Set([externalCustomerReference(booking).toUpperCase()]);
+  if(booking?.bookingId)references.add(bookingCustomerReference(booking));
   const wantedEmail=normalEmail(booking?.email);
   const wantedPhone=normalPhone(booking?.phone);
   const found = new Map();
