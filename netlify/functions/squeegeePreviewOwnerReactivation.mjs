@@ -171,6 +171,10 @@ async function resumeOnce(check,id,day,scope){
   await outcome(id,"request_in_progress");
   let result={status:"requires_reconciliation",
     reason:"owner_reactivation_worker_exception"};
+  // Track only POSTs that returned a confirmed Squeegee success in this
+  // owner-approved invocation. The current job alone must be absent; a
+  // previous successful group from the same booking is expected.
+  const acceptedGroups=[];
   try{
     // The original signed accepted submission remains immutable. Only the
     // date-limited input-validity comparison uses its server receipt time.
@@ -200,12 +204,26 @@ async function resumeOnce(check,id,day,scope){
         addJob:async(customerId,input)=>{
           if(customerId!==check.customerId)
             throw new Error("owner_reactivation_job_target_changed");
-          // Verify before EVERY external Squeegee write.
+          const expected=check.grouped[acceptedGroups.length];
+          if(!expected || expected.input.date!==input.date ||
+             expected.input.price!==input.price ||
+             expected.input.frequencyType!==input.frequencyType ||
+             expected.input.jobGroup!==input.jobGroup ||
+             JSON.stringify(expected.input.services)!==
+               JSON.stringify(input.services))
+            throw new Error("owner_reactivation_job_order_changed");
+          // Before EVERY POST, verify the still-missing group is absent.
+          // Previously acknowledged groups from this very same invocation
+          // are allowed, but only when their saved date/services match.
           const latest=await api.getCustomer(customerId);
           if(!reactivate.exactActiveCustomer(latest,check.booking) ||
-             reactivate.existingJobRisk(latest.jobs,check.grouped,id))
+             reactivate.existingJobRisk(latest.jobs,
+               check.grouped.slice(acceptedGroups.length),id,
+               {acceptedGroups}))
             throw new Error("owner_reactivation_existing_job_appeared");
-          return api.addJobToCustomer(customerId,input);
+          const created=await api.addJobToCustomer(customerId,input);
+          acceptedGroups.push(expected); // Only after confirmed API success.
+          return created;
         },
         alert:async()=>({sent:false,reason:"owner_confirmation_on_page"}),
         completedAlert:async()=>({sent:false,

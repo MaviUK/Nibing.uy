@@ -139,3 +139,25 @@ test("owner route is GET-only until signed owner confirmation POST; import remai
   assert.doesNotMatch(src,/Request origin could not be verified/);
   assert.doesNotMatch(src,/api\.createCustomer\(/);
 });
+
+
+test("recovery permits the first group it just posted when creating a second group",()=>{
+  const id="NBG-4QUNP343";
+  const first={input:{date:"2026-11-17",price:10,
+    services:["11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222"]}};
+  const missing={input:{date:"2026-11-17",price:45,
+    services:["33333333-3333-4333-8333-333333333333"]}};
+  const saved={date:"2026-11-17",price:10,notes:"NI Bin Guy website booking: "+id,
+    services:first.input.services.map(_id=>({_id}))};
+  assert.equal(r.existingJobRisk([saved],[first,missing],id),
+    "original_booking_already_in_jobs");
+  assert.equal(r.existingJobRisk([saved],[missing],id,{acceptedGroups:[first]}),null);
+  assert.equal(r.existingJobRisk([saved,{...saved}],[missing],id,
+    {acceptedGroups:[first]}),"repeated_accepted_group_in_customer");
+  assert.equal(r.existingJobRisk([{...saved,price:30}],[missing],id,
+    {acceptedGroups:[first]}),"original_booking_already_in_jobs");
+  const green={date:"2026-11-17",services:[{_id:missing.input.services[0]}]};
+  assert.equal(r.existingJobRisk([saved,green],[missing],id,
+    {acceptedGroups:[first]}),"matching_date_and_service_already_exists");
+});

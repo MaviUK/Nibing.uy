@@ -117,10 +117,37 @@ function preparedJobs(prepared,booking,now=Date.now()){
      grouped.length<1||grouped.length>MAX_LINES)return null;
   return grouped;
 }
-function existingJobRisk(customerJobs,grouped,id){
+// Once THIS owner-confirmed request receives a successful POST for a job,
+// that verified group may appear in subsequent Squeegee GETs. Treat it as
+// already completed in THIS request, not a duplicate of the remaining job.
+// This is never used to replay an earlier uncertain claim.
+function acceptedGroupMatchesJob(old,group){
+  const ids=old?.services?.map(s=>typeof s==="string"?s:s?._id||s?.id);
+  const wanted=group?.input?.services;
+  const rawDate=old?.date||old?.startDate||old?.firstAppointment?.date||
+    old?.firstAppointment?.initialDate||old?.appointments?.[0]?.date;
+  const date=typeof rawDate==="string"?rawDate.slice(0,10):"";
+  if(!Array.isArray(ids)||!Array.isArray(wanted)||ids.length!==wanted.length ||
+     !date || date!==group.input.date ||
+     ids.some(s=>typeof s!=="string") ||
+     [...ids].sort().join("|")!==[...wanted].sort().join("|"))return false;
+  if(old.price!==undefined && old.price!==null &&
+     (typeof old.price!=="number" ||
+      Math.abs(old.price-group.input.price)>0.001))return false;
+  return true;
+}
+function existingJobRisk(customerJobs,grouped,id,{acceptedGroups=[]}={}){
   if(!Array.isArray(customerJobs))return "cannot_verify_existing_jobs";
+  const acceptedCounts=new Map();
   for(const old of customerJobs) {
     if(!old || !Array.isArray(old.services))return "cannot_verify_existing_jobs";
+    const prior=acceptedGroups.find(group=>acceptedGroupMatchesJob(old,group));
+    if(prior){
+      const count=(acceptedCounts.get(prior)||0)+1;
+      acceptedCounts.set(prior,count);
+      if(count>1)return "repeated_accepted_group_in_customer";
+      continue;
+    }
     const parts=[old.notes,old.description,old.reference,old.referenceNumber]
       .filter(v=>typeof v==="string").join(" ").toUpperCase();
     if(parts.includes(id.toUpperCase()))return "original_booking_already_in_jobs";
