@@ -127,6 +127,7 @@ export function safeOwnerReturnPath(value) {
   if(typeof value!=="string"||value.length>160)return null;
   if(value==="/api/squeegee-preview-auto-recover" ||
      value==="/api/squeegee-preview-owner-recovery" ||
+     value==="/api/squeegee-preview-owner-recovery-v2" ||
      value==="/api/squeegee-preview-auto-status" ||
      value==="/api/squeegee-preview-leaderboard-history")
     return value;

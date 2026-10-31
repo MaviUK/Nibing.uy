@@ -126,3 +126,23 @@ test("Android owner recovery requires a signed session and HMAC token, not brows
   assert.match(cookie,/Secure/);
   assert.match(cookie,/SameSite=Strict/);
 });
+
+test("new V2 recovery function is versioned, owner-only, and cannot reuse the stale route",()=>{
+  const fs=require("node:fs"),path=require("node:path");
+  const code=fs.readFileSync(path.join(__dirname,
+    "../netlify/functions/squeegeePreviewOwnerRecoveryV2.mjs"),"utf8");
+  const ownerLogin=fs.readFileSync(path.join(__dirname,
+    "../netlify/functions/squeegeePreviewTest.mjs"),"utf8");
+  assert.match(code,/const PATH="\/api\/squeegee-preview-owner-recovery-v2"/);
+  assert.match(code,/path:"\/api\/squeegee-preview-owner-recovery-v2"/);
+  assert.match(code,/RECOVERY_BUILD="recovery-v2-31oct2026-owner-recheck"/);
+  assert.match(code,/if\(!api\.isExactPreview1\(process\.env,scope\)\)/);
+  assert.match(code,/if\(!ownerAuthenticated\(request,scope\)\)/);
+  assert.match(code,/equalToken\(params\.get\("csrf"\),ownerToken\(request\)\)/);
+  assert.match(code,/params\.get\("confirm"\)!=="yes"/);
+  assert.match(code,/claims\.claimOnce\(/);
+  assert.match(code,/recovery\.originalStatusSafe\(/);
+  assert.match(code,/loadOriginalAudit\(/);
+  assert.doesNotMatch(code,/Request origin could not be verified/);
+  assert.match(ownerLogin,/value==="\/api\/squeegee-preview-owner-recovery-v2"/);
+});
