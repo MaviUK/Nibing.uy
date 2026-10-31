@@ -107,6 +107,14 @@ test("owner-only route uses original audited booking and normal immutable worker
   assert.match(code,/now:check\.originalAcceptedAt/);
   assert.match(code,/return page\(html\)/);
   assert.doesNotMatch(code,/api\.createCustomer\(/);
+  // A recovery must never make a new customer, even if Squeegee list results
+  // change between preview and POST.
+  assert.match(code,/createCustomer:async\(\)=>/);
+  assert.match(code,/owner_recovery_new_customer_not_permitted/);
+  assert.match(code,/if\(id!==check\.customerId\)/);
+  assert.match(code,/api\.getCustomer\(id\)/);
+  assert.match(code,/api\.addJobToCustomer\(id,input\)/);
+  assert.match(code,/existingJobsSafe\(latest\.jobs,check\.serviceId\)/);
   assert.doesNotMatch(code,/withApprovedPreviewAutomaticWrite\(.*=>/);
   assert.doesNotMatch(code,/Request origin could not be verified/);
   assert.match(auth,/value==="\/api\/squeegee-preview-held-groomsport-recovery"/);

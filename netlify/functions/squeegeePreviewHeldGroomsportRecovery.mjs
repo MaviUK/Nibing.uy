@@ -118,6 +118,7 @@ async function preflight() {
   if(!recovery.existingJobsSafe(customer.jobs,serviceId))
     return {ok:false,reason:"A matching job may already exist; do not duplicate it."};
   return {ok:true,booking:b,customerId:match.customerId,
+    serviceId,
     firstClean:planned.privatePlan.jobs[0].date,
     price:planned.privatePlan.jobs[0].input.price,
     originalAcceptedAt:Date.parse(b.submittedAt),
@@ -164,6 +165,30 @@ async function resumeOnce(check,scope){
         changeState:args=>claims.changeClaimState({...args,store:ledger}),
         save:(id,stage,extra)=>auto.saveAutoStatus(id,stage,extra,
           {store:statusStore()}),
+        // This owner recovery can ONLY append a job to the verified
+        // pre-existing Squeegee customer. A changed match must fail closed.
+        createCustomer:async()=>{
+          throw new Error("owner_recovery_new_customer_not_permitted");
+        },
+        getCustomer:async id=>{
+          if(id!==check.customerId)throw new Error("recovery_customer_changed");
+          const current=await api.getCustomer(id);
+          if(!recovery.existingCustomerMatches(current,check.booking) ||
+             !recovery.existingJobsSafe(current.jobs,check.serviceId))
+            throw new Error("existing_customer_or_jobs_changed");
+          return current;
+        },
+        addJob:async(id,input)=>{
+          if(id!==check.customerId)
+            throw new Error("recovery_job_target_changed");
+          // A final GET prevents a recently added matching job being
+          // duplicated between the page check and the external POST.
+          const latest=await api.getCustomer(id);
+          if(!recovery.existingCustomerMatches(latest,check.booking) ||
+             !recovery.existingJobsSafe(latest.jobs,check.serviceId))
+            throw new Error("existing_job_appeared_during_recovery");
+          return api.addJobToCustomer(id,input);
+        },
       },
     });
   }catch{
