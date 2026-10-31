@@ -93,3 +93,20 @@ test("owner recovery endpoint is owner-session-gated, explicitly confirmed, and 
   assert.match(source,/cache-control/i);
   assert.doesNotMatch(source,/localStorage/);
 });
+
+
+test("mobile form origin fallback requires same-origin browser metadata and owner confirmation",()=>{
+  const fs=require("node:fs");
+  const path=require("node:path");
+  const src=fs.readFileSync(
+    path.join(__dirname,"../netlify/functions/squeegeePreviewOwnerRecovery.mjs"),"utf8"
+  );
+  assert.match(src,/const origin=request\.headers\.get\("origin"\)/);
+  assert.match(src,/const fetchSite=request\.headers\.get\("sec-fetch-site"\)/);
+  assert.match(src,/origin==="https:\/\/deploy-preview-77--nibinguy\.netlify\.app"/);
+  assert.match(src,/!origin && fetchSite==="same-origin"/);
+  assert.match(src,/if\(!trustedOrigin\)/);
+  assert.match(src,/ownerAuthenticated\(request,scope\)/);
+  assert.match(src,/equalToken\(params\.get\("csrf"\),ownerToken\(request\)\)/);
+  assert.match(src,/params\.get\("confirm"\)!=="yes"/);
+});
