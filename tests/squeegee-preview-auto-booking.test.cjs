@@ -2209,3 +2209,105 @@ test("new two-section reference produces the Squeegee job with the verified webs
   assert.equal(h.ledger.records.get(BOOKING_CLAIM_PREFIX+b.bookingId)?.value?.state,
     "succeeded");
 });
+
+
+test("five different bin types and sizes import without false same-colour conflict",async()=>{
+  const largeIds={
+    black1100:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    black660:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    brown1100:"cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    blue660:"dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  };
+  const bins=[
+    {type:"Brown Bin",planId:"domestic_oneoff",count:1},
+    {type:"Black Bin",planId:"comm_gt660_oneoff",count:1,sizeLitres:1100},
+    {type:"Black Bin",planId:"comm_gt660_4w",count:1,sizeLitres:660},
+    {type:"Brown Bin",planId:"comm_gt660_oneoff",count:1,sizeLitres:1100},
+    {type:"Blue Bin",planId:"comm_gt660_4w",count:1,sizeLitres:660},
+  ];
+  const b=sampleBooking({bins,dates:Array(5).fill("2026-11-16")});
+  assert.equal(b.pricing.total,135);
+  const h=makeHarness(b,{services:[
+    ...accountServices,
+    {id:largeIds.black1100,description:"Black 1100L (one-off)"},
+    {id:largeIds.black660,description:"Black 660L (4 weekly)"},
+    {id:largeIds.brown1100,description:"Brown 1100L (one-off)"},
+    {id:largeIds.blue660,description:"Blue 660L (4 weekly)"},
+  ]});
+  const result=await h.run();
+  assert.equal(result.status,"completed",JSON.stringify(result));
+  assert.equal(result.createdJobs,2);
+  assert.equal(result.physicalBins,5);
+  const jobs=h.posts.filter(p=>p.kind==="job").map(p=>p.job);
+  assert.equal(jobs.reduce((n,j)=>n+j.price,0),135);
+  assert.equal(jobs[0].frequencyType,"adhoc");
+  assert.equal(jobs[0].price,105);
+  assert.deepEqual(jobs[0].services,[
+    brownOneOffService,largeIds.black1100,largeIds.brown1100,
+  ]);
+  assert.equal(jobs[1].frequencyType,"weeks");
+  assert.equal(jobs[1].frequencyInterval,4);
+  assert.equal(jobs[1].price,30);
+  assert.deepEqual(jobs[1].services,[largeIds.black660,largeIds.blue660]);
+  assert.match(jobs[0].notes,/Black Bin \(1100L\)/);
+  assert.match(jobs[0].notes,/Brown Bin \(1100L\)/);
+  assert.match(jobs[1].notes,/Black Bin \(660L\)/);
+  assert.equal(h.statuses.at(-1).quantityAttentionRequired,false);
+  assert.deepEqual(h.statuses.at(-1).quantityInstructions,[]);
+  const active=b.bins.map(bin=>activeBinKey(b,bin));
+  const jobsKeys=b.bins.map(bin=>jobKey(b,{...bin,date:"2026-11-16"}));
+  assert.equal(new Set(active).size,5);
+  assert.equal(new Set(jobsKeys).size,5);
+  for(const key of [...active,...jobsKeys])
+    assert.equal(h.ledger.records.get(key)?.value?.state,"succeeded");
+  assert.equal((await h.run()).status,"held");
+  assert.equal(h.posts.filter(p=>p.kind==="job").length,2);
+});
+
+test("another bin size on an existing account is NOT mistaken for an additional bin of that size",async()=>{
+  const older="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const newer="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const b=sampleBooking({bins:[
+    {type:"Black Bin",planId:"comm_gt660_4w",sizeLitres:1100,count:1},
+  ]});
+  const row={_id:customerId,name:b.name,email:b.email,
+    address:{addressDescription:b.address},status:"active"};
+  const h=makeHarness(b,{
+    existingRows:[row],
+    existingCustomer:{name:b.name,address:{text:b.address},status:"active",
+      jobs:[{services:[{_id:older,description:"Black 660L (4 weekly)"}]}]},
+    services:[
+      ...accountServices,
+      {id:older,description:"Black 660L (4 weekly)"},
+      {id:newer,description:"Black 1100L (4 weekly)"},
+    ],
+  });
+  const result=await h.run();
+  assert.equal(result.status,"completed",JSON.stringify(result));
+  assert.equal(result.createdCustomer,false);
+  const jobs=h.posts.filter(x=>x.kind==="job");
+  assert.equal(jobs.length,1);
+  assert.deepEqual(jobs[0].job.services,[newer]);
+  assert.doesNotMatch(jobs[0].job.notes,/ADDITIONAL BIN PURCHASE/);
+  assert.deepEqual(h.statuses.at(-1).additionalExistingBins,[]);
+  assert.equal(h.statuses.at(-1).quantityAttentionRequired,false);
+});
+
+test("same exact bin colour and capacity with conflicting recurrence still holds",async()=>{
+  const b=sampleBooking({bins:[
+    {type:"Black Bin",planId:"comm_gt660_oneoff",count:1,sizeLitres:660},
+    {type:"Black Bin",planId:"comm_gt660_4w",count:1,sizeLitres:660},
+  ],dates:["2026-11-16","2026-11-16"]});
+  const h=makeHarness(b,{services:[
+    ...accountServices,
+    {id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      description:"Black 660L (one-off)"},
+    {id:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      description:"Black 660L (4 weekly)"},
+  ]});
+  const result=await h.run();
+  assert.equal(result.status,"held");
+  assert.equal(result.reason,"conflicting_same_colour_schedules");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
