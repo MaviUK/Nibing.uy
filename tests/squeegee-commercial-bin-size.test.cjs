@@ -108,7 +108,10 @@ test("one-off 660L and recurring 1100L never silently use another service",()=>{
 });
 test("invalid or missing large-bin capacity is rejected by server before confirmation",()=>{
   for(const size of [null,undefined,0,360,661,750,1101,"660","1100",{}]){
-    const b=booking("comm_gt660_4w",size);
+    // Explicitly overwrite: passing undefined would otherwise use the
+    // fixture helper's default parameter (660L) and test a valid booking.
+    const b=booking("comm_gt660_4w",660);
+    b.bins[0].sizeLitres=size;
     const result=verifyAndPriceBooking(b.bins,null,b.pricing);
     assert.equal(result.ok,false);
     assert.equal(result.reason,"large_commercial_size_required");
