@@ -682,7 +682,7 @@ test("unauthorised automatic booking status keeps its reference through owner co
   assert.ok(page.includes("/api/squeegee-preview-test?returnTo="+
     encodeURIComponent(target)));
   assert.match(page,/After verification/);
-  assert.ok(!page.includes("href=\\"/api/squeegee-preview-test\\""));
+  assert.ok(!page.includes('href="/api/squeegee-preview-test"'));
 });
 
 test("already-authorised owner is sent back to selected booking instead of old test page",async()=>{
