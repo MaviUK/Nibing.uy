@@ -171,3 +171,38 @@ test("ordinary sync holds stay plain-text and never inherit special customer det
   assert.match(content.subject,/Squeegee booking needs review/);
   assert.equal(content.html,undefined);
 });
+
+test("operational notices resolve the same default owner mailbox as normal booking emails",async()=>{
+  const {resolveOwnerEmailSettings}=require("../netlify/functions/lib/squeegeeSyncOwnerAlert");
+  assert.deepEqual(resolveOwnerEmailSettings({}),{
+    from:"NI Bin Guy <noreply@nibing.uy>",
+    to:["info@nibing.uy"],
+  });
+  assert.deepEqual(resolveOwnerEmailSettings({BOOKINGS_TO:"   "}).to,
+    ["info@nibing.uy"]);
+  assert.deepEqual(resolveOwnerEmailSettings({
+    BOOKINGS_TO:"accounts@my-cleaning-business.example",
+    RESEND_FROM:"New Name <noreply@nibing.uy>",
+  }).to,["accounts@my-cleaning-business.example"]);
+  const calls=[];
+  const id="NBG-ABCDE-ABCDEFGH";
+  const result=await notifyOwnerOfSyncHold(
+    id,"existing_customer_reactivation_required",{
+      customerName:"A Returning Customer",
+      squeegeeAccountStatus:"inactive",
+      requestedBinCounts:["1 x Brown Bin"],
+    },{
+      env:{RESEND_API_KEY:"fake-test-key-not-real"},
+      send:async details=>{calls.push(details);return {data:{id:"unit-test"}};},
+    });
+  assert.equal(result.sent,true);
+  assert.equal(calls.length,1);
+  assert.deepEqual(calls[0].to,["info@nibing.uy"]);
+  assert.match(calls[0].subject,/INACTIVE CUSTOMER SIGN-UP/);
+  assert.match(calls[0].html,/Inactive Customer Sign-Up/);
+  // A configured recipient is optional; no impossible BOOKING_TO gate.
+  const src=fs.readFileSync(path.join(__dirname,
+    "../netlify/functions/lib/squeegeeSyncOwnerAlert.js"),"utf8");
+  assert.doesNotMatch(src,/!env\.BOOKINGS_TO/);
+  assert.match(src,/!env\.RESEND_API_KEY/);
+});

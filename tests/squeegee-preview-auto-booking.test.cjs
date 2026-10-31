@@ -1716,3 +1716,48 @@ test("an inactive list entry with active authoritative detail does not send an i
   assert.equal(h.posts.length,1);
   assert.equal(alerts.length,0);
 });
+
+test("owner-only hold stores notification delivery state but not email-only customer details",async()=>{
+  const b=sampleBooking();
+  const resultList=[];
+  const h=makeHarness(b,{existingRows:[{
+    _id:customerId,name:b.name,email:b.email,
+    address:{addressDescription:b.address},status:"inactive",
+  }],existingCustomer:{name:b.name,status:"inactive",
+    address:{text:b.address},jobs:[]},deps:{
+    alert:async (id,reason,details)=>{
+      resultList.push({id,reason,details});return {
+        sent:false,reason:"owner_alert_not_configured",
+      };
+    },
+  }});
+  const outcome=await h.run();
+  assert.equal(outcome.status,"held");
+  assert.equal(resultList.length,1);
+  assert.equal(resultList[0].details.customerName,b.name);
+  const last=h.statuses.at(-1);
+  assert.equal(last.stage,"held_for_review");
+  assert.equal(last.ownerAlertDelivery,"not_sent");
+  assert.equal(last.ownerAlertReason,"owner_alert_not_configured");
+  for(const key of ["customerName","serviceAddress","customerEmail",
+    "customerPhone","bookingTotal","squeegeeAccountStatus"]) {
+    assert.equal(last[key],undefined);
+  }
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
+
+test("confirmed owner mail delivery appears as sent on an inactive booking hold",async()=>{
+  const b=sampleBooking();
+  const h=makeHarness(b,{existingRows:[{
+    _id:customerId,name:b.name,email:b.email,status:"inactive",
+    address:{addressDescription:b.address},
+  }],existingCustomer:{name:b.name,status:"deactivated",
+    address:{text:b.address},jobs:[]},deps:{
+    alert:async()=>({sent:true}),
+  }});
+  assert.equal((await h.run()).status,"held");
+  assert.equal(h.statuses.at(-1).ownerAlertDelivery,"sent");
+  assert.equal(h.statuses.at(-1).ownerAlertReason,undefined);
+  assert.equal(h.posts.length,0);
+});

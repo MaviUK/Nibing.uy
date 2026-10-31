@@ -115,6 +115,7 @@ export default async function handler(request,context) {
         simple("reason")+dateDiagnosis+heldDetail+
         simple("channel")+simple("customerMode")+
         simple("manualAction")+previewRows("requestedBinCounts")+
+        simple("ownerAlertDelivery")+simple("ownerAlertReason")+
         (quantityHelp?'<p><strong>Manual action: '+safe(quantityHelp)+'</strong></p>':'')+
         simple("createdCustomer")+simple("createdJobs")+simple("jobsConfirmed")+
         simple("physicalBins")+previewRows("physicalBinsPerJob")+

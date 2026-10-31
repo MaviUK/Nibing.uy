@@ -208,7 +208,25 @@ async function executeAutomaticPreviewBooking(payload,{
     // inactive account alerts. Never persist or log ownerEmailOnly.
     await mark("held_for_review",{reason,...extra});
     // Best effort: email failure does not create or retry any Squeegee job.
-    try{await use.alert(bookingId,reason,{...extra,...ownerEmailOnly});}catch{}
+    // Record the alert delivery RESULT only (never the owner email's
+    // customer/address/contact fields) for read-only troubleshooting.
+    let ownerAlertDelivery="not_sent",ownerAlertReason=null;
+    try{
+      const delivery=await use.alert(bookingId,reason,{
+        ...extra,...ownerEmailOnly,
+      });
+      ownerAlertDelivery=delivery?.sent===true?"sent":"not_sent";
+      if(ownerAlertDelivery==="not_sent" &&
+         /^[a-z_]{1,80}$/.test(String(delivery?.reason||"")))
+        ownerAlertReason=delivery.reason;
+    }catch{
+      ownerAlertDelivery="failed";
+      ownerAlertReason="owner_alert_exception";
+    }
+    try{await mark("held_for_review",{
+      reason,...extra,ownerAlertDelivery,
+      ...(ownerAlertReason?{ownerAlertReason}:{}),
+    });}catch{}
     return outcome("held",reason);
   };
   const uncertain=async(reason,extra={})=>{

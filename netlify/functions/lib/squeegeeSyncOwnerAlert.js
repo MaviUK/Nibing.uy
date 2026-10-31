@@ -256,9 +256,20 @@ async function notifyOwnerOfQuantityBooking(bookingId,details={},options={}) {
   if(!content)return {sent:false,reason:"invalid_quantity_booking"};
   return deliverOwnerEmail(content,options);
 }
+function resolveOwnerEmailSettings(env={}) {
+  // The normal booking email uses the info mailbox when BOOKINGS_TO isn't
+  // configured. Operational owner alerts must use the SAME fallback.
+  const recipient=typeof env.BOOKINGS_TO==="string"?
+    env.BOOKINGS_TO.trim():"";
+  return {
+    from:env.RESEND_FROM||"NI Bin Guy <noreply@nibing.uy>",
+    to:[recipient||"info@nibing.uy"],
+  };
+}
 async function deliverOwnerEmail(email,{env=process.env,send=null}={}){
-  if(typeof send!=="function" &&
-     (!env.RESEND_API_KEY || !env.BOOKINGS_TO))
+  // BOOKINGS_TO is optional: it defaults to info@nibing.uy exactly
+  // as sendBookingEmail.js does. Only a missing provider key stops sending.
+  if(typeof send!=="function" && !env.RESEND_API_KEY)
     return {sent:false,reason:"owner_alert_not_configured"};
   try{
     const deliver=send||((args)=>{
@@ -266,8 +277,7 @@ async function deliverOwnerEmail(email,{env=process.env,send=null}={}){
       return new Resend(env.RESEND_API_KEY).emails.send(args);
     });
     const message={
-      from:env.RESEND_FROM||"NI Bin Guy <noreply@nibing.uy>",
-      to:[env.BOOKINGS_TO||"info@nibing.uy"],
+      ...resolveOwnerEmailSettings(env),
       subject:email.subject,
       text:email.text,
     };
@@ -281,6 +291,7 @@ async function deliverOwnerEmail(email,{env=process.env,send=null}={}){
 }
 
 module.exports={emailContent,inactiveSignupEmailContent,notifyOwnerOfSyncHold,
+  resolveOwnerEmailSettings,
   duplicateSignalsEmailContent,notifyOwnerOfDuplicateSignals,
   quantityBookedEmailContent,notifyOwnerOfQuantityBooking,
   allowedFlags,duplicateFlagLabels};
