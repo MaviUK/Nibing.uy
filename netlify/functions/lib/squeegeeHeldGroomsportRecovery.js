@@ -6,7 +6,7 @@ const {validateBookingSubmission}=require("./bookingSubmissionGuard");
 const {addressKey,normalName}=require("./squeegeeCustomerMatcher");
 const {validUpcomingDate}=require("./squeegeeAutomaticBooking");
 
-const BOOKING_ID="NBG-MWW3A59-2BD66130D3";
+const BOOKING_ID="NBG-MVWV3A59-2BD66130D3";
 const ACCEPTED_DAY="2026-10-31";
 const CLEAN_DATE="2026-11-10";
 const EXPECTED_PRICE=15;

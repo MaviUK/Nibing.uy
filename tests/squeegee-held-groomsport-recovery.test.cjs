@@ -18,6 +18,11 @@ function audit(){
     },
   };
 }
+test("verified original reference matches the Squeegee dispatch logs, not a visually shortened screenshot",()=>{
+  assert.equal(h.BOOKING_ID,"NBG-MVWV3A59-2BD66130D3");
+  assert.equal(h.RECOVERY_CLAIM,"claim-v1/owner-held-bookings/NBG-MVWV3A59-2BD66130D3");
+  assert.notEqual(h.BOOKING_ID,"NBG-MWW3A59-2BD66130D3");
+});
 test("only this originally accepted £15 Blue one-off booking may be replayed",()=>{
   const a=h.acceptedAudit(audit());
   assert.equal(a.ok,true);
