@@ -280,7 +280,14 @@ export default async function handler(request,context){
       '">Email and enter your one-time owner code</a></p>',403);
   }
   if(request.method==="POST"){
-    if(request.headers.get("origin")!=="https://deploy-preview-77--nibinguy.netlify.app")
+    // For mobile browsers that omit the Origin header, accept the browser's
+    // same-origin Fetch Metadata instead. Owner session and one-time HMAC
+    // confirmation token are also required below for every import.
+    const origin=request.headers.get("origin");
+    const fetchSite=request.headers.get("sec-fetch-site");
+    const trustedOrigin=origin==="https://deploy-preview-77--nibinguy.netlify.app" ||
+      (!origin && fetchSite==="same-origin");
+    if(!trustedOrigin)
       return page("Request origin could not be verified.",403);
     if(!request.headers.get("content-type")?.startsWith("application/x-www-form-urlencoded"))
       return page("Expected confirmation form.",415);
