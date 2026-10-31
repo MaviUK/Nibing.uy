@@ -149,3 +149,48 @@ test("additional purchases have booking-specific claims that never clear origina
   assert.equal(duplicate.acquired,false);
   assert.equal(second.acquired,true);
 });
+
+
+test("standard, 660L, and 1100L bins of the same colour have distinct permanent claims",()=>{
+  const b=booking();
+  const variants=[
+    {type:"Black Bin",planId:"domestic_4w"},
+    {type:"Black Bin",planId:"comm_gt660_4w",sizeLitres:660},
+    {type:"Black Bin",planId:"comm_gt660_oneoff",sizeLitres:1100},
+  ];
+  const active=variants.map(bin=>activeBinKey(b,bin));
+  const jobs=variants.map(bin=>jobKey(b,{...bin,date:"2026-11-02"}));
+  assert.equal(new Set(active).size,3);
+  assert.equal(new Set(jobs).size,3);
+  assert.equal(active[0],activeBinKey(b,{...variants[0],planId:"domestic_oneoff"}));
+  assert.equal(active[1],activeBinKey(b,{...variants[1],planId:"comm_gt660_oneoff"}));
+  const additional=variants.map(bin=>additionalBinKey(b,bin));
+  const addJobs=variants.map(bin=>additionalJobKey(b,{...bin,date:"2026-11-02"}));
+  assert.equal(new Set(additional).size,3);
+  assert.equal(new Set(addJobs).size,3);
+  assert.throws(()=>activeBinKey(b,{
+    type:"Black Bin",planId:"comm_gt660_4w",
+  }),/capacity/);
+  assert.throws(()=>jobKey(b,{
+    type:"Black Bin",planId:"comm_gt660_oneoff",
+    sizeLitres:"1100",date:"2026-11-02",
+  }),/capacity/);
+});
+
+test("independent size-based claims cannot collide or be replayed",async()=>{
+  const b=booking();
+  const variants=[
+    {type:"Brown Bin",planId:"domestic_4w"},
+    {type:"Brown Bin",planId:"comm_gt660_4w",sizeLitres:660},
+    {type:"Brown Bin",planId:"comm_gt660_4w",sizeLitres:1100},
+  ];
+  const store=makeStore();
+  const claims=await Promise.all(variants.map(bin=>claimOnce({
+    key:activeBinKey(b,bin),bookingId:b.bookingId,store,
+  })));
+  assert.ok(claims.every(x=>x.acquired===true));
+  const again=await claimOnce({
+    key:activeBinKey(b,variants[1]),bookingId:b.bookingId,store,
+  });
+  assert.equal(again.acquired,false);
+});
