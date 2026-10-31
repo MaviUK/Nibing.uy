@@ -639,13 +639,9 @@
 }
 
 
-/* Match the existing four-row checkerboard transitions for the two added
-   non-numbered sections. Their LevelWasher sprites use the exact same
-   scroll-triggered, one-time "LEVEL COMPLETED!" controller as levels 01-08. */
+/* The checkerboard, moving mascot and completion animation all use the
+   canonical level rules in n64-square.css. Only content spacing differs here. */
 #main-content.n64-world .n64-support-sections > .n64-trust-section {
-  --n64-check-tile:20px;
-  --n64-check-height:calc(var(--n64-check-tile) * 4);
-  position:relative;
   border-top:0 !important;
 }
 #main-content.n64-world .n64-support-sections > .n64-trust-section--reviews {
@@ -655,52 +651,7 @@
   padding-top:calc(58px + var(--n64-check-height));
   border-bottom:0 !important;
 }
-#main-content.n64-world .n64-support-sections > .n64-trust-section::before {
-  content:"";
-  position:absolute;
-  inset:0 0 auto 0;
-  width:100%;
-  height:var(--n64-check-height);
-  background:repeating-conic-gradient(
-    #353f63 0% 25%,
-    #fff7df 0% 50%
-  ) 0 0 / calc(var(--n64-check-tile) * 2) calc(var(--n64-check-tile) * 2);
-  box-shadow:0 4px 0 rgba(32,52,92,.16);
-  z-index:1;
-  pointer-events:none;
-}
-#main-content.n64-world .n64-support-sections > .n64-trust-section > .n64-level-track {
-  display:block;
-  box-sizing:border-box;
-  position:absolute;
-  top:0;
-  left:0;
-  right:0;
-  bottom:auto;
-  z-index:5;
-  width:100%;
-  max-width:none !important;
-  height:var(--n64-check-height);
-  margin:0;
-  padding:0;
-  border:0 !important;
-  border-radius:0 !important;
-  box-shadow:none !important;
-  overflow:hidden;
-  pointer-events:none;
-  user-select:none;
-  isolation:isolate;
-  --n64-level-duration:3.2s;
-}
-@media(min-width:800px) {
-  #main-content.n64-world .n64-support-sections > .n64-trust-section > .n64-level-track {
-    --n64-level-duration:5.2s;
-  }
-}
 @media(max-width:640px) {
-  #main-content.n64-world .n64-support-sections > .n64-trust-section {
-    --n64-check-tile:16px;
-  }
   #main-content.n64-world .n64-support-sections > .n64-trust-section--reviews {
     padding-top:calc(48px + var(--n64-check-height));
   }
