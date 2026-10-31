@@ -70,3 +70,24 @@ test("grouped prices must sum to the original customer-accepted £120",()=>{
   assert.equal(r.safeAmounts([group(30),group(90)]).ok,true);
   assert.equal(r.safeAmounts([group(30),group(89)]).ok,false);
 });
+
+test("owner recovery endpoint is owner-session-gated, explicitly confirmed, and one-use",()=>{
+  const fs=require("node:fs");
+  const path=require("node:path");
+  const source=fs.readFileSync(
+    path.join(__dirname,"../netlify/functions/squeegeePreviewOwnerRecovery.mjs"),
+    "utf8"
+  );
+  assert.match(source,/if\(!ownerAuthenticated\(request,scope\)\)/);
+  assert.match(source,/session\.verifyTestSessionCookie/);
+  assert.match(source,/if\(request\.method==="POST"\)/);
+  assert.match(source,/params\.get\("confirm"\)!=="yes"/);
+  assert.match(source,/claims\.claimOnce\(/);
+  assert.match(source,/claims\.changeClaimState\(/);
+  assert.match(source,/api\.withApprovedPreviewAutomaticWrite/);
+  assert.match(source,/matcher\.matchCustomersAcrossPages/);
+  assert.match(source,/recovery\.originalStatusSafe/);
+  assert.match(source,/loadOriginalAudit/);
+  assert.match(source,/cache-control/i);
+  assert.doesNotMatch(source,/localStorage/);
+});
