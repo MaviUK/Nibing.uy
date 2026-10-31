@@ -1807,3 +1807,100 @@ test("owner read-only status displays stored matchReason but not customer contac
   assert.match(source,/Customer match requires manual review/);
   assert.doesNotMatch(source,/status\.customerEmail/);
 });
+
+
+test("successful Preview 1 sync sends the standard owner email after its Squeegee job",async()=>{
+  const booking=sampleBooking();
+  const sent=[];
+  let harness;
+  harness=makeHarness(booking,{deps:{
+    completedAlert:async id=>{
+      assert.equal(id,booking.bookingId);
+      assert.equal(harness.posts.filter(p=>p.kind==="job").length,1);
+      sent.push("normal");
+      return{sent:true};
+    },
+    alert:async()=>{sent.push("review");return{sent:true};},
+  }});
+  const response=await harness.run();
+  assert.equal(response.status,"completed");
+  assert.deepEqual(sent,["normal"]);
+  const saved=harness.statuses.at(-1);
+  assert.equal(saved.stage,"created_customer_and_jobs");
+  assert.equal(saved.ownerAlertDelivery,"sent");
+  assert.equal(saved.createdJobs,1);
+  assert.deepEqual(saved.firstCleanDates,["2026-11-16"]);
+  assert.deepEqual(saved.rounds,[1]);
+  assert.equal(saved.customerMode,"new");
+  assert.equal(harness.posts.filter(p=>p.kind==="customer").length,1);
+  assert.equal(harness.posts.filter(p=>p.kind==="job").length,1);
+});
+
+test("held Preview 1 booking sends ONLY its review email, never a normal owner receipt",async()=>{
+  const booking=sampleBooking();
+  const seen=[];
+  const harness=makeHarness(booking,{existingRows:[{
+    _id:customerId,name:"Different Person",email:"other@example.org",
+    address:{addressDescription:booking.address},status:"inactive",
+  }],deps:{
+    completedAlert:async()=>{seen.push("normal");return{sent:true};},
+    alert:async(id,reason,details)=>{
+      seen.push("review");
+      assert.equal(id,booking.bookingId);
+      assert.equal(reason,"customer_match_ambiguous_or_incomplete");
+      assert.equal(details.customerName,booking.name);
+      assert.equal(details.serviceAddress,booking.address);
+      assert.equal(details.customerEmail,booking.email);
+      return{sent:true};
+    },
+  }});
+  assert.equal((await harness.run()).status,"held");
+  assert.deepEqual(seen,["review"]);
+  assert.equal(harness.posts.length,0);
+  assert.equal(harness.ledger.records.size,0);
+  assert.equal(harness.statuses.at(-1).ownerAlertDelivery,"sent");
+});
+
+test("owner receipt is HMAC-protected, bounded and never supplies recipient/from fields",async()=>{
+  const b=sampleBooking(),events=[];
+  const receipt={
+    subject:"🗑️ New Bin Cleaning Booking (website)",
+    text:"New Bin Cleaning Booking\nName: Test Customer\n1 x Brown Bin",
+    html:"<h2>New Bin Cleaning Booking</h2><p>"+("Signed accepted booking. ".repeat(6))+"</p>",
+    replyTo:"customer@example.org",
+    termsBody:"The agreed terms of service are included. ".repeat(6),
+    binsText:"1 x Brown Bin (plan: domestic_4w)",
+    pricingText:"1x Brown — 4 Weekly @ £5 = £5",
+  };
+  const {
+    normalOwnerReceipt,
+  }=require("../netlify/functions/lib/squeegeePreviewAutoDispatch");
+  assert.deepEqual(normalOwnerReceipt(receipt),receipt);
+  assert.equal(normalOwnerReceipt({...receipt,html:"short"}),null);
+  assert.equal(normalOwnerReceipt({...receipt,subject:"unexpected"}),null);
+  assert.equal(normalOwnerReceipt({...receipt,replyTo:"x".repeat(300)}),null);
+  const result=await dispatchAcceptedBooking(b,{
+    channel:"email",eventHost:runtime.hostname,env,ownerReceipt:receipt,
+    now,fetchImpl:async(url,opts)=>{
+      assert.equal(url,"https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-sync");
+      const parsed=JSON.parse(opts.body);
+      assert.deepEqual(parsed.ownerReceipt,receipt);
+      assert.equal(parsed.ownerReceipt.to,undefined);
+      assert.equal(parsed.ownerReceipt.from,undefined);
+      assert.equal(verifyAcceptedEvent(opts.body,
+        opts.headers["X-NBG-Auto-Timestamp"],
+        opts.headers["X-NBG-Auto-Signature"],env,now),true);
+      events.push(parsed);
+      return{status:202};
+    },
+  });
+  assert.equal(result.queued,true);
+  assert.equal(events.length,1);
+  const rejected=await dispatchAcceptedBooking(b,{
+    channel:"email",eventHost:runtime.hostname,env,now,
+    ownerReceipt:{...receipt,html:"invalid"},
+    fetchImpl:async()=>{throw Error("must not dispatch invalid owner receipt");},
+  });
+  assert.equal(rejected.queued,false);
+  assert.equal(rejected.reason,"owner_receipt_invalid");
+});

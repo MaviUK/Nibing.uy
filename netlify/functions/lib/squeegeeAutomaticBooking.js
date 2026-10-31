@@ -189,8 +189,21 @@ async function executeAutomaticPreviewBooking(payload,{
       notifyOwnerOfDuplicateSignals(id,flags,{env})),
     quantityAlert:deps.quantityAlert||((id,details)=>
       notifyOwnerOfQuantityBooking(id,details,{env})),
+    completedAlert:typeof deps.completedAlert==="function"?
+      deps.completedAlert:null,
   };
   let duplicateFlags=[];
+  let verifiedFirstCleanDates=[];
+  const ownerSubmissionInfo=(accountStatus="not confirmed")=>({
+    customerName:payload.name,
+    serviceAddress:payload.address,
+    customerEmail:payload.email,
+    customerPhone:payload.phone,
+    requestedBinCounts:requestedBinCounts(bins),
+    firstCleanDates:verifiedFirstCleanDates,
+    bookingTotal:payload.pricing?.total,
+    squeegeeAccountStatus:accountStatus,
+  });
   const mark=async(stage,extra={})=>{
     // PII-free operational trace to distinguish accepted dispatch, held
     // validation, and confirmed job creation without exposing customer data.
@@ -213,7 +226,7 @@ async function executeAutomaticPreviewBooking(payload,{
     let ownerAlertDelivery="not_sent",ownerAlertReason=null;
     try{
       const delivery=await use.alert(bookingId,reason,{
-        ...extra,...ownerEmailOnly,
+        ...ownerSubmissionInfo(),...extra,...ownerEmailOnly,
       });
       ownerAlertDelivery=delivery?.sent===true?"sent":"not_sent";
       if(ownerAlertDelivery==="not_sent" &&
@@ -233,7 +246,7 @@ async function executeAutomaticPreviewBooking(payload,{
     extra={...extra,duplicateFlags};
     try{await mark("requires_reconciliation",{reason,...extra});}catch{}
     try{await use.alert(bookingId,"requires_reconciliation",{
-      matchReason:reason,duplicateFlags,
+      ...ownerSubmissionInfo(),matchReason:reason,duplicateFlags,
     });}catch{}
     return outcome("requires_reconciliation",reason);
   };
@@ -291,6 +304,7 @@ async function executeAutomaticPreviewBooking(payload,{
     let groupedJobs;
     try{groupedJobs=groupedSqueegeeJobs(plan.jobs,bookingId);}
     catch{return await held("cannot_safely_group_bin_jobs");}
+    verifiedFirstCleanDates=groupedJobs.map(group=>group.input.date);
     const groupedPennies=groupedJobs.reduce((sum,group)=>
       sum+Math.round(group.input.price*100),0);
     const bookingPennies=Math.round(Number(payload.pricing?.total)*100);
@@ -301,18 +315,6 @@ async function executeAutomaticPreviewBooking(payload,{
       return await held("grouped_job_price_or_service_mismatch");
     }
 
-    // Email-only contact details for unresolved or inactive customer
-    // sign-ups. NEVER persist these details to the PII-free status ledger.
-    const ownerReviewEmailInfo=(accountStatus)=>({
-      customerName:payload.name,
-      serviceAddress:payload.address,
-      customerEmail:payload.email,
-      customerPhone:payload.phone,
-      requestedBinCounts:counts,
-      firstCleanDates:groupedJobs.map(group=>group.input.date),
-      bookingTotal:payload.pricing.total,
-      squeegeeAccountStatus:accountStatus,
-    });
     const customerMatch=await matchCustomersAcrossPages(payload,
       args=>use.listCustomers(args),{maxPages:100});
     // Email/phone duplicate flags remain informational. The independent
@@ -323,7 +325,7 @@ async function executeAutomaticPreviewBooking(payload,{
     if(!["matched","not_found","reactivation_required"].includes(customerMatch.status))
       return await held("customer_match_ambiguous_or_incomplete",{
         matchReason:customerMatch.reason||"unspecified_match_reason",
-      },ownerReviewEmailInfo("not confirmed"));
+      },ownerSubmissionInfo("not confirmed"));
     const existing=customerMatch.status!=="not_found";
     const anotherProperty=customerMatch.relatedContactAtDifferentAddress===true;
     const matchedByIdentity=customerMatch.reason==="exact_identity_other_property" ||
@@ -373,17 +375,17 @@ async function executeAutomaticPreviewBooking(payload,{
       if(["inactive","deactivated"].includes(recordStatus))
         return await held("existing_customer_reactivation_required",{
           matchReason:"inactive_exact_customer",
-        },ownerReviewEmailInfo(recordStatus));
+        },ownerSubmissionInfo(recordStatus));
       if(["deleted","archived","cancelled","canceled"].includes(recordStatus))
         return await held("existing_customer_inactive",{},
-          ownerReviewEmailInfo(recordStatus));
+          ownerSubmissionInfo(recordStatus));
       // A previously inactive LIST row may be stale; only the authoritative
       // detail response can permit continued normal append-only job creation.
       if(customerMatch.status==="reactivation_required" &&
          recordStatus!=="active")
         return await held("existing_customer_reactivation_required",{
           matchReason:"inactive_exact_customer",
-        },ownerReviewEmailInfo(recordStatus));
+        },ownerSubmissionInfo(recordStatus));
       const catalog=resolveSqueegeeServiceIds(services.value);
       // A new accepted website booking of an already registered colour
       // means ADDITIONAL physical bins. Leave all earlier jobs and billing
@@ -577,7 +579,7 @@ async function executeAutomaticPreviewBooking(payload,{
         if(!pilotDone.changed)throw new Error("pilot_claim_commit_uncertain");
         pilotClaim.etag=pilotDone.etag;
       }
-      await mark("created_customer_and_jobs",{
+      const completedStatus={
         customerMode,
         createdCustomer:customerCreated,
         createdJobs:completed,binServices:plan.jobs.length,
@@ -588,15 +590,33 @@ async function executeAutomaticPreviewBooking(payload,{
         additionalExistingBins:[...additionalTypes],
         quantityVerificationRecommended:bins.some(bin=>Number(bin.count)>1) ||
           additionalTypes.size>0,
-       physicalBinsPerJob:groupedJobs.map(group=>group.physicalBinCount),
-       additionalExistingBins:[...additionalTypes],
         firstCleanDates:groupedJobs.map(group=>group.input.date),
         rounds:groupedJobs.map(group=>
           summary.jobs[group.members[0].index].roundNumber),
         recurrence:groupedJobs.map(group=>
           group.input.frequencyType==="weeks"
             ?"every_"+group.input.frequencyInterval+"_weeks":"one_off"),
-      });
+      };
+      await mark("created_customer_and_jobs",completedStatus);
+      // The normal business booking email is deferred ONLY on Preview 1.
+      // After confirmed success, send that email once via the accepted
+      // signed event. Do not retry any Squeegee write for an email failure.
+      if(use.completedAlert){
+        let sent=false,failedReason=null;
+        try{
+          const delivery=await use.completedAlert(bookingId);
+          sent=delivery?.sent===true;
+          if(!sent && /^[a-z_]{1,80}$/.test(String(delivery?.reason||"")))
+            failedReason=delivery.reason;
+        }catch{failedReason="owner_alert_exception";}
+        try{await mark("created_customer_and_jobs",{
+          ...completedStatus,
+          ownerAlertDelivery:sent?"sent":"not_sent",
+          ...(failedReason?{ownerAlertReason:failedReason}:{}),
+        });}catch{}
+      }
+      // Independent informational duplicate/quantity warnings remain best
+      // effort. They never cause a retry or change a completed import.
       // One PII-free informational email per successful flagged booking.
       // Never fail a completed import or retry a Squeegee write because an
       // owner's duplicate-information notification could not be sent.

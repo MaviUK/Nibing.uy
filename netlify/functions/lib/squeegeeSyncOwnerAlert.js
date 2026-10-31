@@ -176,6 +176,16 @@ function emailContent(bookingId,reason,extra={}) {
   const requestedBinCounts=Array.isArray(extra?.requestedBinCounts)?
     extra.requestedBinCounts.filter(x=>typeof x==="string" &&
       /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x)).slice(0,12):[];
+  const customerName=cleanOwnerField(extra.customerName,120);
+  const customerAddress=cleanOwnerField(extra.serviceAddress,250);
+  const customerEmail=cleanOwnerField(extra.customerEmail,180);
+  const customerPhone=cleanOwnerField(extra.customerPhone,35);
+  const proposedDates=Array.isArray(extra.firstCleanDates)?
+    [...new Set(extra.firstCleanDates.filter(x=>
+      typeof x==="string" && /^\d{4}-\d{2}-\d{2}$/.test(x)))].slice(0,12):[];
+  const bookingTotal=Number(extra.bookingTotal);
+  const hasBookingTotal=Number.isFinite(bookingTotal) &&
+    bookingTotal>=0 && bookingTotal<=5000;
   const quantityAdvice={
     service_quantity_requires_manual_configuration:
       "This booking requests multiple physical bins of one colour. The Squeegee API cannot set verified per-service quantities. No customer or job was automatically created. Check the original booking email and manually create the correct service quantities, job price, round and dates in Squeegee.",
@@ -193,7 +203,13 @@ function emailContent(bookingId,reason,extra={}) {
         "UNCONFIRMED / may be partially created":"HELD — no automatic retry"),
       "Reason: "+reason,
       matchReason?"Customer match: "+matchReason:"",
+      customerName?"Customer: "+customerName:"",
+      customerAddress?"Service address: "+customerAddress:"",
+      customerEmail?"Email: "+customerEmail:"",
+      customerPhone?"Phone: "+customerPhone:"",
       ...requestedBinCounts.map(value=>"Requested: "+value),
+      ...proposedDates.map(date=>"Proposed first clean: "+date),
+      hasBookingTotal?"New booking total: £"+bookingTotal.toFixed(2):"",
       quantityAdvice[reason]?"Action required: "+quantityAdvice[reason]:"",
       ...duplicateFlags.map(flag=>"Duplicate flag: "+FLAG_LABELS[flag]),
       "",
@@ -289,6 +305,21 @@ function resolveOwnerEmailSettings(env={}) {
     to:[recipient||"info@nibing.uy"],
   };
 }
+async function notifyOwnerOfCompletedBooking(bookingId,receipt,{
+  env=process.env,send=null,attachments=undefined,
+}={}) {
+  if(!BOOKING_RE.test(String(bookingId||"")))
+    return {sent:false,reason:"invalid_completed_booking_ref"};
+  // Require the same signed receipt structure checked by the internal
+  // accepted-event transport, not a browser-supplied email destination.
+  const {normalOwnerReceipt}=require("./squeegeePreviewAutoDispatch");
+  const safe=normalOwnerReceipt(receipt);
+  if(!safe)return {sent:false,reason:"missing_completed_owner_receipt"};
+  return deliverOwnerEmail({
+    ...safe,
+    attachments:Array.isArray(attachments)?attachments:undefined,
+  },{env,send});
+}
 async function deliverOwnerEmail(email,{env=process.env,send=null}={}){
   // BOOKINGS_TO is optional: it defaults to info@nibing.uy exactly
   // as sendBookingEmail.js does. Only a missing provider key stops sending.
@@ -305,6 +336,10 @@ async function deliverOwnerEmail(email,{env=process.env,send=null}={}){
       text:email.text,
     };
     if(typeof email.html==="string")message.html=email.html;
+    if(typeof email.replyTo==="string" && email.replyTo.includes("@"))
+      message.replyTo=email.replyTo;
+    if(Array.isArray(email.attachments) && email.attachments.length)
+      message.attachments=email.attachments;
     const result=await deliver(message);
     if(result?.error)return {sent:false,reason:"owner_alert_provider_error"};
     return {sent:true};
@@ -317,4 +352,5 @@ module.exports={emailContent,inactiveSignupEmailContent,notifyOwnerOfSyncHold,
   resolveOwnerEmailSettings,
   duplicateSignalsEmailContent,notifyOwnerOfDuplicateSignals,
   quantityBookedEmailContent,notifyOwnerOfQuantityBooking,
+  notifyOwnerOfCompletedBooking,
   allowedFlags,duplicateFlagLabels};

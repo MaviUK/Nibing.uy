@@ -25,12 +25,35 @@ function acceptedEventBooking(payload) {
   // anything which the Squeegee API does not need.
   const keys=[
     "bookingId","submittedAt","name","email","phone","address",
-    "placeId","lat","lng","bins","pricing","discountCode",
-    "termsAccepted","bookingScheduleSnapshot",
+    "placeId","lat","lng","bins","pricing","discountCode","source","termsVersion","termsTimestamp",
+    "termsAcceptanceText","termsAccepted","bookingScheduleSnapshot",
   ];
   const booking={};
   for(const key of keys)if(payload?.[key]!==undefined)booking[key]=payload[key];
   return booking;
+}
+/**
+ * Private owner receipt built only by the trusted booking sender. Its source
+ * is signed together with the accepted booking; the worker never trusts
+ * a browser-provided recipient or sender address.
+ */
+function normalOwnerReceipt(value) {
+  if(!value || typeof value!=="object" || Array.isArray(value))return null;
+  const {subject,text,html,replyTo,termsBody,binsText,pricingText}=value;
+  if(typeof subject!=="string" ||
+     !subject.startsWith("🗑️ New Bin Cleaning Booking (") ||
+     subject.length>220 ||
+     typeof text!=="string" || text.length<20 || text.length>14000 ||
+     typeof html!=="string" || html.length<100 || html.length>19000 ||
+     typeof termsBody!=="string" || termsBody.length<100 ||
+     termsBody.length>6000 ||
+     typeof binsText!=="string" || binsText.length>2500 ||
+     typeof pricingText!=="string" || pricingText.length>5000 ||
+     (replyTo!==undefined && replyTo!==null &&
+      (typeof replyTo!=="string" || replyTo.length>250)))
+    return null;
+  return {subject,text,html,termsBody,binsText,pricingText,
+    replyTo:typeof replyTo==="string"?replyTo:null};
 }
 function signAcceptedEvent(body,timestamp,env=process.env) {
   const secret=previewInternalSecret(env);
@@ -57,6 +80,7 @@ function autoDispatchConfigured(env=process.env) {
 }
 async function dispatchAcceptedBooking(payload,{
   channel,eventHost,env=process.env,fetchImpl=fetch,timeoutMs=3000,
+  ownerReceipt=null,
   now=Date.now(),
 }={}) {
   if(!autoDispatchConfigured(env))return {queued:false,reason:"not_enabled"};
@@ -74,7 +98,10 @@ async function dispatchAcceptedBooking(payload,{
   const accepted=validateBookingSubmission(payload,{now});
   if(!accepted.ok)return {queued:false,reason:"invalid_or_expired_booking"};
   const booking=acceptedEventBooking(payload);
-  const body=JSON.stringify({channel,booking});
+  const receipt=ownerReceipt===null?null:normalOwnerReceipt(ownerReceipt);
+  if(ownerReceipt!==null && !receipt)
+    return {queued:false,reason:"owner_receipt_invalid"};
+  const body=JSON.stringify({channel,booking,ownerReceipt:receipt});
   if(body.length>30000)return {queued:false,reason:"booking_too_large"};
   const timestamp=String(now);
   const signature=signAcceptedEvent(body,timestamp,env);
@@ -102,6 +129,7 @@ async function dispatchAcceptedBooking(payload,{
   }finally{clearTimeout(timer);}
 }
 module.exports={
-  PREVIEW_ORIGIN,acceptedEventBooking,autoDispatchConfigured,
+  PREVIEW_ORIGIN,acceptedEventBooking,normalOwnerReceipt,
+  autoDispatchConfigured,
   signAcceptedEvent,verifyAcceptedEvent,dispatchAcceptedBooking,
 };

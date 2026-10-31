@@ -11,6 +11,7 @@ import rollout from "./lib/squeegeePreviewAutoRollout.js";
 import {getStore} from "@netlify/blobs";
 import {Resend} from "resend";
 import ownerAlerts from "./lib/squeegeeSyncOwnerAlert.js";
+import terms from "./lib/termsPdf.js";
 
 const respond=(status,data)=>new Response(JSON.stringify(data),{
   status,headers:{
@@ -91,22 +92,78 @@ export default async function handler(request,context) {
   const alertOptions=provider?{
     env:process.env,send:message=>provider.emails.send(message),
   }:{env:process.env};
+  const ownerReceipt=dispatch.normalOwnerReceipt(data.ownerReceipt);
+  let ownerNoticeAttempted=false;
+  // A normal admin email is intentionally delayed to avoid sending BOTH a
+  // normal booking receipt and a review notice for one held booking.
+  const completedAlert=ownerReceipt?async(id)=>{
+    ownerNoticeAttempted=true;
+    let attachments;
+    try {
+      const pdf=await terms.buildTermsAcceptancePdfAttachment({
+        name:booking.name,email:booking.email,phone:booking.phone,
+        address:booking.address,binsText:ownerReceipt.binsText,
+        pricingText:ownerReceipt.pricingText,
+        termsAccepted:booking.termsAccepted,
+        termsVersion:booking.termsVersion||"August 2026",
+        termsTimestamp:booking.termsTimestamp||booking.submittedAt,
+        termsAcceptanceText:booking.termsAcceptanceText||
+          "I confirm I have read and agree to the NI Bin Guy Terms of Service.",
+        termsBody:ownerReceipt.termsBody,
+        source:booking.source||"website",
+      });
+      if(pdf)attachments=[pdf];
+    }catch{
+      // Send the complete original HTML/text booking email even if a fresh
+      // owner PDF cannot be generated. Customer's PDF was already emailed.
+    }
+    return ownerAlerts.notifyOwnerOfCompletedBooking(id,ownerReceipt,{
+      ...alertOptions,attachments,
+    });
+  }:null;
+  const basicOwnerDetails={
+    customerName:booking.name,serviceAddress:booking.address,
+    customerEmail:booking.email,customerPhone:booking.phone,
+    requestedBinCounts:Array.isArray(booking.bins)?
+      booking.bins.map(bin=>String(Number(bin.count)||1)+" x "+
+        String(bin.type||"")).slice(0,12):[],
+    bookingTotal:booking.pricing?.total,
+  };
+  const alert=async(id,reason,details)=>{
+    ownerNoticeAttempted=true;
+    return ownerAlerts.notifyOwnerOfSyncHold(id,reason,details,alertOptions);
+  };
   const task=auto.executeAutomaticPreviewBooking(booking,{
     channel:data.channel,runtimeScope:scope,
     deps:{
       claim:args=>claims.claimOnce({...args,store:claimStore}),
       changeState:args=>claims.changeClaimState({...args,store:claimStore}),
       save:(id,stage,extra)=>auto.saveAutoStatus(id,stage,extra,{store:statusStore}),
-      alert:(id,reason,details)=>
-        ownerAlerts.notifyOwnerOfSyncHold(id,reason,details,alertOptions),
+      alert,
+      ...(completedAlert?{completedAlert}:{}),
       duplicateAlert:(id,flags)=>
         ownerAlerts.notifyOwnerOfDuplicateSignals(id,flags,alertOptions),
       quantityAlert:(id,details)=>
         ownerAlerts.notifyOwnerOfQuantityBooking(id,details,alertOptions),
     },
+  }).then(async result=>{
+    if(ownerReceipt && !ownerNoticeAttempted &&
+       result?.status!=="completed") {
+      // Exceptional early rejection can otherwise bypass the worker's
+      // standard held() function. Send one manual reconciliation email.
+      await alert(bookingId,"requires_reconciliation",{
+        ...basicOwnerDetails,matchReason:result?.reason||
+          "worker_returned_without_owner_notice",
+      }).catch(()=>{});
+    }
   }).catch(async()=>{
     try{await auto.saveAutoStatus(bookingId,"requires_reconciliation",
       {reason:"worker_failed_unsafely_no_retry"},{store:statusStore});}catch{}
+    if(ownerReceipt && !ownerNoticeAttempted) {
+      await alert(bookingId,"requires_reconciliation",{
+        ...basicOwnerDetails,matchReason:"worker_failed_unsafely_no_retry",
+      }).catch(()=>{});
+    }
   });
   try{context.waitUntil(task);}
   catch {

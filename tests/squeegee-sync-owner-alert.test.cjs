@@ -268,3 +268,54 @@ test("deployed modern Netlify worker injects the statically imported Resend emai
     "notifyOwnerOfQuantityBooking",
   ])assert.ok(source.includes("ownerAlerts."+name));
 });
+
+
+test("completed Squeegee booking owner email uses the original signed email and company address only",async()=>{
+  const {notifyOwnerOfCompletedBooking}=require(
+    "../netlify/functions/lib/squeegeeSyncOwnerAlert");
+  const ref="NBG-ABCDE-ABCDEFGH";
+  const receipt={
+    subject:"🗑️ New Bin Cleaning Booking (website)",
+    text:"New Bin Cleaning Booking\nCustomer: A Customer\n1x Brown Bin",
+    html:"<h2>New Bin Cleaning Booking</h2><p>"+("Verified booking. ".repeat(8))+"</p>",
+    replyTo:"customer@example.org",
+    termsBody:"These are the accepted business terms. ".repeat(6),
+    binsText:"1 x Brown Bin (plan: domestic_4w)",
+    pricingText:"1 x Brown Bin £5",
+  };
+  let sent=null;
+  const result=await notifyOwnerOfCompletedBooking(ref,receipt,{
+    env:{RESEND_FROM:"NI Bin Guy <noreply@nibing.uy>"},
+    send:async message=>{sent=message;return{data:{id:"test-only"}};},
+    attachments:[{filename:"signed-terms.pdf",content:"ZHVtbXk=",contentType:"application/pdf"}],
+  });
+  assert.equal(result.sent,true);
+  assert.deepEqual(sent.to,["info@nibing.uy"]);
+  assert.equal(sent.subject,receipt.subject);
+  assert.equal(sent.text,receipt.text);
+  assert.equal(sent.html,receipt.html);
+  assert.equal(sent.replyTo,receipt.replyTo);
+  assert.equal(sent.attachments[0].filename,"signed-terms.pdf");
+  assert.equal(sent.from,"NI Bin Guy <noreply@nibing.uy>");
+  assert.equal((await notifyOwnerOfCompletedBooking(ref,{subject:"invalid"},{
+    send:async()=>{throw Error("must not send");},
+  })).sent,false);
+});
+
+test("other held reasons include full customer details in ONE review email when normal receipt was deferred",()=>{
+  const ref="NBG-ABCDE-ABCDEFGH";
+  const r=emailContent(ref,"date_price_service_or_round_not_verified",{
+    customerName:"Returning Customer",
+    serviceAddress:"78 Groomsport Road, Bangor BT20 5NF",
+    customerEmail:"person@example.org",customerPhone:"07700900123",
+    firstCleanDates:["2026-11-16"],
+    requestedBinCounts:["1 x Brown Bin"],bookingTotal:5,
+  });
+  assert.match(r.subject,/needs review/i);
+  assert.match(r.text,/Customer: Returning Customer/);
+  assert.match(r.text,/Service address: 78 Groomsport Road/);
+  assert.match(r.text,/Email: person@example.org/);
+  assert.match(r.text,/Phone: 07700900123/);
+  assert.match(r.text,/Proposed first clean: 2026-11-16/);
+  assert.match(r.text,/New booking total: £5.00/);
+});

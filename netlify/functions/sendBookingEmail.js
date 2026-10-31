@@ -7,7 +7,10 @@ const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
 const { validateBookingSubmission, claimBookingSubmission, submissionErrorResponse } = require("./lib/bookingSubmissionGuard");
 const { stageWithoutBlockingBooking } = require("./lib/squeegeeBookingStage");
-const { dispatchAcceptedBooking } = require("./lib/squeegeePreviewAutoDispatch");
+const {
+  dispatchAcceptedBooking,autoDispatchConfigured,normalOwnerReceipt,
+}=require("./lib/squeegeePreviewAutoDispatch");
+const rollout=require("./lib/squeegeePreviewAutoRollout");
 const { normaliseUkBookingPhone } = require("./lib/ukBookingPhone");
 const { PILOT_NAME } = require("./lib/squeegeePreviewAutoRollout");
 
@@ -222,6 +225,12 @@ exports.handler = async (event) => {
     // The independently signed automatic Squeegee worker consumes this
     // accepted payload; keep its contact number canonical and numeric.
     payload.phone=phone;
+    // The signed Preview 1 background receipt needs these same accepted
+    // agreement details if it sends the ordinary owner email after syncing.
+    payload.termsVersion=termsVersion;
+    payload.termsTimestamp=termsTimestamp;
+    payload.termsAcceptanceText=termsAcceptanceText;
+    payload.source=source;
 
     const filteredBins = (Array.isArray(bins) ? bins : []).filter((bin) => bin?.type);
     const binsText =
@@ -305,15 +314,29 @@ exports.handler = async (event) => {
       <p style="color:#6b7280;font-size:12px;margin-top:12px">Source: ${escapeHtml(source)}</p>
     `;
 
-    const adminEmailPromise = resend.emails.send({
-      from: FROM_DEFAULT,
-      to: TO_ADMIN,
-      subject: subjectAdmin,
-      text: textAdmin,
-      html: htmlAdmin,
-      replyTo: email || undefined,
-      attachments,
-    });
+    const syncHost=String(event?.headers?.host||event?.headers?.Host||"").toLowerCase();
+    const isPreview1=syncHost==="deploy-preview-77--nibinguy.netlify.app";
+    const ownerReceipt={
+      subject:subjectAdmin,text:textAdmin,html:htmlAdmin,
+      replyTo:email||null,termsBody:TERMS_BODY,
+      binsText,pricingText:pricingBlocks.text,
+    };
+    // Preview 1 only: wait for the signed Squeegee worker to decide which
+    // ONE owner email is appropriate. Held bookings get their review email;
+    // successfully imported bookings get this normal booking email instead.
+    // All production/other previews preserve their existing immediate email.
+    const deferAdminForPreview=isPreview1 &&
+      autoDispatchConfigured(process.env) &&
+      rollout.acceptedForRollout(payload,"email",process.env) &&
+      Boolean(normalOwnerReceipt(ownerReceipt));
+    const adminEmailMessage={
+      from:FROM_DEFAULT,to:TO_ADMIN,subject:subjectAdmin,
+      text:textAdmin,html:htmlAdmin,
+      replyTo:email||undefined,attachments,
+    };
+    const adminEmailPromise=deferAdminForPreview?
+      Promise.resolve({error:null,deferred:true}):
+      resend.emails.send(adminEmailMessage);
 
     const customerEmailPromise = email
       ? resend.emails.send({
@@ -337,7 +360,8 @@ exports.handler = async (event) => {
         })
       : Promise.resolve({ error: null });
 
-    // Start the optional audit write at the same time as both emails.
+    // Audit and customer receipt are still sent immediately in Preview 1.
+    // Its owner email is delayed until the signed worker chooses the result.
     const auditPromise = buildAuditPromise({
       channel: "email",
       bookingId: submission.bookingId,
@@ -382,8 +406,10 @@ exports.handler = async (event) => {
       };
     }
 
-    // The booking is safely received once the admin email succeeds. A customer-email
-    // failure should not tell the customer that their booking failed and encourage duplicates.
+    // An accepted Preview 1 booking has an immutable receipt before dispatch
+    // and an audited submission; its owner email is deferred, NOT lost.
+    // Elsewhere the successful admin email retains the existing acceptance
+    // behaviour. Customer-email failure must not prompt duplicate retries.
     if (customerResult?.error) {
       console.error("Resend customer error:", customerResult.error);
     }
@@ -418,18 +444,20 @@ exports.handler = async (event) => {
       console.warn("Read-only Squeegee booking preparation unavailable");
     }
 
-    // Preview 1 only: notify the signed Squeegee worker AFTER accepted
-    // emails/leaderboard. Queue acknowledgement is never proof of a job.
-    const syncHost=String(event?.headers?.host||event?.headers?.Host||"").toLowerCase();
-    const isPreview1=syncHost==="deploy-preview-77--nibinguy.netlify.app";
+    // Preview 1 only: dispatch AFTER customer confirmation, independent
+    // audit and leaderboard. Signed receipt includes the normal admin email
+    // so the worker can send it ONLY when the Squeegee import succeeds.
     const freshPilot=name===PILOT_NAME && isPreview1;
     // EVERY Preview 1 booking must show whether its Squeegee dispatch
     // was accepted. The receipt alone does not imply a job was created.
     let squeegeePilot=null;
+    let deferredDispatchAccepted=false;
     try {
       const dispatched=await dispatchAcceptedBooking(payload,{
         channel:"email",eventHost:syncHost,
+        ownerReceipt:deferAdminForPreview?ownerReceipt:null,
       });
+      deferredDispatchAccepted=dispatched.queued===true;
       if(isPreview1) {
         squeegeePilot={
           queued:dispatched.queued===true,
@@ -447,6 +475,23 @@ exports.handler = async (event) => {
     } catch {
       if(isPreview1) squeegeePilot={queued:false,reason:"dispatch_unavailable"};
       console.warn("Preview 1 Squeegee dispatch unavailable");
+    }
+    if(deferAdminForPreview && !deferredDispatchAccepted) {
+      // Fail open to the EXISTING business booking email if the signed
+      // background worker cannot accept the booking. Never silently discard
+      // an owner notification because a preview integration is unavailable.
+      // If dispatch timing was uncertain, the status/claim remains immutable
+      // and Squeegee is never retried automatically.
+      try{
+        const fallback=await resend.emails.send(adminEmailMessage);
+        if(fallback?.error)
+          console.error("Preview 1 owner email fallback failed",fallback.error);
+        else console.info("Preview 1 owner booking email sent after sync handoff failed",{
+          bookingId:submission.bookingId,
+        });
+      }catch{
+        console.error("Preview 1 owner email fallback delivery exception");
+      }
     }
 
     const durationMs = Date.now() - startedAt;

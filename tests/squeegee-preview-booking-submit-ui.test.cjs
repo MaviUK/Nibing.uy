@@ -119,3 +119,26 @@ test("Preview 1 allows a slow date lookup to finish but never invents a confirme
   const fn=bridge.slice(bridge.indexOf("function lookupKey("),bridge.indexOf("function positionPanel("));
   assert.doesNotMatch(fn,/\.sort\(/);
 });
+
+
+test("only accepted Preview 1 bookings defer the normal owner booking email",()=>{
+  const server=fs.readFileSync(path.join(ROOT,"netlify/functions/sendBookingEmail.js"),"utf8");
+  const transport=fs.readFileSync(path.join(ROOT,"netlify/functions/squeegeePreviewAutoSync.mjs"),"utf8");
+  assert.match(server,/const isPreview1=syncHost===/);
+  assert.match(server,/const deferAdminForPreview=isPreview1 &&/);
+  assert.match(server,/autoDispatchConfigured\(process\.env\)/);
+  assert.match(server,/rollout\.acceptedForRollout\(payload,"email",process\.env\)/);
+  assert.match(server,/deferAdminForPreview\?\s*Promise\.resolve\(\{error:null,deferred:true\}\)/);
+  assert.match(server,/ownerReceipt:deferAdminForPreview\?ownerReceipt:null/);
+  assert.match(server,/if\(deferAdminForPreview && !deferredDispatchAccepted\)/);
+  assert.match(server,/resend\.emails\.send\(adminEmailMessage\)/);
+  assert.match(server,/const customerEmailPromise = email/);
+  assert.match(transport,/completedAlert=ownerReceipt\?async\(id\)=>/);
+  assert.match(transport,/ownerAlerts\.notifyOwnerOfCompletedBooking/);
+  assert.match(transport,/ownerAlerts\.notifyOwnerOfSyncHold/);
+  assert.match(transport,/terms\.buildTermsAcceptancePdfAttachment/);
+  assert.match(transport,/ownerNoticeAttempted/);
+  assert.match(transport,/getStore/);
+  // No website change can ever send an additional owner email itself.
+  assert.ok(!booking.includes("squeegee-preview-auto-sync"));
+});
