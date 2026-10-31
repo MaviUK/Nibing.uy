@@ -2579,3 +2579,60 @@ test("ordinary same-customer matches do not trigger a SECOND duplicate owner ema
   assert.ok(notices[0].flags.includes("phone_already_registered"));
   assert.ok(notices[0].flags.includes("address_already_registered"));
 });
+
+
+test("inactive customer held booking can later append jobs on same account after manual reactivation",async()=>{
+  const b=sampleBooking({
+    bookingId:"NBG-4QUNP343",
+    bins:[{type:"Black Bin",planId:"domestic_4w",count:1},
+      {type:"Brown Bin",planId:"domestic_4w",count:1}],
+    dates:["2026-11-16","2026-11-16"],
+  });
+  const row={_id:customerId,name:b.name,email:b.email,
+    phoneNumber:b.phone,status:"inactive",
+    address:{addressDescription:b.address}};
+  const existing={name:b.name,status:"inactive",email:b.email,
+    phoneNumber:b.phone,address:{text:b.address},jobs:[]};
+  const h=makeHarness(b,{existingRows:[row],existingCustomer:existing});
+  const first=await h.run();
+  assert.equal(first.status,"held");
+  assert.equal(first.reason,"existing_customer_reactivation_required");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+  assert.equal(h.statuses.at(-1).matchReason,"inactive_exact_customer");
+  // Owner now reactivates the *same* Squeegee account in the app.
+  row.status="active";
+  existing.status="active";
+  const second=await h.run();
+  assert.equal(second.status,"completed",JSON.stringify(second));
+  assert.equal(second.createdCustomer,false);
+  assert.equal(second.createdJobs,1);
+  assert.equal(h.posts.length,1);
+  assert.equal(h.posts[0].kind,"job");
+  assert.equal(h.posts[0].id,customerId);
+  assert.equal(h.posts[0].job.price,10);
+  assert.equal(h.posts[0].job.frequencyType,"weeks");
+  assert.deepEqual(h.posts[0].job.services,[blackService,brownService]);
+  assert.equal(h.ledger.records.get(BOOKING_CLAIM_PREFIX+b.bookingId)?.value?.state,
+    "succeeded");
+  const replay=await h.run();
+  assert.equal(replay.status,"held");
+  assert.equal(h.posts.length,1);
+});
+
+test("still-inactive customer cannot be resumed by a link, even after another attempt",async()=>{
+  const b=sampleBooking({bookingId:"NBG-4QUNP343"});
+  const row={_id:customerId,name:b.name,
+    status:"inactive",address:{addressDescription:b.address}};
+  const h=makeHarness(b,{
+    existingRows:[row],
+    existingCustomer:{name:b.name,status:"inactive",address:{text:b.address},jobs:[]},
+  });
+  for(let i=0;i<2;i++){
+    const result=await h.run();
+    assert.equal(result.status,"held");
+    assert.equal(result.reason,"existing_customer_reactivation_required");
+    assert.equal(h.posts.length,0);
+    assert.equal(h.ledger.records.size,0);
+  }
+});
