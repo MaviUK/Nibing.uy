@@ -134,7 +134,7 @@ test("only accepted Preview 1 bookings defer the normal owner booking email",()=
   assert.match(server,/resend\.emails\.send\(previewSyncUnavailable\?/);
   assert.match(server,/resend\.emails\.send\(fallbackMessage\|\|adminEmailMessage\)/);
   assert.match(server,/const customerEmailPromise = email/);
-  assert.match(transport,/completedAlert=ownerReceipt\?async\(id\)=>/);
+  assert.match(transport,/completedAlert=ownerReceipt\?async\(id,details=\{\}\)=>/);
   assert.match(transport,/ownerAlerts\.notifyOwnerOfCompletedBooking/);
   assert.match(transport,/ownerAlerts\.notifyOwnerOfSyncHold/);
   assert.match(transport,/terms\.buildTermsAcceptancePdfAttachment/);
