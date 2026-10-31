@@ -3,6 +3,7 @@ import { useLiveCounters } from "./data/statsPlan";
 import CoverageChecker from "./CoverageChecker.jsx";
 import N64GameBin from "./N64GameBin.jsx";
 import LevelWasher from "./components/LevelWasher.jsx";
+import { CustomerReviews, CustomerQuestions } from "./components/CustomerTrustSections.jsx";
 import BookingAddressAutocomplete, { findNiPostcode } from "./components/BookingAddressAutocomplete.jsx";
 import { createFriendlyBookingReference } from "./bookingReference.mjs";
 
@@ -1915,6 +1916,11 @@ export default function NiBinGuyLandingPage() {
       <BinsWeClean />
       <WhyCleanYourBin />
       <WhyNiBinGuy />
+      {/* Support sections are bonus content, not numbered arcade levels. */}
+      <div className="n64-support-sections">
+        <CustomerReviews />
+        <CustomerQuestions onBook={openBooking} />
+      </div>
     </main>
   );
 }
