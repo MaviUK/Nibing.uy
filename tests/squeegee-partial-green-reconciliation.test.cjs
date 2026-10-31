@@ -97,9 +97,16 @@ test("a verified first job and no Green job permit review; ambiguity blocks",()=
 });
 test("Squeegee partial write scope requires a new atomic exact-claim proof",async()=>{
  const proof={acquired:true,key:p.CLAIM_KEY,etag:'"v123"'};
- const fakeRun=await autoApi.withApprovedPreviewPartialGreenWrite(proof,
-  async()=>{autoApi.assertWriteAllowed();return "permitted";},scope,env);
- assert.equal(fakeRun,"permitted");
+ const priorKey=process.env.SQUEEGEE_API_KEY;
+ process.env.SQUEEGEE_API_KEY=env.SQUEEGEE_API_KEY;
+ try{
+  const fakeRun=await autoApi.withApprovedPreviewPartialGreenWrite(proof,
+   async()=>{autoApi.assertWriteAllowed();return "permitted";},scope,env);
+  assert.equal(fakeRun,"permitted");
+ }finally{
+  if(priorKey===undefined)delete process.env.SQUEEGEE_API_KEY;
+  else process.env.SQUEEGEE_API_KEY=priorKey;
+ }
  for(const broken of [
   {...proof,key:"claim-v1/auto-bookings/"+p.BOOKING_ID},
   {...proof,key:"claim-v1/owner-partial-green/NBG-3FYB9UY4"},
