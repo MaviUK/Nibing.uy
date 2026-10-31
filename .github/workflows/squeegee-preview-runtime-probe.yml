@@ -1,0 +1,30 @@
+name: Preview 1 Squeegee handoff read-only runtime probe
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/squeegee-preview-runtime-probe.yml
+permissions:
+  contents: read
+jobs:
+  safe-get-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: GET only - check whether the automatic Squeegee function starts
+        shell: bash
+        run: |
+          set -u
+          url="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-sync"
+          echo "READ ONLY - GET, no API key or booking body is supplied"
+          code="$(curl --silent --show-error --location --max-redirs 0 --max-time 15 \
+            --request GET --output response.txt --write-out "%{http_code}" "$url")"
+          echo "auto-sync GET HTTP status: $code (expected 405; 502 indicates runtime failure)"
+          echo "Response first 1600 characters, for debugging public GET:"
+          head -c 1600 response.txt || true
+          echo
+          # This is a diagnostic; never POST or automatically retry a booking.
+          if [ "$code" = "502" ]; then exit 0; fi
+          if [ "$code" = "405" ]; then exit 0; fi
+          echo "Unexpected status: $code"
