@@ -8,7 +8,7 @@
  * Absence of Resend credentials or alert failure does not change the worker
  * hold or allow any Squeegee write.
  */
-const BOOKING_RE=/^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i;
+const BOOKING_RE=/^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i;
 const CODE_RE=/^[a-z][a-z0-9_]{0,100}$/;
 const {DUPLICATE_SIGNAL_CODES}=require("./squeegeeCustomerMatcher");
 const KNOWN_FLAGS=new Set(DUPLICATE_SIGNAL_CODES);

@@ -190,7 +190,7 @@ test("Preview 1 new booking reference is short, copyable, and included in custom
   const template=fs.readFileSync(path.join(ROOT,
     "netlify/functions/lib/bookingEmailTemplate.js"),"utf8");
   assert.match(landing,/import \{ createFriendlyBookingReference \} from "\.\/bookingReference\.mjs"/);
-  assert.match(landing,/bookingId: createFriendlyBookingReference\(now\)/);
+  assert.match(landing,/bookingId: createFriendlyBookingReference\(\)/);
   assert.match(helper,/SAFE_BASE32="23456789ABCDEFGHJKLMNPQRSTUVWXYZ"/);
   assert.doesNotMatch(helper,/Math\.random/);
   assert.match(booking,/Booking reference:/);

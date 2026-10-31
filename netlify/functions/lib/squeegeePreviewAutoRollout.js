@@ -44,7 +44,7 @@ function isPilotBooking(booking,channel) {
   // Never replay or reissue a previously accepted booking for this pilot.
   if(channel!=="email" ||
      booking?.bookingId===ABANDONED_BOOKING_ID ||
-     !/^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i.test(String(booking?.bookingId||"")) ||
+     !/^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i.test(String(booking?.bookingId||"")) ||
      String(booking?.name||"").trim()!==PILOT_NAME ||
      booking?.termsAccepted!==true ||
      !Array.isArray(booking?.bins) || booking.bins.length!==1) return false;

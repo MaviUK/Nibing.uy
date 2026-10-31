@@ -17,7 +17,7 @@ const { normalizedPostcode, normalizedBinType, validDate } = require("./squeegee
 
 const STORE_NAME = "squeegee-preview1-write-claims";
 const PREFIX = "claim-v1";
-const BOOKING_RE = /^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i;
+const BOOKING_RE = /^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i;
 function digest(parts) {
   return crypto.createHash("sha256").update(
     parts.map(part => String(part || "").toUpperCase().trim().replace(/\s+/g, " ")).join("\u001f")

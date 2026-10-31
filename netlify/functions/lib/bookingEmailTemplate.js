@@ -71,7 +71,7 @@ function randomBinJoke() {
 
 function buildBookingEmailHtml({ bookingId, name, address, phone, bins, pricing, discountCode, termsVersion, termsTimestamp, termsPdfAttached }) {
   const reference=String(bookingId||"").trim();
-  const visibleReference=/^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i.test(reference)?
+  const visibleReference=/^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i.test(reference)?
     reference:"";
   const safeName = escapeHtml(name || "there");
   const firstName = escapeHtml(String(name || "there").trim().split(/\s+/)[0] || "there");

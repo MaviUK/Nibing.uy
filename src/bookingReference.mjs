@@ -1,31 +1,19 @@
 /**
- * Human-friendly, cryptographically random NI Bin Guy booking reference.
- * Example: NBG-261031-K7P4R2XM
+ * Canonical two-section customer booking reference: NBG-K7P4R2XM.
+ * Eight random base32 characters use 40 bits of browser Web Crypto entropy,
+ * avoiding the easily confused characters O/0/I/1. NOT date-only:
+ * multiple bookings on the same day must never share one reference.
  *
- * Date is Europe/London (YYMMDD), NOT the device's current timezone.
- * Eight base32 characters use 40 secure random bits with no 0/O/1/I
- * ambiguity. This is the real booking key for NEW submissions, not a
- * separate public alias that would break Squeegee, ledger or audit links.
- *
- * Existing NBG-* keys remain valid through bookingSubmissionGuard.js.
+ * This reference is the actual immutable booking ID used for Netlify Blobs
+ * replay claims, owner notifications, Squeegee job claims and leaderboard.
+ * Older three-section IDs remain valid in the server-side validators.
  */
 const SAFE_BASE32="23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
-const LONDON_DATE=new Intl.DateTimeFormat("en-GB",{
-  timeZone:"Europe/London",year:"2-digit",month:"2-digit",day:"2-digit",
-});
 
-export function createFriendlyBookingReference(now=new Date(),cryptoSource=globalThis.crypto){
-  if(!(now instanceof Date) || !Number.isFinite(now.getTime()))
-    throw new TypeError("invalid_booking_reference_date");
-  if(!cryptoSource || typeof cryptoSource.getRandomValues!=="function")
+export function createFriendlyBookingReference(cryptoSource=globalThis.crypto){
+  if(!cryptoSource||typeof cryptoSource.getRandomValues!=="function")
     throw new Error("secure_booking_reference_unavailable");
-  const pieces=LONDON_DATE.formatToParts(now);
-  const find=type=>pieces.find(part=>part.type===type)?.value;
-  const dateCode=[find("year"),find("month"),find("day")].join("");
-  if(!/^\d{6}$/.test(dateCode))
-    throw new Error("booking_reference_date_unavailable");
   const bytes=new Uint8Array(8);
   cryptoSource.getRandomValues(bytes);
-  const randomCode=Array.from(bytes,byte=>SAFE_BASE32[byte&31]).join("");
-  return "NBG-"+dateCode+"-"+randomCode;
+  return "NBG-"+Array.from(bytes,byte=>SAFE_BASE32[byte&31]).join("");
 }

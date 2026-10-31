@@ -617,7 +617,7 @@ function TermsModal({ open, onClose, onConfirm, version, title, body }) {
 function createBookingSubmissionMeta() {
   const now = new Date();
   return {
-    bookingId: createFriendlyBookingReference(now),
+    bookingId: createFriendlyBookingReference(),
     submittedAt: now.toISOString(),
   };
 }

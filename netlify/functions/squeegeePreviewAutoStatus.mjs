@@ -30,7 +30,7 @@ const page=(html,status=200)=>new Response(
   '</main></body></html>',
   {status,headers},
 );
-const bookingRe=/^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i;
+const bookingRe=/^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i;
 export default async function handler(request,context) {
   const runtime={hostname:new URL(request.url).hostname,
     deployContext:context?.deploy?.context,siteId:context?.site?.id};

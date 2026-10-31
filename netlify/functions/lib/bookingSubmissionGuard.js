@@ -1,6 +1,6 @@
 const MAX_SUBMISSION_AGE_MS = 15 * 60 * 1000;
 const MAX_FUTURE_SKEW_MS = 2 * 60 * 1000;
-const BOOKING_ID_RE = /^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i;
+const BOOKING_ID_RE = /^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i;
 
 let getStoreSafe = null;
 try {
