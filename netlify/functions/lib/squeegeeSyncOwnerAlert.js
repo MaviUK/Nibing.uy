@@ -204,8 +204,8 @@ const REVIEW_HELP=Object.freeze({
     action:"Check which bins share the same council date and round, then create separate or combined jobs manually as appropriate.",
   },
   conflicting_same_colour_schedules:{
-    category:"Conflicting dates for the same bin colour",
-    action:"Verify the correct collection dates for repeated bins of the same colour, then enter the jobs manually.",
+    category:"Conflicting schedules for the same bin type and size",
+    action:"Verify the collection date, frequency and round only when the exact bin colour and capacity are repeated. Different sizes are independent services.",
   },
   customer_match_ambiguous_or_incomplete:{
     category:"Customer account requires review",
@@ -552,7 +552,7 @@ function completedQuantityAttentionContent(bookingId,receipt,details={}) {
   const changes=Array.isArray(details.quantityChanges)?
     details.quantityChanges.filter(item=>
       item && typeof item==="object" &&
-      /^(Black|Brown|Blue|Green) Bin$/.test(String(item.bin||"")) &&
+      /^(Black|Brown|Blue|Green) Bin(?: \((?:660|1100)L\))?$/.test(String(item.bin||"")) &&
       Number.isSafeInteger(item.quantity) &&
       item.quantity>=2 && item.quantity<=200).slice(0,12):[];
   const additional=Array.isArray(details.additionalExistingBins)?
