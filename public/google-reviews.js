@@ -260,6 +260,8 @@
   const GREY = "#18181b";
 
   function fadeNewSectionBackgrounds() {
+    // Preview arcade sections define their own bright backgrounds; do not overwrite them with dark legacy inline gradients.
+    if (document.getElementById("main-content")?.classList.contains("n64-world")) return;
     const customerReviews = document.getElementById("customer-reviews");
     const customerQuestions = document.getElementById("wheelie-bin-cleaning-questions");
     const customerPortal = document.getElementById("customer-portal");
