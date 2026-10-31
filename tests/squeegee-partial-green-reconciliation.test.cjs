@@ -164,7 +164,7 @@ test("recovery exposes only fixed diagnostic codes when server plan differs",()=
     "black_brown_service_plan_differs");
   const altered=planned();altered.privatePlan.jobs[2].input.price=30;
   assert.equal(p.checkApprovedGroups(a,altered,at).reason,
-    "original_job_prices_differ");
+    "prepared_verified_jobs_invalid");
   const green=audit();green.bins[2].sizeLitres=660;
   green.pricing=verifyAndPriceBooking(green.bins,"",{}).canonical;
   assert.equal(p.checkApprovedGroups(green,planned(),at).reason,

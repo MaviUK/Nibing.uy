@@ -5,6 +5,18 @@ on:
       - preview/n64-retro-site
     paths:
       - netlify/functions/lib/squeegeeApiV3.js
+      - netlify/functions/lib/squeegeeOwnerReactivation.js
+      - netlify/functions/squeegeePreviewOwnerReactivation.mjs
+      - tests/squeegee-owner-reactivation.test.cjs
+      - netlify/functions/lib/squeegeePartialGreenReconciliation.js
+      - netlify/functions/squeegeePreviewPartialGreenReconciliation.mjs
+      - tests/squeegee-partial-green-reconciliation.test.cjs
+      - netlify/functions/lib/squeegeeHeldGroomsportRecovery.js
+      - netlify/functions/squeegeePreviewHeldGroomsportRecovery.mjs
+      - tests/squeegee-held-groomsport-recovery.test.cjs
+      - netlify/functions/lib/squeegeeOwnerRecovery.js
+      - netlify/functions/squeegeePreviewOwnerRecoveryV2.mjs
+      - tests/squeegee-owner-recovery.test.cjs
       - netlify/functions/lib/squeegeeBookingPlan.js
       - netlify/functions/lib/squeegeeBookingPricing.js
       - netlify/functions/lib/squeegeeScheduleCheck.js
