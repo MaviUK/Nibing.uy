@@ -311,90 +311,68 @@ export default function TenSecondChallenge({ debug = false, autoWin = false }) {
   }, [debug]);
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-4" data-testid="ten-sec-root">
-      <div className="bg-neutral-900 text-white rounded-2xl p-6 md:p-8 shadow-xl border border-neutral-800">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-2xl md:text-3xl font-bold">
-              10-Second Stop Watch Challenge
-            </h2>
-            <p className="text-xs md:text-sm opacity-80">
-              Stop the timer on exactly <strong>10.00s</strong> to win a free bin clean.</p>
-             <p className="text-xs md:text-sm opacity-80">
-              Only Available in Donaghdee, Newtownards, Portaferry, Millisle, Comber (and close surrounding areas)</p>
-          </div>
-          <div className="text-xs opacity-80 text-right">
-            One try per device · Europe/London
-          </div>
-        </div>
+    <div className="n64-stopwatch" data-testid="ten-sec-root">
+      <div className="n64-stopwatch__cabinet">
+        <header className="n64-stopwatch__header">
+          <p className="n64-stopwatch__eyebrow"><span aria-hidden="true">★</span> BONUS LEVEL</p>
+          <h2 id="challenge-title">STOP AT <span>10.00s</span></h2>
+          <p>Stop the clock on exactly <strong>10.00 seconds</strong> to win a <strong>FREE BIN CLEAN!</strong></p>
+        </header>
 
-        {autoWin && (
-          <div className="mt-3 bg-amber-900/30 border border-amber-700 text-amber-200 text-xs px-3 py-2 rounded-lg">
-            Testing mode is <strong>ON</strong>: stopping the timer will count as
-            a win and display 10.00s.
-          </div>
-        )}
+        <div className="n64-stopwatch__body">
+          {autoWin && (
+            <p className="n64-stopwatch__test">
+              Testing mode is ON: stopping the timer will count as a win.
+            </p>
+          )}
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-          {/* Display */}
-          <div className="flex flex-col items-center justify-center bg-black/40 rounded-2xl p-8 border border-neutral-800">
-            <div className="text-sm uppercase tracking-widest opacity-70">
-              Target
+          <div className="n64-stopwatch__screen" role="group" aria-label="Stopwatch display">
+            <div className="n64-stopwatch__target">
+              <span><span aria-hidden="true">◎</span> TARGET</span>
+              <strong>10.00s</strong>
             </div>
-            <div className="text-5xl md:text-6xl font-extrabold">10.00s</div>
-
-            <div className="mt-6 text-sm uppercase tracking-widest opacity-70">
-              Your Time
-            </div>
-            <div
-              className={`text-6xl md:text-7xl font-mono tabular-nums ${
-                seconds === "10.00" ? "text-emerald-400" : ""
-              }`}
+            <div className="n64-stopwatch__time-label">YOUR TIME</div>
+            <output
+              aria-label="Elapsed time"
+              aria-live="off"
+              className={seconds === "10.00" ? "n64-stopwatch__time n64-stopwatch__time--winner" : "n64-stopwatch__time"}
             >
-              {seconds}s
-            </div>
-
-            <div className="mt-6 text-xs text-center opacity-70">
-              Press <span className="font-semibold">Space</span> (desktop) or use
-              the <span className="font-semibold">Start/Stop</span> button.
-            </div>
-          </div>
-
-          {/* Controls */}
-          <div className="flex flex-col gap-4">
-            {hasTriedToday ? (
-              <div className="bg-amber-900/30 border border-amber-800 text-amber-200 p-4 rounded-xl">
-                You&apos;ve used your attempt for {todayKey} on this device. Try
-                again tomorrow.
-              </div>
-            ) : (
-              <div className="bg-emerald-900/30 border border-emerald-800 text-emerald-200 p-4 rounded-xl">
-                Ready when you are — hit Space or click the big button below.
-              </div>
-            )}
-
-            <button
-              onClick={handleStartStop}
-              disabled={!autoWin && hasTriedToday}
-              className={`w-full rounded-2xl py-6 text-xl font-semibold shadow-lg border transition active:scale-[0.99]
-                ${
-                  running
-                    ? "bg-rose-600 hover:bg-rose-500 border-rose-400"
-                    : "bg-emerald-600 hover:bg-emerald-500 border-emerald-400"
-                }
-                ${!autoWin && hasTriedToday ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              {running ? "Stop" : "Start"}
-            </button>
-
-            {message && <div className="text-emerald-300 text-sm">{message}</div>}
-            {error && <div className="text-red-300 text-sm">{error}</div>}
-
-            <p className="text-xs opacity-60">
-              Accuracy uses centiseconds. A win requires your displayed time to
-              read exactly <span className="font-semibold">10.00s</span>.
+              {seconds}<span>s</span>
+            </output>
+            <p className="n64-stopwatch__screen-tip">
+              {running ? "Tap STOP as close to 10.00s as you can!" : "How good is your timing?"}
             </p>
           </div>
+
+          <button
+            type="button"
+            onClick={handleStartStop}
+            disabled={!autoWin && hasTriedToday}
+            className={running ? "n64-stopwatch__button n64-stopwatch__button--stop" : "n64-stopwatch__button"}
+          >
+            <span aria-hidden="true">{running ? "■" : "▶"}</span>
+            {running ? "STOP TIMER" : "START TIMER"}
+          </button>
+
+          <p className="n64-stopwatch__status" role="status" aria-live="polite">
+            {hasTriedToday && !autoWin
+              ? (message || "You've used today's attempt. Try again tomorrow!")
+              : running
+                ? "The clock is ticking — hit STOP at 10.00s!"
+                : (message || "Ready? You get one shot. Make it count!")}
+          </p>
+          {error && <p className="n64-stopwatch__error" role="alert">{error}</p>}
+
+          <p className="n64-stopwatch__limit">
+            <span aria-hidden="true">●</span> One attempt per device, per day · UK time
+          </p>
+          <p className="n64-stopwatch__areas">
+            <strong>ELIGIBLE AREAS</strong>
+            Donaghadee, Newtownards, Portaferry, Millisle, Comber &amp; nearby.
+          </p>
+          <p className="n64-stopwatch__fineprint">
+            Desktop: press Space to start / stop. Only exactly 10.00s wins.
+          </p>
         </div>
       </div>
 
