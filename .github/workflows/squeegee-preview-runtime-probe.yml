@@ -25,6 +25,9 @@ jobs:
           head -c 1600 response.txt || true
           echo
           # This is a diagnostic; never POST or automatically retry a booking.
-          if [ "$code" = "502" ]; then exit 0; fi
-          if [ "$code" = "405" ]; then exit 0; fi
-          echo "Unexpected status: $code"
+          if [ "$code" = "405" ]; then
+            echo "PASS: deployed function starts and safely rejects read-only GET"
+            exit 0
+          fi
+          echo "FAIL: unexpected status $code (expected safe 405)"
+          exit 1
