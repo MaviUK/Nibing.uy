@@ -223,3 +223,16 @@ test("shifted bank-holiday recurring job cannot anchor to the wrong weekday", ()
   assert.equal(result.privatePlan.jobs[0].input, null);
   assert.equal(result.summary.approvedToWrite, false);
 });
+
+test("worker can request a bounded longer authoritative calendar lookup",async()=>{
+  const input=booking();
+  let attempts=0;
+  const result=await fetchAuthoritativeSchedule(input,async(url,options)=>{
+    attempts++;
+    assert.equal(options.method,"POST");
+    assert.equal(options.redirect,"error");
+    return{ok:true,json:async()=>serverSchedule()};
+  },{timeoutMs:16000});
+  assert.equal(result.results[0].assignedCleanDate,"2026-11-02");
+  assert.equal(attempts,1);
+});

@@ -106,3 +106,16 @@ test("booking confirmation does not block customers buying extra bins",()=>{
   assert.match(booking,/Booking confirmed/);
   assert.match(booking,/Booking reference:/);
 });
+
+test("Preview 1 allows a slow date lookup to finish but never invents a confirmed date",()=>{
+  const bridge=fs.readFileSync(path.join(ROOT,"src/bookingScheduleBridge.js"),"utf8");
+  assert.match(booking,/const previewScheduleWait=window\.location\.hostname===N64_BOOKING_PREVIEW_HOST/);
+  assert.match(booking,/\? 22000 : 5500/);
+  assert.match(booking,/bookingScheduleSnapshot: window\.nbgGetBookingScheduleSnapshot\?\.\(\) \|\| null/);
+  assert.match(bridge,/if \(latestLookupPromise\) return latestLookupPromise/);
+  assert.match(bridge,/if \(latestLookupData\) return latestLookupData/);
+  assert.match(bridge,/root\.addEventListener\("input", relevantChange\)/);
+  assert.match(bridge,/field===addressField \|\| findBinSelects\(root\)\.includes\(field\)/);
+  const fn=bridge.slice(bridge.indexOf("function lookupKey("),bridge.indexOf("function positionPanel("));
+  assert.doesNotMatch(fn,/\.sort\(/);
+});

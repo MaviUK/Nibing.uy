@@ -1610,3 +1610,34 @@ test("valid existing service ID-only format remains supported for compatibility"
     {services:[{id:brownService,description:"Brown",quantity:1}]},
   ],wanted),null);
 });
+
+test("an unconfirmed website date remains held with exact reason; no customer or job is posted",async()=>{
+  const b=sampleBooking({modified:booking=>({...booking,bookingScheduleSnapshot:null})});
+  const verifiedServer={
+    postcode:"BT19 7ZW",town:"BANGOR",
+    results:[{bin:"Brown Bin",town:"BANGOR",automatic:true,
+      assignedCleanDate:"2026-11-16"}],
+  };
+  const h=makeHarness(b,{schedule:verifiedServer});
+  const outcome=await h.run();
+  assert.equal(outcome.status,"held");
+  assert.equal(outcome.reason,"date_price_service_or_round_not_verified");
+  const saved=h.statuses.at(-1);
+  assert.equal(saved.stage,"held_for_review");
+  assert.equal(saved.browserSnapshotPresent,false);
+  assert.deepEqual(saved.heldDates,[{
+    index:0,bin:"Brown Bin",reason:"schedule_not_confirmed_at_submit",
+  }]);
+  assert.deepEqual(saved.roundStatuses,["date_not_verified"]);
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
+test("protected owner status view can diagnose the old read-only date hold",()=>{
+  const source=require("node:fs").readFileSync(
+    require("node:path").join(__dirname,
+      "../netlify/functions/squeegeePreviewAutoStatus.mjs"),"utf8");
+  assert.match(source,/squeegee-preview1-booking-readonly/);
+  assert.match(source,/Specific date checks:/);
+  assert.match(source,/overflow-wrap:anywhere/);
+  assert.doesNotMatch(source,/addJobToCustomer\(/);
+});

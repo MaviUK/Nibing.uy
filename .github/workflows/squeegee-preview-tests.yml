@@ -23,6 +23,7 @@ on:
       - netlify/functions/squeegeePreviewAutoRecover.mjs
       - netlify/functions/squeegeePreviewQuantityProbe.mjs
       - tests/squeegee-quantity-probe.test.cjs
+      - src/bookingScheduleBridge.js
       - netlify/functions/lib/squeegeeAutomaticBooking.js
       - netlify/functions/lib/squeegeeJobGrouping.js
       - netlify/functions/lib/ukBookingPhone.js
