@@ -2481,6 +2481,9 @@ test("real returning Blue one-off booking matches County Down address and adds j
         description:"(One Off) Blue",quantity:1}],status:"inactive"}],
     },
     services:[...accountServices,{id:blueOnce,description:"(One Off) Blue"}],
+    groups:[...accountGroups,{
+      id:"99999999-9999-4999-8999-999999999999",description:"17",
+    }],
     schedule:{
       matched:true,postcode:"BT20 5NF",town:"BANGOR",
       results:[{bin:"Blue Bin",town:"BANGOR",
@@ -2492,7 +2495,7 @@ test("real returning Blue one-off booking matches County Down address and adds j
   assert.equal(res.status,"completed",JSON.stringify(res));
   assert.equal(res.createdCustomer,false);
   assert.equal(res.createdJobs,1);
-  assert.equal(res.customerMode,"existing");
+  assert.equal(h.statuses.at(-1).customerMode,"existing");
   assert.equal(h.posts.length,1);
   assert.equal(h.posts[0].kind,"job");
   assert.equal(h.posts[0].id,customerId);
