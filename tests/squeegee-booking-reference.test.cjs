@@ -15,7 +15,9 @@ test("secure human-friendly booking ID has local YYMMDD and eight readable rando
   const code=createFriendlyBookingReference(date,fakeCrypto);
   assert.equal(code,"NBG-261031-2345678Z");
   assert.match(code,/^NBG-\d{6}-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/);
-  assert.doesNotMatch(code,/[IO01]/);
+  // The date uses normal calendar digits; only the random portion omits
+  // ambiguous O/0/I/1 characters.
+  assert.doesNotMatch(code.split("-")[2],/[IO01]/);
   assert.equal(code.length,19);
   assert.equal(validateBookingSubmission({bookingId:code,submittedAt:date.toISOString()},
     {now:date.getTime()+1000}).ok,true);
