@@ -60,7 +60,8 @@ test("worker holds and uncertainty both invoke best-effort alert, without any cl
     path.join(__dirname,"../netlify/functions/lib/squeegeeAutomaticBooking.js"),
     "utf8");
   assert.match(worker,/alert:deps\.alert\|\|/);
-  assert.match(worker,/await use\.alert\(bookingId,reason,\{\.\.\.extra,\.\.\.ownerEmailOnly\}\)/);
+  assert.match(worker,/await use\.alert\(bookingId,reason,\{/);
+  assert.match(worker,/\.\.\.extra,\.\.\.ownerEmailOnly,/);
   assert.match(worker,/await use\.alert\(bookingId,"requires_reconciliation"/);
   assert.match(worker,/matchReason:customerMatch\.reason/);
 });
