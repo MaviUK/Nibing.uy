@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import LevelWasher from "./LevelWasher.jsx";
 
 /**
  * Two informational homepage sections, kept outside the numbered arcade levels
@@ -122,6 +123,7 @@ export function CustomerReviews() {
       className="n64-trust-section n64-trust-section--reviews"
       aria-labelledby="customer-reviews-title"
     >
+      <LevelWasher />
       <div className="n64-trust-inner">
         <div className="n64-trust-heading">
           <span className="n64-trust-eyebrow">★ WORD ON THE STREET</span>
@@ -214,6 +216,7 @@ export function CustomerQuestions({ onBook }) {
       className="n64-trust-section n64-trust-section--questions"
       aria-labelledby="customer-questions-title"
     >
+      <LevelWasher />
       <div className="n64-trust-inner n64-help-centre">
         <div className="n64-help-hero">
           <div className="n64-help-hero__copy">
