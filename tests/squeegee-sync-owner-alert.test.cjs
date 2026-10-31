@@ -564,7 +564,7 @@ test("missing Squeegee mapping email identifies the actual bin size and plan, no
     firstCleanDates:["2026-11-18"],
     unmappedServices:[{binType:"green",planId:"comm_gt660_oneoff"}],
     blockedReasons:["unmapped_squeegee_services"],
-    bookingTotal:35,
+    bookingTotal:45,
   });
   assert.match(msg.text,/Selected bin and plan have no exact Squeegee service mapping/);
   assert.match(msg.text,/Missing Squeegee service: Green/);

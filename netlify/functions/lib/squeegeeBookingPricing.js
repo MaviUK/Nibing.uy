@@ -14,8 +14,8 @@ const PLANS = Object.freeze({
   domestic_oneoff: { label: "One-off", price: 15 },
   comm_lt360_4w: { label: "Commercial <360L 4 Weekly", price: 5 },
   comm_lt360_oneoff: { label: "Commercial <360L One-Off", price: 15 },
-  comm_gt660_4w: { label: "Commercial >660L 4 Weekly", price: 12.5 },
-  comm_gt660_oneoff: { label: "Commercial >660L One-Off", price: 35 },
+  comm_gt660_4w: { label: "Commercial >660L 4 Weekly", price: 15 },
+  comm_gt660_oneoff: { label: "Commercial >660L One-Off", price: 45 },
 });
 const DISCOUNTS = Object.freeze({
   FRESH20: {

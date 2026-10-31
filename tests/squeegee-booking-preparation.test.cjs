@@ -103,11 +103,11 @@ test("does not prepare a job for unmapped commercial plan", () => {
   const b = booking();
   b.bins[0].planId = "comm_gt660_4w";
   b.pricing.lines[0].planId = "comm_gt660_4w";
-  b.pricing.lines[0].baseUnit = 12.5;
-  b.pricing.lines[0].unitPrice = 12.5;
-  b.pricing.lines[0].lineTotal = 25;
-  b.pricing.subtotal = 40;
-  b.pricing.total = 40;
+  b.pricing.lines[0].baseUnit = 15;
+  b.pricing.lines[0].unitPrice = 15;
+  b.pricing.lines[0].lineTotal = 30;
+  b.pricing.subtotal = 45;
+  b.pricing.total = 45;
   const result = prepareReadOnlyBooking(b, serverSchedule(), SERVICES, { jobGroups: GROUPS });
   assert.equal(result.summary.pricingVerified, true);
   assert.equal(result.privatePlan.jobs[0].status, "service_mapping_required");
@@ -276,10 +276,10 @@ test("commercial over 660L does not silently use 660L or 1100L Squeegee services
   b.bins[1].planId = "comm_gt660_oneoff";
   b.pricing.lines[1] = {
     ...b.pricing.lines[1], planId: "comm_gt660_oneoff",
-    baseUnit: 35, unitPrice: 35, lineTotal: 35,
+    baseUnit: 45, unitPrice: 45, lineTotal: 45,
   };
-  b.pricing.subtotal = 45;
-  b.pricing.total = 45;
+  b.pricing.subtotal = 55;
+  b.pricing.total = 55;
   const service660 = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
   const service1100 = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   const result = prepareReadOnlyBooking(b, serverSchedule(), [
