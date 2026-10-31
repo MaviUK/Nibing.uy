@@ -162,7 +162,7 @@ test("Squeegee regular and one-off services resolve by exact account labels", ()
   assert.equal(resolved.serviceIds.domestic_oneoff.blue, ONEOFF_SERVICE);
   assert.equal(resolved.serviceIds.domestic_4w.blue, undefined);
   // Two exact labels now each serve domestic and commercial-under-360 plans.
-  assert.equal(resolved.unresolved.length, 24);
+  assert.equal(resolved.unresolved.length, 28);
   assert.equal(resolved.serviceIds.comm_lt360_4w.black, SERVICE);
   assert.equal(resolved.serviceIds.comm_lt360_oneoff.blue, ONEOFF_SERVICE);
   const result = plan.buildSqueegeeBookingPlan(booking(), verifiedSchedule(), {

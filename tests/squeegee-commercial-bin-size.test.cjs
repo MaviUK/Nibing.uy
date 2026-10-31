@@ -87,7 +87,7 @@ test("1100L commercial Green one-off uses the exact Squeegee 1100L one-off servi
   assert.equal(prepared.privatePlan.jobs[0].sizeLitres,1100);
   assert.match(prepared.privatePlan.jobs[0].input.notes,/Commercial bin size: 1100L/);
 });
-test("1100L four-weekly remains unmapped until the account has an exact service",()=>{
+test("1100L four-weekly is held when Squeegee's service list lacks the exact label",()=>{
   for(const [planId,size,type] of [
     ["comm_gt660_4w",1100,"Blue Bin"],
     ["comm_gt660_4w",1100,"Black Bin"],
@@ -192,11 +192,13 @@ test("both booking forms show a conditional required 660L/1100L selector",()=>{
   }
 });
 
-test("all twelve existing 660L/1100L Squeegee services match exact colour, size and frequency",()=>{
+test("all sixteen 660L/1100L Squeegee services match exact colour, size and frequency",()=>{
   // Labels independently transcribed from the owner's Squeegee Services screenshot.
   const recordedLabels=[
     "Black 660L (4 weekly)","Brown 660L (4 weekly)",
     "Green 660L (4 weekly)","Blue 660L (4 weekly)",
+    "Black 1100L (4 weekly)","Brown 1100L (4 weekly)",
+    "Green 1100L (4 weekly)","Blue 1100L (4 weekly)",
     "Black 660L (one-off)","Brown 660L (one-off)",
     "Green 660L (one-off)","Blue 660L (one-off)",
     "Black 1100L (one-off)","Brown 1100L (one-off)",
@@ -221,11 +223,16 @@ test("all twelve existing 660L/1100L Squeegee services match exact colour, size 
     assert.match(p.privatePlan.jobs[0].input.notes,
       new RegExp("Commercial bin size: "+size+"L"));
   }
+  // If an exact 1100L four-weekly service is later deleted/renamed,
+  // the importer still holds it instead of using 660L or one-off.
   for(const colour of ["Black","Brown","Green","Blue"]){
     const b=booking("comm_gt660_4w",1100,colour+" Bin");
-    assert.equal(resolvedServiceIdForBin(resolved.serviceIds,b.bins[0]),null);
-    const p=prepareReadOnlyBooking(b,schedule(b.bins[0].type),squeegeeServices,{jobGroups});
-    assert.equal(p.status,"held_for_review",colour+" 1100L 4-weekly");
+    const withoutExact=squeegeeServices.filter(service=>
+      service.description!==colour+" 1100L (4 weekly)");
+    const reResolved=resolveSqueegeeServiceIds(withoutExact);
+    assert.equal(resolvedServiceIdForBin(reResolved.serviceIds,b.bins[0]),null);
+    const p=prepareReadOnlyBooking(b,schedule(b.bins[0].type),withoutExact,{jobGroups});
+    assert.equal(p.status,"held_for_review",colour+" missing 1100L 4-weekly");
     assert.equal(p.privatePlan.jobs[0].status,"service_mapping_required");
   }
 });
