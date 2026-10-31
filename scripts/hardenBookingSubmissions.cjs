@@ -29,19 +29,14 @@ updateFile("src/LandingPage.jsx", (text) => {
     );
   }
 
-  if (
-    !text.includes('const submissionMeta = createBookingSubmissionMeta();') ||
-    !text.includes('      ...submissionMeta,\n      source: "whatsapp",')
-  ) {
-    text = mustReplace(
-      text,
-      '    const payload = {\n      source: "whatsapp",',
-      '    const submissionMeta = createBookingSubmissionMeta();\n\n    const payload = {\n      ...submissionMeta,\n      source: "whatsapp",',
-      "WhatsApp submission metadata"
-    );
-  }
+  // The BookingForm now uses one Submit Booking action. Do not recreate the
+  // retired WhatsApp booking handler during builds. The standalone Contact
+  // Us WhatsApp option and legacy server endpoint remain unaffected.
 
-  if (!text.includes('const emailSubmissionMeta = createBookingSubmissionMeta();')) {
+  if (
+    !text.includes('const emailSubmissionMeta = createBookingSubmissionMeta();') &&
+    !text.includes('const emailSubmissionMeta = emailSubmissionRef.current || createBookingSubmissionMeta();')
+  ) {
     text = mustReplace(
       text,
       '    // ✅ reCAPTCHA token (v3)\n    const recaptchaAction = "booking_submit";',
@@ -50,7 +45,10 @@ updateFile("src/LandingPage.jsx", (text) => {
     );
   }
 
-  if (!text.includes('body: JSON.stringify({\n      ...emailSubmissionMeta,\n      name,')) {
+  // Both the inline body and the Preview 1 named payload preserve the same
+  // random booking ID and submission timestamp required by the replay guard.
+  if (!/body:\s*JSON\.stringify\(\{\s*\.\.\.emailSubmissionMeta,\s*name,/.test(text) &&
+      !/const emailBookingPayload\s*=\s*\{\s*\.\.\.emailSubmissionMeta,\s*name,/.test(text)) {
     text = mustReplace(
       text,
       '    body: JSON.stringify({\n      name,',

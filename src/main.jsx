@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import PreviewErrorBoundary from './components/PreviewErrorBoundary';
 import './index.css';
 import './bookingScheduleBridge.js';
 import './bookingScheduleDebug.js';
@@ -24,9 +25,11 @@ if (recaptchaSiteKey && !document.getElementById('recaptcha-script')) {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <PreviewErrorBoundary>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </PreviewErrorBoundary>
   </React.StrictMode>
 );
 

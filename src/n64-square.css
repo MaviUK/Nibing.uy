@@ -1,0 +1,1035 @@
+/*
+ * NI BIN GUY — N64 ARCADE: SQUARE-CORNER EDITION
+ *
+ * Deliberately loaded LAST, after n64-theme.css and n64-complete.css.
+ * Applies to Preview 1 (preview/n64-retro-site) only.
+ * Do not change colours, content, routes, bookings, Squeegee, or data.
+ *
+ * Design: square edges, heavier outlines, hard offset shadows,
+ * rectangular/pixel-inspired controls. Illustrations stay illustrative.
+ */
+
+/* 01 — All first-party landing-page elements, including modal contents. */
+#main-content.n64-world *,
+#main-content.n64-world *::before,
+#main-content.n64-world *::after {
+  border-radius: 0 !important;
+}
+
+/* Clouds belong to the scene: make them stepped, pixel-like silhouettes. */
+#main-content.n64-world .n64-cloud {
+  width: 152px;
+  height: 70px;
+  border-radius: 0 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  filter: drop-shadow(0 7px 0 rgba(44,122,167,.19));
+  clip-path: polygon(
+    0 49%, 12% 49%, 12% 25%, 29% 25%, 29% 0,
+    66% 0, 66% 24%, 82% 24%, 82% 48%, 100% 48%,
+    100% 75%, 87% 75%, 87% 87%, 12% 87%, 12% 75%, 0 75%
+  );
+}
+#main-content.n64-world .n64-cloud::before,
+#main-content.n64-world .n64-cloud::after { display: none !important; }
+
+/* A low-poly ground platform instead of a soft oval. */
+#main-content.n64-world .n64-plinth {
+  border-radius:0 !important;
+  clip-path:polygon(13% 4%, 83% 0, 100% 37%, 91% 86%, 24% 100%, 0 60%);
+}
+
+/* 02 — Brand badge, action buttons and floating game label. */
+#main-content.n64-world .n64-brand {
+  border: 4px solid #20345c !important;
+  box-shadow: 6px 7px 0 #3978a0 !important;
+}
+#main-content.n64-world .n64-brand img {
+  border: 3px solid #20345c !important;
+}
+#main-content.n64-world .n64-kicker {
+  border-width:4px !important;
+  box-shadow: 5px 6px 0 #ae4062 !important;
+}
+#main-content.n64-world .n64-actions {
+  align-items: stretch;
+}
+#main-content.n64-world .n64-btn {
+  border-radius:0 !important;
+  border:4px solid #20345c !important;
+  padding: 14px 20px;
+  min-height: 53px;
+  box-shadow: 0 7px 0 #5f799a, 0 11px 0 rgba(23,48,88,.17) !important;
+  font-weight: 1000 !important;
+}
+#main-content.n64-world .n64-btn--start {
+  box-shadow: 0 7px 0 #cb8d27, 0 11px 0 rgba(23,48,88,.17) !important;
+}
+#main-content.n64-world .n64-btn--area {
+  box-shadow: 0 7px 0 #52a99c, 0 11px 0 rgba(23,48,88,.17) !important;
+}
+#main-content.n64-world .n64-btn--bonus {
+  box-shadow: 0 7px 0 #bc6abb, 0 11px 0 rgba(23,48,88,.17) !important;
+}
+#main-content.n64-world .n64-btn:active {
+  transform:translateY(6px) !important;
+  box-shadow:0 1px 0 #56708f !important;
+}
+#main-content.n64-world .n64-scene-label {
+  border:4px solid #20345c !important;
+  box-shadow:5px 6px 0 #5774a1 !important;
+}
+
+/* 03 — The three counters: solid, square scoreboard tiles. */
+#main-content.n64-world .n64-score {
+  border: 4px solid #20345c !important;
+  border-radius:0 !important;
+  box-shadow: 6px 7px 0 #416b86 !important;
+}
+#main-content.n64-world .n64-score:nth-child(2) {
+  box-shadow:6px 7px 0 #4a926e !important;
+}
+#main-content.n64-world .n64-score:nth-child(3) {
+  box-shadow:6px 7px 0 #af9c70 !important;
+}
+
+/* 04 — All service-level cards and numbered step tokens. */
+#main-content.n64-world > section:not(.n64-hero) .bg-zinc-800\/70 {
+  border:4px solid #20345c !important;
+  border-radius:0 !important;
+  box-shadow:8px 9px 0 rgba(32,52,92,.44) !important;
+}
+#main-content.n64-world > section:not(.n64-hero) .bg-zinc-800\/70:hover {
+  box-shadow:10px 13px 0 rgba(32,52,92,.44) !important;
+}
+#main-content.n64-world > section:nth-of-type(3) li > span {
+  border:3px solid #20345c !important;
+  box-shadow:3px 4px 0 #c9a251 !important;
+}
+#main-content.n64-world > section:nth-of-type(3) button.bg-green-500 {
+  border:4px solid #20345c !important;
+  padding:14px 24px !important;
+  box-shadow:0 7px 0 #c49134 !important;
+}
+#main-content.n64-world > section:nth-of-type(4) > div.relative.z-20 > div {
+  border:4px solid #20345c !important;
+  box-shadow:7px 9px 0 #9a9fd2 !important;
+}
+#main-content.n64-world > section:nth-of-type(4) > div.relative.z-20 > div span {
+  border:3px solid #20345c !important;
+}
+#main-content.n64-world > section:nth-of-type(5) .grid > div,
+#main-content.n64-world > section:nth-of-type(6) .grid > div {
+  border:4px solid #20345c !important;
+  box-shadow:7px 9px 0 rgba(48,70,105,.3) !important;
+}
+
+/* 05 — Header navigation, generated town links, and website sections. */
+#site-menu-toggle {
+  border-radius:0 !important;
+  border:4px solid #20345c !important;
+  box-shadow:5px 6px 0 #37618a !important;
+}
+#site-menu-toggle span,
+#site-menu-toggle span::before,
+#site-menu-toggle span::after { border-radius:0 !important; }
+#site-section-menu {
+  border-radius:0 !important;
+  border:4px solid #20345c !important;
+  box-shadow:7px 8px 0 #426b9b !important;
+}
+#site-section-menu a,
+#site-section-menu button { border-radius:0 !important; }
+#main-content.n64-world > button[aria-label="Check whether we cover your postcode"] {
+  border-radius:0 !important;
+  border:4px solid #20345c !important;
+  box-shadow:5px 6px 0 #37618a !important;
+}
+
+#areas-we-cover a,
+#areas-we-cover .areas a {
+  border-radius:0 !important;
+  border:4px solid #20345c !important;
+  padding:13px 18px !important;
+  min-height:51px;
+  box-shadow:0 6px 0 #56859b !important;
+  font-weight:1000 !important;
+}
+#areas-we-cover a:nth-child(3n + 1) {
+  box-shadow:0 6px 0 #c6943d !important;
+}
+#areas-we-cover a:nth-child(3n + 2) {
+  box-shadow:0 6px 0 #56aa80 !important;
+}
+#areas-we-cover a:nth-child(3n) {
+  box-shadow:0 6px 0 #a272ad !important;
+}
+
+/* 06 — Portal framing only: leave the Squeegee-rendered UI provider-owned. */
+#customer-portal .n64-portal-eyebrow,
+#customer-portal .n64-portal-shell,
+#customer-portal [data-sqc="layout"] {
+  border-radius:0 !important;
+}
+#customer-portal .n64-portal-eyebrow {
+  border:4px solid #20345c !important;
+  box-shadow:5px 6px 0 #bf9751 !important;
+}
+#customer-portal .n64-portal-shell {
+  border:5px solid #20345c !important;
+  box-shadow:11px 13px 0 #ad88b6 !important;
+}
+#customer-portal [data-sqc="layout"] {
+  border:4px solid #20345c !important;
+}
+#customer-reviews :is(article,button,a,[class*="rounded"]) {
+  border-radius:0 !important;
+}
+
+/* 07 — Modal containers, controls and results. Keep interactions unchanged. */
+#main-content.n64-world [role="dialog"] > div > div {
+  border-radius:0 !important;
+  border:4px solid #20345c !important;
+  box-shadow:10px 12px 0 #54729e !important;
+}
+#main-content.n64-world [role="dialog"] :is(
+  input:not([type="checkbox"]),
+  textarea,
+  select
+) {
+  border-radius:0 !important;
+  border:2px solid #526387 !important;
+  min-height:44px;
+}
+#main-content.n64-world [role="dialog"] button[class*="bg-green-500"],
+#main-content.n64-world [role="dialog"] button[class*="bg-blue-500"] {
+  border-radius:0 !important;
+  border:3px solid #20345c !important;
+  box-shadow:0 5px 0 #b88c38 !important;
+}
+#main-content.n64-world [role="dialog"] button:disabled {
+  box-shadow:none !important;
+  transform:none !important;
+}
+/* The 10-second minigame has its own nested modal/control surfaces. */
+[data-testid="ten-sec-root"] :is(
+  button,input,textarea,select,
+  [class*="rounded"], [class*="border"]
+) {border-radius:0 !important;}
+[data-testid="ten-sec-root"] > div {
+  border:4px solid #20345c !important;
+  box-shadow:9px 10px 0 #25365a !important;
+}
+
+/* Privacy-policy dialog is inserted by an external first-party script. */
+#nbg-privacy-policy-overlay,
+#nbg-privacy-policy-overlay * {
+  border-radius:0 !important;
+}
+
+/* 08 — Other first-party React screens, not the private admin controls. */
+.n64-street-booking *,
+.n64-street-booking *::before,
+.n64-sidequest *,
+.n64-metrics * {
+  border-radius:0 !important;
+}
+.n64-street-booking > div > div:nth-child(2) {
+  border:4px solid #20345c !important;
+  box-shadow:10px 12px 0 #7497a8 !important;
+}
+.n64-street-booking button[type="submit"],
+.n64-street-booking button.bg-black {
+  border:3px solid #20345c !important;
+  box-shadow:0 6px 0 #b58c39 !important;
+}
+.n64-sidequest :is(form,.max-w-xl) {
+  border:4px solid #20345c !important;
+  box-shadow:8px 10px 0 #7295b4 !important;
+}
+.n64-metrics .bg-neutral-900 {
+  border:4px solid #20345c !important;
+  box-shadow:7px 8px 0 #94a3bb !important;
+}
+
+/* Compact mobile buttons and borders still leave room for text. */
+@media(max-width:600px) {
+  #main-content.n64-world .n64-btn {
+    border-width:3px !important;
+    padding:11px 13px !important;
+    min-height:49px;
+    font-size:.91rem;
+  }
+  #main-content.n64-world .n64-score {
+    border-width:3px !important;
+    padding:12px 6px !important;
+    box-shadow:4px 5px 0 #416b86 !important;
+  }
+  #main-content.n64-world .n64-score:nth-child(2) {
+    box-shadow:4px 5px 0 #4a926e !important;
+  }
+  #main-content.n64-world .n64-score:nth-child(3) {
+    box-shadow:4px 5px 0 #af9c70 !important;
+  }
+  #areas-we-cover a,
+  #areas-we-cover .areas a {
+    border-width:3px !important;
+    padding:10px 12px !important;
+    min-height:44px;
+  }
+  #customer-portal .n64-portal-shell {
+    border-width:4px !important;
+    box-shadow:7px 8px 0 #ad88b6 !important;
+  }
+  #main-content.n64-world [role="dialog"] > div > div {
+    border-width:3px !important;
+    box-shadow:6px 8px 0 #54729e !important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  #main-content.n64-world .n64-btn,
+  #areas-we-cover a {transition:none !important;}
+}
+
+
+/* ── PREVIEW 2 HERO ARRANGEMENT, PREVIEW 1 COLOURS / ARTWORK ──
+ * Layout only: copy + art, full-width primary CTA, two half-width CTAs,
+ * centred secondary links, then the three live stats tiles. No colour
+ * palette or service logic is imported from Preview 2.
+ */
+#main-content.n64-world .n64-hero-layout-v2 {
+  min-height:0 !important;
+  padding-bottom:50px;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-hero-inner {
+  display:grid;
+  grid-template-columns:minmax(0,1.02fr) minmax(0,.98fr);
+  gap:18px;
+  width:100%;
+  max-width:1160px;
+  margin:0 auto;
+  align-items:center;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-hero-copy { min-width:0; }
+#main-content.n64-world .n64-hero-layout-v2 .n64-price-ticket {
+  display:inline-flex;
+  align-items:center;
+  gap:12px;
+  margin:19px 0 7px;
+  padding:9px 16px;
+  background:var(--yellow);
+  color:var(--outline);
+  border:4px solid var(--outline);
+  box-shadow:6px 7px 0 #c39137;
+  transform:rotate(-2deg);
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-price-ticket strong {
+  color:var(--outline);
+  font:1000 clamp(2.5rem,3.7vw,3.7rem)/1 "Arial Black","Trebuchet MS",sans-serif;
+  letter-spacing:-.06em;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-price-ticket span {
+  color:var(--outline);
+  font:1000 .72rem/1.3 Verdana,sans-serif;
+  letter-spacing:.025em;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-actions {
+  position:relative;
+  z-index:4;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:15px;
+  width:100%;
+  max-width:1030px;
+  margin:20px auto 21px;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-btn {
+  min-width:0;
+  width:100%;
+  min-height:65px;
+  text-align:center;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links {
+  position:relative;
+  z-index:3;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:center;
+  gap:10px 19px;
+  width:100%;
+  max-width:1030px;
+  margin:29px auto 24px;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-scoreboard {
+  max-width:1030px;
+  margin:22px auto 0;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-scroll-note {
+  margin:28px auto 6px;
+}
+
+/* Match Preview 2 on phones/tablets: the artwork sits ABOVE all actions.
+ * Keep Preview 1's title, colours, cloud scene, and three original bins. */
+@media(max-width:950px){
+  #main-content.n64-world .n64-hero-layout-v2 .n64-hero-inner {
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    max-width:660px;
+    gap:0;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-hero-copy {
+    text-align:left;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-brand,
+  #main-content.n64-world .n64-hero-layout-v2 .n64-kicker {
+    margin-left:0;
+    margin-right:auto;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-kicker {
+    margin-top:28px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-lead {
+    margin:22px 0 12px;
+    max-width:610px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-scene {
+    width:100%;
+    max-width:600px;
+    height:clamp(345px,50vw,405px);
+    margin:0 auto 2px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-actions {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    max-width:660px;
+    gap:15px 13px;
+    margin:13px auto 19px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-btn--start {
+    grid-column:1 / -1;
+    min-height:70px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links {
+    max-width:660px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-scoreboard {
+    max-width:660px;
+  }
+}
+@media(max-width:600px){
+  #main-content.n64-world .n64-hero-layout-v2 {
+    padding:84px 14px 36px !important;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-hero-inner {
+    width:100%;
+    gap:0;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-kicker {
+    margin-top:26px;
+    margin-bottom:16px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-lead {
+    margin:19px 0 10px;
+    font-size:.96rem;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-price-ticket {
+    margin:14px 0 2px;
+    padding:7px 12px;
+    gap:9px;
+    border-width:3px;
+    box-shadow:4px 5px 0 #c39137;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-price-ticket strong {
+    font-size:2.45rem;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-price-ticket span {
+    font-size:.61rem;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-scene {
+    width:100%;
+    /* Size the stage to the actual bin art rather than the removed platform. */
+    height:clamp(252px,73vw,380px);
+    max-width:520px;
+    margin:4px auto 6px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-bin--left {
+    width:41%;
+    left:0;
+    top:19%;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-bin--centre {
+    width:48%;
+    left:27%;
+    top:2%;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-bin--right {
+    width:41%;
+    right:-1%;
+    top:18%;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-plinth {
+    bottom:18%;
+    height:68px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-scene-label {
+    /* Place the label directly beneath the bins, not at the old platform's base. */
+    top:calc(min(61vw,330px) + 10px);
+    bottom:auto;
+    right:1%;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-actions {
+    gap:13px 10px;
+    margin:8px 0 18px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-btn {
+    min-height:59px;
+    padding:12px 10px !important;
+    line-height:1.18;
+    font-size:clamp(.79rem,3.4vw,.99rem);
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-btn--start {
+    min-height:67px;
+    font-size:1.07rem;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links {
+    gap:10px 13px;
+    justify-content:center;
+    margin:26px auto 22px;
+    font-size:.69rem;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-divider {
+    display:none;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-text-link {
+    font-size:.72rem;
+    text-transform:uppercase;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-scoreboard {
+    gap:7px;
+    margin:16px auto 0;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-scroll-note {
+    margin:28px auto 6px;
+    letter-spacing:.075em;
+  }
+}
+
+
+/* ── SCROLL LABEL AND PROCESS CORNERS FIX ──────────────────────────────────
+   Preview 1 only. The previous 11%-high chequered ground swallowed the
+   scroll prompt, and more specific section rules re-rounded the steps/CTA.
+   Keep all colours, handlers, copy, and artwork unchanged.
+*/
+#main-content.n64-world .n64-hero-layout-v2::after {
+  /* A thin end-of-level checker border, not a background behind the prompt. */
+  height:32px !important;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-scroll-note {
+  position:relative;
+  z-index:8;
+  display:table;
+  width:max-content;
+  max-width:calc(100% - 20px);
+  margin:28px auto 30px !important;
+  padding:11px 18px;
+  border:4px solid #20345c !important;
+  border-radius:0 !important;
+  background:#fff9e8 !important;
+  color:#20345c !important;
+  box-shadow:5px 6px 0 #588ab1 !important;
+  text-align:center;
+  font:900 .76rem/1.45 Verdana,sans-serif;
+  letter-spacing:.1em;
+}
+/* Explicit section ID raises specificity above the older rounded !important
+   rules for numbered cleaning steps and the Booking Process CTA. */
+#main-content.n64-world > section#the-process li > span {
+  border-radius:0 !important;
+  border:3px solid #20345c !important;
+  background:var(--yellow) !important;
+  color:#20345c !important;
+  box-shadow:4px 4px 0 #c9a251 !important;
+  width:36px;
+  height:36px;
+  min-width:36px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+#main-content.n64-world > section#the-process button.bg-green-500 {
+  border-radius:0 !important;
+  border:4px solid #20345c !important;
+  background:var(--yellow) !important;
+  color:#20345c !important;
+  box-shadow:0 7px 0 #c49134 !important;
+  padding:14px 24px !important;
+  min-height:53px;
+  font-weight:1000 !important;
+}
+#main-content.n64-world > section#the-process button.bg-green-500:active {
+  transform:translateY(5px);
+  box-shadow:0 2px 0 #c49134 !important;
+}
+#main-content.n64-world > section#the-process [class*="rounded"] {
+  border-radius:0 !important;
+}
+@media(max-width:600px) {
+  #main-content.n64-world .n64-hero-layout-v2 .n64-scroll-note {
+    padding:10px 12px;
+    margin:22px auto 20px !important;
+    border-width:3px !important;
+    box-shadow:4px 5px 0 #588ab1 !important;
+    font-size:.67rem;
+    letter-spacing:.04em;
+  }
+  #main-content.n64-world > section#the-process button.bg-green-500 {
+    padding:13px 22px !important;
+  }
+}
+
+
+/* ── PRIMARY & SECONDARY NAV BUTTONS ───────────────────────────────────────
+   One Check Your Area control remains fixed at the top.
+   Keep Book a Clean full width.
+   Present the four other actions as a 2-by-2 grid of square arcade buttons.
+   No booking, portal, bin-day or contact handler changes.
+*/
+#main-content.n64-world .n64-hero-layout-v2 .n64-actions {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:14px;
+  max-width:1030px;
+  margin:18px auto 0;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-btn--start,
+#main-content.n64-world .n64-hero-layout-v2 .n64-btn--bonus {
+  grid-column:auto;
+  width:100%;
+  min-height:64px;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:13px;
+  max-width:1030px;
+  align-items:stretch;
+  width:100%;
+  margin:13px auto 21px;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-text-link {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  min-width:0;
+  min-height:59px;
+  padding:12px 9px;
+  margin:0;
+  color:#20345c !important;
+  border:4px solid #20345c !important;
+  border-radius:0 !important;
+  box-shadow:0 6px 0 #7094ad !important;
+  font:1000 clamp(.85rem,1.35vw,1.03rem)/1.23 "Trebuchet MS",Verdana,sans-serif;
+  text-transform:none !important;
+  text-align:center;
+  text-decoration:none !important;
+  overflow-wrap:normal;
+  white-space:normal;
+  cursor:pointer;
+  transition:transform .14s ease,box-shadow .14s ease,filter .14s ease;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--bonus {
+  background:#f7b6ef !important;
+  box-shadow:0 6px 0 #bc6abb !important;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--contact {
+  background:#d9f8ff !important;
+  box-shadow:0 6px 0 #6aaec2 !important;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--portal {
+  background:#d8ffcf !important;
+  box-shadow:0 6px 0 #81b97b !important;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--bin-day {
+  background:#fff0b2 !important;
+  box-shadow:0 6px 0 #bd9d53 !important;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-text-link:hover {
+  transform:translateY(-2px);
+  filter:brightness(1.04);
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-text-link:active {
+  transform:translateY(5px);
+  box-shadow:0 1px 0 #667f93 !important;
+}
+#main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-text-link:focus-visible {
+  outline:4px solid #fff !important;
+  outline-offset:4px;
+}
+@media(max-width:950px) {
+  #main-content.n64-world .n64-hero-layout-v2 .n64-actions {
+    grid-template-columns:minmax(0,1fr);
+    gap:13px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-btn--start {
+    grid-column:auto;
+  }
+}
+@media(max-width:600px) {
+  #main-content.n64-world .n64-hero-layout-v2 .n64-actions {
+    grid-template-columns:minmax(0,1fr);
+    gap:13px;
+    margin:12px 0 0;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-btn--start,
+  #main-content.n64-world .n64-hero-layout-v2 .n64-btn--bonus {
+    min-height:62px;
+    font-size:1rem;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    column-gap:8px;
+    row-gap:12px;
+    margin:12px auto 19px;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-text-link {
+    min-height:65px;
+    padding:9px 5px;
+    border-width:3px !important;
+    box-shadow:0 5px 0 #7792a4 !important;
+    font-size:clamp(.67rem,2.8vw,.87rem);
+    line-height:1.18;
+    letter-spacing:-.025em;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--bonus {
+    box-shadow:0 5px 0 #bc6abb !important;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--contact {
+    box-shadow:0 5px 0 #6aaec2 !important;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--portal {
+    box-shadow:0 5px 0 #81b97b !important;
+  }
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-link--bin-day {
+    box-shadow:0 5px 0 #bd9d53 !important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  #main-content.n64-world .n64-hero-layout-v2 .n64-extra-links .n64-text-link{
+    transition:none;
+  }
+}
+
+
+/* ── POSTCODE CHECKER SQUARE-EDGE FIX ───────────────────────────────────────
+   These targeted selectors override earlier !important border radii from
+   n64-complete.css. The coverage checker keeps all existing postcode,
+   address lookup, booking and date-checking behaviour unchanged.
+*/
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] {
+  border-radius:0 !important;
+}
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] [class*="rounded"],
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] input,
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] select,
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] button {
+  border-radius:0 !important;
+}
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] button[type="submit"] {
+  border-radius:0 !important;
+  border:3px solid #20345c !important;
+  box-shadow:0 5px 0 #b88d3c !important;
+}
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] button[type="submit"]:active {
+  transform:translateY(4px);
+  box-shadow:0 1px 0 #b88d3c !important;
+}
+#main-content.n64-world [role="dialog"] section[aria-label="Check bin cleaning coverage"] button[type="submit"]:disabled {
+  box-shadow:none !important;
+  transform:none !important;
+}
+
+
+/* ── FOUR-ROW CHECKERBOARD LEVEL SEPARATORS ────────────────────────────────
+   Arcade transition between the hero and Levels 01–07, including the
+   dynamically inserted Areas We Cover section and Squeegee portal surround.
+   Each band is EXACTLY four checker rows high. Decorative only.
+*/
+#main-content.n64-world > section:not(.n64-hero),
+#areas-we-cover,
+#customer-portal {
+  --n64-check-tile:20px;
+  --n64-check-height:calc(var(--n64-check-tile) * 4);
+}
+/* Replace the older thin checkered ending on the hero. The next section
+   owns the entire four-row transition, avoiding duplicate patterns. */
+#main-content.n64-world .n64-hero-layout-v2::after {
+  display:none !important;
+}
+/* Each React-rendered level gets an identical full-width band at its top. */
+#main-content.n64-world > section:not(.n64-hero) {
+  position:relative;
+  border-top:0 !important;
+  padding-top:calc(85px + var(--n64-check-height)) !important;
+}
+#main-content.n64-world > section:not(.n64-hero)::before {
+  content:"";
+  position:absolute;
+  inset:0 0 auto 0;
+  width:100%;
+  height:var(--n64-check-height);
+  background:repeating-conic-gradient(
+    #353f63 0% 25%,
+    #fff7df 0% 50%
+  ) 0 0 / calc(var(--n64-check-tile) * 2) calc(var(--n64-check-tile) * 2);
+  box-shadow:0 4px 0 rgba(32,52,92,.16);
+  z-index:1;
+  pointer-events:none;
+}
+/* Level 06 is inserted outside the React main. Preserve its decorative
+   pixel-hills ::before, and repurpose the old ::after star for the stripe. */
+#areas-we-cover {
+  border-top:0 !important;
+  padding-top:calc(85px + var(--n64-check-height)) !important;
+}
+#areas-we-cover::after {
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  right:0;
+  bottom:auto;
+  width:100%;
+  height:var(--n64-check-height);
+  background:repeating-conic-gradient(
+    #353f63 0% 25%,
+    #fff7df 0% 50%
+  ) 0 0 / calc(var(--n64-check-tile) * 2) calc(var(--n64-check-tile) * 2);
+  border:0;
+  border-radius:0;
+  box-shadow:0 4px 0 rgba(32,52,92,.16);
+  font-size:0;
+  color:transparent;
+  -webkit-text-stroke:0;
+  text-shadow:none;
+  transform:none;
+  z-index:2;
+  pointer-events:none;
+}
+/* Keep the area section's little decorative star, away from the stripe. */
+#areas-we-cover h2::after {
+  content:"✦";
+  position:absolute;
+  right:7%;
+  top:calc(var(--n64-check-height) + 22px);
+  color:#ffd247;
+  -webkit-text-stroke:2px #28416f;
+  text-shadow:4px 5px 0 #ba9446;
+  font-size:clamp(25px,4vw,50px);
+  transform:rotate(18deg);
+  pointer-events:none;
+}
+/* Level 07: checker sits above the existing portal frame, never inside
+   or over the third-party Squeegee sign-in widget. */
+#customer-portal {
+  border-top:0 !important;
+  padding-top:calc(85px + var(--n64-check-height)) !important;
+}
+#customer-portal::before {
+  content:"";
+  position:absolute;
+  inset:0 0 auto 0;
+  width:100%;
+  height:var(--n64-check-height);
+  background:repeating-conic-gradient(
+    #353f63 0% 25%,
+    #fff7df 0% 50%
+  ) 0 0 / calc(var(--n64-check-tile) * 2) calc(var(--n64-check-tile) * 2);
+  box-shadow:0 4px 0 rgba(32,52,92,.16);
+  z-index:1;
+  pointer-events:none;
+}
+@media(max-width:640px){
+  #main-content.n64-world > section:not(.n64-hero),
+  #areas-we-cover,
+  #customer-portal {
+    --n64-check-tile:16px;
+  }
+  #main-content.n64-world > section:not(.n64-hero) {
+    padding-top:calc(65px + var(--n64-check-height)) !important;
+  }
+  #areas-we-cover {
+    padding-top:calc(66px + var(--n64-check-height)) !important;
+  }
+  #customer-portal {
+    padding-top:calc(64px + var(--n64-check-height)) !important;
+  }
+  #areas-we-cover h2::after {font-size:25px;right:4%;}
+}
+
+
+/* ── N64 LEVEL TRANSITIONS: RUN RIGHT, THEN LEVEL COMPLETED! ─────────────
+   Every checkerboard is exactly four rows tall. The sprite is clipped to
+   that flag, moves from outside the left edge to off-screen right once
+   the stripe enters view, then a centred completion banner appears.
+*/
+#main-content.n64-world > section:not(.n64-hero) > .n64-level-track,
+#areas-we-cover > .n64-level-track,
+#customer-portal > .n64-level-track,
+#level-08-final > .n64-level-track {
+  display:block;
+  box-sizing:border-box;
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  bottom:auto;
+  z-index:5;
+  width:100%;
+  max-width:none !important;
+  height:var(--n64-check-height);
+  padding:0;
+  margin:0;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  overflow:hidden;
+  pointer-events:none;
+  user-select:none;
+  isolation:isolate;
+  --n64-level-duration:3.2s;
+}
+#main-content.n64-world > section:not(.n64-hero) .n64-level-track .n64-level-washer,
+#areas-we-cover .n64-level-track .n64-level-washer,
+#customer-portal .n64-level-track .n64-level-washer,
+#level-08-final .n64-level-track .n64-level-washer {
+  display:block;
+  position:absolute;
+  top:0;
+  left:0;
+  right:auto;
+  bottom:auto;
+  z-index:2;
+  width:calc(var(--n64-check-height) * 1.64);
+  max-width:50%;
+  height:100%;
+  padding:0;
+  margin:0;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  line-height:0;
+  overflow:hidden;
+  transform:translateX(-100%);
+  will-change:transform;
+  pointer-events:none;
+}
+#main-content.n64-world > section:not(.n64-hero) .n64-level-track .n64-level-washer img,
+#areas-we-cover .n64-level-track .n64-level-washer img,
+#customer-portal .n64-level-track .n64-level-washer img,
+#level-08-final .n64-level-track .n64-level-washer img {
+  display:block;
+  box-sizing:border-box;
+  width:100%;
+  height:100%;
+  max-width:100%;
+  padding:3px 0;
+  margin:0;
+  object-fit:contain;
+  object-position:center;
+  image-rendering:pixelated;
+  filter:none !important;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+}
+#main-content.n64-world .n64-level-track.n64-run-active .n64-level-washer,
+#areas-we-cover .n64-level-track.n64-run-active .n64-level-washer,
+#customer-portal .n64-level-track.n64-run-active .n64-level-washer,
+#level-08-final .n64-level-track.n64-run-active .n64-level-washer {
+  animation:n64-washer-travel var(--n64-level-duration) linear forwards !important;
+}
+@keyframes n64-washer-travel {
+  from { transform:translateX(-100%); }
+  to { transform:translateX(100vw); }
+}
+#main-content.n64-world .n64-level-track.n64-run-complete .n64-level-washer,
+#areas-we-cover .n64-level-track.n64-run-complete .n64-level-washer,
+#customer-portal .n64-level-track.n64-run-complete .n64-level-washer,
+#level-08-final .n64-level-track.n64-run-complete .n64-level-washer {
+  animation:none !important;
+  opacity:0;
+}
+#main-content.n64-world .n64-level-track .n64-level-complete,
+#areas-we-cover .n64-level-track .n64-level-complete,
+#customer-portal .n64-level-track .n64-level-complete,
+#level-08-final .n64-level-track .n64-level-complete {
+  display:block;
+  box-sizing:border-box;
+  position:absolute;
+  z-index:3;
+  top:50%;
+  left:50%;
+  width:max-content;
+  max-width:calc(100% - 20px);
+  padding:8px 15px;
+  margin:0;
+  background:#ffe164 !important;
+  color:#20345c !important;
+  border:3px solid #20345c !important;
+  border-radius:0 !important;
+  box-shadow:4px 4px 0 #5f87aa !important;
+  font:1000 clamp(.69rem,2.6vw,.95rem)/1.15 "Arial Black","Trebuchet MS",Verdana,sans-serif;
+  letter-spacing:.045em;
+  text-align:center;
+  white-space:nowrap;
+  opacity:0;
+  transform:translate(-50%,-50%) scale(.8);
+  pointer-events:none;
+}
+#main-content.n64-world .n64-level-track.n64-run-complete .n64-level-complete,
+#areas-we-cover .n64-level-track.n64-run-complete .n64-level-complete,
+#customer-portal .n64-level-track.n64-run-complete .n64-level-complete,
+#level-08-final .n64-level-track.n64-run-complete .n64-level-complete {
+  animation:n64-level-complete-pop .35s steps(3,end) forwards;
+}
+@keyframes n64-level-complete-pop {
+  from {opacity:0;transform:translate(-50%,-50%) scale(.8);}
+  to {opacity:1;transform:translate(-50%,-50%) scale(1);}
+}
+@media(min-width:800px) {
+  #main-content.n64-world > section:not(.n64-hero) > .n64-level-track,
+  #areas-we-cover > .n64-level-track,
+#customer-portal > .n64-level-track,
+#level-08-final > .n64-level-track {
+    --n64-level-duration:5.2s;
+  }
+}
+@media(max-width:640px) {
+  #main-content.n64-world .n64-level-track .n64-level-complete,
+  #areas-we-cover .n64-level-track .n64-level-complete,
+#customer-portal .n64-level-track .n64-level-complete,
+#level-08-final .n64-level-track .n64-level-complete {
+    padding:7px 10px;
+    border-width:3px !important;
+    font-size:.73rem;
+    letter-spacing:.02em;
+  }
+}
+@media(prefers-reduced-motion:reduce) {
+  #main-content.n64-world .n64-level-track .n64-level-washer,
+  #areas-we-cover .n64-level-track .n64-level-washer,
+#customer-portal .n64-level-track .n64-level-washer,
+#level-08-final .n64-level-track .n64-level-washer {
+    animation:none !important;
+    transform:translateX(-100%) !important;
+  }
+  #main-content.n64-world .n64-level-track.n64-run-complete .n64-level-complete,
+  #areas-we-cover .n64-level-track.n64-run-complete .n64-level-complete,
+#customer-portal .n64-level-track.n64-run-complete .n64-level-complete,
+#level-08-final .n64-level-track.n64-run-complete .n64-level-complete {
+    animation:none !important;
+    opacity:1;
+    transform:translate(-50%,-50%) !important;
+  }
+}

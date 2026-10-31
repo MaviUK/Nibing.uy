@@ -162,8 +162,7 @@ function lookupKey(form) {
     address: String(form?.address || "").trim().toUpperCase().replace(/\s+/g, " "),
     postcode: String(form?.postcode || "").trim().toUpperCase(),
     bins: (Array.isArray(form?.bins) ? form.bins : [])
-      .map((bin) => String(bin?.type || bin || "").trim().toUpperCase())
-      .sort(),
+      .map((bin) => String(bin?.type || bin || "").trim().toUpperCase()),
   });
 }
 
@@ -284,6 +283,12 @@ async function runLookup(root) {
   validatePostcode(root, false);
   const key = lookupKey(form);
 
+  // Keep one request per exact address and ordered bin selection.
+  // Editing contact details or discounts must not abort an in-flight lookup.
+  if (latestLookupKey === key) {
+    if (latestLookupPromise) return latestLookupPromise;
+    if (latestLookupData) return latestLookupData;
+  }
   if (activeController) activeController.abort();
   const controller = new AbortController();
   activeController = controller;
@@ -346,6 +351,39 @@ async function ensureBookingSchedule(root = findBookingRoot()) {
 
 window.nbgEnsureBookingSchedule = ensureBookingSchedule;
 
+// Preserve the exact per-bin dates currently displayed in the booking form.
+// The customer/booking writer must still verify these on the server before
+// attempting any Squeegee writes. A missing or outdated lookup is never a date.
+function getBookingScheduleSnapshot(root = findBookingRoot()) {
+  if (!root || serviceAreaBlocksLookup(root)) return null;
+  const form = getFormData(root);
+  if (!form?.postcode || !form?.bins?.length ||
+      latestLookupKey !== lookupKey(form) || !latestLookupData) return null;
+
+  const results = Array.isArray(latestLookupData.results) ? latestLookupData.results : [];
+  if (results.length !== form.bins.length) return null;
+
+  const items = results.map((result, index) => {
+    const isoDate = String(result?.assignedCleanDate || "");
+    const confirmed = Boolean(result?.automatic && /^\d{4}-\d{2}-\d{2}$/.test(isoDate));
+    return {
+      type: form.bins[index].type,
+      assignedCleanDate: confirmed ? isoDate : null,
+      automatic: confirmed,
+    };
+  });
+
+  return {
+    version: 1,
+    postcode: form.postcode,
+    matched: items.every((item) => item.automatic),
+    results: items,
+  };
+}
+
+window.nbgGetBookingScheduleSnapshot = getBookingScheduleSnapshot;
+
+
 function bindBookingRoot(root) {
   if (!root || root.dataset.autoScheduleBound === "true") return;
   root.dataset.autoScheduleBound = "true";
@@ -355,8 +393,24 @@ function bindBookingRoot(root) {
   keepSubmitButtonLabels(root);
   const labelObserver = new MutationObserver(() => keepSubmitButtonLabels(root));
   labelObserver.observe(root, { childList: true, subtree: true, characterData: true });
-  root.addEventListener("input", () => scheduleLookup(root));
-  root.addEventListener("change", () => scheduleLookup(root));
+  const relevantChange=(event)=>{
+    const field=event?.target;
+    const addressField=root.querySelector('input[placeholder="Full Address"]');
+    if(field===addressField || findBinSelects(root).includes(field)){
+      scheduleLookup(root);
+      return;
+    }
+    // Recurrence only alters the description, not the council date.
+    if(field===findFrequencySelect(root) && latestLookupData &&
+       latestLookupKey===lookupKey(getFormData(root))) {
+      const matched=latestLookupData.matched===true &&
+        Array.isArray(latestLookupData.results) &&
+        latestLookupData.results.every(row=>row?.automatic && row?.assignedCleanDate);
+      render(root,matched?"matched":"manual",latestLookupData);
+    }
+  };
+  root.addEventListener("input", relevantChange);
+  root.addEventListener("change", relevantChange);
   root.addEventListener("nbg-address-value-changed", () => scheduleLookup(root));
   root.addEventListener("click", (event) => {
     const button = event.target?.closest?.("button");

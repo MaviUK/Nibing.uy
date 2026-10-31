@@ -1,8 +1,14 @@
 import React, { Suspense, lazy } from "react"
 import { Routes, Route } from "react-router-dom"
 import NiBinGuyLandingPage from "./LandingPage"
+import "./n64-theme.css"
+import "./n64-complete.css"
+import "./n64-square.css"
+import "./n64-finale.css"
 import HomepageServiceSchema from "./HomepageServiceSchema"
 import CustomerPortalLoader from "./components/CustomerPortalLoader"
+import FinalLevel from "./components/FinalLevel"
+import ArcadeLeaderboard from "./components/ArcadeLeaderboard"
 
 const StandeeClaim = lazy(() => import("./standee/StandeeClaim"))
 const StandeeSpottedClaim = lazy(() => import("./standee/StandeeSpottedClaim"))
@@ -36,6 +42,8 @@ function HomePage() {
       <HomepageServiceSchema />
       <NiBinGuyLandingPage />
       <CustomerPortalLoader />
+      <FinalLevel />
+      <ArcadeLeaderboard />
       <SiteFooter />
     </>
   )
@@ -47,14 +55,14 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/street-booking" element={<StreetBookingPage />} />
-        <Route path="/metric" element={<Metrics />} />
-        <Route path="/metrics" element={<Metrics />} />
-        <Route path="/challenge-email-test-0825" element={<TenSecondChallenge autoWin />} />
-        <Route path="/standee/:slug" element={<StandeePreClaim />} />
-        <Route path="/standee/:slug/claim" element={<StandeeClaim />} />
-        <Route path="/standee/:slug/spotted" element={<StandeeSpottedClaim />} />
+        <Route path="/metric" element={<div className="n64-metrics"><Metrics /></div>} />
+        <Route path="/metrics" element={<div className="n64-metrics"><Metrics /></div>} />
+        <Route path="/challenge-email-test-0825" element={<div className="n64-challenge-route"><TenSecondChallenge autoWin /></div>} />
+        <Route path="/standee/:slug" element={<div className="n64-sidequest"><StandeePreClaim /></div>} />
+        <Route path="/standee/:slug/claim" element={<div className="n64-sidequest"><StandeeClaim /></div>} />
+        <Route path="/standee/:slug/spotted" element={<div className="n64-sidequest"><StandeeSpottedClaim /></div>} />
         <Route path="/standee/latest" element={<LatestStandeeRedirect />} />
-        <Route path="/standee/:slug/spotted/closed" element={<StandeeSpottedClosed />} />
+        <Route path="/standee/:slug/spotted/closed" element={<div className="n64-sidequest"><StandeeSpottedClosed /></div>} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/auth/callback" element={<AuthCallback />} />

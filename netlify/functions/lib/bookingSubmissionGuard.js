@@ -19,11 +19,11 @@ try {
   // Netlify Blobs is expected in production. Freshness validation still works if unavailable.
 }
 
-function validateBookingSubmission(payload) {
+function validateBookingSubmission(payload, { now = Date.now() } = {}) {
   const bookingId = String(payload?.bookingId || "").trim();
   const submittedAt = String(payload?.submittedAt || "").trim();
   const submittedMs = Date.parse(submittedAt);
-  const receivedMs = Date.now();
+  const receivedMs = Number(now);
   const serverReceivedAt = new Date(receivedMs).toISOString();
 
   if (!BOOKING_ID_RE.test(bookingId)) {

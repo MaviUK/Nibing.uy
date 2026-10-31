@@ -1,0 +1,54 @@
+name: Preview 1 Squeegee booking website build smoke
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/squeegee-preview-build-smoke.yml
+      - src/LandingPage.jsx
+      - src/bookingScheduleBridge.js
+      - netlify/functions/lib/squeegeeBookingStage.js
+      - scripts/hardenBookingSubmissions.cjs
+      - netlify/functions/squeegeePreviewTest.mjs
+      - netlify/functions/squeegeePreviewTestSubmit.mjs
+      - netlify/functions/lib/squeegeePreviewTestSession.js
+      - netlify/functions/lib/squeegeeOneBookingTest.js
+      - netlify/functions/lib/squeegeePreviewAutoDispatch.js
+      - netlify/functions/lib/squeegeePreviewAutoRollout.js
+      - netlify/functions/lib/squeegeeAutoPilotRecovery.js
+      - netlify/functions/squeegeePreviewAutoRecover.mjs
+      - netlify/functions/squeegeePreviewQuantityProbe.mjs
+      - tests/squeegee-quantity-probe.test.cjs
+      - netlify/functions/lib/squeegeeAutomaticBooking.js
+      - netlify/functions/lib/squeegeeCustomerMatcher.js
+      - tests/squeegee-name-address-matching.test.cjs
+      - tests/squeegee-duplicate-flags.test.cjs
+      - netlify/functions/lib/squeegeeJobGrouping.js
+      - netlify/functions/lib/ukBookingPhone.js
+      - netlify/functions/lib/squeegeeSyncOwnerAlert.js
+      - tests/squeegee-sync-owner-alert.test.cjs
+      - tests/squeegee-booking-phone-validation.test.cjs
+      - netlify/functions/squeegeePreviewAutoSync.mjs
+      - netlify/functions/squeegeePreviewAutoStatus.mjs
+      - netlify/functions/sendBookingEmail.js
+      - netlify/functions/sendTosReceipt.js
+      - netlify/functions/lib/squeegeeApiV3.js
+      - netlify/functions/lib/squeegeeOneBookingReconcile.js
+      - netlify/functions/lib/squeegeeAcceptedBookingRecovery.js
+      - netlify/functions/squeegeePreviewRecoverOriginal.mjs
+permissions:
+  contents: read
+jobs:
+  check-preview-website-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build preview website
+        run: npm run build

@@ -1,4 +1,5 @@
 const { Resend } = require("resend");
+const { signBooking } = require("./lib/arcadeBookingProof");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -276,7 +277,7 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: true, customerConfirmationSent: !customerResult?.error }),
+      body: JSON.stringify({ success: true, customerConfirmationSent: !customerResult?.error, arcadeBookingProof: signBooking(payload) }),
     };
   } catch (error) {
     console.error("sendStreetBookingEmail failed:", error);

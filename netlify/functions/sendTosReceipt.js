@@ -2,8 +2,12 @@
 // can be allocated. If scheduling needs manual review, still notify the owner so
 // the booking is never lost just because the council/round lookup could not match.
 const { Resend } = require("resend");
+const { signBooking } = require("./lib/arcadeBookingProof");
+const { autoEnrollBooking } = require("./arcadeLeaderboard");
 const { handler: sendAutomaticBookingConfirmation } = require("./sendAutomaticBookingConfirmation");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
+const { stageWithoutBlockingBooking } = require("./lib/squeegeeBookingStage");
+const { dispatchAcceptedBooking } = require("./lib/squeegeePreviewAutoDispatch");
 
 let getStatusStore = null;
 try {
@@ -229,10 +233,50 @@ exports.handler = async (event) => {
     } catch (_) {}
 
     if (confirmationResponse?.statusCode >= 200 && confirmationResponse?.statusCode < 300) {
+      // WhatsApp opens immediately on Android. Complete the global score
+      // enrolment on the server, then return the player token with the booking
+      // status when the customer revisits the confirmation screen.
+      let arcadeEntry = null;
+      try {
+        arcadeEntry = await autoEnrollBooking(payload);
+      } catch (error) {
+        // Leaderboard failures must never undo an accepted cleaning booking.
+        console.warn("WhatsApp arcade auto-enrolment unavailable:", error?.message || "unknown");
+      }
       await setBookingStatus(payload.bookingId, "confirmed", {
         automatic: Boolean(confirmationBody?.automatic),
         schedule: confirmationBody?.schedule || schedule || null,
+        arcadeBookingProof: signBooking(payload),
+        arcadeOptOut: payload.arcadeOptOut === true,
+        arcadeRegistered: Boolean(arcadeEntry?.registered),
+        arcadePlayerToken: arcadeEntry?.playerToken || null,
+        arcadeDisplayName: arcadeEntry?.displayName || null,
       });
+
+      // WhatsApp already calculated the server-side cleaning dates. Reuse
+      // those dates for read-only Squeegee preparation after confirmation.
+      // This may not change the existing booking/WhatsApp/XP outcome.
+      try {
+        await stageWithoutBlockingBooking(payload, {
+          channel: "whatsapp",
+          serverSchedule: schedule,
+        });
+      } catch (_) {
+        console.warn("Read-only Squeegee WhatsApp preparation unavailable");
+      }
+      // Preview 1 only: the WhatsApp owner/customer confirmations and
+      // leaderboard entry already succeeded. No second emails or score awards.
+      // Only the signed server-to-server event can reach the sync worker.
+      try {
+        const dispatched=await dispatchAcceptedBooking(payload,{
+          channel:"whatsapp",eventHost:String(event?.headers?.host||event?.headers?.Host||"").toLowerCase(),
+        });
+        if(dispatched.reason==="dispatch_uncertain_reconcile") {
+          console.warn("Preview 1 WhatsApp Squeegee dispatch uncertain; no automatic retry");
+        }
+      } catch {
+        console.warn("Preview 1 WhatsApp Squeegee dispatch unavailable");
+      }
     } else if (
       confirmationResponse?.statusCode === 409 &&
       confirmationBody?.reason === "duplicate_submission"

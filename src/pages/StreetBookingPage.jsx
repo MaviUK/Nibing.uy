@@ -289,6 +289,12 @@ export default function StreetBookingPage() {
       });
 
       if (!response.ok) throw new Error(await response.text());
+      // Score only after the street-signup booking has been accepted.
+      const arcadeSubmissionId = window.crypto?.randomUUID?.()
+        || "street-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+      window.n64Score?.awardBooking(arcadeSubmissionId, bins);
+      const booked = await response.json().catch(() => ({}));
+      window.n64Score?.offerEntry(booked.arcadeBookingProof);
       setSuccess(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
@@ -300,7 +306,7 @@ export default function StreetBookingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white px-4 py-8 sm:py-12">
+    <div className="n64-street-booking min-h-screen bg-black text-white px-4 py-8 sm:py-12">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-6">
           <a href="/" className="inline-block" aria-label="Ni Bin Guy home">

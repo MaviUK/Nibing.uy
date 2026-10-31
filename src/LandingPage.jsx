@@ -1,17 +1,19 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useLiveCounters } from "./data/statsPlan";
 import CoverageChecker from "./CoverageChecker.jsx";
+import N64GameBin from "./N64GameBin.jsx";
+import LevelWasher from "./components/LevelWasher.jsx";
+import BookingAddressAutocomplete, { findNiPostcode } from "./components/BookingAddressAutocomplete.jsx";
 
 const TenSecondChallenge = lazy(() => import("./TenSecondChallenge.jsx"));
 const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
 
 /**
  * Ni Bin Guy — Landing Page
- * - WhatsApp + Email booking
+ * - Single Submit Booking action (automated email confirmation + preview sync)
  * - ToS gating + modal (Confirm & Agree)
  * - Google Places Autocomplete
  * - 10-Second Challenge modal
- * - WhatsApp bookings now send a ToS receipt via Netlify function
  *
  * UPDATED:
  * - Discount code field
@@ -76,27 +78,6 @@ const TERMS_BODY = `We keep our Terms of Service simple and transparent. By book
 • You consent to us storing your details and contacting you about your service.
 • Text reminders are a courtesy; you’re responsible for knowing your schedule.`;
 
-// Load Google Places once
-function loadGooglePlaces(apiKey) {
-  return new Promise((resolve, reject) => {
-    if (window.google?.maps?.places) return resolve(window.google);
-    const existing = document.querySelector("script[data-gmaps]");
-    if (existing) {
-      existing.addEventListener("load", () => resolve(window.google));
-      existing.addEventListener("error", reject);
-      return;
-    }
-    const s = document.createElement("script");
-    s.dataset.gmaps = "1";
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-    s.async = true;
-    s.defer = true;
-    s.onload = () => resolve(window.google);
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
-
 /* ────────────────────────────────────────────────────────────────────────────
    reCAPTCHA v3 (dynamic inject + token helper)
    ──────────────────────────────────────────────────────────────────────────── */
@@ -151,6 +132,53 @@ async function getRecaptchaToken(action) {
       }
     });
   });
+}
+
+/*
+ * Preview 1 uses a server-signed browser work challenge, rate-limited by
+ * Netlify, rather than the production-domain reCAPTCHA key. No extra customer
+ * form, name field or checkbox is needed; the live website keeps reCAPTCHA.
+ */
+const N64_BOOKING_PREVIEW_HOST = "deploy-preview-77--nibinguy.netlify.app";
+
+async function getPreviewBookingProof() {
+  if (!window.crypto?.subtle) {
+    throw new Error("Secure browser verification is unavailable");
+  }
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 8000);
+  let challenge;
+  try {
+    const response = await fetch("/.netlify/functions/previewBookingChallenge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    challenge = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(challenge?.error || "Unable to start preview verification");
+    }
+  } finally {
+    window.clearTimeout(timer);
+  }
+  if (typeof challenge.ticket !== "string" || challenge.ticket.length > 800 ||
+      challenge.difficulty !== 12) {
+    throw new Error("Invalid preview security challenge");
+  }
+
+  // A small, responsive SHA-256 work check, averaging ~4,096 attempts on
+  // Android. The API verifies the same work and accepts each ticket once.
+  const encoder = new TextEncoder();
+  for (let counter = 0; counter <= 200000; counter++) {
+    const work = encoder.encode(challenge.ticket + ":" + counter);
+    const digest = new Uint8Array(await window.crypto.subtle.digest("SHA-256", work));
+    if (digest[0] === 0 && (digest[1] & 0xf0) === 0) {
+      return { ticket: challenge.ticket, work: counter };
+    }
+  }
+  throw new Error("Preview security check took too long");
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -597,6 +625,14 @@ function createBookingSubmissionMeta() {
 
 const DEFAULT_BIN = { type: "", count: 1, planId: "domestic_4w" };
 
+function normaliseBookingContactNumber(input) {
+  const compact = String(input || "").trim().replace(/[\s().-]/g, "");
+  if (/^0[1-9]\d{9}$/.test(compact)) return compact;
+  if (/^\+44[1-9]\d{9}$/.test(compact)) return "0" + compact.slice(3);
+  if (/^0044[1-9]\d{9}$/.test(compact)) return "0" + compact.slice(4);
+  return null;
+}
+
 function BookingForm({ onClose, initialAddress = "" }) {
   const [bins, setBins] = useState([DEFAULT_BIN]);
   const [address, setAddress] = useState(initialAddress);
@@ -609,47 +645,29 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const [discountCode, setDiscountCode] = useState("");
   const [discountStatus, setDiscountStatus] = useState({ state: "empty", message: "" });
 
-  const addressInputRef = useRef(null);
   const selectedPlaceRef = useRef(null);
 
   // Terms gating state
   const [showTerms, setShowTerms] = useState(false);
   const [termsViewed, setTermsViewed] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
-  const [whatsAppBookingStatus, setWhatsAppBookingStatus] = useState("idle");
-  const [whatsAppConfirmation, setWhatsAppConfirmation] = useState(null);
-  const [whatsAppBookingId, setWhatsAppBookingId] = useState("");
+  // Lock immediately on the first tap, before schedule/CAPTCHA/email awaits.
+  // Keep the same random booking reference for this attempt to avoid duplicates.
+  const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);
+  const [emailSendingStage, setEmailSendingStage] = useState("checking");
+  const [emailBookingError, setEmailBookingError] = useState("");
+  const [emailBookingUncertain, setEmailBookingUncertain] = useState(false);
+  const emailSubmissionInFlightRef = useRef(false);
+  const emailSubmissionRef = useRef(null);
+  const [bookingStatus, setBookingStatus] = useState("idle");
+  const [bookingConfirmation, setBookingConfirmation] = useState(null);
+  // Preview 1: leaderboard disclosure will move into the Terms of Service.
+  // Do not add a second form or leaderboard checkbox to booking.
+  const arcadeOptOut = false;
 
 
   const canToggleAgree = termsViewed;
 
-  // Attach Google Places autocomplete when modal opens
-  useEffect(() => {
-    const key = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY;
-    if (!key || !addressInputRef.current) return;
-
-    let cleanup = () => {};
-
-    loadGooglePlaces(key)
-      .then((google) => {
-        const ac = new google.maps.places.Autocomplete(addressInputRef.current, {
-          componentRestrictions: { country: ["gb"] },
-          fields: ["place_id", "formatted_address", "address_components", "name", "geometry"],
-          types: ["address"],
-        });
-        const listener = ac.addListener("place_changed", () => {
-          const place = ac.getPlace();
-          selectedPlaceRef.current = place;
-          setPlaceId(place.place_id || null);
-          const formatted = place.formatted_address || place.name || "";
-          setAddress(formatted);
-        });
-        cleanup = () => listener.remove();
-      })
-      .catch((e) => console.warn("Places failed to load (booking):", e));
-
-    return () => cleanup();
-  }, []);
 
   // Re-validate discount whenever selection changes
   useEffect(() => {
@@ -659,67 +677,12 @@ function BookingForm({ onClose, initialAddress = "" }) {
   useEffect(() => {
     const panel = document.querySelector("[data-auto-schedule-panel]");
     if (!panel) return;
-    panel.style.display = whatsAppBookingStatus === "idle" ? "" : "none";
+    panel.style.display = bookingStatus === "idle" ? "" : "none";
     return () => {
       panel.style.display = "";
     };
-  }, [whatsAppBookingStatus]);
+  }, [bookingStatus]);
 
-  useEffect(() => {
-    if (!whatsAppBookingId || whatsAppBookingStatus !== "sending") return;
-
-    let cancelled = false;
-    let attempts = 0;
-    let timer = null;
-
-    const checkStatus = async () => {
-      if (cancelled) return;
-      attempts += 1;
-      try {
-        const response = await fetch(`/.netlify/functions/bookingStatus?bookingId=${encodeURIComponent(whatsAppBookingId)}`, {
-          cache: "no-store",
-        });
-        const result = await response.json().catch(() => ({}));
-
-        if (response.ok && result?.status === "confirmed") {
-          setWhatsAppConfirmation(result);
-          setWhatsAppBookingStatus("confirmed");
-          return;
-        }
-
-        if (response.ok && result?.status === "error") {
-          setWhatsAppConfirmation(result);
-          setWhatsAppBookingStatus("error");
-          return;
-        }
-      } catch (error) {
-        console.warn("Booking status check failed:", error);
-      }
-
-      if (!cancelled && attempts < 12) {
-        timer = window.setTimeout(checkStatus, 1500);
-      }
-    };
-
-    const onReturn = () => {
-      if (document.visibilityState === "visible") {
-        attempts = 0;
-        window.clearTimeout(timer);
-        checkStatus();
-      }
-    };
-
-    document.addEventListener("visibilitychange", onReturn);
-    window.addEventListener("focus", onReturn);
-    timer = window.setTimeout(checkStatus, 1200);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onReturn);
-      window.removeEventListener("focus", onReturn);
-    };
-  }, [whatsAppBookingId, whatsAppBookingStatus]);
 
   const missingFields = useMemo(() => !name || !email || !address || !phone || bins.some((b) => !b.type), [name, email, address, phone, bins]);
 
@@ -805,28 +768,23 @@ function BookingForm({ onClose, initialAddress = "" }) {
     };
   }, [bins, discountCode]);
 
-  const buildBinDetails = () => {
-    return pricing.lines
-      .map((l) => {
-        const typeName = l.type.replace(" Bin", "");
-        const unitText = `£${money(l.unitPrice)}`;
-        const planText = `${l.planLabel} (${unitText})`;
-        return `${l.count}x ${typeName} — ${planText} = £${money(l.lineTotal)}`;
-      })
-      .join("%0A");
-  };
+  const handleSubmitBooking = async () => {
+    // A React state update is not synchronous; the ref blocks a second tap
+    // even before the disabled button has had time to render.
+    if (emailSubmissionInFlightRef.current || emailBookingUncertain ||
+        bookingStatus !== "idle") return;
 
-  const buildPricingSummary = () => {
-    const code = normalizeCode(discountCode);
-    const codeLine =
-      code && discountStatus.state === "valid" ? `Discount Code: ${code} (applied)` : code ? `Discount Code: ${code} (not applied)` : `Discount Code: None`;
-
-    return `${codeLine}%0A` + `Subtotal: £${money(pricing.subtotal)}%0A` + `Total: £${money(pricing.total)}`;
-  };
-
-  const handleSendWhatsApp = async () => {
     if (missingFields) {
       alert("Please complete all fields before sending.");
+      return;
+    }
+    const validContactNumber=normaliseBookingContactNumber(phone);
+    if(!validContactNumber) {
+      alert("Please enter a valid 11-digit UK contact number (e.g. 028 or 07). A postcode cannot be used as a phone number.");
+      return;
+    }
+    if (!findNiPostcode(address)) {
+      alert("Please include the full BT postcode in your address so we can calculate the correct bin cleaning date.");
       return;
     }
     if (!agreeToTerms) {
@@ -834,181 +792,154 @@ function BookingForm({ onClose, initialAddress = "" }) {
       return;
     }
     if (normalizeCode(discountCode) && discountStatus.state !== "valid") {
-      alert("That discount code isn’t valid for your selected clean(s).");
+      alert("That discount code isn't valid for your selected clean(s).");
       return;
     }
 
-    const submissionMeta = createBookingSubmissionMeta();
-    setWhatsAppBookingStatus("sending");
-    setWhatsAppConfirmation(null);
-    setWhatsAppBookingId(submissionMeta.bookingId);
-
-    const payload = {
-      ...submissionMeta,
-      source: "whatsapp",
-      name,
-      email,
-      phone,
-      address,
-      bins,
-      discountCode: normalizeCode(discountCode) || null,
-      pricing,
-      termsAccepted: true,
-      termsVersion: TERMS_VERSION,
-      termsAcceptanceText: TOS_PREFIX,
-      termsTimestamp: new Date().toISOString(),
-    };
-
-    // Hand the request to the browser without waiting for the response. Chrome
-    // may suspend this tab while WhatsApp is open, so confirmation is checked
-    // separately from the server when the customer returns.
-    const backgroundUrl = "/.netlify/functions/sendTosReceipt";
-    const backgroundBody = JSON.stringify(payload);
-    let queued = false;
+    // Preserve one reference for this booking. If the request reaches Netlify
+    // twice, the server's replay guard rejects the second delivery.
+    emailSubmissionInFlightRef.current = true;
+    const emailSubmissionMeta = emailSubmissionRef.current || createBookingSubmissionMeta();
+    emailSubmissionRef.current = emailSubmissionMeta;
+    setIsEmailSubmitting(true);
+    setEmailSendingStage("checking");
+    setEmailBookingError("");
+    let safeToRetry = false;
+    let requestTimer = null;
 
     try {
-      if (navigator.sendBeacon) {
-        const blob = new Blob([backgroundBody], { type: "application/json" });
-        queued = navigator.sendBeacon(backgroundUrl, blob);
+      // The booking schedule is informative and must not leave a customer
+      // staring at an unresponsive Send button if its lookup hangs.
+      if (typeof window.nbgEnsureBookingSchedule === "function") {
+        try {
+          // Preview 1 must allow the slow council calendar to finish.
+          // Production retains the existing short non-blocking deadline.
+          const previewScheduleWait=window.location.hostname===N64_BOOKING_PREVIEW_HOST
+            ? 22000 : 5500;
+          await Promise.race([
+            Promise.resolve().then(() => window.nbgEnsureBookingSchedule()),
+            new Promise((resolve) => window.setTimeout(resolve, previewScheduleWait)),
+          ]);
+        } catch (_) {
+          console.warn("Booking schedule unavailable; date will be confirmed separately.");
+        }
       }
-    } catch (_) {}
 
-    if (!queued) {
-      fetch(backgroundUrl, {
+      setEmailSendingStage("verifying");
+      const recaptchaAction = "booking_submit";
+      let recaptchaToken = null;
+      let previewProof = null;
+      if (window.location.hostname === N64_BOOKING_PREVIEW_HOST) {
+        previewProof = await getPreviewBookingProof();
+      } else {
+        recaptchaToken = await getRecaptchaToken(recaptchaAction);
+        if (!recaptchaToken) throw new Error("security_not_ready");
+      }
+
+      const loc = selectedPlaceRef.current?.geometry?.location;
+      const lat = loc ? loc.lat() : null;
+      const lng = loc ? loc.lng() : null;
+
+      setEmailSendingStage("sending");
+      const requestController = new AbortController();
+      requestTimer = window.setTimeout(() => requestController.abort(), 45000);
+      // The existing confirmation endpoint sends customer/owner emails and
+      // securely dispatches the accepted booking to Preview 1 Squeegee sync.
+      // Customers need only tap Submit Booking; never trigger a second POST.
+      const emailBookingPayload = {
+          ...emailSubmissionMeta,
+          name,
+          email,
+          phone: validContactNumber,
+          address,
+          bins,
+          // Client-side snapshot only; future job creation must verify it.
+          bookingScheduleSnapshot: window.nbgGetBookingScheduleSnapshot?.() || null,
+          arcadeClaimed: window.n64Score?.activityKeys?.() || [],
+          arcadeOptOut,
+          placeId,
+          lat,
+          lng,
+          discountCode: normalizeCode(discountCode) || null,
+          pricing,
+          termsAccepted: true,
+          termsVersion: TERMS_VERSION,
+          termsAcceptanceText: TOS_PREFIX,
+          recaptchaToken,
+          previewProof,
+          recaptchaAction,
+      };
+      const res = await fetch("/.netlify/functions/sendBookingEmail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: backgroundBody,
-        keepalive: true,
-      }).catch((error) => console.error("WhatsApp booking request failed to queue:", error));
+        signal: requestController.signal,
+        body: JSON.stringify(emailBookingPayload),
+      });
+
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // These failures are rejected before any email send, so it's safe
+        // to create a new security ticket and let the visitor try again.
+        safeToRetry = [400, 401, 403, 422, 429].includes(res.status);
+        const message = res.status === 403
+          ? "The booking security check was not accepted. Nothing was sent; please try again."
+          : res.status === 429
+            ? "Too many booking attempts. Please leave a little time before trying again."
+            : res.status === 409
+              ? "This booking reference was already submitted. Check your confirmation email before trying again."
+              : safeToRetry
+                ? "Your booking wasn't submitted. Please check the details and try again."
+                : "We couldn't confirm the booking. Please check your email before trying again, to avoid a duplicate.";
+        setEmailBookingError(message);
+        if (!safeToRetry) setEmailBookingUncertain(true);
+        return;
+      }
+
+      // One accepted booking ID earns leaderboard points once. The server
+      // manages Squeegee delivery independently; do not call the retired
+      // supervised one-booking endpoint from the customer-facing form.
+      try {
+        window.n64Score?.awardBooking(emailSubmissionMeta.bookingId, bins);
+        window.n64Score?.onBookingConfirmed(result, arcadeOptOut, emailSubmissionMeta.bookingId);
+      } catch (scoreError) {
+        console.warn("Arcade score sync deferred; booking succeeded:", scoreError);
+      }
+      setBookingConfirmation({
+        ...result,
+        bookingId: result.bookingId || emailSubmissionMeta.bookingId,
+        source: "website",
+        schedule: null,
+      });
+      setBookingStatus("confirmed");
+      // Intentionally keep the submission ref locked after a successful send.
+    } catch (error) {
+      console.warn("Booking email request was not completed:", error?.name || "unknown");
+      if (error?.message === "security_not_ready" ||
+          /preview security|security challenge|security check|security verification/i.test(error?.message || "")) {
+        safeToRetry = true;
+        setEmailBookingError("The security check could not be completed. No email was sent; please try again.");
+      } else {
+        setEmailBookingUncertain(true);
+        setEmailBookingError(
+          "We couldn't confirm whether the email was sent. Check your inbox before booking again, or contact NI Bin Guy."
+        );
+      }
+    } finally {
+      if (requestTimer) window.clearTimeout(requestTimer);
+      setIsEmailSubmitting(false);
+      if (safeToRetry) emailSubmissionInFlightRef.current = false;
     }
-
-    const schedulePanel = document.querySelector("[data-auto-schedule-panel]");
-    const scheduleLines = Array.from(schedulePanel?.querySelectorAll(".mt-1") || [])
-      .map((node) => String(node.textContent || "").trim())
-      .filter(Boolean);
-    const scheduleSummary = scheduleLines.length
-      ? scheduleLines.join("\n")
-      : "Clean date: To be confirmed";
-
-    const messageText = [
-      "✅ BOOKING CONFIRMED",
-      "",
-      `Hi, my name is ${name}. I'd like to book the following bin clean:`,
-      "",
-      buildBinDetails().replace(/%0A/g, "\n"),
-      "",
-      "NEXT CLEAN DATE",
-      scheduleSummary,
-      "",
-      buildPricingSummary().replace(/%0A/g, "\n"),
-      "",
-      `Address: ${address}`,
-      `Email: ${email}`,
-      `Phone: ${phone}`,
-      "",
-      TOS_PREFIX,
-    ].join("\n");
-
-    const encodedText = encodeURIComponent(messageText);
-    const phoneDigits = String(PHONE_E164).replace(/\D/g, "");
-    const fallbackUrl = `https://wa.me/${phoneDigits}?text=${encodedText}`;
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-    const launchUrl = isAndroid
-      ? `intent://send?phone=${phoneDigits}&text=${encodedText}#Intent;scheme=whatsapp;package=com.whatsapp;S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`
-      : isIOS
-        ? `whatsapp://send?phone=${phoneDigits}&text=${encodedText}`
-        : fallbackUrl;
-
-    // Open WhatsApp in a separate browsing context so the booking form stays
-    // exactly where it is in the original tab. Because this happens directly
-    // inside the customer's tap, Chrome treats it as a user-initiated launch.
-    const whatsappLink = document.createElement("a");
-    whatsappLink.href = launchUrl;
-    whatsappLink.target = "_blank";
-    whatsappLink.rel = "noopener noreferrer";
-    whatsappLink.style.display = "none";
-    document.body.appendChild(whatsappLink);
-    whatsappLink.click();
-    whatsappLink.remove();
   };
 
-  const handleSendEmail = async () => {
-    if (missingFields) {
-      alert("Please complete all fields before sending.");
-      return;
-    }
-    if (!agreeToTerms) {
-      alert("Please view and agree to the Terms of Service before booking.");
-      return;
-    }
-    if (normalizeCode(discountCode) && discountStatus.state !== "valid") {
-      alert("That discount code isn’t valid for your selected clean(s).");
-      return;
-    }
+  const bookingSendingText = emailSendingStage === "sending"
+    ? "Submitting your booking…"
+    : emailSendingStage === "verifying"
+      ? "Verifying your booking…"
+      : "Preparing your booking…";
 
-    if (typeof window.nbgEnsureBookingSchedule === "function") {
-      await window.nbgEnsureBookingSchedule();
-    }
-
-    // ✅ reCAPTCHA token (v3)
-    const recaptchaAction = "booking_submit";
-    const recaptchaToken = await getRecaptchaToken(recaptchaAction);
-    if (!recaptchaToken) {
-      alert("Anti-bot check not ready. Please try again in a moment.");
-      return;
-    }
-
-    const loc = selectedPlaceRef.current?.geometry?.location;
-    const lat = loc ? loc.lat() : null;
-    const lng = loc ? loc.lng() : null;
-
-   try {
-  // 1) Send your original booking email first
-  const res = await fetch("/.netlify/functions/sendBookingEmail", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name,
-      email,
-      phone,
-      address,
-      bins,
-      placeId,
-      lat,
-      lng,
-      discountCode: normalizeCode(discountCode) || null,
-      pricing,
-      termsAccepted: true,
-      termsVersion: TERMS_VERSION,
-      termsAcceptanceText: TOS_PREFIX,
-      recaptchaToken,
-      recaptchaAction,
-    }),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("Email failed:", errorText);
-    alert("Failed to send booking email: " + errorText);
-    return;
-  }
-
-  // Booking database/Squeegee save removed by request.
-  // The form now only sends the booking email.
-
-  alert("Booking received! We’ll prepare your quote.");
-  onClose?.();
-} catch (err) {
-  console.error(err);
-  alert("Error sending booking.");
-}
-  };
-
-  if (whatsAppBookingStatus === "confirmed") {
-    const scheduleResults = Array.isArray(whatsAppConfirmation?.schedule?.results)
-      ? whatsAppConfirmation.schedule.results
+  if (bookingStatus === "confirmed") {
+    const scheduleResults = Array.isArray(bookingConfirmation?.schedule?.results)
+      ? bookingConfirmation.schedule.results
       : [];
 
     const cleanDateRows = scheduleResults
@@ -1036,11 +967,39 @@ function BookingForm({ onClose, initialAddress = "" }) {
         </div>
 
         <div>
-          <h2 className="text-2xl font-extrabold text-gray-900">Booking confirmed</h2>
+          <h2 className="text-2xl font-extrabold text-gray-900">
+            {bookingConfirmation?.squeegeePilot ? "Booking received" : "Booking confirmed"}
+          </h2>
           <p className="mt-2 text-gray-600">
-            Your booking has been received and the confirmation has been emailed to <strong>{email}</strong>.
+            {bookingConfirmation?.customerConfirmationSent === false ? (
+              <>Your booking has been received, but the confirmation email could not be delivered to <strong>{email}</strong>. Please contact us so we can resend it.</>
+            ) : (
+              <>Your booking has been received and the confirmation has been emailed to <strong>{email}</strong>.</>
+            )}
           </p>
+          {bookingConfirmation?.bookingId && (
+            <p className="mt-2 break-words text-sm font-bold text-[#20345c]">
+              Booking reference: {bookingConfirmation.bookingId}
+            </p>
+          )}
         </div>
+
+        {bookingConfirmation?.squeegeePilot && (
+          <div role="status" className="border-2 border-[#20345c] bg-[#fff4c2] p-4 text-left text-sm text-[#101827]">
+            <p className="font-black">Preview 1 Squeegee test handoff</p>
+            {bookingConfirmation.squeegeePilot.queued === true ? (
+              <p className="mt-1">
+                Accepted for Squeegee validation. This does not yet confirm a customer or job was created. We will verify it in Squeegee.
+              </p>
+            ) : (
+              <p className="mt-1">
+                Your booking email was accepted, but Squeegee syncing was not confirmed
+                ({bookingConfirmation.squeegeePilot.reason || "unknown"}).
+                Do not submit another booking; we will check the existing reference.
+              </p>
+            )}
+          </div>
+        )}
 
         {cleanDateRows.length > 0 ? (
           <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-left">
@@ -1060,35 +1019,29 @@ function BookingForm({ onClose, initialAddress = "" }) {
           </div>
         )}
 
-        <button onClick={onClose} className="w-full rounded-lg bg-neutral-900 px-5 py-3 font-bold text-white hover:bg-neutral-800">
+        <button onClick={onClose} className="w-full rounded-none bg-neutral-900 px-5 py-3 font-bold text-white hover:bg-neutral-800">
           Done
         </button>
       </div>
     );
   }
 
-  if (whatsAppBookingStatus === "error") {
-    return (
-      <div className="p-7 text-center space-y-5">
-        <button onClick={onClose} className="absolute top-3 right-4 text-gray-500 hover:text-red-500 text-2xl z-10" aria-label="Close booking">
-          &times;
-        </button>
-        <div className="mx-auto w-16 h-16 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-3xl font-black">!</div>
-        <div>
-          <h2 className="text-2xl font-extrabold text-gray-900">WhatsApp opened</h2>
-          <p className="mt-2 text-gray-600">
-            We couldn't complete the confirmation emails for this booking. Please contact us on WhatsApp and we'll check it for you.
-          </p>
-        </div>
-        <button onClick={onClose} className="w-full rounded-lg bg-neutral-900 px-5 py-3 font-bold text-white hover:bg-neutral-800">
-          Close
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4" aria-busy={isEmailSubmitting}>
+      {isEmailSubmitting && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0d1932]/80 p-4"
+          role="status" aria-live="polite" aria-label={bookingSendingText}
+        >
+          <div className="w-full max-w-sm border-4 border-[#20345c] bg-[#fff8df] px-5 py-7 text-center text-[#20345c] shadow-[7px_8px_0_#6e8ea9]">
+            <span className="mx-auto mb-5 block h-14 w-14 animate-spin rounded-full border-[7px] border-[#20345c] border-t-[#ffda43]" aria-hidden="true" />
+            <strong className="block text-xl font-black">{bookingSendingText}</strong>
+            <p className="mt-3 text-sm font-semibold leading-relaxed">
+              Please keep this page open. Your booking is being processed and only needs to be submitted once.
+            </p>
+          </div>
+        </div>
+      )}
       <button onClick={onClose} className="absolute top-3 right-4 text-gray-500 hover:text-red-500 text-2xl z-10" aria-label="Close booking">
         &times;
       </button>
@@ -1176,23 +1129,28 @@ function BookingForm({ onClose, initialAddress = "" }) {
         </div>
       </div>
 
-      <input
-        ref={addressInputRef}
-        type="text"
-        placeholder="Full Address"
+      <BookingAddressAutocomplete
         value={address}
-        onChange={(e) => {
-          setAddress(e.target.value);
+        onChange={(nextAddress) => {
+          setAddress(nextAddress);
           setPlaceId(null);
           selectedPlaceRef.current = null;
         }}
-        className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-4"
-        autoComplete="off"
-        inputMode="text"
+        onPlace={(place) => {
+          selectedPlaceRef.current = place;
+          setPlaceId(place?.place_id || null);
+          setAddress(place?.formatted_address || place?.name || "");
+        }}
       />
-      <p className="text-xs text-gray-500 -mt-2">Tip: pick from suggestions or just type your full address.</p>
+      <p className="text-xs text-gray-500 -mt-2">Select an address to fill its postcode automatically, or enter your full address and BT postcode manually.</p>
+      {address.trim() && !findNiPostcode(address) && (
+        <p className="text-xs font-semibold text-amber-800" role="status">
+          Full BT postcode required to calculate your bin cleaning date.
+        </p>
+      )}
 
-      <input type="tel" placeholder="Contact Number" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
+      <input type="tel" placeholder="Contact Number (11 digits)" inputMode="tel" autoComplete="tel" maxLength={22} value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
+      <p className="text-xs text-gray-600">Enter an 11-digit UK phone number, including 028 landlines or 07 mobiles.</p>
       <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
 
       <div className="mt-4 p-3 rounded-lg border border-gray-500 bg-gray-50">
@@ -1222,12 +1180,23 @@ function BookingForm({ onClose, initialAddress = "" }) {
         </div>
       </div>
 
-      <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms || whatsAppBookingStatus === "sending"}>
-        {whatsAppBookingStatus === "sending" ? "Confirming booking…" : "Send via WhatsApp"}
+      <button
+        type="button"
+        onClick={handleSubmitBooking}
+        className="w-full rounded-none border-2 border-[#20345c] bg-[#ffda43] px-6 py-3 text-lg font-black text-[#101827] shadow-[4px_4px_0_#20345c] hover:bg-[#ffe573] disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={!agreeToTerms || isEmailSubmitting || bookingStatus !== "idle" || emailBookingUncertain}
+        aria-disabled={!agreeToTerms || isEmailSubmitting || bookingStatus !== "idle" || emailBookingUncertain}
+      >
+        {isEmailSubmitting ? bookingSendingText : "Submit Booking"}
       </button>
-      <button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>
-        Send via Email
-      </button>
+      <p className="text-center text-xs font-semibold text-[#20345c]">
+        We'll email your booking confirmation. If your clean date needs a manual check, we'll contact you.
+      </p>
+      {emailBookingError && !isEmailSubmitting && (
+        <div className="border-4 border-[#ad5344] bg-[#fff0db] p-3 text-sm font-semibold text-[#652c28]" role="alert">
+          {emailBookingError}
+        </div>
+      )}
 
       <TermsModal
         open={showTerms}
@@ -1492,7 +1461,7 @@ function ChallengeModal({ open, onClose }) {
 /* ────────────────────────────────────────────────────────────────────────────
    Page Sections
    ──────────────────────────────────────────────────────────────────────────── */
-function Hero({ onBook, onContact, onChallenge, onBinChecker }) {
+function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
   const { totalBinsCleaned, todaysArea, totalMonthlyCustomers } = useLiveCounters();
 
   // Soft-live counter (display only)
@@ -1529,81 +1498,101 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker }) {
     return () => clearInterval(interval);
   }, []);
 
+
   return (
-    <section className="relative overflow-hidden flex flex-col items-center justify-center text-center pt-10 pb-20 px-4 bg-black">
-      <div className="absolute top-[60%] left-1/2 transform -translate-x-1/2 w-[800px] h-[800px] bg-green-900 opacity-30 blur-3xl rounded-full z-0" />
-      <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-b from-transparent via-[#121212] to-[#18181b] z-10 pointer-events-none" />
+    <section className="n64-hero n64-hero-layout-v2" aria-labelledby="n64-hero-title">
+      <div className="n64-cloud n64-cloud--one" aria-hidden="true" />
+      <div className="n64-cloud n64-cloud--two" aria-hidden="true" />
+      <div className="n64-cloud n64-cloud--three" aria-hidden="true" />
 
-      <div className="relative z-20 flex flex-col items-center gap-4">
-        <img
-          src="/logo.webp"
-          alt="Ni Bin Guy wheelie bin cleaning service logo"
-          width="320"
-          height="320"
-          fetchPriority="high"
-          decoding="async"
-          className="w-64 h-64 md:w-80 md:h-80 rounded-xl shadow-lg"
-        />
-
-        {/* Stats under logo */}
-        <div className="w-full max-w-4xl mt-2 grid grid-cols-3 gap-2 sm:grid-cols-3 sm:gap-4">
-          <div className="rounded-xl bg-white/5 border border-white/30 p-3 sm:p-5 shadow-lg text-center">
-            <div className="text-[10px] sm:text-xs tracking-widest text-white/60 uppercase">Total Bins Cleaned</div>
-            <div className="mt-1 sm:mt-2 text-xl sm:text-3xl font-extrabold text-white">{Number(displayTotal).toLocaleString()}</div>
+      <div className="n64-hero-inner">
+        <div className="n64-hero-copy">
+          <div className="n64-brand">
+            <img
+              src="/logo.webp"
+              alt="Ni Bin Guy wheelie bin cleaning service logo"
+              width="64"
+              height="64"
+              fetchPriority="high"
+              decoding="async"
+            />
+            <div>
+              <strong>NI BIN GUY</strong>
+              <small>THE COUNTY DOWN CLEANING CREW</small>
+            </div>
           </div>
 
-          <div className="rounded-xl bg-white/5 border border-white/30 p-3 sm:p-5 shadow-lg text-center">
-            <div className="text-[10px] sm:text-xs tracking-widest text-white/60 uppercase">Today’s Area</div>
-            <div className="mt-1 sm:mt-2 text-xl sm:text-3xl font-extrabold text-white">{todaysArea}</div>
-          </div>
-
-          <div className="rounded-xl bg-white/5 border border-white/30 p-3 sm:p-5 shadow-lg text-center">
-            <div className="text-[10px] sm:text-xs tracking-widest text-white/60 uppercase">Monthly Customers</div>
-            <div className="mt-1 sm:mt-2 text-xl sm:text-3xl font-extrabold text-white">{Number(totalMonthlyCustomers).toLocaleString()}</div>
+          <div className="n64-kicker">★ THE 4-WEEKLY CLEANING ADVENTURE ★</div>
+          <h1 id="n64-hero-title" className="n64-headline">
+            BIN CLEANING<br />
+            <span>LEVELLED UP.</span>
+          </h1>
+          <p className="n64-lead">
+            Your bins deserve a power-up. Proper washing, sanitising and freshening
+            right outside your home — <strong>from just £5 per bin, every four weeks</strong>.
+            Serving Bangor and surrounding County Down areas.
+          </p>
+          <div className="n64-price-ticket" aria-label="Four-weekly cleaning from £5 per bin">
+            <strong>£5</strong>
+            <span>PER BIN<br />4-WEEKLY</span>
           </div>
         </div>
 
-        <h1 className="text-4xl md:text-6xl font-bold">
-          Bin Cleaning, <span className="text-green-400">Done Right</span>
-        </h1>
+        <div className="n64-scene" aria-hidden="true">
+          <span className="n64-star n64-star--one">★</span>
+          <span className="n64-star n64-star--two">★</span>
+          <span className="n64-star n64-star--three">★</span>
+          <div className="n64-bin n64-bin--left">
+            <N64GameBin front="#58b8ec" side="#2576ad" lid="#94e7ff" />
+          </div>
+          <div className="n64-bin n64-bin--centre">
+            <N64GameBin front="#68cf70" side="#359359" lid="#baf198" />
+          </div>
+          <div className="n64-bin n64-bin--right">
+            <N64GameBin front="#e49a55" side="#aa663a" lid="#ffd28b" />
+          </div>
+          <span className="n64-scene-label">3 BINS · 1 CLEAN MISSION</span>
+        </div>
+      </div>
 
-        <p className="text-lg md:text-xl max-w-xl mt-4 text-center">
-          Professional wheelie bin cleaning at your home from <span className="text-green-400 font-bold text-xl">£5</span>, across{" "}
-          <span className="text-green-400">County Down</span>. Sparkling clean &amp; fresh smelling bins without any drama.
-        </p>
+      <div className="n64-actions">
+        <button type="button" onClick={onBook} className="n64-btn n64-btn--start">
+          Book a Clean
+        </button>
+      </div>
 
-      <div className="mt-6 flex flex-col sm:flex-row gap-4">
-          <button onClick={onBook} className="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition">
-            Book a Clean
-          </button>
+      <nav className="n64-extra-links" aria-label="More NI Bin Guy options">
+        <button type="button" className="n64-text-link n64-link--bonus" onClick={onChallenge}>
+          <span aria-hidden="true">★</span> Free Bin Clean
+        </button>
+        <button type="button" className="n64-text-link n64-link--contact" onClick={onContact}>Contact Us</button>
+        <a className="n64-text-link n64-link--portal" href="#customer-portal">Customer Portal</a>
+        <button type="button" className="n64-text-link n64-link--bin-day" onClick={onBinChecker}>Bin Day Checker</button>
+      </nav>
 
-          <button onClick={onContact} className="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition">
-            Contact Us
-          </button>
-
-          <button
-            onClick={onChallenge}
-            className="bg-[#9b111e] hover:bg-[#7f0e19] text-white font-bold py-3 px-6 rounded-xl shadow-lg transition focus:outline-none focus:ring-2 focus:ring-[#9b111e]/50 active:scale-[0.99]"
-          >
-            Free Bin Clean
-          </button>
-
-          <a href="#customer-portal" className="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition text-center">
-            Customer Portal
-          </a>
-
-          <button onClick={onBinChecker} className="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition">
-            Bin Day Checker
-          </button>
+      <div className="n64-scoreboard" aria-label="Our cleaning statistics">
+        <div className="n64-score">
+          <span className="n64-score-title">Bins Cleaned</span>
+          <strong className="n64-score-value">{Number(displayTotal).toLocaleString()}</strong>
+        </div>
+        <div className="n64-score">
+          <span className="n64-score-title">Today's Area</span>
+          <strong className="n64-score-value">{todaysArea || "County Down"}</strong>
+        </div>
+        <div className="n64-score">
+          <span className="n64-score-title">Regular Customers</span>
+          <strong className="n64-score-value">{Number(totalMonthlyCustomers).toLocaleString()}</strong>
         </div>
       </div>
     </section>
   );
 }
 
+
 function WhatWeDo() {
   return (
-    <section className="relative py-16 px-6 bg-[#18181b]">
+    <section id="what-we-do" className="relative py-16 px-6 bg-[#18181b]">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-8 text-center">What We Do</h2>
       <div className="grid md:grid-cols-3 gap-6 text-center">
         <div className="bg-zinc-800/70 border border-white/30 p-6 rounded-2xl shadow-lg">
@@ -1626,6 +1615,7 @@ function WhatWeDo() {
 function TheProcess({ onBook }) {
   return (
     <section id="the-process" className="relative py-16 px-6 bg-[#18181b] text-white">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-10 text-center">The Process</h2>
       <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
         <div className="rounded-2xl bg-zinc-800/70 border border-white/30 p-6">
@@ -1673,7 +1663,8 @@ function BinsWeClean() {
   { src: "/bins/1100L.webp", alt: "1100 litre commercial waste container", size: "1100L", h: "h-48" },
 ];
   return (
-    <section className="relative py-16 px-6 bg-[#18181b] text-white text-center">
+    <section id="bins-we-clean" className="relative py-16 px-6 bg-[#18181b] text-white text-center">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-12">The Bins We Clean</h2>
       <div className="relative z-20 flex flex-wrap justify-center items-end gap-12 md:gap-20">
         {items.map((it) => (
@@ -1696,7 +1687,8 @@ function WhyCleanYourBin() {
     { icon: "/family.webp", title: "Protect Your Family", text: "A clean bin reduces exposure to germs and pathogens, helping keep your household healthier." },
   ];
   return (
-    <section className="py-16 px-6 bg-gradient-to-b from-black via-[#0a0a0a] to-zinc-900 text-white">
+    <section id="why-clean-your-bin" className="py-16 px-6 bg-gradient-to-b from-black via-[#0a0a0a] to-zinc-900 text-white">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-12 text-center">Why Clean Your Bin?</h2>
       <div className="grid md:grid-cols-2 gap-12 max-w-6xl mx-auto">
         {points.map((p) => (
@@ -1721,7 +1713,8 @@ function WhyNiBinGuy() {
     { title: "Fully Insured", text: "We’re fully insured and compliant — so you can rest easy." },
   ];
   return (
-    <section className="py-16 px-6 bg-gradient-to-b from-zinc-900 via-[#1a1a1a] to-black text-white">
+    <section id="why-ni-bin-guy" className="py-16 px-6 bg-gradient-to-b from-zinc-900 via-[#1a1a1a] to-black text-white">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-8 text-center">Why Ni Bin Guy?</h2>
       <div className="grid md:grid-cols-2 gap-10 max-w-5xl mx-auto">
         {points.map((p) => (
@@ -1780,11 +1773,11 @@ export default function NiBinGuyLandingPage() {
   };
 
  return (
-  <main id="main-content" tabIndex="-1" className="min-h-screen bg-black text-white font-sans relative">
+  <main id="main-content" tabIndex="-1" className="n64-world min-h-screen bg-black text-white font-sans relative">
       {/* Snow overlay */}
       <SnowCanvas enabled={snowEnabled} />
 
-      <Hero onBook={openBooking} onContact={() => setShowContact(true)} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} />
+      <Hero onBook={openBooking} onContact={() => setShowContact(true)} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} onCoverage={() => setShowCoverageChecker(true)} />
 
       {/* Compact coverage control aligns with the existing fixed site menu. */}
       <button

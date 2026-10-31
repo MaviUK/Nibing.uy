@@ -103,8 +103,11 @@
   [headers.values]
     Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
 
+# Preview 1 PR #77 safety gate: run fake-only Squeegee regression tests
+# before publishing any function that can write to the owner's Squeegee account.
+# This file is modified ONLY on preview/n64-retro-site, not main or Preview 2.
 [build]
-  command = "npm run build"
+  command = "node --test tests/squeegee-*.test.cjs && npm run build"
   publish = "dist"
 
 [functions]
