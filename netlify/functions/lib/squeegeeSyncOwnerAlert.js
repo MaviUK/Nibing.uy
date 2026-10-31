@@ -91,6 +91,10 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
       "Locate the existing Squeegee customer and reactivate them manually if appropriate.":
       "Locate the existing Squeegee customer and review whether the account can be restored.";
   const statusUrl="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId="+bookingId;
+  const day=String(extra.bookingSubmittedDay||"");
+  const recoveryUrl=needsReactivation && /^\d{4}-\d{2}-\d{2}$/.test(day)?
+    "https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-owner-reactivation?bookingId="+
+    encodeURIComponent(bookingId)+"&day="+encodeURIComponent(day):null;
   const text=[
     ambiguous?
       "CUSTOMER SIGN-UP NEEDS REVIEW — MANUAL ACTION REQUIRED":
@@ -112,11 +116,16 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
     "WHAT TO DO",
     "1. "+actionCopy,
     "2. Check the original Squeegee jobs, payment settings and cleaning round.",
-    "3. Add the requested services/quantities, price and appointments manually.",
-    "4. Confirm the arrangement with the customer. Do not ask them to submit another booking.",
+    recoveryUrl?
+      "3. After reactivation, open the secure button/link below and verify the original booking before one-time processing.":
+      "3. Check the original booking status and contact details before any manual changes.",
+    recoveryUrl?
+      "4. The page verifies Squeegee is active, then lets you process the original booking ONCE.":
+      "4. Do not submit a new website booking.",
     "",
     "This website booking is HELD and will not automatically retry.",
     "No Squeegee customer or job was created for this submission.",
+    recoveryUrl?"PROCESS BOOKING AFTER REACTIVATION: "+recoveryUrl:"",
     "Read-only booking status: "+statusUrl,
     "Preview 1 only. Production and Preview 2 are unchanged.",
   ].filter(x=>x!==null&&x!==undefined&&x!=="").join("\n");
@@ -151,9 +160,15 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
     '<h2 style="font-size:17px;margin:0 0 12px;color:#111">Action required</h2>'+
     '<p style="font-size:14px;color:#242424;line-height:1.6;margin:0 0 9px">1. '+emailHtmlEscape(actionCopy)+'</p>'+
     '<p style="font-size:14px;color:#242424;line-height:1.6;margin:0 0 9px">2. Review the existing jobs, payments and cleaning round.</p>'+
-    '<p style="font-size:14px;color:#242424;line-height:1.6;margin:0 0 9px">3. Add the requested bins and appointments manually, then confirm with the customer.</p>'+
+    '<p style="font-size:14px;color:#242424;line-height:1.6;margin:0 0 9px">3. '+
+      (recoveryUrl?
+       'After reactivation, use the secure button to process the ORIGINAL booking without resubmission.':
+       'Review the original booking before making any manual changes.')+'</p>'+
+    (recoveryUrl?
+      '<a href="'+emailHtmlEscape(recoveryUrl)+'" style="display:block;background:#f5d84f;color:#111;font-size:14px;text-align:center;font-weight:800;padding:16px;text-decoration:none;margin:16px 0">PROCESS BOOKING AFTER REACTIVATION</a>'+
+      '<p style="font-size:12px;line-height:1.5;color:#5a6271">The link opens an owner-only review. Nothing is imported until you confirm the booking on that page.</p>':"")+
     '<a href="'+emailHtmlEscape(statusUrl)+'" style="display:block;background:#111;color:#f5d84f;font-size:14px;text-align:center;font-weight:800;padding:14px;text-decoration:none;margin-top:16px">VIEW READ-ONLY BOOKING STATUS</a>'+
-    '<p style="font-size:13px;line-height:1.6;color:#72530c;background:#fff6d8;padding:12px;margin:18px 0 0">No new Squeegee customer or job was created. Do not resubmit or replay this booking automatically.</p>'+
+    '<p style="font-size:13px;line-height:1.6;color:#72530c;background:#fff6d8;padding:12px;margin:18px 0 0">No Squeegee customer or job has been created for this submission. Reactivate the existing customer in Squeegee first; processing requires owner verification and a one-time confirmation.</p>'+
     '</td></tr><tr><td style="background:#f2f3f5;padding:18px 25px;font-size:12px;color:#676767">'+
     'Preview 1 integration notification · Owner only · No change to the live site'+
     '</td></tr></table></td></tr></table></body></html>';

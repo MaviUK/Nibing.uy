@@ -218,6 +218,7 @@ async function executeAutomaticPreviewBooking(payload,{
     requestedBinCounts:requestedBinCounts(bins),
     firstCleanDates:verifiedFirstCleanDates,
     bookingTotal:payload.pricing?.total,
+    bookingSubmittedDay:String(payload.submittedAt||"").slice(0,10),
     squeegeeAccountStatus:accountStatus,
   });
   const mark=async(stage,extra={})=>{

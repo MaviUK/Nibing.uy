@@ -653,3 +653,35 @@ test("successful normal booking with only self-match flags stays an unchanged si
   assert.equal(sent[0].text,receipt.text);
   assert.equal(sent[0].html,receipt.html);
 });
+
+
+test("verified inactive customer email has safe post-reactivation processing button, never imports on click",()=>{
+  const {emailContent}=require("../netlify/functions/lib/squeegeeSyncOwnerAlert");
+  const id="NBG-4QUNP343",day="2026-10-31";
+  const email=emailContent(id,"existing_customer_reactivation_required",{
+    squeegeeAccountStatus:"inactive",
+    bookingSubmittedDay:day,
+    customerName:"Gavin Stevenson",serviceAddress:"78 Groomsport Road, Bangor BT20 5NF",
+    requestedBinCounts:["1 x Black Bin","1 x Brown Bin","1 x Green Bin (1100L)"],
+    firstCleanDates:["2026-11-17"],bookingTotal:55,
+  });
+  assert.match(email.subject,/INACTIVE CUSTOMER SIGN-UP/);
+  assert.match(email.html,/PROCESS BOOKING AFTER REACTIVATION/);
+  assert.match(email.text,/PROCESS BOOKING AFTER REACTIVATION:/);
+  assert.match(email.html,/squeegee-preview-owner-reactivation\?bookingId=NBG-4QUNP343&amp;day=2026-10-31/);
+  assert.match(email.html,/Nothing is imported until you confirm/);
+  assert.doesNotMatch(email.text,/Add the requested services\/quantities, price and appointments manually/);
+});
+test("no unsafe reactivation button for archived or uncertain matching",()=>{
+  const {emailContent}=require("../netlify/functions/lib/squeegeeSyncOwnerAlert");
+  const details={bookingSubmittedDay:"2026-10-31",squeegeeAccountStatus:"archived"};
+  const id="NBG-4QUNP343";
+  for(const reason of ["existing_customer_inactive","customer_match_ambiguous_or_incomplete"]){
+    const email=emailContent(id,reason,details);
+    assert.doesNotMatch(email.html,/PROCESS BOOKING AFTER REACTIVATION/);
+  }
+  const noDate=emailContent(id,"existing_customer_reactivation_required",{
+    squeegeeAccountStatus:"inactive",
+  });
+  assert.doesNotMatch(noDate.html,/PROCESS BOOKING AFTER REACTIVATION/);
+});
