@@ -3,6 +3,7 @@
 import api from "./lib/squeegeeApiV3.js";
 import owner from "./lib/squeegeePreviewTestSession.js";
 import score from "./lib/squeegeeHistoricalLeaderboard.js";
+import { gunzipSync } from "node:zlib";
 
 const PATH = "/api/squeegee-preview-leaderboard-history";
 const HEADERS = {
@@ -59,8 +60,14 @@ export default async function handler(request, context) {
       const form = await request.formData();
       const file = form.get("history");
       if (!file || typeof file.text !== "function" || file.size > 2_000_000 || file.size < 2)
-        return page("<section>Choose one normalized JSON file of up to 2 MB.</section>", 400);
-      const data = JSON.parse(await file.text());
+        return page("<section>Choose one normalized JSON or compressed .json.gz file of up to 2 MB.</section>", 400);
+      // The complete 2024-2026 backup is 10 MB of normalized JSON, but only
+      // 1.84 MB as gzip. Bound decompression to prevent oversized uploads.
+      const content = Buffer.from(await file.arrayBuffer());
+      const isGzip = typeof file.name === "string" && /\.json\.gz$/i.test(file.name);
+      const json = isGzip ? gunzipSync(content, { maxOutputLength: 12_000_000 })
+        .toString("utf8") : content.toString("utf8");
+      const data = JSON.parse(json);
       const asOf = new Date().toISOString().slice(0, 10);
       const result = score.calculateHistoricalScores({ ...data, asOf });
       const held = result.totals.heldCleans;
@@ -103,12 +110,12 @@ export default async function handler(request, context) {
     '<p>No existing customers will be published by this preview; historical balances need reconciliation first.</p></section>' +
     '<p><a href="' + PATH + '?probe=1">Check Squeegee customer API (READ ONLY)</a></p>' + probe +
     '<h2>History import dry run</h2>' +
-    '<p>This accepts a <strong>normalized JSON</strong> file, not a raw Squeegee CSV. ' +
+    '<p>This accepts a <strong>normalized JSON or .json.gz</strong> file, not a raw Squeegee CSV. ' +
     'First export Job and Financial/Payments reports from Squeegee, then confirm column headings ' +
     'so we can map them without guessing.</p>' +
     '<form method="post" enctype="multipart/form-data" action="' + PATH + '">' +
-    '<label for="history">Normalized history JSON (max 2 MB)</label>' +
-    '<input type="file" id="history" name="history" accept=".json,application/json" required>' +
+    '<label for="history">Normalized history JSON or JSON.gz (max 2 MB)</label>' +
+    '<input type="file" id="history" name="history" accept=".json,.gz,application/json,application/gzip" required>' +
     '<button type="submit">CALCULATE POINTS - NO CHANGES</button></form>' +
     '<section><small>Required layout: <code>{"cleans":[{"customerId":"...",' +
       '"cleanId":"...","invoiceId":"...","completedOn":"YYYY-MM-DD",' +
