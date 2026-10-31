@@ -76,24 +76,44 @@ test("only verified Black/Brown £10 and Green 1100L £45 groups can be posted",
  const changedDate=planned();changedDate.privatePlan.jobs[2].date="2026-11-18";
  assert.equal(p.approvedGroups(a,changedDate),null);
 });
-test("a verified first job and no Green job permit review; ambiguity blocks",()=>{
+test("documented Squeegee sparse customer.jobs fields safely verify first job and missing Green",()=>{
  const groups=p.approvedGroups(audit(),planned());
  assert.ok(groups);
- const first={date:"2026-11-17",price:10,
-  notes:"NI Bin Guy website booking: "+p.BOOKING_ID,
+ const first={_id:"88888888-8888-4888-8888-888888888888",
+  jobGroup:groups.first.input.jobGroup,price:10,
   services:[{_id:sid},{_id:bid}]};
+ // Actual Squeegee public GET does not return job notes or appointment date.
  assert.deepEqual(p.inspectJobs([first],groups.first,groups.missing),{
   ok:true,firstFound:1,greenMissing:true,
  });
- const green={date:"2026-11-17",price:45,services:[{_id:gid}]};
- const check=(jobs,reason)=>assert.equal(p.inspectJobs(jobs,groups.first,groups.missing).reason,reason);
- check([first,green],"green_job_already_exists");
- check([first,{...green,date:undefined}],"green_job_date_unverifiable");
+ const evidence=p.publicJobEvidence([first],groups.first,groups.missing);
+ assert.deepEqual(evidence,{jobsReturned:1,sameServiceCount:1,exactGroupCount:1,
+  exactPriceCount:1,greenPresent:0,unreadableServices:0,unreadableGroup:0});
+ const green={jobGroup:groups.missing.input.jobGroup,price:45,
+  services:[{_id:gid}]};
+ const check=(jobs,reason)=>assert.equal(
+  p.inspectJobs(jobs,groups.first,groups.missing).reason,reason);
+ check([first,green],"green_service_already_present");
+ check([first,{...green,date:"2025-01-02"}],"green_service_already_present");
  check([first,{...first}],"duplicate_first_job_found");
- check([{...first,notes:""}],"first_job_not_independently_confirmed");
- check([{...first,services:[{_id:sid}]}],"another_job_with_original_reference_found");
+ check([{...first,jobGroup:null}],"first_job_group_or_price_mismatch");
+ check([{...first,price:20}],"first_job_group_or_price_mismatch");
+ check([{...first,services:[{_id:sid}]}],"first_job_not_independently_confirmed");
+ check([{...first,services:[{_id:sid}],notes:"Created from "+p.BOOKING_ID}],
+   "another_job_with_original_reference_found");
+ check([],"first_job_not_independently_confirmed");
  check(null,"customer_jobs_unavailable");
  check([{...first,services:null}],"customer_services_cannot_be_verified");
+});
+test("Squeegee returning string UUID service IDs and nested job group ID are supported",()=>{
+ const groups=p.approvedGroups(audit(),planned());
+ const first={services:[sid,bid],jobGroup:{_id:groups.first.input.jobGroup},
+   price:10};
+ assert.equal(p.inspectJobs([first],groups.first,groups.missing).ok,true);
+ assert.equal(p.publicJobEvidence([first],groups.first,groups.missing).exactPriceCount,1);
+ // A wrong job group is not the same verified service round.
+ assert.equal(p.inspectJobs([{...first,jobGroup:"44444444-4444-4444-8444-444444444444"}],
+  groups.first,groups.missing).reason,"first_job_group_or_price_mismatch");
 });
 test("Squeegee partial write scope requires a new atomic exact-claim proof",async()=>{
  const proof={acquired:true,key:p.CLAIM_KEY,etag:'"v123"'};

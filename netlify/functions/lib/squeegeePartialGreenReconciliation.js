@@ -91,47 +91,91 @@ function approvedGroups(audit,prepared,now=Date.now()){
     booking:verified.booking,first:verified.first,missing:verified.missing,
   }:null;
 }
-function jobDate(old){
-  const value=old.date||old.startDate||old.firstAppointment?.date||
-    old.firstAppointment?.initialDate||old.appointments?.[0]?.date;
-  return typeof value==="string" ? value.slice(0,10) : "";
+// The public Squeegee GET /customers/:id jobs[] schema exposes only
+// _id, services, jobGroup and price. It does NOT expose notes, first
+// appointment date or recurrence. Never require unavailable fields or infer
+// that a job has the correct appointment date from this GET response.
+const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function idOf(value){
+  const raw=typeof value==="string"?value:
+    value?._id||value?.id||value?.serviceId||value?.jobGroupId;
+  return typeof raw==="string"&&UUID_RE.test(raw)?raw.toLowerCase():null;
 }
-function jobServices(old){
-  if(!Array.isArray(old?.services))return null;
-  const ids=old.services.map(s=>typeof s==="string"?s:s?._id||s?.id);
-  return ids.some(s=>typeof s!=="string")?null:ids;
+function jobServices(job){
+  if(!Array.isArray(job?.services))return null;
+  const ids=job.services.map(idOf);
+  if(ids.some(id=>!id)||new Set(ids).size!==ids.length)return null;
+  return ids;
+}
+function sameServices(first,second){
+  if(!first||!second||first.length!==second.length)return false;
+  return [...first].sort().join("|")===[...second].sort().join("|");
+}
+function publicJobEvidence(jobs,first,missing){
+  if(!Array.isArray(jobs))return null;
+  const expected=(first?.input?.services||[]).map(idOf);
+  const green=idOf(missing?.input?.services?.[0]);
+  const group=idOf(first?.input?.jobGroup);
+  let sameServiceCount=0,exactGroupCount=0,exactPriceCount=0;
+  let greenPresent=0,unreadableServices=0,unreadableGroup=0;
+  for(const job of jobs){
+    const services=jobServices(job);
+    if(!services){unreadableServices++;continue;}
+    if(green&&services.includes(green))greenPresent++;
+    if(sameServices(services,expected)){
+      sameServiceCount++;
+      const matchedGroup=idOf(job?.jobGroup)===group;
+      if(!idOf(job?.jobGroup))unreadableGroup++;
+      if(matchedGroup)exactGroupCount++;
+      if(matchedGroup && Number(job?.price)===Number(first.input.price))
+        exactPriceCount++;
+    }
+  }
+  // Counts only. No personal data, actual customer/job IDs or API values.
+  return {jobsReturned:jobs.length,sameServiceCount,exactGroupCount,
+    exactPriceCount,greenPresent,unreadableServices,unreadableGroup};
 }
 function inspectJobs(jobs,first,missing){
   if(!Array.isArray(jobs))return {ok:false,reason:"customer_jobs_unavailable"};
-  const expectedFirst=first.input.services;
-  const green=missing.input.services[0];
-  let firstFound=0;
+  const expected=(first?.input?.services||[]).map(idOf);
+  const green=idOf(missing?.input?.services?.[0]);
+  const expectedGroup=idOf(first?.input?.jobGroup);
+  if(expected.length!==2||!expected.every(Boolean)||
+     !green||!expectedGroup||!Number.isFinite(Number(first?.input?.price)))
+    return {ok:false,reason:"verified_plan_identifiers_invalid"};
+  let firstFound=0, firstNearMiss=false;
   for(const old of jobs){
-    if(!old || typeof old!=="object")return {ok:false,reason:"customer_jobs_incomplete"};
+    if(!old||typeof old!=="object")
+      return {ok:false,reason:"customer_jobs_incomplete"};
     const services=jobServices(old);
-    if(!services)return {ok:false,reason:"customer_services_cannot_be_verified"};
-    const date=jobDate(old);
-    const notes=[old.notes,old.description,old.reference,old.referenceNumber]
-      .filter(v=>typeof v==="string").join(" ").toUpperCase();
-    const belongs=notes.includes(BOOKING_ID);
-    const firstExact=services.length===expectedFirst.length &&
-      [...services].sort().join("|") === [...expectedFirst].sort().join("|") &&
-      date===FIRST_DATE && Number(old.price)===10;
-    if(belongs && firstExact){
+    if(!services)
+      return {ok:false,reason:"customer_services_cannot_be_verified"};
+    // With no appointment date in Squeegee's public customer GET, ANY
+    // occurrence of the missing Green service makes a POST unsafe.
+    if(services.includes(green))
+      return {ok:false,reason:"green_service_already_present"};
+    if(sameServices(services,expected)){
+      if(idOf(old.jobGroup)!==expectedGroup ||
+         !Number.isFinite(Number(old.price)) ||
+         Number(old.price)!==Number(first.input.price)){
+        firstNearMiss=true;
+        continue;
+      }
       firstFound++;
-      if(firstFound>1)return {ok:false,reason:"duplicate_first_job_found"};
-      continue;
+      if(firstFound>1)
+        return {ok:false,reason:"duplicate_first_job_found"};
+    }else{
+      // Notes are usually unavailable, but honour them if supplied.
+      const notes=[old.notes,old.description,old.reference,old.referenceNumber]
+        .filter(x=>typeof x==="string").join(" ").toUpperCase();
+      if(notes.includes(BOOKING_ID))
+        return {ok:false,reason:"another_job_with_original_reference_found"};
     }
-    if(belongs)return {ok:false,reason:"another_job_with_original_reference_found"};
-    if(services.includes(green)){
-      if(!date)return {ok:false,reason:"green_job_date_unverifiable"};
-      if(date===FIRST_DATE)return {ok:false,reason:"green_job_already_exists"};
-    }
-    if(services.some(s=>missing.input.services.includes(s)) &&
-       !date)return {ok:false,reason:"matching_service_date_unverifiable"};
   }
-  if(firstFound!==1)return {ok:false,reason:"first_job_not_independently_confirmed"};
+  if(firstNearMiss)return {ok:false,reason:"first_job_group_or_price_mismatch"};
+  if(firstFound!==1)
+    return {ok:false,reason:"first_job_not_independently_confirmed"};
   return {ok:true,firstFound:1,greenMissing:true};
 }
 module.exports={BOOKING_ID,ACCEPTED_DAY,FIRST_DATE,CLAIM_KEY,PATH,
-  partialStatusSafe,approvedGroups,checkApprovedGroups,inspectJobs};
+  partialStatusSafe,approvedGroups,checkApprovedGroups,inspectJobs,publicJobEvidence};

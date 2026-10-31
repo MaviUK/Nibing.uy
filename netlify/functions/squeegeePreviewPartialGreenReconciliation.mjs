@@ -109,12 +109,23 @@ async function preflight(){
   "Original booking verification stopped at: "+selected.reason+
   ". No Squeegee jobs were sent."};
  const jobs=safePartial.inspectJobs(customer.jobs,selected.first,selected.missing);
- if(!jobs.ok)return {ok:false,reason:jobs.reason};
+ if(!jobs.ok)return {ok:false,reason:jobs.reason,
+   evidence:safePartial.publicJobEvidence(customer.jobs,selected.first,selected.missing)};
  return {ok:true,booking:b,customerId:match.customerId,
    first:selected.first,missing:selected.missing};
 }
-function blocked(msg){
+function blocked(msg,evidence){
+ const display=evidence?
+   '<div class="box"><h2>Read-only Squeegee evidence</h2>'+
+   '<p>Jobs returned: '+esc(evidence.jobsReturned)+'</p>'+
+   '<p>Black/Brown service matches: '+esc(evidence.sameServiceCount)+'</p>'+
+   '<p>Matching group: '+esc(evidence.exactGroupCount)+'</p>'+
+   '<p>Matching group and £10 price: '+esc(evidence.exactPriceCount)+'</p>'+
+   '<p>Green service already listed: '+esc(evidence.greenPresent)+'</p>'+
+   '<p>Unrecognised service/group formats: '+
+     esc(evidence.unreadableServices+evidence.unreadableGroup)+'</p></div>':'';
  return page('<div class="box"><h2>Import not started</h2><p>'+esc(msg)+'</p></div>'+
+  display+
   '<p>Nothing was sent by this check. Review the Squeegee jobs before any manual changes.</p>',409);
 }
 async function saveOutcome(stage,extra={}){
@@ -191,20 +202,22 @@ export default async function handler(request,context){
  let check;
  try{check=await preflight();}
  catch{return blocked("Read-only status, Squeegee or audit verification could not be completed.");}
- if(!check.ok)return blocked(check.reason);
+ if(!check.ok)return blocked(check.reason,check.evidence);
  if(request.method==="POST")return submitOnce(check,scope);
  return page('<p><strong>Booking:</strong> '+BOOKING_ID+'</p>'+
   '<p><strong>Customer:</strong> '+esc(check.booking.name)+'</p>'+
   '<p><strong>Address:</strong> '+esc(check.booking.address)+'</p>'+
   '<div class="box"><h2>Reconciled with Squeegee</h2>'+
-  '<p>Confirmed existing job: Black + Brown, 4-weekly, £10 — 17 November 2026.</p>'+
-  '<p><strong>Missing job:</strong> Green Bin 1100L, one-off, £45 — 17 November 2026.</p>'+
+  '<p>Matched existing Squeegee job: Black + Brown service IDs, correct job group and £10 price.</p>'+
+  '<p><strong>Green 1100L one-off (£45):</strong> Its service ID is not listed on any of the existing customer jobs.</p>'+
+  '<p><strong>Important:</strong> Squeegee does not return the original job appointment date or recurrence through this API. Verify the Black/Brown job is scheduled for 17 November 2026, every four weeks, in the Squeegee app before proceeding.</p>'+
+  '<p>The new Green job would be dated 17 November 2026, one-off, £45.</p>'+
   '<p>No new customer or changes to the first job are required.</p></div>'+
   '<form method="post" action="'+PATH+'">'+
   '<input type="hidden" name="bookingId" value="'+BOOKING_ID+'">'+
   '<input type="hidden" name="csrf" value="'+token(request)+'">'+
   '<label><input type="checkbox" name="confirm" value="yes" required> '+
-  'I have checked Squeegee and confirm the £45 Green 1100L job is not already present.</label>'+
+  'I have checked Squeegee: the £10 Black/Brown job is scheduled for 17 November 2026 every four weeks, and the £45 Green 1100L job is not already present.</label>'+
   '<button type="submit">Add ONLY the missing £45 Green job ONCE</button></form>'+
   '<p><small>A new one-time recovery claim is reserved immediately before the '+
   'write. The original booking and recovery claims are not reset.</small></p>');
