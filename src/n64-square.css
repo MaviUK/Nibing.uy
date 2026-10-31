@@ -1033,3 +1033,289 @@
     transform:translate(-50%,-50%) !important;
   }
 }
+
+
+/* ── 10-second bonus level: compact, legible, mobile-first arcade cabinet ──
+   Scoped to the preview challenge. Booking and prize behaviour are untouched. */
+#main-content.n64-world .n64-challenge-overlay > .n64-challenge-positioner > .n64-challenge-shell {
+  border:4px solid #142b4c !important;
+  background:#fff6db !important;
+  color:#142b4c !important;
+  box-shadow:7px 8px 0 #7592ac !important;
+  border-radius:0 !important;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+}
+.n64-challenge-shell {
+  background:#fff6db;
+  color:#142b4c;
+  overscroll-behavior:contain;
+}
+.n64-challenge-close {
+  position:absolute;
+  z-index:5;
+  top:10px;
+  right:10px;
+  display:grid;
+  place-items:center;
+  width:42px;
+  height:42px;
+  padding:0;
+  background:#172d4c;
+  color:#fff;
+  border:3px solid #fff6db;
+  border-radius:0;
+  box-shadow:3px 3px 0 #ad8431;
+  font-size:29px;
+  font-weight:900;
+  line-height:1;
+  cursor:pointer;
+}
+.n64-challenge-close:hover,
+.n64-challenge-close:focus-visible {
+  background:#e45c47;
+  color:#fff;
+}
+.n64-challenge-close:focus-visible,
+.n64-stopwatch__button:focus-visible {
+  outline:3px solid #1686d1;
+  outline-offset:3px;
+}
+.n64-stopwatch {
+  width:100%;
+  min-width:0;
+  font-family:"Trebuchet MS",Verdana,sans-serif;
+  color:#142b4c;
+}
+[data-testid="ten-sec-root"] > .n64-stopwatch__cabinet {
+  padding:0;
+  margin:0;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  background:#fff6db !important;
+  color:#142b4c !important;
+}
+.n64-stopwatch__header {
+  padding:18px 61px 16px 20px;
+  background:linear-gradient(135deg,#ffdf68 0%,#ffdb53 67%,#fac748 67%,#ffdb53 100%);
+  border-bottom:4px solid #142b4c;
+}
+.n64-stopwatch__eyebrow {
+  display:inline-block;
+  margin:0;
+  padding:4px 8px;
+  border:2px solid #142b4c;
+  background:#142b4c;
+  color:#fff7e2;
+  font-size:11px;
+  font-weight:1000;
+  line-height:1.2;
+  letter-spacing:.1em;
+}
+.n64-stopwatch__eyebrow span {
+  color:#ffdf68;
+  font-size:13px;
+}
+#main-content.n64-world .n64-stopwatch__header h2,
+.n64-stopwatch__header h2 {
+  margin:9px 0 7px;
+  color:#142b4c !important;
+  font-size:clamp(1.65rem,5.6vw,2.35rem);
+  font-weight:1000 !important;
+  letter-spacing:-.045em;
+  line-height:1.04;
+}
+.n64-stopwatch__header h2 span { color:#c13d30; }
+.n64-stopwatch__header > p:last-child {
+  max-width:36ch;
+  margin:0;
+  color:#253953;
+  font-size:.84rem;
+  line-height:1.4;
+}
+.n64-stopwatch__header > p:last-child strong {color:#122b49;}
+.n64-stopwatch__body {
+  padding:17px 18px 15px;
+}
+.n64-stopwatch__screen {
+  padding:14px 14px 15px;
+  background:#112840;
+  border:3px solid #112840;
+  box-shadow:inset 0 0 0 2px #365c79,0 4px 0 #c6b38d;
+  color:#fefbee;
+  text-align:center;
+}
+.n64-stopwatch__target {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:8px 11px;
+  background:#254460;
+  border:2px solid #3c6482;
+  color:#c1e6f4;
+}
+.n64-stopwatch__target > span {
+  font-size:.75rem;
+  font-weight:1000;
+  letter-spacing:.13em;
+}
+.n64-stopwatch__target > strong {
+  color:#ffdf65;
+  font-family:"Courier New",monospace;
+  font-size:1.24rem;
+  letter-spacing:-.04em;
+  white-space:nowrap;
+}
+.n64-stopwatch__time-label {
+  margin:14px 0 1px;
+  color:#99c6da;
+  font-size:.76rem;
+  font-weight:1000;
+  letter-spacing:.15em;
+}
+.n64-stopwatch__time {
+  display:block;
+  width:100%;
+  margin:0;
+  color:#fffdf4;
+  font-family:"Courier New",monospace;
+  font-size:clamp(3.3rem,14.5vw,4.9rem);
+  font-variant-numeric:tabular-nums;
+  font-weight:900;
+  letter-spacing:-.05em;
+  line-height:1.16;
+  white-space:nowrap;
+  text-shadow:0 4px 0 #08192a;
+}
+.n64-stopwatch__time span {
+  color:#ffd767;
+  font-size:.57em;
+  letter-spacing:0;
+}
+.n64-stopwatch__time--winner {color:#7cf0af;}
+.n64-stopwatch__screen-tip {
+  margin:4px 0 0;
+  color:#c2d6e4;
+  font-size:.76rem;
+  line-height:1.35;
+}
+.n64-stopwatch__button {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  width:100%;
+  min-height:64px;
+  margin-top:16px;
+  padding:12px 16px;
+  background:#0cb883;
+  border:4px solid #153653 !important;
+  border-radius:0 !important;
+  box-shadow:0 6px 0 #0e674e !important;
+  color:#fff !important;
+  font-size:1.27rem;
+  font-weight:1000;
+  line-height:1.2;
+  letter-spacing:.02em;
+  text-shadow:0 2px 0 #076343;
+  cursor:pointer;
+  touch-action:manipulation;
+  transition:background .12s,transform .12s,box-shadow .12s;
+}
+.n64-stopwatch__button > span {
+  font-size:1.1rem;
+  font-weight:1000;
+}
+.n64-stopwatch__button:not(:disabled):hover {background:#079f76;}
+.n64-stopwatch__button:not(:disabled):active {
+  transform:translateY(4px);
+  box-shadow:0 2px 0 #0e674e !important;
+}
+.n64-stopwatch__button--stop {
+  background:#f25949 !important;
+  box-shadow:0 6px 0 #922e2c !important;
+  text-shadow:0 2px 0 #952e2a;
+}
+.n64-stopwatch__button--stop:not(:disabled):hover {background:#d94338 !important;}
+.n64-stopwatch__button--stop:not(:disabled):active {box-shadow:0 2px 0 #922e2c !important;}
+.n64-stopwatch__button:disabled {
+  opacity:.52;
+  cursor:not-allowed;
+  box-shadow:none !important;
+}
+.n64-stopwatch__status {
+  margin:14px 0 0;
+  padding:9px 12px;
+  border-left:5px solid #10a878;
+  background:#e4f6ed;
+  color:#1d4e48;
+  font-size:.83rem;
+  font-weight:700;
+  line-height:1.4;
+  text-align:center;
+}
+.n64-stopwatch__error {
+  margin:10px 0 0;
+  padding:10px;
+  border-left:4px solid #bf332e;
+  background:#fff0eb;
+  color:#922c26;
+  font-size:.8rem;
+}
+.n64-stopwatch__limit {
+  margin:12px 0 0;
+  color:#52627b;
+  font-size:.73rem;
+  font-weight:700;
+  line-height:1.4;
+  text-align:center;
+}
+.n64-stopwatch__limit span {color:#0d9e75;font-size:.65rem;}
+.n64-stopwatch__areas {
+  margin:12px 0 0;
+  padding:10px 12px;
+  border:2px solid #e7d09b;
+  background:#fff0c7;
+  color:#34455e;
+  font-size:.76rem;
+  line-height:1.45;
+}
+.n64-stopwatch__areas strong {
+  display:block;
+  margin-bottom:3px;
+  color:#142b4c;
+  font-size:.68rem;
+  font-weight:1000;
+  letter-spacing:.08em;
+}
+.n64-stopwatch__fineprint {
+  margin:10px 0 0;
+  color:#647086;
+  font-size:.7rem;
+  line-height:1.4;
+  text-align:center;
+}
+.n64-stopwatch__test {
+  margin:0 0 12px;
+  padding:10px;
+  border:2px solid #c58529;
+  background:#ffedb4;
+  color:#67400c;
+  font-size:.75rem;
+}
+@media (max-width:380px) {
+  .n64-challenge-positioner {padding:8px !important;}
+  .n64-challenge-close {top:7px;right:7px;width:38px;height:38px;}
+  .n64-stopwatch__header {padding:14px 52px 13px 15px;}
+  .n64-stopwatch__body {padding:13px 12px;}
+  .n64-stopwatch__screen {padding:10px 10px 13px;}
+  .n64-stopwatch__time {font-size:clamp(2.9rem,15vw,3.65rem);}
+  .n64-stopwatch__header > p:last-child {font-size:.79rem;}
+  .n64-stopwatch__target {padding:6px 9px;}
+  .n64-stopwatch__button {min-height:58px;}
+}
+@media(prefers-reduced-motion:reduce) {
+  .n64-stopwatch__button {transition:none;}
+}
