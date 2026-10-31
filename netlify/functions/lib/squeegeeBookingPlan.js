@@ -37,6 +37,17 @@ function externalCustomerReference({ email, address }) {
   return "NBG-WEB-" + crypto.createHash("sha256").update([mail, post, addr].join("|")).digest("hex").slice(0, 32);
 }
 
+// Squeegee's visible customer reference should be the concise booking
+// reference used in confirmation emails, not an unreadable identity hash.
+// This is assigned only on initial customer creation: later website bookings
+// reuse the existing Squeegee customer and keep its first reference.
+function bookingCustomerReference(booking) {
+  const id=String(booking?.bookingId||"").trim().toUpperCase();
+  if(!BOOKING_ID_RE.test(id))
+    throw new Error("A valid original booking reference is required");
+  return id;
+}
+
 function customerInputForBooking(booking) {
   const name = String(booking.name || "").trim();
   const email = String(booking.email || "").trim();
@@ -54,7 +65,7 @@ function customerInputForBooking(booking) {
     phone,
     address: { text: address },
     notes: "NI Bin Guy website booking. Confirmed schedule stored against each job.",
-    reference: externalCustomerReference({ email, address }),
+    reference: bookingCustomerReference(booking),
   };
   const latitude = Number(booking.lat);
   const longitude = Number(booking.lng);
@@ -182,6 +193,7 @@ module.exports = {
   normalizedBinType,
   validDate,
   externalCustomerReference,
+  bookingCustomerReference,
   customerInputForBooking,
   buildSqueegeeBookingPlan,
 };

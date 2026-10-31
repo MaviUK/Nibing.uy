@@ -346,3 +346,61 @@ test("domestic and commercial under 360L share the same Squeegee service for eac
     assert.notEqual(regular,once);
   }
 });
+
+
+test("new Squeegee customers use the short booking reference instead of the legacy hash",()=>{
+  const b=booking();
+  const created=plan.customerInputForBooking(b);
+  assert.equal(created.reference,b.bookingId);
+  assert.equal(plan.buildSqueegeeBookingPlan(b,verifiedSchedule(),mappings())
+    .externalReference,b.bookingId);
+  assert.doesNotMatch(created.reference,/NBG-WEB-/);
+  assert.match(plan.externalCustomerReference(b),/^NBG-WEB-[a-f0-9]{32}$/);
+  // A later booking for the same customer has its own booking ID, but the
+  // existing customer is always reused by address/contact instead.
+  const next={...b,bookingId:"NBG-P7KVB3NA"};
+  assert.equal(plan.customerInputForBooking(next).reference,"NBG-P7KVB3NA");
+  assert.equal(plan.externalCustomerReference(next),plan.externalCustomerReference(b));
+});
+
+test("short first-booking reference matches an existing Squeegee customer",async()=>{
+  const first=booking();
+  const newer={...first,bookingId:"NBG-P7KVB3NA"};
+  const record={_id:SERVICE,_externalId:first.bookingId,
+    name:first.name,email:first.email,phoneNumber:first.phone,
+    address:{addressDescription:first.address},status:"active"};
+  assert.equal(matcher.matchCustomers(first,[record]).reason,"external_reference");
+  const res=await matcher.matchCustomersAcrossPages(newer,async()=>({
+    customers:[record],hasMore:false,page:1,
+  }));
+  assert.equal(res.status,"matched");
+  assert.equal(res.customerId,SERVICE);
+  assert.equal(res.reason,"exact_property_and_name");
+});
+
+test("legacy hash references continue to match without duplicate customer creation",async()=>{
+  const b=booking();
+  const legacy=plan.externalCustomerReference(b);
+  const row={_id:SERVICE,_externalId:legacy,
+    name:b.name,email:b.email,phoneNumber:b.phone,
+    address:{addressDescription:b.address},status:"active"};
+  assert.equal(matcher.matchCustomers(b,[row]).reason,"external_reference");
+  const scanned=await matcher.matchCustomersAcrossPages(b,async()=>({
+    customers:[row],hasMore:false,page:1,
+  }));
+  assert.equal(scanned.status,"matched");
+  assert.equal(scanned.reason,"external_reference");
+  assert.equal(scanned.customerId,SERVICE);
+});
+
+test("different customers claiming both short and legacy references at same address trigger review",()=>{
+  const b=booking();
+  const shared={name:b.name,email:b.email,phoneNumber:b.phone,
+    address:{addressDescription:b.address},status:"active"};
+  const result=matcher.matchCustomers(b,[
+    {...shared,_id:SERVICE,_externalId:b.bookingId},
+    {...shared,_id:ONEOFF_SERVICE,_externalId:plan.externalCustomerReference(b)},
+  ]);
+  assert.equal(result.status,"needs_review");
+  assert.equal(result.reason,"multiple_exact_customer_identities");
+});

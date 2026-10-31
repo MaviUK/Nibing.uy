@@ -8,7 +8,7 @@
  * reuse the SAME customer only when full name, email AND phone all match.
  * Conflicts, duplicate identities and uncertain addresses hold for review.
  */
-const { normalizedPostcode, externalCustomerReference } = require("./squeegeeBookingPlan");
+const { normalizedPostcode, externalCustomerReference, bookingCustomerReference } = require("./squeegeeBookingPlan");
 const { requireUuid } = require("./squeegeeApiV3");
 
 function stringValue(value) {
@@ -74,7 +74,12 @@ function matchCustomers(booking, customerList) {
   const wantedName=normalName(booking?.name);
   if(!postcode || !wantedKey)
     return {status:"needs_review",reason:"invalid_booking_address"};
-  const externalRef=externalCustomerReference(booking);
+  // Support both historical hash-based customer references and the new
+  // concise first-booking references without changing existing accounts.
+  const refs=new Set([
+    externalCustomerReference(booking).toUpperCase(),
+    bookingCustomerReference(booking),
+  ]);
   const wantedEmail=normalEmail(booking.email);
   const wantedPhone=normalPhone(booking.phone);
   const rows=customerList.filter(x=>x && typeof x==="object" &&
@@ -89,7 +94,7 @@ function matchCustomers(booking, customerList) {
   if(identityMatches.length>1)
     return {status:"needs_review",reason:"multiple_exact_customer_identities"};
 
-  const byRef=rows.filter(c=>String(c._externalId||"")===externalRef);
+  const byRef=rows.filter(c=>refs.has(String(c._externalId||"").trim().toUpperCase()));
   if(byRef.length>1)
     return {status:"needs_review",reason:"duplicate_external_reference"};
   // Even a stable external ID may not override the actual saved property.
@@ -221,7 +226,10 @@ async function matchCustomersAcrossPages(booking, listPage, { maxPages = 40 } = 
     throw new RangeError("maxPages must be 1-100");
   }
   const targetPost = normalizedPostcode(booking?.address);
-  const reference = externalCustomerReference(booking);
+  const references = new Set([
+    externalCustomerReference(booking).toUpperCase(),
+    bookingCustomerReference(booking),
+  ]);
   const wantedEmail=normalEmail(booking?.email);
   const wantedPhone=normalPhone(booking?.phone);
   const found = new Map();
@@ -243,7 +251,7 @@ async function matchCustomersAcrossPages(booking, listPage, { maxPages = 40 } = 
       // Scan all pages for cross-property email/phone identity matches,
       // not just matches at the current service address. Only a unique
       // full name + email + phone match authorises cross-property reuse.
-      if (String(row._externalId || "") === reference ||
+      if (references.has(String(row._externalId || "").trim().toUpperCase()) ||
           normalizedPostcode(stringValue(row.address)) === targetPost ||
           sameEmail || samePhone) {
         found.set(row._id,row);
