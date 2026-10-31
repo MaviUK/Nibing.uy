@@ -86,7 +86,7 @@ async function withApprovedPreviewAutomaticWrite(proof, operation, runtimeScope,
       !rollout.automaticEnabled(env) ||
       !env.SQUEEGEE_API_KEY ||
       proof?.acquired !== true ||
-      !/^claim-v1\/auto-bookings\/NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i.test(String(proof.key||"")) ||
+      !/^claim-v1\/auto-bookings\/NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i.test(String(proof.key||"")) ||
       typeof proof.etag !== "string" || proof.etag.length < 4 ||
       typeof operation !== "function") {
     throw new Error("Preview-only automatic booking write capability unavailable");

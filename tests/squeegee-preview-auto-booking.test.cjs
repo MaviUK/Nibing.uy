@@ -2360,3 +2360,25 @@ test("Squeegee HTTP failures are classified without leaking response contents or
   assert.ok(!JSON.stringify(h.statuses).includes("Customer secret injected"));
   assert.ok(!JSON.stringify(h.statuses).includes(b.email));
 });
+
+
+test("actual write grant accepts short NBG booking refs after an atomic claim",async()=>{
+  const oldBookingId="NBG-ABCDE-ABCDEFGH";
+  const shortBookingId="NBG-P7KVB3NA";
+  const proof={acquired:true,etag:'"v1"',key:BOOKING_CLAIM_PREFIX+shortBookingId};
+  const result=await withApprovedPreviewAutomaticWrite(proof,async()=>"granted",runtime,env);
+  assert.equal(result,"granted");
+  const legacy=await withApprovedPreviewAutomaticWrite({
+    ...proof,key:BOOKING_CLAIM_PREFIX+oldBookingId,
+  },async()=>"legacy",runtime,env);
+  assert.equal(legacy,"legacy");
+  for(const wrongKey of [
+    BOOKING_CLAIM_PREFIX+"NBG-INCOMPLETE",
+    BOOKING_CLAIM_PREFIX+"NBG-REPLAY-",
+    "claim-v1/other/NBG-P7KVB3NA",
+  ]){
+    await assert.rejects(withApprovedPreviewAutomaticWrite({
+      ...proof,key:wrongKey,
+    },async()=>"wrong",runtime,env),/unavailable/);
+  }
+});
