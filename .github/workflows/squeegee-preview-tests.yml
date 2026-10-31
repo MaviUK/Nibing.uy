@@ -38,6 +38,9 @@ on:
       - netlify/functions/squeegeePreviewTest.mjs
       - netlify/functions/squeegeePreviewTestSubmit.mjs
       - src/LandingPage.jsx
+      - src/bookingReference.mjs
+      - netlify/functions/lib/bookingEmailTemplate.js
+      - tests/squeegee-booking-reference.test.cjs
       - netlify/functions/sendBookingEmail.js
       - netlify/functions/sendTosReceipt.js
       - tests/squeegee-integration.test.cjs
