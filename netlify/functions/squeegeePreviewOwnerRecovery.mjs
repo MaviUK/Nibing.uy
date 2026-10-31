@@ -9,7 +9,6 @@ import session from "./lib/squeegeePreviewTestSession.js";
 import auto from "./lib/squeegeeAutomaticBooking.js";
 import claims from "./lib/squeegeeIdempotencyClaims.js";
 import recovery from "./lib/squeegeeOwnerRecovery.js";
-import ownerPost from "./lib/squeegeeOwnerPostHeaders.js";
 import stage from "./lib/squeegeeBookingStage.js";
 import matcher from "./lib/squeegeeCustomerMatcher.js";
 import planner from "./lib/squeegeeBookingPreparation.js";
@@ -281,11 +280,11 @@ export default async function handler(request,context){
       '">Email and enter your one-time owner code</a></p>',403);
   }
   if(request.method==="POST"){
-    // Reject any explicitly foreign request metadata, but do not require
-    // optional browser headers that Android privacy modes can omit.
-    // The signed owner session and session-bound HMAC token remain required.
-    if(!ownerPost.trustedOwnerPostMetadata(request.headers))
-      return page("Request origin could not be verified.",403);
+    // Browser Origin/Referer/Fetch-Site headers are optional/unreliable in
+    // Android in-app browsers. The exact preview scope, signed HttpOnly
+    // SameSite owner session, form-action 'self' CSP and session-bound HMAC
+    // confirmation token enforce authorisation and CSRF protection instead.
+    // No customer/job write is reachable until ALL of those checks pass.
     if(!request.headers.get("content-type")?.startsWith("application/x-www-form-urlencoded"))
       return page("Expected confirmation form.",415);
     const text=await request.text();
