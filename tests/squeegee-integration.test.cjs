@@ -404,3 +404,59 @@ test("different customers claiming both short and legacy references at same addr
   assert.equal(result.status,"needs_review");
   assert.equal(result.reason,"multiple_exact_customer_identities");
 });
+
+
+test("Groomsport Road Squeegee county suffix matches website Rd abbreviation",()=>{
+  const normal=matcher.addressKey("78 Groomsport Rd, Bangor BT20 5NF");
+  const stored=matcher.addressKey(
+    {addressDescription:"78 Groomsport Road, Bangor, County Down, BT20 5NF"}
+  );
+  assert.equal(normal,stored);
+  assert.equal(matcher.addressKey("78 Groomsport Road, Bangor Co Down BT20 5NF"),normal);
+  assert.equal(matcher.addressKey("78 Groomsport Road Bangor County Down BT20 5NF"),normal);
+  assert.notEqual(matcher.addressKey("79 Groomsport Road, Bangor, County Down BT20 5NF"),normal);
+  assert.notEqual(matcher.addressKey("78 Groomsport Lane, Bangor, County Down BT20 5NF"),normal);
+  // Must not erase a real street called County Down Road.
+  assert.notEqual(matcher.addressKey("78 County Down Road, Bangor BT20 5NF"),
+    matcher.addressKey("78 Road, Bangor, County Down BT20 5NF"));
+});
+
+test("returning Gavin at 78 Groomsport Road matches property despite duplicate contacts elsewhere",async()=>{
+  const b={...booking(),bookingId:"NBG-MWW3A59-2BD66130D3",
+    name:"Gavin",email:"gavin@example.org",phone:"07555178484",
+    address:"78 Groomsport Rd, Bangor BT20 5NF"};
+  const atProperty={
+    _id:SERVICE,name:"Gavin",email:b.email,phoneNumber:b.phone,status:"active",
+    address:{addressDescription:"78 Groomsport Road, Bangor, County Down, BT20 5NF"},
+  };
+  const anotherEmail={_id:ONEOFF_SERVICE,name:"Another resident",
+    email:b.email,phoneNumber:"07555100000",status:"active",
+    address:{addressDescription:"25 Different Street, Bangor BT20 5AA"}};
+  const anotherPhone={_id:"55555555-5555-4555-8555-555555555555",
+    name:"Another resident",email:"elsewhere@example.org",phoneNumber:b.phone,
+    status:"active",address:{addressDescription:"12 Other Road, Bangor BT20 5AB"}};
+  const rows=[atProperty,anotherEmail,anotherPhone];
+  const matched=matcher.matchCustomers(b,rows);
+  assert.equal(matched.status,"matched");
+  assert.equal(matched.customerId,SERVICE);
+  assert.equal(matched.reason,"exact_property_and_name");
+  const pages=await matcher.matchCustomersAcrossPages(b,async()=>({
+    customers:rows,hasMore:false,page:1,
+  }));
+  assert.equal(pages.status,"matched");
+  assert.equal(pages.customerId,SERVICE);
+  assert.equal(pages.reason,"exact_property_and_name");
+  assert.ok(pages.duplicateFlags.includes("email_used_at_other_property"));
+  assert.ok(pages.duplicateFlags.includes("phone_used_at_other_property"));
+  assert.ok(!pages.duplicateFlags.includes("possible_duplicate_address"));
+});
+
+test("same postcode and number but a different street stays held for manual review",()=>{
+  const b={...booking(),name:"Gavin",email:"gavin@example.org",
+    address:"78 Groomsport Road, Bangor BT20 5NF"};
+  const row={_id:SERVICE,name:"Gavin",email:b.email,
+    address:{addressDescription:"78 Gransha Road, Bangor, County Down BT20 5NF"}};
+  const r=matcher.matchCustomers(b,[row]);
+  assert.equal(r.status,"needs_review");
+  assert.equal(r.reason,"possible_existing_address");
+});

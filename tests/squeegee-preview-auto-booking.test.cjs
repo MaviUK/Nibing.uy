@@ -2444,3 +2444,65 @@ test("REAL Squeegee write authorization allows a new short-reference test bookin
     else process.env.SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED=originalFlag;
   }
 });
+
+
+test("real returning Blue one-off booking matches County Down address and adds job to Gavin",async()=>{
+  const blueOnce="66666666-6666-4666-8666-666666666666";
+  const b=sampleBooking({
+    bookingId:"NBG-MWW3A59-2BD66130D3",
+    bins:[{type:"Blue Bin",planId:"domestic_oneoff",count:1}],
+    dates:["2026-11-10"],
+    modified:source=>({
+      ...source,name:"Gavin",email:"gavin@example.org",phone:"07555178484",
+      address:"78 Groomsport Rd, Bangor BT20 5NF",
+      bookingScheduleSnapshot:{
+        ...source.bookingScheduleSnapshot,postcode:"BT20 5NF",
+      },
+    }),
+  });
+  const storedAddress="78 Groomsport Road, Bangor, County Down, BT20 5NF";
+  const atProperty={_id:customerId,name:"Gavin",email:b.email,
+    phoneNumber:b.phone,status:"active",
+    address:{addressDescription:storedAddress}};
+  const otherEmail={_id:"77777777-7777-4777-8777-777777777777",
+    name:"Different Resident",email:b.email,phoneNumber:"02891000000",
+    address:{addressDescription:"20 Other Road, Bangor BT20 5AA"}};
+  const otherPhone={_id:"88888888-8888-4888-8888-888888888888",
+    name:"Another Customer",email:"other@example.org",phoneNumber:b.phone,
+    address:{addressDescription:"25 Other Road, Bangor BT20 5AB"}};
+  const h=makeHarness(b,{
+    existingRows:[atProperty,otherEmail,otherPhone],
+    existingCustomer:{
+      name:"Gavin",email:b.email,phoneNumber:b.phone,status:"active",
+      address:{addressDescription:storedAddress},
+      // The customer's earlier Blue one-off job must not force a new
+      // customer or stop an explicitly additional physical bin.
+      jobs:[{services:[{_id:blueOnce,
+        description:"(One Off) Blue",quantity:1}],status:"inactive"}],
+    },
+    services:[...accountServices,{id:blueOnce,description:"(One Off) Blue"}],
+    schedule:{
+      matched:true,postcode:"BT20 5NF",town:"BANGOR",
+      results:[{bin:"Blue Bin",town:"BANGOR",
+        assignedCleanDate:"2026-11-10",automatic:true}],
+    },
+    deps:{duplicateAlert:async()=>{}},
+  });
+  const res=await h.run();
+  assert.equal(res.status,"completed",JSON.stringify(res));
+  assert.equal(res.createdCustomer,false);
+  assert.equal(res.createdJobs,1);
+  assert.equal(res.customerMode,"existing");
+  assert.equal(h.posts.length,1);
+  assert.equal(h.posts[0].kind,"job");
+  assert.equal(h.posts[0].id,customerId);
+  assert.equal(h.posts[0].job.date,"2026-11-10");
+  assert.equal(h.posts[0].job.price,15);
+  assert.equal(h.posts[0].job.frequencyType,"adhoc");
+  assert.deepEqual(h.posts[0].job.services,[blueOnce]);
+  assert.match(h.posts[0].job.notes,/ADDITIONAL BIN PURCHASE/);
+  assert.ok(h.statuses.at(-1).duplicateFlags.includes("email_used_at_other_property"));
+  assert.ok(h.statuses.at(-1).duplicateFlags.includes("phone_used_at_other_property"));
+  assert.equal((await h.run()).status,"held");
+  assert.equal(h.posts.length,1);
+});

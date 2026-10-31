@@ -27,6 +27,11 @@ function addressKey(value) {
     .replace(new RegExp(compactPost.slice(0,-3) + "\\s*" + compactPost.slice(-3) + "\\b", "g"), " ")
     .replace(/\bNORTHERN IRELAND\b/g, "")
     .replace(/\bUNITED KINGDOM\b/g, "")
+    // Squeegee appends "County Down" after Bangor; Google's booking
+    // address often omits it. Only discard the county as the FINAL
+    // locality suffix, never within a street name (e.g. County Down Road).
+    // The actual house number, street, town and BT postcode still match.
+    .replace(/(?:,\s*|\s+)(?:COUNTY|CO\.?)\s+DOWN\s*,?\s*$/g, "")
     .replace(/\bRD\b/g, "ROAD")
     .replace(/\bST\b/g, "STREET")
     .replace(/\bAVE\b/g, "AVENUE")
