@@ -1641,3 +1641,78 @@ test("protected owner status view can diagnose the old read-only date hold",()=>
   assert.match(source,/overflow-wrap:anywhere/);
   assert.doesNotMatch(source,/addJobToCustomer\(/);
 });
+
+test("inactive return booking sends customer details to owner ONLY, never stores them or makes a Squeegee write",async()=>{
+  const b=sampleBooking({bins:[
+    {type:"Brown Bin",planId:"domestic_4w",count:1},
+    {type:"Black Bin",planId:"domestic_4w",count:2},
+  ],dates:["2026-11-16","2026-11-16"]});
+  const alerts=[];
+  const h=makeHarness(b,{existingRows:[{
+    _id:customerId,name:b.name,email:b.email,
+    status:"inactive",address:{addressDescription:b.address},
+  }],existingCustomer:{name:b.name,status:"inactive",
+    address:{text:b.address},jobs:[]},
+    deps:{alert:async(...args)=>alerts.push(args)},
+  });
+  const result=await h.run();
+  assert.equal(result.status,"held");
+  assert.equal(result.reason,"existing_customer_reactivation_required");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+  assert.equal(alerts.length,1);
+  assert.equal(alerts[0][1],"existing_customer_reactivation_required");
+  const emailOnly=alerts[0][2];
+  assert.equal(emailOnly.customerName,b.name);
+  assert.equal(emailOnly.serviceAddress,b.address);
+  assert.equal(emailOnly.customerEmail,b.email);
+  assert.equal(emailOnly.customerPhone,b.phone);
+  assert.equal(emailOnly.squeegeeAccountStatus,"inactive");
+  assert.deepEqual(emailOnly.requestedBinCounts,
+    ["1 x Brown Bin","2 x Black Bin"]);
+  assert.deepEqual(emailOnly.firstCleanDates,["2026-11-16"]);
+  assert.equal(emailOnly.bookingTotal,15);
+  const saved=h.statuses.at(-1);
+  assert.equal(saved.stage,"held_for_review");
+  assert.equal(saved.reason,"existing_customer_reactivation_required");
+  assert.equal(saved.customerName,undefined);
+  assert.equal(saved.serviceAddress,undefined);
+  assert.equal(saved.customerEmail,undefined);
+  assert.equal(saved.customerPhone,undefined);
+  assert.equal(saved.bookingTotal,undefined);
+  assert.equal(saved.squeegeeAccountStatus,undefined);
+});
+
+test("archived customer sign-up triggers owner review but no reactivation or duplicate account",async()=>{
+  const b=sampleBooking();
+  const alerts=[];
+  const h=makeHarness(b,{existingRows:[{
+    _id:customerId,name:b.name,email:b.email,
+    status:"active",address:{addressDescription:b.address},
+  }],existingCustomer:{name:b.name,status:"archived",
+    address:{text:b.address},jobs:[]},
+    deps:{alert:async(...args)=>alerts.push(args)},
+  });
+  const result=await h.run();
+  assert.equal(result.reason,"existing_customer_inactive");
+  assert.equal(result.status,"held");
+  assert.equal(alerts.length,1);
+  assert.equal(alerts[0][2].squeegeeAccountStatus,"archived");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
+
+test("an inactive list entry with active authoritative detail does not send an inactive sign-up alert",async()=>{
+  const b=sampleBooking();
+  const alerts=[];
+  const h=makeHarness(b,{existingRows:[{
+    _id:customerId,name:b.name,email:b.email,
+    status:"inactive",address:{addressDescription:b.address},
+  }],existingCustomer:{name:b.name,status:"active",
+    address:{text:b.address},jobs:[]},
+    deps:{alert:async(...args)=>alerts.push(args)},
+  });
+  assert.equal((await h.run()).status,"completed");
+  assert.equal(h.posts.length,1);
+  assert.equal(alerts.length,0);
+});

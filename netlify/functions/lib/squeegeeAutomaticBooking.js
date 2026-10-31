@@ -201,13 +201,14 @@ async function executeAutomaticPreviewBooking(payload,{
     });
     return saved;
   };
-  const held=async(reason,extra={})=>{
+  const held=async(reason,extra={},ownerEmailOnly={})=>{
     extra={...extra,duplicateFlags};
+    // Status records and operational logs must remain PII-free. Customer
+    // details are added only to the separate, owner-addressed email for
+    // inactive account alerts. Never persist or log ownerEmailOnly.
     await mark("held_for_review",{reason,...extra});
-    // The normal website/admin booking email already succeeded. A separate
-    // PII-free owner notice prevents an unimported job being silently missed.
-    // The alert can fail safely; there is NEVER an automatic Squeegee retry.
-    try{await use.alert(bookingId,reason,extra);}catch{}
+    // Best effort: email failure does not create or retry any Squeegee job.
+    try{await use.alert(bookingId,reason,{...extra,...ownerEmailOnly});}catch{}
     return outcome("held",reason);
   };
   const uncertain=async(reason,extra={})=>{
@@ -303,6 +304,18 @@ async function executeAutomaticPreviewBooking(payload,{
     let customerId=existing?customerMatch.customerId:null;
     let differentProperty=false;
     const additionalTypes=new Set();
+    // Email-only contact details for an inactive customer re-sign-up.
+    // These NEVER enter the saved status or console output.
+    const inactiveOwnerEmailInfo=(accountStatus)=>({
+      customerName:payload.name,
+      serviceAddress:payload.address,
+      customerEmail:payload.email,
+      customerPhone:payload.phone,
+      requestedBinCounts:counts,
+      firstCleanDates:groupedJobs.map(group=>group.input.date),
+      bookingTotal:payload.pricing.total,
+      squeegeeAccountStatus:accountStatus,
+    });
     if(existing) {
       let record;
       try{record=await use.getCustomer(customerId);}
@@ -342,16 +355,17 @@ async function executeAutomaticPreviewBooking(payload,{
       if(["inactive","deactivated"].includes(recordStatus))
         return await held("existing_customer_reactivation_required",{
           matchReason:"inactive_exact_customer",
-        });
+        },inactiveOwnerEmailInfo(recordStatus));
       if(["deleted","archived","cancelled","canceled"].includes(recordStatus))
-        return await held("existing_customer_inactive");
+        return await held("existing_customer_inactive",{},
+          inactiveOwnerEmailInfo(recordStatus));
       // A previously inactive LIST row may be stale; only the authoritative
       // detail response can permit continued normal append-only job creation.
       if(customerMatch.status==="reactivation_required" &&
          recordStatus!=="active")
         return await held("existing_customer_reactivation_required",{
           matchReason:"inactive_exact_customer",
-        });
+        },inactiveOwnerEmailInfo(recordStatus));
       const catalog=resolveSqueegeeServiceIds(services.value);
       // A new accepted website booking of an already registered colour
       // means ADDITIONAL physical bins. Leave all earlier jobs and billing

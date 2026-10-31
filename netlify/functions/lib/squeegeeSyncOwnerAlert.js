@@ -32,9 +32,121 @@ function duplicateFlagLabels(flags){
   return allowedFlags(flags).map(code=>FLAG_LABELS[code]);
 }
 
+
+/** Only these definitive owner-review holds are allowed to use customer
+ * details. They are sent to the same private BOOKINGS_TO mailbox as the
+ * normal accepted booking email; status storage and logs stay PII-free.
+ */
+const INACTIVE_REASONS=new Set([
+  "existing_customer_reactivation_required","existing_customer_inactive",
+]);
+function cleanOwnerField(value,max=200){
+  return String(value??"").replace(/[\x00-\x1f\x7f]+/g," ")
+    .replace(/\s+/g," ").trim().slice(0,max);
+}
+function emailHtmlEscape(value){
+  return String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+function inactiveSignupEmailContent(bookingId,reason,extra={}){
+  if(!BOOKING_RE.test(String(bookingId||""))||!INACTIVE_REASONS.has(reason))
+    return null;
+  const name=cleanOwnerField(extra.customerName,120);
+  const address=cleanOwnerField(extra.serviceAddress,250);
+  const email=cleanOwnerField(extra.customerEmail,180);
+  const phone=cleanOwnerField(extra.customerPhone,35);
+  const status=cleanOwnerField(extra.squeegeeAccountStatus,30).toLowerCase();
+  const knownStatuses=new Set([
+    "inactive","deactivated","deleted","archived","cancelled","canceled",
+  ]);
+  const accountStatus=knownStatuses.has(status)?status:"not confirmed";
+  const binCounts=Array.isArray(extra.requestedBinCounts)?
+    extra.requestedBinCounts.filter(x=>typeof x==="string"&&
+      /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x))
+      .slice(0,12):[];
+  const firstDates=Array.isArray(extra.firstCleanDates)?
+    [...new Set(extra.firstCleanDates.filter(x=>typeof x==="string"&&
+      /^\d{4}-\d{2}-\d{2}$/.test(x)))].slice(0,12):[];
+  const total=Number(extra.bookingTotal);
+  const bookingTotal=Number.isFinite(total)&&total>=0&&total<=5000?
+    "£"+total.toFixed(2):"See original booking";
+  const needsReactivation=reason==="existing_customer_reactivation_required";
+  const statusCopy=needsReactivation?
+    "An existing customer is inactive or deactivated in Squeegee. Their website sign-up has been received, but no customer or job was created.":
+    "A previously registered customer has a closed or archived Squeegee record. Review its status before deciding whether it can be reactivated. No customer or job was created.";
+  const actionCopy=needsReactivation?
+    "Locate the existing Squeegee customer and reactivate them manually if appropriate.":
+    "Locate the existing Squeegee customer and review whether the account can be restored.";
+  const statusUrl="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId="+bookingId;
+  const text=[
+    "INACTIVE CUSTOMER SIGN-UP — MANUAL ACTION REQUIRED",
+    "",
+    statusCopy,
+    "Booking reference: "+bookingId,
+    "Existing Squeegee status: "+accountStatus,
+    name?"Customer: "+name:"",
+    address?"Service address: "+address:"",
+    email?"Email: "+email:"",
+    phone?"Phone: "+phone:"",
+    ...binCounts.map(value=>"Requested bin: "+value),
+    ...firstDates.map(value=>"Proposed first clean: "+value),
+    "New booking total: "+bookingTotal,
+    "",
+    "WHAT TO DO",
+    "1. "+actionCopy,
+    "2. Check the original Squeegee jobs, payment settings and cleaning round.",
+    "3. Add the requested services/quantities, price and appointments manually.",
+    "4. Confirm the arrangement with the customer. Do not ask them to submit another booking.",
+    "",
+    "This website booking is HELD and will not automatically retry.",
+    "No Squeegee customer or job was created for this submission.",
+    "Read-only booking status: "+statusUrl,
+    "Preview 1 only. Production and Preview 2 are unchanged.",
+  ].filter(x=>x!==null&&x!==undefined&&x!=="").join("\n");
+  const row=(label,value)=>value?
+    '<tr><td style="font-size:13px;color:#596176;padding:8px 12px 8px 0;vertical-align:top;width:42%">'+emailHtmlEscape(label)+'</td>'+
+    '<td style="font-size:14px;color:#16191e;padding:8px 0;font-weight:600;vertical-align:top;overflow-wrap:anywhere">'+emailHtmlEscape(value)+'</td></tr>':"";
+  const statusText=needsReactivation?"REACTIVATION REQUIRED":"CLOSED ACCOUNT — REVIEW REQUIRED";
+  const html='<!doctype html><html lang="en"><head><meta charset="utf-8">'+
+    '<meta name="viewport" content="width=device-width,initial-scale=1"></head>'+
+    '<body style="margin:0;background:#0d0e11;font-family:Arial,Helvetica,sans-serif">'+
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0d0e11"><tr><td align="center" style="padding:24px 12px">'+
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#fff;border-collapse:collapse">'+
+    '<tr><td style="background:#090909;color:#fff;text-align:center;padding:26px 20px">'+
+    '<div style="font-size:25px;font-weight:900;letter-spacing:1px">NI BIN GUY</div>'+
+    '<div style="font-size:12px;color:#f5d84f;letter-spacing:1.8px;margin-top:8px">BOOKING SYSTEM ALERT</div></td></tr>'+
+    '<tr><td style="height:7px;background:#f5d84f"></td></tr>'+
+    '<tr><td style="padding:26px 25px 8px">'+
+    '<div style="font-size:12px;color:#926000;font-weight:800;letter-spacing:1px">'+emailHtmlEscape(statusText)+'</div>'+
+    '<h1 style="font-size:24px;color:#121212;margin:10px 0 14px">Inactive Customer Sign-Up</h1>'+
+    '<p style="font-size:15px;line-height:1.6;color:#333;margin:0">'+emailHtmlEscape(statusCopy)+'</p></td></tr>'+
+    '<tr><td style="padding:10px 25px 18px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-top:1px solid #e4e6e9;border-bottom:1px solid #e4e6e9">'+
+    row("Booking reference",bookingId)+row("Squeegee account status",accountStatus)+
+    row("Customer",name)+row("Service address",address)+
+    row("Email",email)+row("Phone",phone)+
+    row("Requested bins",binCounts.join(" + "))+row("First clean(s)",firstDates.join(", "))+row("New booking total",bookingTotal)+
+    '</table></td></tr>'+
+    '<tr><td style="padding:0 25px 20px">'+
+    '<h2 style="font-size:17px;margin:0 0 12px;color:#111">Action required</h2>'+
+    '<p style="font-size:14px;color:#242424;line-height:1.6;margin:0 0 9px">1. '+emailHtmlEscape(actionCopy)+'</p>'+
+    '<p style="font-size:14px;color:#242424;line-height:1.6;margin:0 0 9px">2. Review the existing jobs, payments and cleaning round.</p>'+
+    '<p style="font-size:14px;color:#242424;line-height:1.6;margin:0 0 9px">3. Add the requested bins and appointments manually, then confirm with the customer.</p>'+
+    '<a href="'+emailHtmlEscape(statusUrl)+'" style="display:block;background:#111;color:#f5d84f;font-size:14px;text-align:center;font-weight:800;padding:14px;text-decoration:none;margin-top:16px">VIEW READ-ONLY BOOKING STATUS</a>'+
+    '<p style="font-size:13px;line-height:1.6;color:#72530c;background:#fff6d8;padding:12px;margin:18px 0 0">No new Squeegee customer or job was created. Do not resubmit or replay this booking automatically.</p>'+
+    '</td></tr><tr><td style="background:#f2f3f5;padding:18px 25px;font-size:12px;color:#676767">'+
+    'Preview 1 integration notification · Owner only · No change to the live site'+
+    '</td></tr></table></td></tr></table></body></html>';
+  return {
+    subject:"NI Bin Guy — INACTIVE CUSTOMER SIGN-UP — "+bookingId,
+    text,html,
+  };
+}
+
 function emailContent(bookingId,reason,extra={}) {
   if(!BOOKING_RE.test(String(bookingId||"")) ||
      !CODE_RE.test(String(reason||"")))return null;
+  if(INACTIVE_REASONS.has(reason))
+    return inactiveSignupEmailContent(bookingId,reason,extra);
   const matchReason=CODE_RE.test(String(extra?.matchReason||""))?
     extra.matchReason:"";
   const duplicateFlags=allowedFlags(extra?.duplicateFlags);
@@ -153,12 +265,14 @@ async function deliverOwnerEmail(email,{env=process.env,send=null}={}){
       const {Resend}=require("resend");
       return new Resend(env.RESEND_API_KEY).emails.send(args);
     });
-    const result=await deliver({
+    const message={
       from:env.RESEND_FROM||"NI Bin Guy <noreply@nibing.uy>",
       to:[env.BOOKINGS_TO||"info@nibing.uy"],
       subject:email.subject,
       text:email.text,
-    });
+    };
+    if(typeof email.html==="string")message.html=email.html;
+    const result=await deliver(message);
     if(result?.error)return {sent:false,reason:"owner_alert_provider_error"};
     return {sent:true};
   }catch {
@@ -166,7 +280,7 @@ async function deliverOwnerEmail(email,{env=process.env,send=null}={}){
   }
 }
 
-module.exports={emailContent,notifyOwnerOfSyncHold,
+module.exports={emailContent,inactiveSignupEmailContent,notifyOwnerOfSyncHold,
   duplicateSignalsEmailContent,notifyOwnerOfDuplicateSignals,
   quantityBookedEmailContent,notifyOwnerOfQuantityBooking,
   allowedFlags,duplicateFlagLabels};

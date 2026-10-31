@@ -102,3 +102,72 @@ test("completed quantity booking owner notice states physical counts, limitation
   assert.equal(sent.subject,msg.subject);
   assert.deepEqual(sent.to,["info@nibing.uy"]);
 });
+
+test("inactive re-sign-up sends a distinctive branded owner email with customer and booking details",async()=>{
+  const booking="NBG-ABCDE-ABCDEFGH";
+  const details={
+    customerName:"A Returning Customer",
+    serviceAddress:"11 Test Street, Bangor BT19 7ZW",
+    customerEmail:"returning@example.org",
+    customerPhone:"07700900123",
+    squeegeeAccountStatus:"inactive",
+    requestedBinCounts:["2 x Black Bin","1 x Brown Bin"],
+    firstCleanDates:["2026-11-16","2026-11-16"],
+    bookingTotal:15,
+  };
+  const content=emailContent(booking,"existing_customer_reactivation_required",details);
+  assert.match(content.subject,/INACTIVE CUSTOMER SIGN-UP/);
+  assert.match(content.text,/A Returning Customer/);
+  assert.match(content.text,/11 Test Street/);
+  assert.match(content.text,/Requested bin: 2 x Black Bin/);
+  assert.match(content.text,/Proposed first clean: 2026-11-16/);
+  assert.equal((content.text.match(/Proposed first clean:/g)||[]).length,1);
+  assert.match(content.text,/£15.00/);
+  assert.match(content.text,/No Squeegee customer or job was created/);
+  assert.match(content.text,/reactivate them manually/);
+  assert.match(content.html,/<table role="presentation"/);
+  assert.match(content.html,/VIEW READ-ONLY BOOKING STATUS/);
+  assert.match(content.html,/A Returning Customer/);
+  const sent=[];
+  const result=await notifyOwnerOfSyncHold(
+    booking,"existing_customer_reactivation_required",details,{
+      env:{BOOKINGS_TO:"info@nibing.uy",RESEND_FROM:"NI Bin Guy <noreply@nibing.uy>"},
+      send:async m=>{sent.push(m);return {data:{id:"test-only"}};},
+    });
+  assert.equal(result.sent,true);
+  assert.equal(sent.length,1);
+  assert.deepEqual(sent[0].to,["info@nibing.uy"]);
+  assert.equal(sent[0].html,content.html);
+  assert.equal(sent[0].text,content.text);
+});
+
+test("deactivated and archived customer alerts are distinct from generic holds, but never imply automatic activation",()=>{
+  const id="NBG-ABCDE-ABCDEFGH";
+  for(const status of ["deactivated","archived","deleted"]){
+    const reason=status==="deactivated"?
+      "existing_customer_reactivation_required":"existing_customer_inactive";
+    const content=emailContent(id,reason,{
+      squeegeeAccountStatus:status,
+      customerName:"<img src=x onerror=alert(1)>",
+      serviceAddress:"13 <Other> Avenue, Bangor BT19 7ZW",
+      requestedBinCounts:["1 x Blue Bin","<script>bad</script>"],
+    });
+    assert.match(content.subject,/INACTIVE CUSTOMER SIGN-UP/);
+    assert.match(content.text,new RegExp(status));
+    assert.match(content.html,/&lt;img/);
+    assert.doesNotMatch(content.html,/<img src=x/);
+    assert.match(content.html,/&lt;Other&gt;/);
+    assert.doesNotMatch(content.html,/<script>/);
+    assert.match(content.text,/No Squeegee customer or job was created/);
+    if(status!=="deactivated")
+      assert.match(content.text,/review whether the account can be restored/);
+  }
+  assert.equal(emailContent("wrong","existing_customer_reactivation_required"),null);
+});
+
+test("ordinary sync holds stay plain-text and never inherit special customer details",()=>{
+  const content=emailContent("NBG-ABCDE-ABCDEFGH",
+    "date_price_service_or_round_not_verified",{});
+  assert.match(content.subject,/Squeegee booking needs review/);
+  assert.equal(content.html,undefined);
+});
