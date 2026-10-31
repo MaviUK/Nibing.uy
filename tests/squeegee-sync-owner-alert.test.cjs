@@ -12,7 +12,8 @@ test("ambiguous Squeegee match produces an owner-only manual review alert",async
     matchReason:"possible_existing_address",
   });
   assert.match(a.subject,/CUSTOMER SIGN-UP NEEDS REVIEW/);
-  assert.match(a.text,/not confirm.*inactive/i);
+  assert.match(a.text,/Existing Squeegee status: not confirmed/i);
+  assert.match(a.text,/verify whether it is inactive/i);
   assert.match(a.html,/Customer Sign-Up Needs Review/);
   assert.match(a.text,/possible_existing_address/);
   assert.match(a.text,/Do not ask them to submit another booking/i);

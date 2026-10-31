@@ -67,6 +67,8 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
     knownStatuses.has(status)?status:"not confirmed";
   const matchReason=CODE_RE.test(String(extra.matchReason||""))?
     extra.matchReason:"not_verified";
+  const duplicateLabels=ambiguous?
+    allowedFlags(extra.duplicateFlags).map(code=>FLAG_LABELS[code]):[];
   const binCounts=Array.isArray(extra.requestedBinCounts)?
     extra.requestedBinCounts.filter(x=>typeof x==="string"&&
       /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x))
@@ -98,6 +100,7 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
     "Booking reference: "+bookingId,
     "Existing Squeegee status: "+accountStatus,
     ambiguous?"Customer matching issue: "+matchReason:"",
+    ...duplicateLabels.map(label=>"Duplicate flag: "+label),
     name?"Customer: "+name:"",
     address?"Service address: "+address:"",
     email?"Email: "+email:"",
@@ -138,7 +141,8 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
     '<p style="font-size:15px;line-height:1.6;color:#333;margin:0">'+emailHtmlEscape(statusCopy)+'</p></td></tr>'+
     '<tr><td style="padding:10px 25px 18px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-top:1px solid #e4e6e9;border-bottom:1px solid #e4e6e9">'+
     row("Booking reference",bookingId)+row("Squeegee account status",accountStatus)+
-    (ambiguous?row("Match issue",matchReason):"")+
+    (ambiguous?row("Match issue",matchReason)+
+      row("Possible duplicate signals",duplicateLabels.join("; ")):"")+
     row("Customer",name)+row("Service address",address)+
     row("Email",email)+row("Phone",phone)+
     row("Requested bins",binCounts.join(" + "))+row("First clean(s)",firstDates.join(", "))+row("New booking total",bookingTotal)+
