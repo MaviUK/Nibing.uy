@@ -107,3 +107,13 @@ test("settled invoice with unverified due date still earns clean point but has n
   assert.equal(result.issues.unavailableDueDates, 1);
   assert.equal(result.totals.overdueDays, 0);
 });
+
+
+test("malformed duplicate invoice invalidates an otherwise valid invoice ID", () => {
+  const result = score([clean("c1", "i1")], [
+    bill("i1"), bill("i1", "customer-1", { paidOn: "invalid" }),
+  ]);
+  assert.equal(result.totals.paidCleans, 0);
+  assert.equal(result.issues.invalidInvoices, 1);
+  assert.equal(result.issues.invalidInvoicesConflicts, 1);
+});
