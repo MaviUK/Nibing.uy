@@ -395,14 +395,14 @@ test("Squeegee partial/uncertain import uses an URGENT message that never says n
     assert.match(out.text,/may already exist/);
     assert.match(out.text,/Jobs confirmed before problem: 1/);
     assert.match(out.text,/Duplicate flag:/);
-    assert.match(out.text,/Date\/round check: date_not_verified/);
+    assert.match(out.text,/Validation check: date_not_verified/);
     assert.match(out.text,/Never automatically retry or recreate the entire booking/);
     assert.doesNotMatch(out.text,/No Squeegee customer or job was created/);
     assert.match(out.html,/URGENT/);
     assert.match(out.html,/&lt;script&gt;/);
     assert.match(out.html,/&lt;Other&gt;/);
     assert.doesNotMatch(out.html,/<script>/);
-    assert.doesNotMatch(out.html,/Date\/round check: <script>/);
+    assert.doesNotMatch(out.html,/Validation check: <script>/);
   }
 });
 test("unknown safe import reason also receives a branded manual review email",()=>{
