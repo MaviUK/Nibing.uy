@@ -77,28 +77,25 @@ async function originalAudit(id,day){
     .toISOString().slice(0,10)];
   let found=null,count=0,scanned=0;
   for(const targetDay of days){
-    let cursor;
-    for(let page=0;page<10;page++){
-      const response=await store.list({
-        prefix:targetDay+"T",...(cursor?{cursor}:{})
-      });
-      if(!Array.isArray(response?.blobs))return null;
+    let pages=0;
+    // Netlify Blobs list({paginate:true}) exposes an async iterator.
+    // Do not assume the initial (possibly partial) listing is complete:
+    // an unknown audit page must NEVER authorise a Squeegee write.
+    for await(const response of store.list({
+      prefix:targetDay+"T",paginate:true,
+    })){
+      if(++pages>10 || !Array.isArray(response?.blobs))return null;
       for(const item of response.blobs){
         scanned++;
-        if(scanned>750)return null; // Do not guess in a large audit history.
+        if(scanned>750)return null;
         if(!String(item?.key||"").endsWith(".json"))continue;
         const audit=await store.get(item.key,{
-          type:"json",consistency:"strong"
+          type:"json",consistency:"strong",
         });
         if(audit?.bookingId!==id)continue;
         if(++count>1)return null;
         found=audit;
       }
-      const next=response.pagination?.next_cursor ||
-        response.pagination?.nextCursor;
-      if(!next)break;
-      if(page===9)return null;
-      cursor=next;
     }
   }
   return count===1?found:null;
