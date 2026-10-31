@@ -245,6 +245,6 @@ test("owner booking receipt shows concise acceptance and attaches customer certi
   assert.match(sender,/ownerCertificate\.storeCustomerCertificate\(/);
   assert.match(preview,/ownerCertificate\.loadCustomerCertificate\(/);
   assert.match(preview,/ownerPdfSha256/);
-  assert.match(preview,/ownerAlerts\.notifyOwnerOfCompletedBooking\(id,ownerReceipt/);
-  assert.match(preview,/\.\.\.alertOptions,attachments,attention/);
+  assert.match(preview,/ownerAlerts\.notifyOwnerOfCompletedBooking\(/);
+  assert.match(preview,/id,verifiedOwnerReceipt,\{\.\.\.alertOptions,attachments,attention\}/);
 });

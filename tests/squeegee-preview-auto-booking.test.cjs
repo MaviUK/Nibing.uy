@@ -2167,8 +2167,8 @@ test("Preview 1 signed sync function starts without loading pdf-lib or generatin
     "../netlify/functions/squeegeePreviewAutoSync.mjs"),"utf8");
   assert.doesNotMatch(handlerSource,
     /^import terms from "\.\/lib\/termsPdf\.js";/m);
-  assert.match(handlerSource,
-    /const \{default:terms\}=await import\("\.\/lib\/termsPdf\.js"\)/);
+  assert.match(handlerSource,/ownerCertificate\.loadCustomerCertificate/);
+  assert.doesNotMatch(handlerSource,/import\("\.\/lib\/termsPdf\.js"\)/);
   // Unauthorised GET is safe and never creates a customer or job.
   const {default:handler}=await import(
     "../netlify/functions/squeegeePreviewAutoSync.mjs");

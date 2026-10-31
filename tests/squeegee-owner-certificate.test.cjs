@@ -91,8 +91,8 @@ test("missing certificate changes BOTH owner HTML and text to remove false attac
   const prepared=withActualOwnerCertificateStatus(stale,false);
   assert.match(prepared.text,/PDF not attached to this owner email/);
   assert.match(prepared.html,/PDF not attached to this owner email/);
-  assert.doesNotMatch(prepared.text,/PDF attached \\(customer copy\\)/);
-  assert.doesNotMatch(prepared.html,/PDF attached \\(customer copy\\)/);
+  assert.ok(!prepared.text.includes("PDF attached (customer copy)"));
+  assert.ok(!prepared.html.includes("PDF attached (customer copy)"));
   const sent=[];
   await notifyOwnerOfCompletedBooking(ID,prepared,{
     send:async m=>{sent.push(m);return {data:{id:"sent-without-pdf"}};},
@@ -125,8 +125,8 @@ test("failure to save cannot claim the attachment is available for owner send",a
     saved.sha256);
   const sender=fs.readFileSync(path.join(root,"netlify/functions/sendBookingEmail.js"),"utf8");
   const worker=fs.readFileSync(path.join(root,"netlify/functions/squeegeePreviewAutoSync.mjs"),"utf8");
-  assert.match(sender,/getStoreSafe\\(ownerCertificate\\.STORE,"strong"\\)/);
-  assert.match(sender,/ownerReceipt\\.ownerPdfSha256=saved\\.sha256/);
-  assert.match(worker,/ownerCertificateStore\\.delete\\(bookingId\\)/);
-  assert.doesNotMatch(worker,/import\\("\\.\\/lib\\/termsPdf\\.js"\\)/);
+  assert.ok(sender.includes('getStoreSafe(ownerCertificate.STORE,"strong")'));
+  assert.ok(sender.includes("ownerReceipt.ownerPdfSha256=saved.sha256"));
+  assert.ok(worker.includes("ownerCertificateStore.delete(bookingId)"));
+  assert.ok(!worker.includes('import("./lib/termsPdf.js")'));
 });
