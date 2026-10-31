@@ -84,8 +84,14 @@ test("only future verified groups with original price are resumable",()=>{
       frequencyInterval:index===2?undefined:4,
       jobGroup:"88888888-8888-4888-8888-888888888888",
       price:index===2?45:5,
-      services:["service-"+index],
+      services:[[
+        "11111111-1111-4111-8111-111111111111",
+        "22222222-2222-4222-8222-222222222222",
+        "33333333-3333-4333-8333-333333333333",
+      ][index]],
       date:"2026-11-17",
+      firstAppointment:{initialDate:"2026-11-17",tags:[]},
+      tags:[],
     },
   }));
   const p={status:"prepared_read_only",

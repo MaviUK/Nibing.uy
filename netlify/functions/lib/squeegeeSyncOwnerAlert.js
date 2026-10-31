@@ -121,7 +121,7 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
       "3. Check the original booking status and contact details before any manual changes.",
     recoveryUrl?
       "4. The page verifies Squeegee is active, then lets you process the original booking ONCE.":
-      "4. Do not submit a new website booking.",
+      "4. Confirm with the customer. Do not ask them to submit another booking.",
     "",
     "This website booking is HELD and will not automatically retry.",
     "No Squeegee customer or job was created for this submission.",
