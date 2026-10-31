@@ -756,6 +756,7 @@
    Each band is EXACTLY four checker rows high. Decorative only.
 */
 #main-content.n64-world > section:not(.n64-hero),
+#main-content.n64-world .n64-support-sections > .n64-trust-section,
 #areas-we-cover,
 #customer-portal {
   --n64-check-tile:20px;
@@ -772,7 +773,8 @@
   border-top:0 !important;
   padding-top:calc(85px + var(--n64-check-height)) !important;
 }
-#main-content.n64-world > section:not(.n64-hero)::before {
+#main-content.n64-world > section:not(.n64-hero)::before,
+#main-content.n64-world .n64-support-sections > .n64-trust-section::before {
   content:"";
   position:absolute;
   inset:0 0 auto 0;
@@ -851,6 +853,7 @@
 }
 @media(max-width:640px){
   #main-content.n64-world > section:not(.n64-hero),
+  #main-content.n64-world .n64-support-sections > .n64-trust-section,
   #areas-we-cover,
   #customer-portal {
     --n64-check-tile:16px;
@@ -874,6 +877,7 @@
    the stripe enters view, then a centred completion banner appears.
 */
 #main-content.n64-world > section:not(.n64-hero) > .n64-level-track,
+#main-content.n64-world .n64-support-sections > .n64-trust-section > .n64-level-track,
 #areas-we-cover > .n64-level-track,
 #customer-portal > .n64-level-track,
 #level-08-final > .n64-level-track {
@@ -900,6 +904,7 @@
   --n64-level-duration:3.2s;
 }
 #main-content.n64-world > section:not(.n64-hero) .n64-level-track .n64-level-washer,
+#main-content.n64-world .n64-support-sections > .n64-trust-section .n64-level-track .n64-level-washer,
 #areas-we-cover .n64-level-track .n64-level-washer,
 #customer-portal .n64-level-track .n64-level-washer,
 #level-08-final .n64-level-track .n64-level-washer {
@@ -925,6 +930,7 @@
   pointer-events:none;
 }
 #main-content.n64-world > section:not(.n64-hero) .n64-level-track .n64-level-washer img,
+#main-content.n64-world .n64-support-sections > .n64-trust-section .n64-level-track .n64-level-washer img,
 #areas-we-cover .n64-level-track .n64-level-washer img,
 #customer-portal .n64-level-track .n64-level-washer img,
 #level-08-final .n64-level-track .n64-level-washer img {
@@ -999,6 +1005,7 @@
 }
 @media(min-width:800px) {
   #main-content.n64-world > section:not(.n64-hero) > .n64-level-track,
+  #main-content.n64-world .n64-support-sections > .n64-trust-section > .n64-level-track,
   #areas-we-cover > .n64-level-track,
 #customer-portal > .n64-level-track,
 #level-08-final > .n64-level-track {
