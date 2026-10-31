@@ -69,7 +69,10 @@ function randomBinJoke() {
   return BIN_JOKES[Math.floor(Math.random() * BIN_JOKES.length)];
 }
 
-function buildBookingEmailHtml({ name, address, phone, bins, pricing, discountCode, termsVersion, termsTimestamp, termsPdfAttached }) {
+function buildBookingEmailHtml({ bookingId, name, address, phone, bins, pricing, discountCode, termsVersion, termsTimestamp, termsPdfAttached }) {
+  const reference=String(bookingId||"").trim();
+  const visibleReference=/^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i.test(reference)?
+    reference:"";
   const safeName = escapeHtml(name || "there");
   const firstName = escapeHtml(String(name || "there").trim().split(/\s+/)[0] || "there");
   const filteredBins = (Array.isArray(bins) ? bins : []).filter((bin) => bin?.type);
@@ -119,6 +122,15 @@ function buildBookingEmailHtml({ name, address, phone, bins, pricing, discountCo
             <div style="font-family:Arial,sans-serif;color:#050505;font-size:14px;margin-top:4px;font-weight:700;">We've got your details. We'll check your address and cleaning schedule now.</div>
           </td></tr>
 
+          ${visibleReference ? `<tr><td style="padding:19px 22px 0;text-align:center;background:#ffffff;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#fff8d7;border:2px solid #ffd400;">
+              <tr><td style="padding:17px 12px;text-align:center;">
+                <div style="font-family:Arial,sans-serif;font-size:12px;line-height:1.4;font-weight:800;letter-spacing:1.2px;color:#20345c;">YOUR BOOKING REFERENCE</div>
+                <div style="font-family:Arial,sans-serif;font-size:21px;line-height:1.5;font-weight:900;letter-spacing:.4px;overflow-wrap:anywhere;color:#141414;">${escapeHtml(visibleReference)}</div>
+                <div style="font-family:Arial,sans-serif;font-size:12px;line-height:1.4;color:#555;">Keep this reference if you need to contact us.</div>
+              </td></tr>
+            </table>
+          </td></tr>` : ""}
           <tr><td style="padding:26px 26px 8px;">
             <div style="font-family:Arial,sans-serif;color:#c41230;font-size:20px;font-weight:800;">Your first clean is one step closer.</div>
             <div style="font-family:Arial,sans-serif;color:#333333;font-size:15px;line-height:1.6;margin-top:10px;">We couldn't automatically confirm your address or first clean date from the council system. Don't worry — your booking has still been received. We'll check it manually and you'll receive an email shortly confirming your cleaning date.</div>

@@ -370,9 +370,10 @@ exports.handler = async (event) => {
       ? resend.emails.send({
           from: FROM_DEFAULT,
           to: email,
-          subject: `🗑️ Booking confirmed — your bin's days are numbered`,
-          text: `Thanks ${name},\n\nYour Ni Bin Guy booking is confirmed.\n\nName: ${name}\nPhone: ${phone}\nAddress: ${address}\n\nBins:\n${binsText}\n\n${pricingBlocks.text}\n\nTerms:\nAccepted: ${termsAccepted ? "yes" : "no"}\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\n\n${termsPdfAttachment ? "Your signed Terms & Conditions Acceptance Certificate PDF is attached to this email.\n\n" : ""}We’ll be in touch shortly to confirm your cleaning schedule.`,
+          subject: `🗑️ Booking received — ${submission.bookingId}`,
+          text: `Thanks ${name},\n\nYour Ni Bin Guy booking has been received.\n\nBooking reference: ${submission.bookingId}\n\nName: ${name}\nPhone: ${phone}\nAddress: ${address}\n\nBins:\n${binsText}\n\n${pricingBlocks.text}\n\nTerms:\nAccepted: ${termsAccepted ? "yes" : "no"}\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\n\n${termsPdfAttachment ? "Your signed Terms & Conditions Acceptance Certificate PDF is attached to this email.\n\n" : ""}We’ll be in touch shortly to confirm your cleaning schedule.`,
           html: buildBookingEmailHtml({
+            bookingId: submission.bookingId,
             name,
             address,
             phone,

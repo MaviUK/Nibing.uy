@@ -4,6 +4,7 @@ import CoverageChecker from "./CoverageChecker.jsx";
 import N64GameBin from "./N64GameBin.jsx";
 import LevelWasher from "./components/LevelWasher.jsx";
 import BookingAddressAutocomplete, { findNiPostcode } from "./components/BookingAddressAutocomplete.jsx";
+import { createFriendlyBookingReference } from "./bookingReference.mjs";
 
 const TenSecondChallenge = lazy(() => import("./TenSecondChallenge.jsx"));
 const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
@@ -615,10 +616,8 @@ function TermsModal({ open, onClose, onConfirm, version, title, body }) {
    ──────────────────────────────────────────────────────────────────────────── */
 function createBookingSubmissionMeta() {
   const now = new Date();
-  const randomSource = globalThis.crypto?.randomUUID?.().replace(/-/g, "") || Math.random().toString(36).slice(2);
-  const randomPart = String(randomSource).replace(/[^a-z0-9]/gi, "").slice(0, 10).padEnd(8, "0").toUpperCase();
   return {
-    bookingId: `NBG-${Date.now().toString(36).toUpperCase()}-${randomPart}`,
+    bookingId: createFriendlyBookingReference(now),
     submittedAt: now.toISOString(),
   };
 }
@@ -661,6 +660,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const emailSubmissionRef = useRef(null);
   const [bookingStatus, setBookingStatus] = useState("idle");
   const [bookingConfirmation, setBookingConfirmation] = useState(null);
+  const [referenceCopied, setReferenceCopied] = useState("idle");
   // Preview 1: leaderboard disclosure will move into the Terms of Service.
   // Do not add a second form or leaderboard checkbox to booking.
   const arcadeOptOut = false;
@@ -798,8 +798,16 @@ function BookingForm({ onClose, initialAddress = "" }) {
 
     // Preserve one reference for this booking. If the request reaches Netlify
     // twice, the server's replay guard rejects the second delivery.
+    let emailSubmissionMeta;
+    try {
+      emailSubmissionMeta = emailSubmissionRef.current || createBookingSubmissionMeta();
+    } catch {
+      setEmailBookingError(
+        "Couldn't create a secure booking reference. Please refresh and try again."
+      );
+      return;
+    }
     emailSubmissionInFlightRef.current = true;
-    const emailSubmissionMeta = emailSubmissionRef.current || createBookingSubmissionMeta();
     emailSubmissionRef.current = emailSubmissionMeta;
     setIsEmailSubmitting(true);
     setEmailSendingStage("checking");
@@ -978,9 +986,34 @@ function BookingForm({ onClose, initialAddress = "" }) {
             )}
           </p>
           {bookingConfirmation?.bookingId && (
-            <p className="mt-2 break-words text-sm font-bold text-[#20345c]">
-              Booking reference: {bookingConfirmation.bookingId}
-            </p>
+            <div className="mt-4 border-2 border-[#20345c] bg-[#fff4c2] p-4">
+              <p className="text-xs font-black uppercase tracking-wider text-[#20345c]">
+                Booking reference:
+              </p>
+              <p className="mt-2 break-all font-mono text-lg font-black tracking-wide text-[#20345c]">
+                {bookingConfirmation.bookingId}
+              </p>
+              <button
+                type="button"
+                aria-label="Copy booking reference"
+                className="mt-3 w-full border-2 border-[#20345c] bg-[#20345c] px-3 py-2 text-sm font-extrabold text-white"
+                onClick={async () => {
+                  try {
+                    await window.navigator.clipboard.writeText(bookingConfirmation.bookingId);
+                    setReferenceCopied("copied");
+                  } catch {
+                    setReferenceCopied("unavailable");
+                  }
+                }}
+              >
+                {referenceCopied === "copied" ? "Copied ✓" : "Copy reference"}
+              </button>
+              {referenceCopied === "unavailable" && (
+                <p className="mt-2 text-xs text-[#20345c]">
+                  Long-press the reference above to copy it.
+                </p>
+              )}
+            </div>
           )}
         </div>
 

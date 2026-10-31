@@ -182,3 +182,24 @@ test("successful Squeegee imports with repeated Black bins send one owner quanti
   assert.match(alerts,/ACCOUNT NEEDS ATTENTION/);
   assert.match(source,/if\(quantityNeedsAttention && !use\.completedAlert\)/);
 });
+
+
+test("Preview 1 new booking reference is short, copyable, and included in customer confirmations",()=>{
+  const helper=fs.readFileSync(path.join(ROOT,"src/bookingReference.mjs"),"utf8");
+  const server=fs.readFileSync(path.join(ROOT,"netlify/functions/sendBookingEmail.js"),"utf8");
+  const template=fs.readFileSync(path.join(ROOT,
+    "netlify/functions/lib/bookingEmailTemplate.js"),"utf8");
+  assert.match(landing,/import \{ createFriendlyBookingReference \} from "\.\/bookingReference\.mjs"/);
+  assert.match(landing,/bookingId: createFriendlyBookingReference\(now\)/);
+  assert.match(helper,/SAFE_BASE32="23456789ABCDEFGHJKLMNPQRSTUVWXYZ"/);
+  assert.doesNotMatch(helper,/Math\.random/);
+  assert.match(booking,/Booking reference:/);
+  assert.match(booking,/Copy booking reference/);
+  assert.match(booking,/navigator\.clipboard\.writeText\(bookingConfirmation\.bookingId\)/);
+  assert.match(booking,/setReferenceCopied\("copied"\)/);
+  assert.match(server,/subject: \`🗑️ Booking received — \$\{submission\.bookingId\}\`/);
+  assert.match(server,/Booking reference: \$\{submission\.bookingId\}/);
+  assert.match(server,/bookingId: submission\.bookingId,\s*name,/);
+  assert.match(template,/YOUR BOOKING REFERENCE/);
+  assert.match(template,/Keep this reference if you need to contact us/);
+});
