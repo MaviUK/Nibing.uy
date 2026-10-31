@@ -95,33 +95,34 @@ test("owner recovery endpoint is owner-session-gated, explicitly confirmed, and 
 });
 
 
-test("owner recovery accepts omitted browser metadata, rejects explicit foreign values",()=>{
-  const {trustedOwnerPostMetadata,EXPECTED_ORIGIN}=require(
-    "../netlify/functions/lib/squeegeeOwnerPostHeaders"
+test("Android owner recovery requires a signed session and HMAC token, not browser origin headers",()=>{
+  const fs=require("node:fs");
+  const path=require("node:path");
+  const src=fs.readFileSync(
+    path.join(__dirname,"../netlify/functions/squeegeePreviewOwnerRecovery.mjs"),
+    "utf8"
   );
-  const headers=(values)=>new Headers(values);
-  for(const acceptable of [
-    {},
-    {"Sec-Fetch-Site":"same-origin"},
-    {"Sec-Fetch-Site":"none"},
-    {"Origin":EXPECTED_ORIGIN,"Sec-Fetch-Site":"same-origin"},
-    {"Referer":EXPECTED_ORIGIN+"/api/squeegee-preview-owner-recovery"},
-  ])assert.equal(trustedOwnerPostMetadata(headers(acceptable)),true);
-  for(const rejected of [
-    {"Origin":"null"},
-    {"Origin":"https://other.example"},
-    {"Origin":EXPECTED_ORIGIN,"Sec-Fetch-Site":"cross-site"},
-    {"Sec-Fetch-Site":"same-site"},
-    {"Referer":"https://other.example/"},
-    {"Referer":"malformed"},
-    {"Referer":EXPECTED_ORIGIN+".other.example/path"},
-  ])assert.equal(trustedOwnerPostMetadata(headers(rejected)),false);
-  const src=require("node:fs").readFileSync(
-    require("node:path").join(__dirname,
-      "../netlify/functions/squeegeePreviewOwnerRecovery.mjs"),"utf8"
-  );
-  assert.match(src,/ownerPost\.trustedOwnerPostMetadata\(request\.headers\)/);
-  assert.match(src,/ownerAuthenticated\(request,scope\)/);
-  assert.match(src,/equalToken\(params\.get\("csrf"\),ownerToken\(request\)\)/);
+  // Security: a valid owner session, the exact preview, the original
+  // booking ID, owner checkbox and the HMAC CSRF token must all be present.
+  assert.match(src,/if\(!api\.isExactPreview1\(process\.env,scope\)\)/);
+  assert.match(src,/if\(!ownerAuthenticated\(request,scope\)\)/);
+  assert.match(src,/session\.verifyTestSessionCookie/);
+  assert.match(src,/params\.get\("bookingId"\)!==BOOKING_ID/);
   assert.match(src,/params\.get\("confirm"\)!=="yes"/);
+  assert.match(src,/equalToken\(params\.get\("csrf"\),ownerToken\(request\)\)/);
+  assert.match(src,/crypto\.createHmac\("sha256",process\.env\.SQUEEGEE_API_KEY\)/);
+  assert.match(src,/form-action 'self'/);
+  assert.match(src,/claims\.claimOnce/);
+  // Mobile browser metadata is not the authentication mechanism.
+  assert.doesNotMatch(src,/request\.headers\.get\("origin"\)/);
+  assert.doesNotMatch(src,/request\.headers\.get\("referer"\)/);
+  assert.doesNotMatch(src,/request\.headers\.get\("sec-fetch-site"\)/);
+  assert.doesNotMatch(src,/ownerPost\.trustedOwnerPostMetadata/);
+  // The existing signed session cookie is secure, short-lived and
+  // SameSite=Strict rather than a browser-readable bypass.
+  const sess=require("../netlify/functions/lib/squeegeePreviewTestSession");
+  const cookie=sess.cookieHeaderValue("test-cookie",1200);
+  assert.match(cookie,/HttpOnly/);
+  assert.match(cookie,/Secure/);
+  assert.match(cookie,/SameSite=Strict/);
 });
