@@ -182,7 +182,9 @@ test("never reuse a regular-clean service for a one-off without its exact mappin
 test("commercial bookings stay blocked until commercial service mapping is approved", () => {
   const b = booking();
   b.bins[0].planId = "comm_gt660_4w";
+  b.bins[0].sizeLitres = 660;
   b.pricing.lines[0].planId = "comm_gt660_4w";
+  b.pricing.lines[0].sizeLitres = 660;
   const result = plan.buildSqueegeeBookingPlan(b, verifiedSchedule(), mappings());
   assert.equal(result.jobs[0].status, "service_mapping_required");
 });

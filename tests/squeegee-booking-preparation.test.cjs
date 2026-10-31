@@ -276,9 +276,9 @@ test("commercial bins under 360L use the exact standard colour and frequency, pr
 test("commercial over 660L does not silently use 660L or 1100L Squeegee services", () => {
   const b = booking();
   b.bins[1].planId = "comm_gt660_oneoff";
-  b.bins[1].sizeLitres = 1100;
+  b.bins[1].sizeLitres = 660;
   b.pricing.lines[1] = {
-    ...b.pricing.lines[1], planId: "comm_gt660_oneoff", sizeLitres: 1100,
+    ...b.pricing.lines[1], planId: "comm_gt660_oneoff", sizeLitres: 660,
     baseUnit: 45, unitPrice: 45, lineTotal: 45,
   };
   b.pricing.subtotal = 55;
@@ -293,7 +293,7 @@ test("commercial over 660L does not silently use 660L or 1100L Squeegee services
   assert.equal(result.status, "held_for_review");
   assert.equal(result.privatePlan.jobs[1].status, "service_mapping_required");
   assert.deepEqual(result.summary.unmappedServices, [
-    { binType: "blue", planId: "comm_gt660_oneoff" },
+    { binType: "blue", planId: "comm_gt660_oneoff", sizeLitres: 660 },
   ]);
   assert.ok(result.summary.blockedReasons.includes("unmapped_squeegee_services"));
 });

@@ -132,8 +132,9 @@ test("large commercial 4-weekly £15 and one-off £45 agree with both booking fo
     ["comm_gt660_4w",15,12.5],
     ["comm_gt660_oneoff",45,35],
   ]){
-    const bins=[{type:"Blue Bin",count:1,planId}];
-    const line={idx:0,type:"Blue Bin",count:1,planId,
+    const sizeLitres=planId.endsWith("oneoff")?1100:660;
+    const bins=[{type:"Blue Bin",count:1,planId,sizeLitres}];
+    const line={idx:0,type:"Blue Bin",count:1,planId,sizeLitres,
       baseUnit:price,unitPrice:price,lineTotal:price,
       freeCount:0,multiBuyDiscount:0,discounted:false};
     const quote=posted([line],{total:price,subtotal:price});

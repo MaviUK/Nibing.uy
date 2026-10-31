@@ -83,7 +83,7 @@ function groupedSqueegeeJobs(perBinJobs,bookingId) {
     const previous=group.counts.get(id);
     if(previous) {
       if(previous.bin!==item.bin || previous.sizeLitres!==(item.sizeLitres??null))
-        throw new Error("Inconsistent bin type or size for the same service UUID");
+        throw new Error("Inconsistent descriptions or bin size for the same service UUID");
       previous.quantity+=item.quantity;
       if(!Number.isSafeInteger(previous.quantity)||previous.quantity>200)
         throw new Error("Service quantity exceeds supported booking limit");
