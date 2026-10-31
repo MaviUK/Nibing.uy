@@ -103,7 +103,7 @@ test("missing certificate changes BOTH owner HTML and text to remove false attac
 test("private certificate lookup fails on wrong reference, corrupt bytes or invalid PDF",async()=>{
   const stored=fakeStore(),original=attachment();
   const signed=await cert.storeCustomerCertificate(ID,original,stored);
-  await assert.rejects(()=>cert.loadCustomerCertificate("NBG-2ABCDEFGH",signed.sha256,stored),
+  await assert.rejects(()=>cert.loadCustomerCertificate("NBG-3FYB9UY4",signed.sha256,stored),
     /missing_or_mismatched/);
   await assert.rejects(()=>cert.loadCustomerCertificate(ID,"0".repeat(64),stored),
     /missing_or_mismatched/);
