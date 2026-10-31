@@ -812,9 +812,13 @@ function BookingForm({ onClose, initialAddress = "" }) {
       // staring at an unresponsive Send button if its lookup hangs.
       if (typeof window.nbgEnsureBookingSchedule === "function") {
         try {
+          // Preview 1 must allow the slow council calendar to finish.
+          // Production retains the existing short non-blocking deadline.
+          const previewScheduleWait=window.location.hostname===N64_BOOKING_PREVIEW_HOST
+            ? 22000 : 5500;
           await Promise.race([
             Promise.resolve().then(() => window.nbgEnsureBookingSchedule()),
-            new Promise((resolve) => window.setTimeout(resolve, 5500)),
+            new Promise((resolve) => window.setTimeout(resolve, previewScheduleWait)),
           ]);
         } catch (_) {
           console.warn("Booking schedule unavailable; date will be confirmed separately.");

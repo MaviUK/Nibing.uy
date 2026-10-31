@@ -21,13 +21,15 @@ function isPreview1ApiConfigured(env = process.env) {
     env.SQUEEGEE_WRITE_ENABLED !== "true";
 }
 
-async function fetchAuthoritativeSchedule(payload, fetchImpl = fetch) {
+async function fetchAuthoritativeSchedule(payload, fetchImpl = fetch, { timeoutMs = 8500 } = {}) {
   const bins = (Array.isArray(payload?.bins) ? payload.bins : []).filter(bin => bin?.type);
   if (!normalizedPostcode(payload?.address) || !bins.length) return null;
 
   // Fixed, known Preview 1 hostname prevents SSRF from user-supplied headers.
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8500);
+  const boundedTimeout=Number.isFinite(timeoutMs)?
+    Math.max(1000,Math.min(20000,Number(timeoutMs))):8500;
+  const timer = setTimeout(() => controller.abort(), boundedTimeout);
   try {
     const response = await fetchImpl(PREVIEW_URL + "/api/booking-schedule", {
       method: "POST",
