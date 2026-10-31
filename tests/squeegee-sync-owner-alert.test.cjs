@@ -332,7 +332,7 @@ test("all non-import outcomes send clear, safe, customer-specific branded owner 
     ["date_price_service_or_round_not_verified","Cleaning date, round or price could not be verified"],
     ["booking_validation_failed","Booking details could not be validated"],
     ["grouped_job_price_or_service_mismatch","Bin grouping or total price mismatch"],
-    ["conflicting_same_colour_schedules","Conflicting dates for the same bin colour"],
+    ["conflicting_same_colour_schedules","Conflicting schedules for the same bin type and size"],
     ["automatic_sync_not_enabled","Automatic Squeegee syncing is unavailable"],
     ["outside_approved_preview_email_pilot","outside the current automatic Squeegee rollout"],
     ["dispatch_unavailable","Squeegee automatic handoff was unavailable"],

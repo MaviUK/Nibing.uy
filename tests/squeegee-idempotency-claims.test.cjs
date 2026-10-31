@@ -1,7 +1,7 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {customerKey,jobKey,additionalBinKey,additionalJobKey,claimOnce,changeClaimState}=
+const {customerKey,jobKey,activeBinKey,additionalBinKey,additionalJobKey,claimOnce,changeClaimState}=
   require("../netlify/functions/lib/squeegeeIdempotencyClaims");
 
 function makeStore(){
