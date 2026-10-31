@@ -1508,23 +1508,28 @@ function ChallengeModal({ open, onClose }) {
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 bg-black/80 overflow-y-auto overscroll-contain z-50"
+      className="n64-challenge-overlay fixed inset-0 bg-black/80 overflow-y-auto overscroll-contain z-50"
       onClick={onClose}
       style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="challenge-title"
     >
-      <div className="min-h-[100svh] flex items-center justify-center p-3 sm:p-6">
+      <div className="n64-challenge-positioner min-h-[100svh] flex items-center justify-center px-3 py-3 sm:p-6">
         <div
-          className="bg-neutral-900 text-white w-11/12 max-w-3xl rounded-2xl shadow-2xl border border-neutral-800 p-4 md:p-6 relative overflow-auto"
+          className="n64-challenge-shell relative w-full max-w-[460px] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
-          style={{ maxHeight: "min(90dvh, 820px)" }}
+          style={{ maxHeight: "calc(100dvh - 24px)" }}
         >
-          <button onClick={onClose} className="absolute top-3 right-4 text-neutral-400 hover:text-white text-2xl" aria-label="Close">
+          <button
+            type="button"
+            onClick={onClose}
+            className="n64-challenge-close"
+            aria-label="Close stopwatch challenge"
+          >
             &times;
           </button>
-          <Suspense fallback={<p className="py-12 text-center text-neutral-300">Loading challenge…</p>}>
+          <Suspense fallback={<p className="p-8 text-center">Loading challenge…</p>}>
             <TenSecondChallenge />
           </Suspense>
         </div>
