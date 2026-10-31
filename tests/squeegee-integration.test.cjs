@@ -162,7 +162,7 @@ test("Squeegee regular and one-off services resolve by exact account labels", ()
   assert.equal(resolved.serviceIds.domestic_oneoff.blue, ONEOFF_SERVICE);
   assert.equal(resolved.serviceIds.domestic_4w.blue, undefined);
   // Two exact labels now each serve domestic and commercial-under-360 plans.
-  assert.equal(resolved.unresolved.length, 12);
+  assert.equal(resolved.unresolved.length, 16);
   assert.equal(resolved.serviceIds.comm_lt360_4w.black, SERVICE);
   assert.equal(resolved.serviceIds.comm_lt360_oneoff.blue, ONEOFF_SERVICE);
   const result = plan.buildSqueegeeBookingPlan(booking(), verifiedSchedule(), {
@@ -305,6 +305,18 @@ test("commercial under 360L maps only by exact colour and frequency; larger bins
   ]);
   assert.equal(resolved.serviceIds.comm_lt360_4w.green, standard);
   assert.equal(resolved.serviceIds.comm_lt360_oneoff.green, oneoff);
-  assert.equal(resolved.serviceIds.comm_gt660_4w, undefined);
-  assert.equal(resolved.serviceIds.comm_gt660_oneoff, undefined);
+  assert.equal(resolved.serviceIds.comm_gt660_4w[660].green, largeFour);
+  assert.equal(resolved.serviceIds.comm_gt660_oneoff[1100].green, largeOnce);
+  assert.equal(catalog.resolvedServiceIdForBin(resolved.serviceIds,{
+    planId:"comm_gt660_4w",type:"Green Bin",sizeLitres:660,
+  }),largeFour);
+  assert.equal(catalog.resolvedServiceIdForBin(resolved.serviceIds,{
+    planId:"comm_gt660_oneoff",type:"Green Bin",sizeLitres:1100,
+  }),largeOnce);
+  assert.equal(catalog.resolvedServiceIdForBin(resolved.serviceIds,{
+    planId:"comm_gt660_4w",type:"Green Bin",sizeLitres:1100,
+  }),null);
+  assert.equal(catalog.resolvedServiceIdForBin(resolved.serviceIds,{
+    planId:"comm_gt660_oneoff",type:"Green Bin",sizeLitres:660,
+  }),null);
 });

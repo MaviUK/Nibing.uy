@@ -90,7 +90,7 @@ function buildBookingEmailHtml({ bookingId, name, address, phone, bins, pricing,
     ? filteredBins.map((bin) => `
       <tr><td style="padding:14px 0;border-bottom:1px solid #292929;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
-          <td style="font-family:Arial,sans-serif;color:#ffffff;font-size:17px;font-weight:700;">${escapeHtml(bin.count || 1)} × ${escapeHtml(bin.type)}</td>
+          <td style="font-family:Arial,sans-serif;color:#ffffff;font-size:17px;font-weight:700;">${escapeHtml(bin.count || 1)} × ${escapeHtml(bin.type)}${bin.sizeLitres === 660 || bin.sizeLitres === 1100 ? " (" + bin.sizeLitres + "L)" : ""}</td>
           <td align="right" style="font-family:Arial,sans-serif;color:${yellow};font-size:15px;font-weight:700;">${escapeHtml(friendlyPlan(bin))}</td>
         </tr></table>
       </td></tr>`).join("")

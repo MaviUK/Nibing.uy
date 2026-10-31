@@ -71,7 +71,7 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
     allowedFlags(extra.duplicateFlags).map(code=>FLAG_LABELS[code]):[];
   const binCounts=Array.isArray(extra.requestedBinCounts)?
     extra.requestedBinCounts.filter(x=>typeof x==="string"&&
-      /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x))
+      /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin(?: \((?:660|1100)L\))?$/.test(x))
       .slice(0,12):[];
   const firstDates=Array.isArray(extra.firstCleanDates)?
     [...new Set(extra.firstCleanDates.filter(x=>typeof x==="string"&&
@@ -329,7 +329,7 @@ function genericReviewContent(bookingId,reason,extra={}){
   const phone=cleanOwnerField(extra.customerPhone,35);
   const bins=Array.isArray(extra.requestedBinCounts)?
     extra.requestedBinCounts.filter(x=>typeof x==="string" &&
-      /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x)).slice(0,12):[];
+      /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin(?: \((?:660|1100)L\))?$/.test(x)).slice(0,12):[];
   const dates=Array.isArray(extra.firstCleanDates)?
     [...new Set(extra.firstCleanDates.filter(x=>typeof x==="string" &&
       /^\d{4}-\d{2}-\d{2}$/.test(x)))].slice(0,12):[];
@@ -349,7 +349,10 @@ function genericReviewContent(bookingId,reason,extra={}){
       const type=String(row?.binType||"").toLowerCase();
       const plan=planNames[row?.planId];
       if(!["black","brown","green","blue"].includes(type)||!plan)return null;
-      return type.slice(0,1).toUpperCase()+type.slice(1)+" — "+plan;
+      const size=[660,1100].includes(row?.sizeLitres)?
+        " ("+row.sizeLitres+"L)":plan.startsWith("commercial over 660L")?
+          " (size missing)":"";
+      return type.slice(0,1).toUpperCase()+type.slice(1)+size+" — "+plan;
     }).filter(Boolean):[];
   const amount=Number(extra.bookingTotal);
   const total=Number.isFinite(amount)&&amount>=0&&amount<=5000?
@@ -493,7 +496,7 @@ function quantityBookedEmailContent(bookingId,details={}) {
   if(!BOOKING_RE.test(String(bookingId||"")))return null;
   const requested=Array.isArray(details.requestedBinCounts)?
     details.requestedBinCounts.filter(x=>
-      typeof x==="string" && /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x)).slice(0,12):[];
+      typeof x==="string" && /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin(?: \((?:660|1100)L\))?$/.test(x)).slice(0,12):[];
   const additional=Array.isArray(details.additionalExistingBins)?
     details.additionalExistingBins.filter(x=>
       ["black","brown","green","blue"].includes(x)).slice(0,4):[];
@@ -558,7 +561,7 @@ function completedQuantityAttentionContent(bookingId,receipt,details={}) {
   if(!changes.length && !additional.length)return null;
   const requested=Array.isArray(details.requestedBinCounts)?
     details.requestedBinCounts.filter(x=>typeof x==="string" &&
-      /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x))
+      /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin(?: \((?:660|1100)L\))?$/.test(x))
       .slice(0,12):[];
   const dates=Array.isArray(details.firstCleanDates)?
     [...new Set(details.firstCleanDates.filter(x=>

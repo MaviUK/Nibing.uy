@@ -1,6 +1,7 @@
 const { Resend } = require("resend");
 const { signBooking } = require("./lib/arcadeBookingProof");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
+const { validateCommercialBinSizes } = require("./lib/squeegeeBookingPricing");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_DEFAULT = process.env.RESEND_FROM || "Ni Bin Guy <noreply@nibing.uy>";
@@ -108,7 +109,7 @@ function buildCustomerHtml({ name, address, phone, bins, pricing, termsVersion, 
 
   const binRows = (Array.isArray(bins) ? bins : []).filter((bin) => bin?.type).map((bin) => `
     <tr>
-      <td style="padding:10px 0;border-bottom:1px solid #2d2d2d;color:#fff;font-family:Arial,sans-serif;font-weight:700;">${escapeHtml(bin.count || 1)} × ${escapeHtml(bin.type)}</td>
+      <td style="padding:10px 0;border-bottom:1px solid #2d2d2d;color:#fff;font-family:Arial,sans-serif;font-weight:700;">${escapeHtml(bin.count || 1)} × ${escapeHtml(bin.type)}${bin.sizeLitres === 660 || bin.sizeLitres === 1100 ? " (" + bin.sizeLitres + "L)" : ""}</td>
       <td align="right" style="padding:10px 0;border-bottom:1px solid #2d2d2d;color:${yellow};font-family:Arial,sans-serif;font-weight:700;">${escapeHtml(friendlyPlan(bin))}</td>
     </tr>`).join("");
 
@@ -204,6 +205,18 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: "Terms must be accepted" }) };
     }
 
+    const binSizeCheck = validateCommercialBinSizes(bins);
+    if (!binSizeCheck.ok) {
+      return {
+        statusCode: 422,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+        body: JSON.stringify({
+          error: "Choose 660L or 1100L for each large commercial bin.",
+          reason: binSizeCheck.reason,
+        }),
+      };
+    }
+
     const recaptcha = await verifyRecaptcha({ token: recaptchaToken, expectedAction: recaptchaAction });
     if (!recaptcha.ok) {
       console.warn("reCAPTCHA blocked street booking:", recaptcha.reason, recaptcha.data || "");
@@ -211,7 +224,10 @@ exports.handler = async (event) => {
     }
 
     const filteredBins = bins.filter((bin) => bin?.type);
-    const binsText = filteredBins.map((bin) => `${bin.count || 1} x ${bin.type} (plan: ${bin.planId || ""})`).join("\n");
+    const binsText = filteredBins.map((bin) => {
+      const size=bin.sizeLitres ? " ("+bin.sizeLitres+"L)" : "";
+      return `${bin.count || 1} x ${bin.type}${size} (plan: ${bin.planId || ""})`;
+    }).join("\n");
     const pricingLines = Array.isArray(pricing?.lines) ? pricing.lines : [];
     const pricingText = pricingLines.length
       ? `Pricing:\n${pricingLines.map((line) => `${line.count || 1}x ${String(line.type || "").replace(" Bin", "")} - ${line.planLabel || friendlyPlan({ planId: line.planId })} @ GBP ${Number(line.unitPrice || 0)} = GBP ${Number(line.lineTotal || 0)}`).join("\n")}\n\nSubtotal: GBP ${Number(pricing?.subtotal || 0)}\nTotal: GBP ${Number(pricing?.total || 0)}\n\nDiscount Code: None`
@@ -243,7 +259,7 @@ exports.handler = async (event) => {
       to: TO_ADMIN,
       subject: "🧼 Street signup — booking confirmed",
       text: `Street signup booking confirmed\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\nBins:\n${binsText}\n\n${pricingText}\nClean completed on signup visit: ${cleanCompletedToday ? "yes" : "no"}\nPlace ID: ${placeId || "—"}\nGeo: ${geoText}\n\nTerms accepted: yes\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\n\nNo quote required.`,
-      html: `<h2>Street signup — booking confirmed</h2><p><strong>Name:</strong> ${escapeHtml(name)}</p><p><strong>Email:</strong> ${escapeHtml(email)}</p><p><strong>Phone:</strong> ${escapeHtml(phone)}</p><p><strong>Address:</strong> ${escapeHtml(address)}</p><p><strong>Bins:</strong><br>${filteredBins.map((bin) => `${escapeHtml(bin.count || 1)} x ${escapeHtml(bin.type)} — ${escapeHtml(friendlyPlan(bin))}`).join("<br>")}</p><p><strong>Total:</strong> ${escapeHtml(fmtGBP(pricing?.total || 0))}</p><p><strong>Clean completed on signup visit:</strong> ${cleanCompletedToday ? "Yes" : "No"}</p><p><strong>No quote required.</strong></p><hr><p>Terms: v${escapeHtml(termsVersion)} accepted ${escapeHtml(termsTimestamp)}</p>`,
+      html: `<h2>Street signup — booking confirmed</h2><p><strong>Name:</strong> ${escapeHtml(name)}</p><p><strong>Email:</strong> ${escapeHtml(email)}</p><p><strong>Phone:</strong> ${escapeHtml(phone)}</p><p><strong>Address:</strong> ${escapeHtml(address)}</p><p><strong>Bins:</strong><br>${filteredBins.map((bin) => `${escapeHtml(bin.count || 1)} x ${escapeHtml(bin.type)}${bin.sizeLitres === 660 || bin.sizeLitres === 1100 ? " (" + bin.sizeLitres + "L)" : ""} — ${escapeHtml(friendlyPlan(bin))}`).join("<br>")}</p><p><strong>Total:</strong> ${escapeHtml(fmtGBP(pricing?.total || 0))}</p><p><strong>Clean completed on signup visit:</strong> ${cleanCompletedToday ? "Yes" : "No"}</p><p><strong>No quote required.</strong></p><hr><p>Terms: v${escapeHtml(termsVersion)} accepted ${escapeHtml(termsTimestamp)}</p>`,
       replyTo: email,
       attachments,
     });

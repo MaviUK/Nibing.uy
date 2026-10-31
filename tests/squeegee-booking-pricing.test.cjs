@@ -108,9 +108,9 @@ test("rejects unrecognised plans or an unrecognised bin", () => {
 });
 
 test("commercial bin price is verified but still needs separate Squeegee service mapping", () => {
-  const bins = [{ type: "Brown Bin", count: 2, planId: "comm_gt660_oneoff" }];
+  const bins = [{ type: "Brown Bin", count: 2, planId: "comm_gt660_oneoff", sizeLitres: 1100 }];
   const quote = posted([{ idx: 0, type: "Brown Bin", count: 2,
-    planId: "comm_gt660_oneoff", baseUnit: 45, unitPrice: 45,
+    planId: "comm_gt660_oneoff", sizeLitres: 1100, baseUnit: 45, unitPrice: 45,
     lineTotal: 90, freeCount: 0, multiBuyDiscount: 0, discounted: false,
   }], { total: 90, subtotal: 90 });
   const result = verifyAndPriceBooking(bins, "", quote);

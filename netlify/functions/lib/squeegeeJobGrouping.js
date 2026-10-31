@@ -82,13 +82,15 @@ function groupedSqueegeeJobs(perBinJobs,bookingId) {
     const id=input.services[0];
     const previous=group.counts.get(id);
     if(previous) {
-      if(previous.bin!==item.bin)
-        throw new Error("Inconsistent descriptions for the same service UUID");
+      if(previous.bin!==item.bin || previous.sizeLitres!==(item.sizeLitres??null))
+        throw new Error("Inconsistent bin type or size for the same service UUID");
       previous.quantity+=item.quantity;
       if(!Number.isSafeInteger(previous.quantity)||previous.quantity>200)
         throw new Error("Service quantity exceeds supported booking limit");
     }else{
-      group.counts.set(id,{bin:item.bin,quantity:item.quantity});
+      group.counts.set(id,{
+        bin:item.bin,quantity:item.quantity,sizeLitres:item.sizeLitres??null,
+      });
       group.input.services.push(id);
     }
     group.pricePence+=Math.round(input.price*100);
@@ -107,7 +109,9 @@ function groupedSqueegeeJobs(perBinJobs,bookingId) {
         "Every 4 weeks":"One-off clean";
       group.input.notes=[
         "NI Bin Guy website booking: "+bookingId,
-        "PHYSICAL BINS: "+counts.map(item=>item.quantity+" x "+item.bin).join(" + "),
+        "PHYSICAL BINS: "+counts.map(item=>
+          item.quantity+" x "+item.bin+(item.sizeLitres?" ("+item.sizeLitres+"L)":"")
+        ).join(" + "),
         type,"Website date: "+group.input.date,
         "Quantity is in these notes; Squeegee service IDs do not carry quantity",
       ].join(" | ");

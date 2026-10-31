@@ -102,7 +102,9 @@ test("date discrepancy keeps only the affected job held for review", () => {
 test("does not prepare a job for unmapped commercial plan", () => {
   const b = booking();
   b.bins[0].planId = "comm_gt660_4w";
+  b.bins[0].sizeLitres = 660;
   b.pricing.lines[0].planId = "comm_gt660_4w";
+  b.pricing.lines[0].sizeLitres = 660;
   b.pricing.lines[0].baseUnit = 15;
   b.pricing.lines[0].unitPrice = 15;
   b.pricing.lines[0].lineTotal = 30;
@@ -274,8 +276,9 @@ test("commercial bins under 360L use the exact standard colour and frequency, pr
 test("commercial over 660L does not silently use 660L or 1100L Squeegee services", () => {
   const b = booking();
   b.bins[1].planId = "comm_gt660_oneoff";
+  b.bins[1].sizeLitres = 1100;
   b.pricing.lines[1] = {
-    ...b.pricing.lines[1], planId: "comm_gt660_oneoff",
+    ...b.pricing.lines[1], planId: "comm_gt660_oneoff", sizeLitres: 1100,
     baseUnit: 45, unitPrice: 45, lineTotal: 45,
   };
   b.pricing.subtotal = 55;

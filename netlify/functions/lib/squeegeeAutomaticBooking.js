@@ -33,8 +33,12 @@ function requestedBinCounts(bins) {
   return (Array.isArray(bins)?bins:[]).map(bin=>{
     const name=BIN_LABELS[normalizedBinType(bin?.type)];
     const count=Number(bin?.count);
+    const large=bin?.planId==="comm_gt660_4w" ||
+      bin?.planId==="comm_gt660_oneoff";
+    const size=large && [660,1100].includes(bin.sizeLitres)?
+      " ("+bin.sizeLitres+"L)":"";
     return name && Number.isSafeInteger(count) && count>=1 && count<=200?
-      count+" x "+name+" Bin":null;
+      count+" x "+name+" Bin"+size:null;
   }).filter(Boolean);
 }
 

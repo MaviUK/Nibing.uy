@@ -14,6 +14,7 @@ const rollout=require("./lib/squeegeePreviewAutoRollout");
 const {emailContent:buildOwnerReviewEmail}=
   require("./lib/squeegeeSyncOwnerAlert");
 const { normaliseUkBookingPhone } = require("./lib/ukBookingPhone");
+const { validateCommercialBinSizes } = require("./lib/squeegeeBookingPricing");
 const { PILOT_NAME } = require("./lib/squeegeePreviewAutoRollout");
 
 // Optional audit logging. If Netlify Blobs is unavailable, logging is skipped.
@@ -235,18 +236,31 @@ exports.handler = async (event) => {
     payload.source=source;
 
     const filteredBins = (Array.isArray(bins) ? bins : []).filter((bin) => bin?.type);
+    const binSizeCheck = validateCommercialBinSizes(filteredBins);
+    if (!binSizeCheck.ok) {
+      return {
+        statusCode: 422,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+        body: JSON.stringify({
+          error: "Choose 660L or 1100L for each large commercial bin.",
+          reason: binSizeCheck.reason,
+        }),
+      };
+    }
     const binsText =
       filteredBins
         .map((bin) => {
           const planOrFrequency = bin.planId ? `plan: ${bin.planId}` : bin.frequency || "";
-          return `${bin.count || 1} x ${bin.type} (${planOrFrequency})`;
+          const size = bin.sizeLitres ? ` (${bin.sizeLitres}L)` : "";
+          return `${bin.count || 1} x ${bin.type}${size} (${planOrFrequency})`;
         })
         .join("\n") || "(none provided)";
     const binsHtml =
       filteredBins
         .map((bin) => {
           const planOrFrequency = bin.planId ? `plan: ${escapeHtml(bin.planId)}` : escapeHtml(bin.frequency || "");
-          return `${escapeHtml(bin.count || 1)} x ${escapeHtml(bin.type)} (${planOrFrequency})`;
+          const size = bin.sizeLitres ? ` (${bin.sizeLitres}L)` : "";
+          return `${escapeHtml(bin.count || 1)} x ${escapeHtml(bin.type)}${size} (${planOrFrequency})`;
         })
         .join("<br>") || "(none provided)";
     const pricingBlocks = buildPricingBlocks(pricing, discountCode);
