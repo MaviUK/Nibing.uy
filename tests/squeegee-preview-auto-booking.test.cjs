@@ -1705,3 +1705,27 @@ test("pure same-round merge inspector does not edit or expose Squeegee records",
     bookingAddress:"34 Ballycrochan Avenue, Bangor BT19 7LA",
   }),null);
 });
+
+test("an existing bin at another explicit service address is not a duplicate at the primary property",async()=>{
+  const b=sampleBooking({
+    bins:[{type:"Blue Bin",planId:"domestic_4w",count:1}],
+  });
+  const other="34 Ballycrochan Avenue, Bangor BT19 7LA";
+  const existingJobs=[
+    {jobGroup:group1,services:[blueService],jobAddress:{text:other}},
+    {jobGroup:group2,services:[brownService]},
+  ];
+  const h=makeHarness(b,{existingRows:[{
+    _id:customerId,name:b.name,email:b.email,
+    address:{addressDescription:b.address},status:"active",
+  }],existingCustomer:{address:{text:b.address},jobs:existingJobs}});
+  const outcome=await h.run();
+  assert.equal(outcome.status,"completed");
+  assert.equal(outcome.createdJobs,1);
+  assert.deepEqual(h.posts[0].job.services,[blueService]);
+  assert.equal(h.posts[0].job.jobGroup,group1);
+  assert.deepEqual(existingJobs,[
+    {jobGroup:group1,services:[blueService],jobAddress:{text:other}},
+    {jobGroup:group2,services:[brownService]},
+  ]);
+});

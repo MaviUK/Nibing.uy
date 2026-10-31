@@ -102,16 +102,20 @@ function overlappingJobs(existingJobs,plannedJobs,serviceIds=null,{
       try{id=api.requireUuid(id,"existing service ID");}
       catch{return "cannot_inspect_existing_jobs";}
       if(plannedServices.has(id)) {
-        if(differentProperty) {
-          // A cross-property booking may have the same bin colour as a job
-          // at another service address. Never guess an old job's location:
-          // an omitted jobAddress in the GET response cannot prove where it
-          // is actually serviced, so hold rather than risk a duplicate.
+        // Explicit service addresses distinguish multiple properties even
+        // when this booking is at the customer's PRIMARY address.
+        // Without an explicit job address, a secondary-property booking
+        // still holds rather than guessing where the old service runs.
+        const explicit=old.jobAddress!==undefined &&
+          old.jobAddress!==null && old.jobAddress!=="";
+        if(explicit){
           const oldAddress=addressKey(old.jobAddress);
           const newAddress=addressKey(requestedAddress);
-          if(!oldAddress || !newAddress)
+          if(!oldAddress||!newAddress)
             return "cannot_inspect_existing_job_addresses";
           if(oldAddress!==newAddress)continue;
+        }else if(differentProperty){
+          return "cannot_inspect_existing_job_addresses";
         }
         if(allowAdditionalBins){
           if(additionalTypes instanceof Set)
