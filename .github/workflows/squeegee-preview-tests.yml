@@ -55,6 +55,9 @@ on:
       - tests/squeegee-preview-booking-submit-ui.test.cjs
       - scripts/hardenBookingSubmissions.cjs
       - tests/squeegee-preview-submit-route.test.cjs
+      - netlify/functions/lib/squeegeeHistoricalLeaderboard.js
+      - netlify/functions/squeegeePreviewLeaderboardHistory.mjs
+      - tests/squeegee-historical-leaderboard.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
 
 permissions:
