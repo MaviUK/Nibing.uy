@@ -556,3 +556,19 @@ test("a booking-reference failure email does not falsely tell the owner the coun
   assert.doesNotMatch(msg.text,/Cleaning date, round or price could not be verified/);
   assert.match(msg.html,/NBG-XGU9MPEE/);
 });
+
+test("missing Squeegee mapping email identifies the actual bin size and plan, not the date",()=>{
+  const ref="NBG-XGU9MPEE";
+  const msg=emailContent(ref,"squeegee_service_not_mapped",{
+    requestedBinCounts:["1 x Green Bin"],
+    firstCleanDates:["2026-11-18"],
+    unmappedServices:[{binType:"green",planId:"comm_gt660_oneoff"}],
+    blockedReasons:["unmapped_squeegee_services"],
+    bookingTotal:35,
+  });
+  assert.match(msg.text,/Selected bin and plan have no exact Squeegee service mapping/);
+  assert.match(msg.text,/Missing Squeegee service: Green/);
+  assert.match(msg.text,/commercial over 660L, one-off/);
+  assert.doesNotMatch(msg.text,/Cleaning date, round or price could not be verified/);
+  assert.match(msg.html,/Unmatched Squeegee services/);
+});

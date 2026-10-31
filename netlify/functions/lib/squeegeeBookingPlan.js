@@ -113,9 +113,10 @@ function makeJobPlan(booking, bin, index, dateRow, config) {
     notes: [
       "NI Bin Guy website booking: " + String(booking.bookingId),
       quantity + " x " + String(bin.type),
+      bin.planId.startsWith("comm_lt360_") ? "Commercial under 360L" : null,
       isOneOff ? "One-off clean" : "Every 4 weeks",
       "Website date: " + date,
-    ].join(" | "),
+    ].filter(Boolean).join(" | "),
     tags: [],
     firstAppointment: { tags: [], initialDate: date },
     price: Math.round(Number(priceLine.lineTotal) * 100) / 100,

@@ -18,10 +18,26 @@ const SERVICE_DESCRIPTIONS = Object.freeze({
     green: "(One Off) Green",
     blue: "(One Off) Blue",
   }),
+  // Under 360L: same bin colour, price and frequency as standard service.
+  // The owner has no separate <360L service in the Squeegee catalogue.
+  comm_lt360_4w: Object.freeze({
+    black: "Black",
+    brown: "Brown",
+    green: "Green",
+    blue: "Blue",
+  }),
+  comm_lt360_oneoff: Object.freeze({
+    black: "(One Off) Black",
+    brown: "(One Off) Brown",
+    green: "(One Off) Green",
+    blue: "(One Off) Blue",
+  }),
 });
 
-// No commercial-specific Squeegee services are identifiable from the
-// retrieved labels. Fail closed for commercial until the owner maps them.
+// Large-bin options stay deliberately UNMAPPED: the website currently says
+// >660L while the account has colour-specific 660L four-weekly and 1100L
+// one-off services only. A generic >660L booking does not prove the bin is
+// exactly 660L or 1100L. Never silently pick another size or colour.
 function resolveSqueegeeServiceIds(services) {
   if (!Array.isArray(services)) throw new Error("Squeegee services must be an array");
   const byLabel = new Map();

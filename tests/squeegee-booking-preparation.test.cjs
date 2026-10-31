@@ -251,3 +251,46 @@ test("a rejected booking ID cannot masquerade as a website date mismatch",()=>{
   assert.ok(!result.summary.blockedReasons.includes("unverified_or_changed_dates"));
   assert.equal(result.privatePlan,null);
 });
+
+test("commercial bins under 360L use the exact standard colour and frequency, preserving size in job notes", () => {
+  const b = booking();
+  b.bins[0].planId = "comm_lt360_4w";
+  b.pricing.lines[0].planId = "comm_lt360_4w";
+  b.bins[1].planId = "comm_lt360_oneoff";
+  b.pricing.lines[1].planId = "comm_lt360_oneoff";
+  const result = prepareReadOnlyBooking(b, serverSchedule(), SERVICES, {
+    jobGroups: GROUPS,
+  });
+  assert.equal(result.status, "prepared_read_only");
+  assert.equal(result.privatePlan.jobs[0].input.services[0], BLACK_SERVICE);
+  assert.equal(result.privatePlan.jobs[1].input.services[0], BLUE_ONEOFF_SERVICE);
+  assert.equal(result.privatePlan.jobs[0].input.frequencyInterval, 4);
+  assert.equal(result.privatePlan.jobs[1].input.frequencyType, "adhoc");
+  assert.match(result.privatePlan.jobs[0].input.notes, /Commercial under 360L/);
+  assert.match(result.privatePlan.jobs[1].input.notes, /Commercial under 360L/);
+  assert.deepEqual(result.summary.unmappedServices, []);
+});
+
+test("commercial over 660L does not silently use 660L or 1100L Squeegee services", () => {
+  const b = booking();
+  b.bins[1].planId = "comm_gt660_oneoff";
+  b.pricing.lines[1] = {
+    ...b.pricing.lines[1], planId: "comm_gt660_oneoff",
+    baseUnit: 35, unitPrice: 35, lineTotal: 35,
+  };
+  b.pricing.subtotal = 45;
+  b.pricing.total = 45;
+  const service660 = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const service1100 = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const result = prepareReadOnlyBooking(b, serverSchedule(), [
+    ...SERVICES,
+    { id: service660, description: "Blue 660L (4 weekly)" },
+    { id: service1100, description: "Blue 1100L (one-off)" },
+  ], { jobGroups: GROUPS });
+  assert.equal(result.status, "held_for_review");
+  assert.equal(result.privatePlan.jobs[1].status, "service_mapping_required");
+  assert.deepEqual(result.summary.unmappedServices, [
+    { binType: "blue", planId: "comm_gt660_oneoff" },
+  ]);
+  assert.ok(result.summary.blockedReasons.includes("unmapped_squeegee_services"));
+});

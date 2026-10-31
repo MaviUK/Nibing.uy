@@ -161,7 +161,10 @@ test("Squeegee regular and one-off services resolve by exact account labels", ()
   assert.equal(resolved.serviceIds.domestic_4w.black, SERVICE);
   assert.equal(resolved.serviceIds.domestic_oneoff.blue, ONEOFF_SERVICE);
   assert.equal(resolved.serviceIds.domestic_4w.blue, undefined);
-  assert.equal(resolved.unresolved.length, 6);
+  // Two exact labels now each serve domestic and commercial-under-360 plans.
+  assert.equal(resolved.unresolved.length, 12);
+  assert.equal(resolved.serviceIds.comm_lt360_4w.black, SERVICE);
+  assert.equal(resolved.serviceIds.comm_lt360_oneoff.blue, ONEOFF_SERVICE);
   const result = plan.buildSqueegeeBookingPlan(booking(), verifiedSchedule(), {
     ...mappings(), serviceIds: resolved.serviceIds,
   });
@@ -287,4 +290,21 @@ test("one-page no-match returns not_found only after hasMore false", async()=>{
   }));
   assert.equal(result.status,"not_found");
   assert.equal(result.pagesScanned,1);
+});
+
+test("commercial under 360L maps only by exact colour and frequency; larger bins never guess size", () => {
+  const standard = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const oneoff = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const largeFour = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+  const largeOnce = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  const resolved = catalog.resolveSqueegeeServiceIds([
+    { id: standard, description: "Green" },
+    { id: oneoff, description: "(One Off) Green" },
+    { id: largeFour, description: "Green 660L (4 weekly)" },
+    { id: largeOnce, description: "Green 1100L (one-off)" },
+  ]);
+  assert.equal(resolved.serviceIds.comm_lt360_4w.green, standard);
+  assert.equal(resolved.serviceIds.comm_lt360_oneoff.green, oneoff);
+  assert.equal(resolved.serviceIds.comm_gt660_4w, undefined);
+  assert.equal(resolved.serviceIds.comm_gt660_oneoff, undefined);
 });

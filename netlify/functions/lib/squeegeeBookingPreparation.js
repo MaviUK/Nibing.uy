@@ -30,9 +30,19 @@ function prepareReadOnlyBooking(booking, serverSchedule, services, { jobGroups }
   if (dates.holds.length) errors.push("unverified_or_changed_dates");
 
   // Only the services on THIS booking must be present in Squeegee.
-  const unmappedOnBooking = bins.some(bin =>
-    !mapped.serviceIds?.[bin?.planId]?.[normalizedBinType(bin?.type)]);
-  if (unmappedOnBooking) errors.push("unmapped_squeegee_services");
+  const unmappedServices = bins.filter(bin =>
+    !mapped.serviceIds?.[bin?.planId]?.[normalizedBinType(bin?.type)])
+    .map(bin => {
+      const type = normalizedBinType(bin?.type);
+      const planId = String(bin?.planId || "");
+      return {
+        // Keep diagnostic status PII-free, bounded to known choices.
+        binType: ["black", "brown", "green", "blue"].includes(type) ? type : "unknown",
+        planId: /^(?:domestic|comm_lt360|comm_gt660)_(?:4w|oneoff)$/.test(planId) ?
+          planId : "unknown",
+      };
+    });
+  if (unmappedServices.length) errors.push("unmapped_squeegee_services");
 
   const rounds = bins.map((bin, index) => {
     const date = dates.results[index]?.assignedCleanDate;
@@ -95,6 +105,7 @@ function prepareReadOnlyBooking(booking, serverSchedule, services, { jobGroups }
     datesVerified: dates.matched,
     roundCycleAnchor: CYCLE_ANCHOR_MONDAY,
     needsJobGroupMapping: roundProblems.length > 0,
+    unmappedServices: unmappedServices.slice(0, 12),
     jobCount: jobs.length,
     jobs,
     heldDates: dates.holds.map(({ index, bin, reason }) => ({ index, bin, reason })),

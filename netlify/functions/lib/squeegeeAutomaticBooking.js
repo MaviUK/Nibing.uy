@@ -296,6 +296,21 @@ async function executeAutomaticPreviewBooking(payload,{
       return await held("booking_validation_failed",{
         blockedReasons:summary.blockedReasons.slice(0,8),
       });
+    if(summary.blockedReasons.includes("unmapped_squeegee_services"))
+      return await held("squeegee_service_not_mapped",{
+        blockedReasons:summary.blockedReasons.slice(0,8),
+        unmappedServices:summary.unmappedServices.slice(0,12),
+      });
+    if(!summary.pricingVerified)
+      return await held("website_price_not_verified",{
+        blockedReasons:summary.blockedReasons.slice(0,8),
+      });
+    if(summary.datesVerified &&
+       summary.blockedReasons.includes("job_group_round_mapping_required"))
+      return await held("squeegee_round_not_mapped",{
+        blockedReasons:summary.blockedReasons.slice(0,8),
+        roundStatuses:summary.jobs.slice(0,12).map(row=>row.roundStatus),
+      });
     if(prepared.status!=="prepared_read_only" ||
        !summary.pricingVerified || !summary.datesVerified ||
        summary.blockedReasons.length || !plan ||

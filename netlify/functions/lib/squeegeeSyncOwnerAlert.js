@@ -175,6 +175,18 @@ const REVIEW_HELP=Object.freeze({
     category:"Cleaning date, round or price could not be verified",
     action:"Confirm the correct collection date, bin colour, four-weekly round and price. Add the booking in Squeegee manually when verified.",
   },
+  squeegee_service_not_mapped:{
+    category:"Selected bin and plan have no exact Squeegee service mapping",
+    action:"Check the selected bin colour, size and frequency against your Squeegee Services list. For larger bins, confirm the exact 660L or 1100L size before manually assigning a service. Never substitute a different size or colour.",
+  },
+  website_price_not_verified:{
+    category:"Booking price failed server verification",
+    action:"Compare the amount displayed on the booking form with the trusted server price for the selected plan. This does not mean the cleaning date is wrong. Resolve the price difference before adding the job.",
+  },
+  squeegee_round_not_mapped:{
+    category:"Website date confirmed, Squeegee round group not mapped",
+    action:"Keep the confirmed website cleaning date. Find its corresponding numbered round in Squeegee and check that the matching job group exists exactly once. Do not substitute another round.",
+  },
   invalid_booking_reference:{
     category:"Booking reference rejected by the Squeegee integration",
     action:"The customer-facing cleaning date may be correct. This is a system booking-reference problem: check the protected booking status, confirm whether Squeegee has a job, and reconcile manually without asking the customer to book again.",
@@ -325,6 +337,20 @@ function genericReviewContent(bookingId,reason,extra={}){
   const blocked=Array.isArray(extra.blockedReasons)?
     extra.blockedReasons.filter(x=>typeof x==="string" &&
       CODE_RE.test(x)).slice(0,10):[];
+  const planNames={
+    domestic_4w:"4-weekly",domestic_oneoff:"one-off",
+    comm_lt360_4w:"commercial under 360L, 4-weekly",
+    comm_lt360_oneoff:"commercial under 360L, one-off",
+    comm_gt660_4w:"commercial over 660L, 4-weekly",
+    comm_gt660_oneoff:"commercial over 660L, one-off",
+  };
+  const unmapped=Array.isArray(extra.unmappedServices)?
+    extra.unmappedServices.slice(0,12).map(row=>{
+      const type=String(row?.binType||"").toLowerCase();
+      const plan=planNames[row?.planId];
+      if(!["black","brown","green","blue"].includes(type)||!plan)return null;
+      return type.slice(0,1).toUpperCase()+type.slice(1)+" — "+plan;
+    }).filter(Boolean):[];
   const amount=Number(extra.bookingTotal);
   const total=Number.isFinite(amount)&&amount>=0&&amount<=5000?
     "£"+amount.toFixed(2):"See submitted booking";
@@ -353,7 +379,8 @@ function genericReviewContent(bookingId,reason,extra={}){
     ...dates.map(x=>"Proposed first clean: "+x),
     "New booking total: "+total,
     jobsConfirmed!==null?"Jobs confirmed before problem: "+jobsConfirmed:"",
-    ...blocked.map(x=>"Date/round check: "+x),
+    ...blocked.map(x=>"Validation check: "+x),
+    ...unmapped.map(x=>"Missing Squeegee service: "+x),
     ...duplicateFlags.map(x=>"Duplicate flag: "+FLAG_LABELS[x]),
     "",
     "ACTION REQUIRED",
@@ -392,7 +419,8 @@ function genericReviewContent(bookingId,reason,extra={}){
     row("Requested bins",bins.join(" + "))+
     row("First clean(s)",dates.join(", "))+row("New booking total",total)+
     (jobsConfirmed!==null?row("Jobs confirmed",String(jobsConfirmed)):"")+
-    row("Date and round checks",blocked.join("; "))+
+    row("Validation checks",blocked.join("; "))+
+    row("Unmatched Squeegee services",unmapped.join("; "))+
     row("Duplicate concerns",duplicateFlags.map(x=>FLAG_LABELS[x]).join("; "))+
     '</table></td></tr><tr><td style="padding:0 25px 20px">'+
     '<h2 style="font-size:17px;margin:0 0 12px;color:#111">What to do next</h2>'+
