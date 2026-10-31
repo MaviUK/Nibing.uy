@@ -38,9 +38,18 @@ export default async function handler(request,context) {
   if(request.method!=="GET")return new Response("Method not allowed",{status:405});
   const cookie=owner.sessionCookieFromHeader(request.headers.get("cookie"));
   if(!owner.verifyTestSessionCookie(cookie,process.env,Date.now(),runtime)) {
+    // Preserve the selected booking reference through the emailed owner-code
+    // flow. Previously this linked to the retired one-use TEST status instead.
+    const selected=new URL(request.url).searchParams.get("bookingId")?.trim()||"";
+    const returnTo=bookingRe.test(selected)&&selected.length<=100?
+      "/api/squeegee-preview-auto-status?bookingId="+selected.toUpperCase():
+      "/api/squeegee-preview-auto-status";
+    const authorise="/api/squeegee-preview-test?returnTo="+
+      encodeURIComponent(returnTo);
     return page('<div class="notice"><strong>Owner authorisation required.</strong>'+
-      '<p>Use the emailed one-time code on the owner test page first.</p></div>'+
-      '<p><a href="/api/squeegee-preview-test">Authorise owner access</a></p>',403);
+      '<p>Enter your emailed one-time owner access code. After verification, '+
+      'you will return to this automatic booking status page.</p></div>'+
+      '<p><a href="'+authorise+'">Authorise owner access and return here</a></p>',403);
   }
   const enabled=auto.canAutoSync(process.env,runtime);
   const mode=rollout.autoMode(process.env);

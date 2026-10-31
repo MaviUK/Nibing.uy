@@ -20,7 +20,8 @@ async function sendOwnerTestCode({to,code}) {
     subject:"NI Bin Guy - Preview 1 Squeegee one-booking test code",
     text:"Your one-time Squeegee test access code is: "+code+
       "\n\nEnter it into the Preview 1 test page within 15 minutes."+
-      "\nThis only authorises ONE supervised TEST booking, not live customer imports."+
+      "\nThis code authorises owner-only access to Preview 1 Squeegee status."+
+      "\nAuthorisation does not create or change Squeegee customers or jobs."+
       "\nIf you did not request this, ignore the email.",
   });
   if(result?.error) throw new Error("owner_code_email_unavailable");
@@ -119,11 +120,17 @@ async function getDiagnostic(bookingId) {
   return {status,stored:savedStatus,shadow:shadowStatus,claim:claimStatus,
     firstClean,round};
 }
-// Exactly one same-site return destination is supported. No external URLs,
- // no arbitrary query strings and no redirect to a write endpoint.
+// Only two same-site READ-ONLY destinations are permitted. Strict path and
+// booking-reference validation excludes absolute/external URLs, fragments,
+// duplicate parameters, script schemes and all Squeegee write endpoints.
 export function safeOwnerReturnPath(value) {
-  return value==="/api/squeegee-preview-auto-recover"
-    ? value:null;
+  if(typeof value!=="string"||value.length>160)return null;
+  if(value==="/api/squeegee-preview-auto-recover" ||
+     value==="/api/squeegee-preview-auto-status")
+    return value;
+  const selected=/^\/api\/squeegee-preview-auto-status\?bookingId=(NBG-[A-Z0-9]+-[A-Z0-9]{8,12})$/i.exec(value);
+  return selected?
+    "/api/squeegee-preview-auto-status?bookingId="+selected[1].toUpperCase():null;
 }
 function returnField(returnTo) {
   return returnTo
@@ -138,26 +145,33 @@ function redirectTo(path) {
   }});
 }
 function authPage(returnTo=null){
-  return page((returnTo
-    ? '<p>Authorise this browser to resume your <strong>existing two-bin booking</strong>.'+
-      ' No new website booking, confirmation email or Squeegee write happens here.</p>'
-    : '<p>This authorises your browser to inspect the completed one-time Squeegee test.</p>')+
+  const bookingStatus=returnTo?.startsWith("/api/squeegee-preview-auto-status");
+  const description=bookingStatus?
+    '<p>Authorise this browser to see the <strong>selected automatic booking status</strong>. No Squeegee customer or job will be created.</p>':
+    returnTo?
+      '<p>Authorise this browser to resume the existing booking review. No new website booking or Squeegee write happens here.</p>':
+      '<p>This authorises your browser to inspect Preview 1 Squeegee booking status and previous test records.</p>';
+  const destinationMessage=returnTo?
+    '<div class="notice"><strong>'+(bookingStatus?"Booking status":"Booking review")+
+    ':</strong> After verifying your code, you will return directly to that page in this browser.</div>':"";
+  return page(description+
   '<p>Request an access code to your usual business bookings mailbox. The code is not shown on this page.</p>'+
-  (returnTo?'<div class="notice"><strong>Two-bin recovery:</strong> After verifying your code, you will return directly to the same recovery page in this browser.</div>':'')+
+  destinationMessage+
   '<form method="post"><input type="hidden" name="action" value="request">'+
   returnField(returnTo)+
-  '<button type="submit">Email my one-time test code</button></form>'+
+  '<button type="submit">Email my one-time owner access code</button></form>'+
   '<div class="notice">This authorises owner access only. Do not submit another website booking or Squeegee write.</div>');
 }
 function challengePage(challengeId,returnTo=null){
+  const bookingStatus=returnTo?.startsWith("/api/squeegee-preview-auto-status");
+  const verifyLabel=bookingStatus?"Verify code and view booking status":
+    returnTo?"Verify code and continue booking review":"Authorise this browser";
   return page('<p>A 10-digit code has been sent to your bookings email. Enter it here within 15 minutes.</p>'+
   '<form method="post"><input type="hidden" name="action" value="verify">'+
   '<input type="hidden" name="challengeId" value="'+safe(challengeId)+'">'+
   returnField(returnTo)+
   '<label for="code">Access code</label><input id="code" name="code" type="text" inputmode="numeric" maxlength="10" pattern="[0-9]{10}" autocomplete="one-time-code" required>'+
-  '<button type="submit">'+
-    (returnTo?'Verify code and continue two-bin recovery':'Authorise this browser')+
-    '</button></form>');
+  '<button type="submit">'+verifyLabel+'</button></form>');
 }
 function armedPage(diagnostic,bookingId,squeegeeCheck=null){
   let state="";

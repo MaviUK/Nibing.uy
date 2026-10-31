@@ -639,3 +639,81 @@ test("owner recovery POST fails closed when after-response worker is unavailable
     else process.env.SQUEEGEE_API_KEY=previousKey;
   }
 });
+
+test("owner-code return target only permits exact read-only automatic status path",async()=>{
+  const {safeOwnerReturnPath}=await import(
+    "../netlify/functions/squeegeePreviewTest.mjs");
+  const target="/api/squeegee-preview-auto-status?bookingId=NBG-MVW4K9IF-6D53202757";
+  assert.equal(safeOwnerReturnPath(target),target);
+  assert.equal(safeOwnerReturnPath(target.toLowerCase()),target);
+  assert.equal(safeOwnerReturnPath("/api/squeegee-preview-auto-status"),
+    "/api/squeegee-preview-auto-status");
+  assert.equal(safeOwnerReturnPath("/api/squeegee-preview-auto-recover"),
+    "/api/squeegee-preview-auto-recover");
+  for(const injection of [
+    null,undefined,"",123,
+    "https://evil.example/booking",
+    "//evil.example/booking",
+    "javascript:alert(1)",
+    "/api/squeegee-preview-auto-sync",
+    "/api/squeegee-preview-test-submit",
+    target+"#other",
+    target+"&next=https://evil.example",
+    target+"&bookingId=NBG-OTHER-ABCD1234",
+    target.replace("NBG-","%4eBG-"),
+    target.replace("bookingId=","bookingId=%0d%0a"),
+    "/api/squeegee-preview-auto-status?bookingId=not-valid",
+  ])assert.equal(safeOwnerReturnPath(injection),null,
+    "Must fail closed for "+String(injection));
+});
+
+test("unauthorised automatic booking status keeps its reference through owner code flow",async()=>{
+  const {default:statusHandler}=await import(
+    "../netlify/functions/squeegeePreviewAutoStatus.mjs");
+  const context={
+    deploy:{context:"deploy-preview"},
+    site:{id:"d63c829f-3ed7-48e9-9633-a042de3f2e84"},
+  };
+  const target="/api/squeegee-preview-auto-status?bookingId=NBG-MVW4K9IF-6D53202757";
+  const request=new Request("https://deploy-preview-77--nibinguy.netlify.app"+target);
+  const result=await statusHandler(request,context);
+  assert.equal(result.status,403);
+  const page=await result.text();
+  assert.ok(page.includes("/api/squeegee-preview-test?returnTo="+
+    encodeURIComponent(target)));
+  assert.match(page,/After verification/);
+  assert.ok(!page.includes("href=\\"/api/squeegee-preview-test\\""));
+});
+
+test("already-authorised owner is sent back to selected booking instead of old test page",async()=>{
+  const original=process.env.SQUEEGEE_API_KEY;
+  process.env.SQUEEGEE_API_KEY=env.SQUEEGEE_API_KEY;
+  try{
+    const {default:authHandler}=await import(
+      "../netlify/functions/squeegeePreviewTest.mjs");
+    const scope={hostname:"deploy-preview-77--nibinguy.netlify.app",
+      deployContext:"deploy-preview",
+      siteId:"d63c829f-3ed7-48e9-9633-a042de3f2e84"};
+    const context={deploy:{context:"deploy-preview"},
+      site:{id:scope.siteId}};
+    const target="/api/squeegee-preview-auto-status?bookingId=NBG-MVW4K9IF-6D53202757";
+    const cookie=createTestSessionCookie(process.env,Date.now(),scope);
+    const response=await authHandler(new Request(
+      "https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-test?returnTo="+
+        encodeURIComponent(target),{
+        headers:{"Cookie":COOKIE_NAME+"="+cookie},
+      }),context);
+    assert.equal(response.status,303);
+    assert.equal(response.headers.get("Location"),target);
+    assert.equal(response.headers.get("Cache-Control"),"no-store");
+    assert.ok(!response.headers.get("Location").includes("test-submit"));
+    const source=require("node:fs").readFileSync(require("node:path").join(
+      __dirname,"../netlify/functions/squeegeePreviewTest.mjs"),"utf8");
+    assert.match(source,/const returnTo=safeOwnerReturnPath\(data.get\("returnTo"\)\)/);
+    assert.match(source,/Location:returnTo\|\|"/);
+    assert.match(source,/returnField\(returnTo\)/);
+  }finally{
+    if(original===undefined)delete process.env.SQUEEGEE_API_KEY;
+    else process.env.SQUEEGEE_API_KEY=original;
+  }
+});
