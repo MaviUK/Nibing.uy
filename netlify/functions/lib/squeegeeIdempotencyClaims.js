@@ -40,6 +40,30 @@ function customerKey(input) {
   if (normalized.length < 5) throw new Error("Incomplete property identity");
   return PREFIX + "/customers/" + digest([postcode, normalized]);
 }
+// Keep legacy claim keys for standard bins, but identify large commercial
+// bins by actual capacity as well as colour. Different capacities are
+// independent physical services, never duplicate jobs of one colour.
+function binIdentityParts(bin) {
+  const type=normalizedBinType(bin?.type);
+  if(!["black","brown","blue","green"].includes(type))
+    throw new Error("Unrecognised physical bin colour");
+  const large=bin?.planId==="comm_gt660_4w"||
+    bin?.planId==="comm_gt660_oneoff";
+  const size=bin?.sizeLitres;
+  const hasSize=size!==undefined && size!==null && size!=="";
+  if(large || hasSize){
+    if(size!==660 && size!==1100)
+      throw new Error("Missing or invalid physical bin capacity");
+    if(bin?.planId && !large)
+      throw new Error("Unexpected capacity on standard bin");
+    return [type,String(size)];
+  }
+  return [type];
+}
+function binServiceIdentity(bin) {
+  const parts=binIdentityParts(bin);
+  return parts[0]+"|"+(parts[1]||"standard");
+}
 function jobKey(booking, job) {
   const customer = customerKey(booking);
   const planId = String(job?.planId || "").trim();
@@ -51,7 +75,7 @@ function jobKey(booking, job) {
   // Ignore bookingId and quantity deliberately: a repeated submission,
   // even with a newly generated bookingId, should hold the same property /
   // bin / service / clean date for manual review instead of double-booking.
-  return PREFIX + "/jobs/" + digest([customer, planId, bin, date]);
+  return PREFIX + "/jobs/" + digest([customer, planId, ...binIdentityParts(job), date]);
 }
 /**
  * Additional per-property, per-bin permanent claim (ignores clean date and
@@ -64,7 +88,7 @@ function activeBinKey(booking,bin) {
   const type=normalizedBinType(bin?.type);
   if(!["black","brown","green","blue"].includes(type))
     throw new Error("Unrecognised bin type for active service claim");
-  return PREFIX+"/active-bin/"+digest([customerKey(booking),type]);
+  return PREFIX+"/active-bin/"+digest([customerKey(booking),...binIdentityParts(bin)]);
 }
 
 
@@ -78,7 +102,7 @@ function additionalBinKey(booking,bin) {
   if(!["black","brown","green","blue"].includes(type))
     throw new Error("Unrecognised additional bin type");
   return PREFIX+"/additional-bin/"+digest([
-    customerKey(booking),type,booking.bookingId,
+    customerKey(booking),...binIdentityParts(bin),booking.bookingId,
   ]);
 }
 function additionalJobKey(booking,job) {
@@ -89,7 +113,7 @@ function additionalJobKey(booking,job) {
   if(!["black","brown","green","blue"].includes(type) || !plan || !validDate(date))
     throw new Error("Missing verified additional job details");
   return PREFIX+"/additional-job/"+digest([
-    customerKey(booking),type,plan,date,booking.bookingId,
+    customerKey(booking),...binIdentityParts(job),plan,date,booking.bookingId,
   ]);
 }
 function validEtag(value) {
@@ -168,5 +192,6 @@ async function changeClaimState({
  */
 module.exports = {
   customerKey, jobKey, activeBinKey, additionalBinKey, additionalJobKey,
+  binServiceIdentity,
   claimOnce, changeClaimState, validEtag,
 };
