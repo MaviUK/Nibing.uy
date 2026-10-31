@@ -165,60 +165,254 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
   };
 }
 
+
+const REVIEW_HELP=Object.freeze({
+  schedule_services_or_groups_unavailable:{
+    category:"Council dates or Squeegee services unavailable",
+    action:"Check the council bin collection date, available Squeegee services and job group. Add the booking manually after confirming the correct schedule.",
+  },
+  date_price_service_or_round_not_verified:{
+    category:"Cleaning date, round or price could not be verified",
+    action:"Confirm the correct collection date, bin colour, four-weekly round and price. Add the booking in Squeegee manually when verified.",
+  },
+  booking_validation_failed:{
+    category:"Booking details could not be validated",
+    action:"Review the submitted address, selected bins, pricing and booking details. Create the job manually after checking the information.",
+  },
+  grouped_job_price_or_service_mismatch:{
+    category:"Bin grouping or total price mismatch",
+    action:"Compare the booked bins against the expected job grouping and total. Correct the details manually before creating any job.",
+  },
+  cannot_safely_group_bin_jobs:{
+    category:"Bins could not safely be grouped",
+    action:"Check which bins share the same council date and round, then create separate or combined jobs manually as appropriate.",
+  },
+  conflicting_same_colour_schedules:{
+    category:"Conflicting dates for the same bin colour",
+    action:"Verify the correct collection dates for repeated bins of the same colour, then enter the jobs manually.",
+  },
+  customer_match_ambiguous_or_incomplete:{
+    category:"Customer account requires review",
+    action:"Search existing Squeegee customers by full name and property before making changes.",
+  },
+  automatic_sync_not_enabled:{
+    category:"Automatic Squeegee syncing is unavailable",
+    action:"The booking was received by the website, but the automatic Squeegee integration was not enabled. Check Squeegee before adding it manually.",
+  },
+  outside_approved_preview_email_pilot:{
+    category:"Booking is outside the current automatic Squeegee rollout",
+    action:"This booking requires manual entry because the automatic Squeegee import is not enabled for it.",
+  },
+  service_quantity_requires_manual_configuration:{
+    category:"Multiple bins need manual quantity configuration",
+    action:"Check the original booking and manually create the correct service quantities, job price, round and dates in Squeegee.",
+  },
+  existing_job_for_selected_bin_requires_review:{
+    category:"Customer is buying a bin colour already registered",
+    action:"Confirm whether this is an ADDITIONAL physical bin or an accidental repeat. If additional, edit the existing Squeegee job quantity and price manually.",
+  },
+  duplicate_bin_types_in_same_booking:{
+    category:"Repeated bin colours need checking",
+    action:"Check the physical bin count and manually enter the right quantity and price.",
+  },
+  existing_customer_details_unavailable:{
+    category:"Existing Squeegee customer could not be verified",
+    action:"Open the customer in Squeegee and confirm that their status, service address and existing jobs are correct.",
+  },
+  existing_customer_address_unverified:{
+    category:"Existing customer's service address could not be verified",
+    action:"Verify the property before assigning any service to the existing account.",
+  },
+  existing_customer_identity_unverified:{
+    category:"Customer identity could not be confirmed",
+    action:"Compare the full name, email and phone number with Squeegee before attaching a job to the customer.",
+  },
+  existing_customer_name_unverified:{
+    category:"Existing customer's name did not match",
+    action:"Check the full customer name and registered address in Squeegee before adding the booking.",
+  },
+  customer_property_claimed_or_uncertain:{
+    category:"Property was previously registered or processing is uncertain",
+    action:"Look up the property and any existing customer/job before creating a manual job.",
+  },
+  property_bin_already_claimed_or_uncertain:{
+    category:"A bin at this property may already be registered",
+    action:"Check the existing job and bin quantities before entering anything manually.",
+  },
+  booking_already_claimed_or_uncertain:{
+    category:"Booking may already have been processed",
+    action:"Search Squeegee and read the booking's sync status before changing any job. Do not automatically retry.",
+  },
+  schedule_not_verified:{
+    category:"Cleaning schedule could not be verified",
+    action:"Confirm the collection dates and Squeegee round manually.",
+  },
+  schedule_services_or_groups_unverified:{
+    category:"Squeegee schedule and services could not be verified",
+    action:"Check the correct job group and bin services in Squeegee.",
+  },
+  booking_terms_not_accepted:{
+    category:"Terms acceptance could not be verified",
+    action:"Check the accepted terms record before confirming the service manually.",
+  },
+  too_many_or_no_booking_lines:{
+    category:"Bin selection requires manual review",
+    action:"Check the booking for missing or excessive bin selections and arrange the correct service with the customer.",
+  },
+  dispatch_not_accepted:{
+    category:"Squeegee automatic handoff was not accepted",
+    action:"Check the protected booking status and Squeegee before manually creating a job. The booking was accepted by the website, but automatic processing was not confirmed.",
+  },
+  dispatch_uncertain_reconcile:{
+    category:"Squeegee automatic handoff status is uncertain",
+    action:"Check whether the booking was received by Squeegee before making changes. A delayed worker could still have run.",
+  },
+  dispatch_unavailable:{
+    category:"Squeegee automatic handoff was unavailable",
+    action:"Review the booking status and manually enter the job after confirming nothing was already created.",
+  },
+  worker_failed_unsafely_no_retry:{
+    category:"Squeegee booking worker stopped unexpectedly",
+    action:"Check the protected status and Squeegee for any existing or partial job before reconciling manually.",
+  },
+  unexpected_auto_sync_failure:{
+    category:"Unexpected Squeegee integration error",
+    action:"Check the job/customer in Squeegee and reconcile this booking manually. Do not automatically retry.",
+  },
+  partial_or_ambiguous_squeegee_write:{
+    category:"Squeegee customer or jobs may have been partially created",
+    action:"URGENT: Inspect Squeegee for any customer and appointments that may have been created before the error. Add only missing services manually; never replay the whole booking.",
+  },
+  requires_reconciliation:{
+    category:"Squeegee import outcome requires manual reconciliation",
+    action:"URGENT: Verify whether any part of the customer or job creation succeeded. Do not create a duplicate or automatically retry.",
+  },
+});
+const UNCERTAIN_REASONS=new Set([
+  "requires_reconciliation","partial_or_ambiguous_squeegee_write",
+  "unexpected_auto_sync_failure","worker_failed_unsafely_no_retry",
+  "dispatch_uncertain_reconcile","dispatch_not_accepted",
+]);
+function genericReviewContent(bookingId,reason,extra={}){
+  const help=REVIEW_HELP[reason]||{
+    category:"Squeegee job not automatically confirmed",
+    action:"Check the full booking against the customer and jobs in Squeegee, then create or correct the booking manually when safe.",
+  };
+  const uncertain=UNCERTAIN_REASONS.has(reason) ||
+    extra.customerPostMayHaveSucceeded===true ||
+    extra.jobPostMayHaveSucceeded===true;
+  const status=uncertain?
+    "UNCONFIRMED — a customer or job may already exist":
+    "HELD FOR REVIEW — no new job was intentionally posted";
+  const intro=uncertain?
+    "The website accepted a booking, but the Squeegee import outcome is not confirmed. Some work may already have been created. Check Squeegee before taking further action.":
+    "The website accepted this booking, but it could not be automatically added to Squeegee. Manual action is required.";
+  const name=cleanOwnerField(extra.customerName,120);
+  const address=cleanOwnerField(extra.serviceAddress,250);
+  const email=cleanOwnerField(extra.customerEmail,180);
+  const phone=cleanOwnerField(extra.customerPhone,35);
+  const bins=Array.isArray(extra.requestedBinCounts)?
+    extra.requestedBinCounts.filter(x=>typeof x==="string" &&
+      /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x)).slice(0,12):[];
+  const dates=Array.isArray(extra.firstCleanDates)?
+    [...new Set(extra.firstCleanDates.filter(x=>typeof x==="string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(x)))].slice(0,12):[];
+  const duplicateFlags=allowedFlags(extra.duplicateFlags);
+  const blocked=Array.isArray(extra.blockedReasons)?
+    extra.blockedReasons.filter(x=>typeof x==="string" &&
+      CODE_RE.test(x)).slice(0,10):[];
+  const amount=Number(extra.bookingTotal);
+  const total=Number.isFinite(amount)&&amount>=0&&amount<=5000?
+    "£"+amount.toFixed(2):"See submitted booking";
+  const jobsConfirmed=Number.isSafeInteger(extra.jobsConfirmed)&&
+    extra.jobsConfirmed>=0 && extra.jobsConfirmed<=50?
+      extra.jobsConfirmed:null;
+  const originalReason=CODE_RE.test(String(extra.matchReason||""))?
+    extra.matchReason:"";
+  const refUrl="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId="+bookingId;
+  const subject=uncertain?
+    "NI Bin Guy — URGENT: SQUEEGEE IMPORT UNCONFIRMED — "+bookingId:
+    "NI Bin Guy — Squeegee booking needs review: "+bookingId;
+  const text=[
+    "NI BIN GUY — SQUEEGEE JOB NEEDS ATTENTION",
+    intro,"",
+    "Booking reference: "+bookingId,
+    "Squeegee status: "+status,
+    "Problem: "+help.category,
+    "Reason code: "+reason,
+    originalReason?"Additional detail: "+originalReason:"",
+    name?"Customer: "+name:"",
+    address?"Service address: "+address:"",
+    email?"Email: "+email:"",
+    phone?"Phone: "+phone:"",
+    ...bins.map(x=>"Requested: "+x),
+    ...dates.map(x=>"Proposed first clean: "+x),
+    "New booking total: "+total,
+    jobsConfirmed!==null?"Jobs confirmed before problem: "+jobsConfirmed:"",
+    ...blocked.map(x=>"Date/round check: "+x),
+    ...duplicateFlags.map(x=>"Duplicate flag: "+FLAG_LABELS[x]),
+    "",
+    "ACTION REQUIRED",
+    help.action,
+    "Check Squeegee's customer and job records before entering or updating anything.",
+    uncertain?
+      "Some Squeegee writes MAY have succeeded. Never automatically retry or recreate the entire booking.":
+      "This booking is held and will not automatically retry.",
+    "Do NOT submit a new website booking or retry an uncertain Squeegee POST.",
+    "Read-only booking status: "+refUrl,
+    "Preview 1 only. Production and Preview 2 are unchanged.",
+  ].filter(Boolean).join("\n");
+  const row=(label,value)=>value?
+    '<tr><td style="font-size:13px;color:#596176;padding:8px 12px 8px 0;vertical-align:top;width:40%">'+emailHtmlEscape(label)+'</td>'+
+    '<td style="font-size:14px;color:#16191e;padding:8px 0;font-weight:600;vertical-align:top;overflow-wrap:anywhere">'+emailHtmlEscape(value)+'</td></tr>':"";
+  const html='<!doctype html><html lang="en"><head><meta charset="utf-8">'+
+    '<meta name="viewport" content="width=device-width,initial-scale=1"></head>'+
+    '<body style="margin:0;background:#0d0e11;font-family:Arial,Helvetica,sans-serif">'+
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0d0e11"><tr><td align="center" style="padding:24px 12px">'+
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#fff;border-collapse:collapse">'+
+    '<tr><td style="background:#090909;color:#fff;text-align:center;padding:26px 20px">'+
+    '<div style="font-size:25px;font-weight:900;letter-spacing:1px">NI BIN GUY</div>'+
+    '<div style="font-size:12px;color:#f5d84f;letter-spacing:1.8px;margin-top:8px">BOOKING SYSTEM ALERT</div></td></tr>'+
+    '<tr><td style="height:7px;background:#f5d84f"></td></tr>'+
+    '<tr><td style="padding:26px 25px 8px">'+
+    '<div style="font-size:12px;color:#926000;font-weight:800;letter-spacing:1px">'+
+      emailHtmlEscape(uncertain?"URGENT — CHECK SQUEEGEE FIRST":"MANUAL ACTION REQUIRED")+'</div>'+
+    '<h1 style="font-size:24px;color:#121212;margin:10px 0 14px">Squeegee Booking Needs Review</h1>'+
+    '<p style="font-size:15px;line-height:1.6;color:#333;margin:0">'+emailHtmlEscape(intro)+'</p></td></tr>'+
+    '<tr><td style="padding:10px 25px 18px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-top:1px solid #e4e6e9;border-bottom:1px solid #e4e6e9">'+
+    row("Booking reference",bookingId)+row("Import status",status)+
+    row("Problem",help.category)+row("Reason code",reason)+
+    row("Additional detail",originalReason)+
+    row("Customer",name)+row("Service address",address)+
+    row("Email",email)+row("Phone",phone)+
+    row("Requested bins",bins.join(" + "))+
+    row("First clean(s)",dates.join(", "))+row("New booking total",total)+
+    (jobsConfirmed!==null?row("Jobs confirmed",String(jobsConfirmed)):"")+
+    row("Date and round checks",blocked.join("; "))+
+    row("Duplicate concerns",duplicateFlags.map(x=>FLAG_LABELS[x]).join("; "))+
+    '</table></td></tr><tr><td style="padding:0 25px 20px">'+
+    '<h2 style="font-size:17px;margin:0 0 12px;color:#111">What to do next</h2>'+
+    '<p style="font-size:14px;color:#242424;line-height:1.6;margin:0 0 12px">'+
+      emailHtmlEscape(help.action)+'</p>'+
+    '<p style="font-size:14px;color:#242424;line-height:1.6;margin:0 0 14px">'+
+      emailHtmlEscape(uncertain?
+        "The customer or some jobs might already exist. Check Squeegee before adding anything.":
+        "The booking was held; check the details and add it manually when safe.")+'</p>'+
+    '<a href="'+emailHtmlEscape(refUrl)+'" style="display:block;background:#111;color:#f5d84f;font-size:14px;text-align:center;font-weight:800;padding:14px;text-decoration:none">VIEW BOOKING STATUS (READ ONLY)</a>'+
+    '<p style="font-size:13px;line-height:1.6;color:#72530c;background:#fff6d8;padding:12px;margin:18px 0 0">'+
+      'Do not submit the website booking again. No automatic Squeegee retry has been scheduled.</p>'+
+    '</td></tr><tr><td style="background:#f2f3f5;padding:18px 25px;font-size:12px;color:#676767">'+
+      'Preview 1 integration notification · Owner only · Production unchanged'+
+    '</td></tr></table></td></tr></table></body></html>';
+  return {subject,text,html};
+}
+
 function emailContent(bookingId,reason,extra={}) {
   if(!BOOKING_RE.test(String(bookingId||"")) ||
      !CODE_RE.test(String(reason||"")))return null;
   if(CUSTOMER_REVIEW_REASONS.has(reason))
     return inactiveSignupEmailContent(bookingId,reason,extra);
-  const matchReason=CODE_RE.test(String(extra?.matchReason||""))?
-    extra.matchReason:"";
-  const duplicateFlags=allowedFlags(extra?.duplicateFlags);
-  const requestedBinCounts=Array.isArray(extra?.requestedBinCounts)?
-    extra.requestedBinCounts.filter(x=>typeof x==="string" &&
-      /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x)).slice(0,12):[];
-  const customerName=cleanOwnerField(extra.customerName,120);
-  const customerAddress=cleanOwnerField(extra.serviceAddress,250);
-  const customerEmail=cleanOwnerField(extra.customerEmail,180);
-  const customerPhone=cleanOwnerField(extra.customerPhone,35);
-  const proposedDates=Array.isArray(extra.firstCleanDates)?
-    [...new Set(extra.firstCleanDates.filter(x=>
-      typeof x==="string" && /^\d{4}-\d{2}-\d{2}$/.test(x)))].slice(0,12):[];
-  const bookingTotal=Number(extra.bookingTotal);
-  const hasBookingTotal=Number.isFinite(bookingTotal) &&
-    bookingTotal>=0 && bookingTotal<=5000;
-  const quantityAdvice={
-    service_quantity_requires_manual_configuration:
-      "This booking requests multiple physical bins of one colour. The Squeegee API cannot set verified per-service quantities. No customer or job was automatically created. Check the original booking email and manually create the correct service quantities, job price, round and dates in Squeegee.",
-    duplicate_bin_types_in_same_booking:
-      "The booking repeats a bin colour on separate lines. Check whether this means multiple physical bins. No customer or job was automatically created. Review and set the correct service quantities manually.",
-    existing_job_for_selected_bin_requires_review:
-      "The customer already has the selected bin service. Confirm whether the request is an ADDITIONAL physical bin or an accidental repeat. If additional, edit the existing Squeegee job's service quantity and price manually. Do not create a duplicate job.",
-  };
-  return {
-    subject:"NI Bin Guy — Squeegee booking needs review: "+bookingId,
-    text:[
-      "A website booking was accepted, but Squeegee import did NOT complete.",
-      "Booking reference: "+bookingId,
-      "Import status: "+(reason==="requires_reconciliation"?
-        "UNCONFIRMED / may be partially created":"HELD — no automatic retry"),
-      "Reason: "+reason,
-      matchReason?"Customer match: "+matchReason:"",
-      customerName?"Customer: "+customerName:"",
-      customerAddress?"Service address: "+customerAddress:"",
-      customerEmail?"Email: "+customerEmail:"",
-      customerPhone?"Phone: "+customerPhone:"",
-      ...requestedBinCounts.map(value=>"Requested: "+value),
-      ...proposedDates.map(date=>"Proposed first clean: "+date),
-      hasBookingTotal?"New booking total: £"+bookingTotal.toFixed(2):"",
-      quantityAdvice[reason]?"Action required: "+quantityAdvice[reason]:"",
-      ...duplicateFlags.map(flag=>"Duplicate flag: "+FLAG_LABELS[flag]),
-      "",
-      "Open the existing website booking email for contact details.",
-      "Inspect Squeegee and verify the correct customer, property and job.",
-      "Do NOT submit a new website booking or retry an uncertain Squeegee POST.",
-      "Preview 1 only. Production and Preview 2 are unchanged.",
-    ].filter(Boolean).join("\n"),
-  };
+  return genericReviewContent(bookingId,reason,extra);
 }
 
 async function notifyOwnerOfSyncHold(bookingId,reason,extra={},{
@@ -348,7 +542,8 @@ async function deliverOwnerEmail(email,{env=process.env,send=null}={}){
   }
 }
 
-module.exports={emailContent,inactiveSignupEmailContent,notifyOwnerOfSyncHold,
+module.exports={emailContent,inactiveSignupEmailContent,genericReviewContent,
+  notifyOwnerOfSyncHold,
   resolveOwnerEmailSettings,
   duplicateSignalsEmailContent,notifyOwnerOfDuplicateSignals,
   quantityBookedEmailContent,notifyOwnerOfQuantityBooking,

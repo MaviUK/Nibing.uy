@@ -11,6 +11,8 @@ const {
   dispatchAcceptedBooking,autoDispatchConfigured,normalOwnerReceipt,
 }=require("./lib/squeegeePreviewAutoDispatch");
 const rollout=require("./lib/squeegeePreviewAutoRollout");
+const {emailContent:buildOwnerReviewEmail}=
+  require("./lib/squeegeeSyncOwnerAlert");
 const { normaliseUkBookingPhone } = require("./lib/ukBookingPhone");
 const { PILOT_NAME } = require("./lib/squeegeePreviewAutoRollout");
 
@@ -334,9 +336,35 @@ exports.handler = async (event) => {
       text:textAdmin,html:htmlAdmin,
       replyTo:email||undefined,attachments,
     };
+    const reviewOwnerMessage=(reason,matchReason="")=>{
+      // Preview 1 bookings always need ONE owner-facing outcome. When the
+      // API handoff is clearly unavailable, do not claim a successful sync.
+      const candidates=Array.isArray(payload.bookingScheduleSnapshot?.results)?
+        payload.bookingScheduleSnapshot.results:[];
+      const review=buildOwnerReviewEmail(submission.bookingId,reason,{
+        customerName:name,serviceAddress:address,
+        customerEmail:email,customerPhone:phone,
+        requestedBinCounts:filteredBins.map(bin=>
+          String(Number(bin.count)||1)+" x "+String(bin.type||"")),
+        firstCleanDates:candidates.map(row=>row?.assignedCleanDate),
+        bookingTotal:pricing?.total,
+        matchReason,
+      });
+      if(!review)return null;
+      return {
+        from:FROM_DEFAULT,to:TO_ADMIN,
+        subject:review.subject,text:review.text,html:review.html,
+        replyTo:email||undefined,
+      };
+    };
+    const previewSyncUnavailable=isPreview1 && !deferAdminForPreview;
     const adminEmailPromise=deferAdminForPreview?
       Promise.resolve({error:null,deferred:true}):
-      resend.emails.send(adminEmailMessage);
+      resend.emails.send(previewSyncUnavailable?
+        reviewOwnerMessage(!autoDispatchConfigured(process.env)?
+          "automatic_sync_not_enabled":
+          "outside_approved_preview_email_pilot")||adminEmailMessage:
+        adminEmailMessage);
 
     const customerEmailPromise = email
       ? resend.emails.send({
@@ -452,12 +480,14 @@ exports.handler = async (event) => {
     // was accepted. The receipt alone does not imply a job was created.
     let squeegeePilot=null;
     let deferredDispatchAccepted=false;
+    let dispatchFailureReason="dispatch_unavailable";
     try {
       const dispatched=await dispatchAcceptedBooking(payload,{
         channel:"email",eventHost:syncHost,
         ownerReceipt:deferAdminForPreview?ownerReceipt:null,
       });
       deferredDispatchAccepted=dispatched.queued===true;
+      dispatchFailureReason=dispatched.reason||"dispatch_unavailable";
       if(isPreview1) {
         squeegeePilot={
           queued:dispatched.queued===true,
@@ -477,20 +507,26 @@ exports.handler = async (event) => {
       console.warn("Preview 1 Squeegee dispatch unavailable");
     }
     if(deferAdminForPreview && !deferredDispatchAccepted) {
-      // Fail open to the EXISTING business booking email if the signed
-      // background worker cannot accept the booking. Never silently discard
-      // an owner notification because a preview integration is unavailable.
-      // If dispatch timing was uncertain, the status/claim remains immutable
-      // and Squeegee is never retried automatically.
+      // No accepted worker means no authoritative Squeegee outcome.
+      // Send ONE urgent/manual-review email with full booking details,
+      // never a normal "import succeeded" owner email. For a timeout the
+      // worker MAY have started; the email explicitly warns to check first.
       try{
-        const fallback=await resend.emails.send(adminEmailMessage);
+        const uncertain=dispatchFailureReason==="dispatch_uncertain_reconcile" ||
+          dispatchFailureReason==="dispatch_not_accepted";
+        const problem=uncertain?dispatchFailureReason:
+          (dispatchFailureReason==="not_enabled"?
+            "automatic_sync_not_enabled":
+            "dispatch_unavailable");
+        const fallbackMessage=reviewOwnerMessage(problem,dispatchFailureReason);
+        const fallback=await resend.emails.send(fallbackMessage||adminEmailMessage);
         if(fallback?.error)
-          console.error("Preview 1 owner email fallback failed",fallback.error);
-        else console.info("Preview 1 owner booking email sent after sync handoff failed",{
+          console.error("Preview 1 owner review email fallback failed",fallback.error);
+        else console.info("Preview 1 owner manual review email sent after Squeegee handoff failed",{
           bookingId:submission.bookingId,
         });
       }catch{
-        console.error("Preview 1 owner email fallback delivery exception");
+        console.error("Preview 1 owner review email fallback delivery exception");
       }
     }
 

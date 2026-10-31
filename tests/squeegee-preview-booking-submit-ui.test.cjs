@@ -142,3 +142,22 @@ test("only accepted Preview 1 bookings defer the normal owner booking email",()=
   // No website change can ever send an additional owner email itself.
   assert.ok(!booking.includes("squeegee-preview-auto-sync"));
 });
+
+
+test("a failed Squeegee handoff gives the owner one REVIEW email, not a normal successful receipt",()=>{
+  const handler=fs.readFileSync(path.join(ROOT,
+    "netlify/functions/sendBookingEmail.js"),"utf8");
+  const egress=fs.readFileSync(path.join(ROOT,
+    "netlify/functions/squeegeePreviewAutoSync.mjs"),"utf8");
+  assert.match(handler,/emailContent:buildOwnerReviewEmail/);
+  assert.match(handler,/const reviewOwnerMessage=/);
+  assert.match(handler,/const previewSyncUnavailable=isPreview1 && !deferAdminForPreview/);
+  assert.match(handler,/resend\.emails\.send\(previewSyncUnavailable\?/);
+  assert.match(handler,/const uncertain=dispatchFailureReason===/);
+  assert.match(handler,/resend\.emails\.send\(fallbackMessage\|\|adminEmailMessage\)/);
+  assert.match(egress,/const rescueOwnerNotice=async/);
+  assert.match(egress,/await rescueOwnerNotice\(result\?\.reason\|\|/);
+  assert.match(egress,/await auto\.saveAutoStatus\(bookingId,stage/);
+  assert.match(egress,/ownerNoticeAttempted/);
+  assert.match(egress,/if\(result\?\.status==="completed"\)/);
+});

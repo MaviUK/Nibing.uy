@@ -133,6 +133,35 @@ export default async function handler(request,context) {
     ownerNoticeAttempted=true;
     return ownerAlerts.notifyOwnerOfSyncHold(id,reason,details,alertOptions);
   };
+  // If the worker returns before its normal held() path, the signed
+  // booking STILL needs an owner-facing manual action email. Preserve a
+  // PII-free status for the authenticated diagnostics and never retry writes.
+  const rescueOwnerNotice=async(reason,{stage="requires_reconciliation"}={})=>{
+    if(!ownerReceipt||ownerNoticeAttempted)return;
+    const verifiedReason=/^[a-z][a-z0-9_]{0,100}$/.test(String(reason||""))?
+      String(reason):"worker_returned_without_owner_notice";
+    const uncertain=stage==="requires_reconciliation";
+    const emailReason=uncertain?"requires_reconciliation":verifiedReason;
+    let delivery={sent:false,reason:"owner_alert_not_attempted"};
+    try{
+      delivery=await alert(bookingId,emailReason,{
+        ...basicOwnerDetails,
+        matchReason:verifiedReason,
+        firstCleanDates:Array.isArray(booking.bookingScheduleSnapshot?.results)?
+          booking.bookingScheduleSnapshot.results.map(row=>
+            row?.assignedCleanDate):[],
+      });
+    }catch{delivery={sent:false,reason:"owner_alert_exception"};}
+    try{
+      await auto.saveAutoStatus(bookingId,stage,{
+        reason:verifiedReason,
+        ownerAlertDelivery:delivery?.sent===true?"sent":"not_sent",
+        ...(typeof delivery?.reason==="string" &&
+          /^[a-z_]{1,80}$/.test(delivery.reason)?
+            {ownerAlertReason:delivery.reason}:{}),
+      },{store:statusStore});
+    }catch{}
+  };
   const task=auto.executeAutomaticPreviewBooking(booking,{
     channel:data.channel,runtimeScope:scope,
     deps:{
@@ -147,22 +176,30 @@ export default async function handler(request,context) {
         ownerAlerts.notifyOwnerOfQuantityBooking(id,details,alertOptions),
     },
   }).then(async result=>{
-    if(ownerReceipt && !ownerNoticeAttempted &&
-       result?.status!=="completed") {
-      // Exceptional early rejection can otherwise bypass the worker's
-      // standard held() function. Send one manual reconciliation email.
-      await alert(bookingId,"requires_reconciliation",{
-        ...basicOwnerDetails,matchReason:result?.reason||
-          "worker_returned_without_owner_notice",
-      }).catch(()=>{});
+    if(!ownerReceipt||ownerNoticeAttempted)return;
+    if(result?.status==="completed"){
+      // Extremely defensive fallback for a completed worker result that
+      // unexpectedly skipped its ordinary owner email.
+      if(completedAlert)await completedAlert(bookingId);
+      return;
     }
+    const stage=["held","not_started"].includes(result?.status)?
+      "held_for_review":"requires_reconciliation";
+    await rescueOwnerNotice(result?.reason||"worker_returned_without_owner_notice",
+      {stage});
   }).catch(async()=>{
-    try{await auto.saveAutoStatus(bookingId,"requires_reconciliation",
-      {reason:"worker_failed_unsafely_no_retry"},{store:statusStore});}catch{}
-    if(ownerReceipt && !ownerNoticeAttempted) {
-      await alert(bookingId,"requires_reconciliation",{
-        ...basicOwnerDetails,matchReason:"worker_failed_unsafely_no_retry",
-      }).catch(()=>{});
+    await rescueOwnerNotice("worker_failed_unsafely_no_retry",
+      {stage:"requires_reconciliation"});
+    // An alert that was already attempted must never be duplicated.
+    if(ownerNoticeAttempted){
+      try{
+        const existing=await statusStore.get(bookingId,{type:"json"});
+        if(existing?.stage==="accepted_for_validation"){
+          await auto.saveAutoStatus(bookingId,"requires_reconciliation",{
+            reason:"worker_failed_unsafely_no_retry",
+          },{store:statusStore});
+        }
+      }catch{}
     }
   });
   try{context.waitUntil(task);}

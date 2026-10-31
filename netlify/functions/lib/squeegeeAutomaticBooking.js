@@ -244,9 +244,26 @@ async function executeAutomaticPreviewBooking(payload,{
   };
   const uncertain=async(reason,extra={})=>{
     extra={...extra,duplicateFlags};
+    // Never assert that no job exists after an unknown API write result.
+    // Status and notification must be independent: if status persistence
+    // fails we STILL attempt to send the owner the full booking details.
     try{await mark("requires_reconciliation",{reason,...extra});}catch{}
-    try{await use.alert(bookingId,"requires_reconciliation",{
-      ...ownerSubmissionInfo(),matchReason:reason,duplicateFlags,
+    let ownerAlertDelivery="not_sent",ownerAlertReason=null;
+    try{
+      const delivery=await use.alert(bookingId,"requires_reconciliation",{
+        ...ownerSubmissionInfo(),...extra,matchReason:reason,
+      });
+      ownerAlertDelivery=delivery?.sent===true?"sent":"not_sent";
+      if(ownerAlertDelivery==="not_sent" &&
+         /^[a-z_]{1,80}$/.test(String(delivery?.reason||"")))
+        ownerAlertReason=delivery.reason;
+    }catch{
+      ownerAlertDelivery="failed";
+      ownerAlertReason="owner_alert_exception";
+    }
+    try{await mark("requires_reconciliation",{
+      reason,...extra,ownerAlertDelivery,
+      ...(ownerAlertReason?{ownerAlertReason}:{}),
     });}catch{}
     return outcome("requires_reconciliation",reason);
   };

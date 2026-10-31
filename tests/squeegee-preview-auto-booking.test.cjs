@@ -1904,3 +1904,76 @@ test("owner receipt is HMAC-protected, bounded and never supplies recipient/from
   assert.equal(rejected.queued,false);
   assert.equal(rejected.reason,"owner_receipt_invalid");
 });
+
+
+test("unavailable services hold booking and send one detailed manual-review owner alert",async()=>{
+  const b=sampleBooking();
+  const notices=[];
+  const h=makeHarness(b,{
+    deps:{
+      getServices:async()=>{throw Error("temporary Squeegee outage");},
+      completedAlert:async()=>{notices.push("normal");return{sent:true};},
+      alert:async(id,reason,details)=>{
+        notices.push({id,reason,details});return{sent:true};
+      },
+    },
+  });
+  const out=await h.run();
+  assert.equal(out.status,"held");
+  assert.equal(out.reason,"schedule_services_or_groups_unavailable");
+  assert.equal(notices.length,1);
+  assert.equal(notices[0].reason,out.reason);
+  assert.equal(notices[0].details.customerName,b.name);
+  assert.equal(notices[0].details.customerEmail,b.email);
+  assert.deepEqual(notices[0].details.requestedBinCounts,["1 x Brown Bin"]);
+  assert.equal(notices[0].details.bookingTotal,5);
+  assert.equal(h.posts.length,0);
+  assert.equal(h.statuses.at(-1).ownerAlertDelivery,"sent");
+});
+
+test("partial Squeegee write immediately sends urgent owner notice with actual partial indicators",async()=>{
+  const b=sampleBooking();
+  const notices=[];
+  const h=makeHarness(b,{
+    jobErrorAt:1,
+    deps:{
+      completedAlert:async()=>{notices.push("normal");return{sent:true};},
+      alert:async(id,reason,details)=>{
+        notices.push({id,reason,details});return{sent:true};
+      },
+    },
+  });
+  const out=await h.run();
+  assert.equal(out.status,"requires_reconciliation");
+  assert.equal(out.reason,"partial_or_ambiguous_squeegee_write");
+  assert.equal(notices.length,1);
+  assert.equal(notices[0].reason,"requires_reconciliation");
+  assert.equal(notices[0].details.matchReason,"partial_or_ambiguous_squeegee_write");
+  assert.equal(notices[0].details.customerName,b.name);
+  assert.equal(notices[0].details.serviceAddress,b.address);
+  assert.equal(notices[0].details.jobPostMayHaveSucceeded,true);
+  assert.equal(notices[0].details.customerPostMayHaveSucceeded,true);
+  assert.equal(notices[0].details.jobsConfirmed,0);
+  assert.equal(h.posts.filter(p=>p.kind==="job").length,1);
+  assert.equal(h.statuses.at(-1).stage,"requires_reconciliation");
+  assert.equal(h.statuses.at(-1).ownerAlertDelivery,"sent");
+  assert.equal(h.statuses.at(-1).reason,"partial_or_ambiguous_squeegee_write");
+  assert.equal(h.ledger.records.get(BOOKING_CLAIM_PREFIX+b.bookingId)?.value.state,
+    "requires_reconciliation");
+});
+
+test("failed owner notification after a partial API write is visible in protected status, never automatically retried",async()=>{
+  const b=sampleBooking();
+  let alertCalls=0;
+  const h=makeHarness(b,{jobErrorAt:1,deps:{
+    alert:async()=>{alertCalls++;return{
+      sent:false,reason:"owner_alert_provider_error",
+    };},
+  }});
+  const out=await h.run();
+  assert.equal(out.status,"requires_reconciliation");
+  assert.equal(alertCalls,1);
+  assert.equal(h.statuses.at(-1).ownerAlertDelivery,"not_sent");
+  assert.equal(h.statuses.at(-1).ownerAlertReason,"owner_alert_provider_error");
+  assert.equal(h.posts.filter(p=>p.kind==="job").length,1);
+});

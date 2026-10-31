@@ -170,11 +170,15 @@ test("deactivated and archived customer alerts are distinct from generic holds, 
   assert.equal(emailContent("wrong","existing_customer_reactivation_required"),null);
 });
 
-test("ordinary sync holds stay plain-text and never inherit special customer details",()=>{
+test("generic sync holds use the same branded action-required design as inactive alerts",()=>{
   const content=emailContent("NBG-ABCDE-ABCDEFGH",
     "date_price_service_or_round_not_verified",{});
   assert.match(content.subject,/Squeegee booking needs review/);
-  assert.equal(content.html,undefined);
+  assert.match(content.html,/<table role="presentation"/);
+  assert.match(content.html,/NI BIN GUY/);
+  assert.match(content.html,/Squeegee Booking Needs Review/);
+  assert.match(content.html,/VIEW BOOKING STATUS \(READ ONLY\)/);
+  assert.match(content.text,/no new job was intentionally posted/i);
 });
 
 test("operational notices resolve the same default owner mailbox as normal booking emails",async()=>{
@@ -318,4 +322,94 @@ test("other held reasons include full customer details in ONE review email when 
   assert.match(r.text,/Phone: 07700900123/);
   assert.match(r.text,/Proposed first clean: 2026-11-16/);
   assert.match(r.text,/New booking total: £5.00/);
+});
+
+
+test("all non-import outcomes send clear, safe, customer-specific branded owner notices",()=>{
+  const id="NBG-ABCDE-ABCDEFGH";
+  const reasons=[
+    ["schedule_services_or_groups_unavailable","Council dates or Squeegee services unavailable"],
+    ["date_price_service_or_round_not_verified","Cleaning date, round or price could not be verified"],
+    ["booking_validation_failed","Booking details could not be validated"],
+    ["grouped_job_price_or_service_mismatch","Bin grouping or total price mismatch"],
+    ["conflicting_same_colour_schedules","Conflicting dates for the same bin colour"],
+    ["automatic_sync_not_enabled","Automatic Squeegee syncing is unavailable"],
+    ["outside_approved_preview_email_pilot","outside the current automatic Squeegee rollout"],
+    ["dispatch_unavailable","Squeegee automatic handoff was unavailable"],
+    ["existing_customer_details_unavailable","Existing Squeegee customer could not be verified"],
+    ["booking_already_claimed_or_uncertain","Booking may already have been processed"],
+    ["existing_customer_identity_unverified","Customer identity could not be confirmed"],
+    ["property_bin_already_claimed_or_uncertain","A bin at this property may already be registered"],
+  ];
+  for(const [reason,label] of reasons){
+    const out=emailContent(id,reason,{
+      customerName:"Test Returning Customer",
+      serviceAddress:"78 Groomsport Road, Bangor BT20 5NF",
+      customerEmail:"returning@example.org",
+      customerPhone:"07700900123",
+      requestedBinCounts:["1 x Brown Bin","2 x Black Bin","<script>"],
+      firstCleanDates:["2026-11-16","2026-11-16"],
+      bookingTotal:15,
+    });
+    assert.match(out.subject,/Squeegee booking needs review/);
+    assert.ok(out.text.includes(label),reason+" missing label");
+    assert.match(out.text,/Booking reference: NBG-ABCDE-ABCDEFGH/);
+    assert.match(out.text,/Customer: Test Returning Customer/);
+    assert.match(out.text,/Service address: 78 Groomsport Road/);
+    assert.match(out.text,/Email: returning@example.org/);
+    assert.match(out.text,/Phone: 07700900123/);
+    assert.match(out.text,/Requested: 2 x Black Bin/);
+    assert.match(out.text,/Proposed first clean: 2026-11-16/);
+    assert.equal((out.text.match(/Proposed first clean:/g)||[]).length,1);
+    assert.match(out.text,/New booking total: £15\.00/);
+    assert.match(out.text,/Do NOT submit a new website booking/);
+    assert.match(out.html,/VIEW BOOKING STATUS/);
+    assert.match(out.html,/background:#090909/);
+    assert.match(out.html,/New booking total/);
+    assert.ok(!out.html.includes("<script>"));
+  }
+});
+
+test("Squeegee partial/uncertain import uses an URGENT message that never says nothing was created",()=>{
+  const id="NBG-ABCDE-ABCDEFGH";
+  for(const reason of [
+    "requires_reconciliation","partial_or_ambiguous_squeegee_write",
+    "unexpected_auto_sync_failure","dispatch_uncertain_reconcile",
+    "dispatch_not_accepted","worker_failed_unsafely_no_retry",
+  ]){
+    const out=emailContent(id,reason,{
+      customerName:"<script>alert(1)</script>",
+      serviceAddress:"78 <Other> Road, Bangor BT20 5NF",
+      customerEmail:"customer@example.org",
+      customerPhone:"07700900123",
+      requestedBinCounts:["1 x Brown Bin"],
+      firstCleanDates:["2026-11-16"],
+      bookingTotal:5,
+      jobsConfirmed:1,
+      customerPostMayHaveSucceeded:true,
+      jobPostMayHaveSucceeded:true,
+      duplicateFlags:["address_already_registered"],
+      blockedReasons:["date_not_verified","<script>"],
+    });
+    assert.match(out.subject,/URGENT: SQUEEGEE IMPORT UNCONFIRMED/);
+    assert.match(out.text,/may already exist/);
+    assert.match(out.text,/Jobs confirmed before problem: 1/);
+    assert.match(out.text,/Duplicate flag:/);
+    assert.match(out.text,/Date\/round check: date_not_verified/);
+    assert.match(out.text,/Never automatically retry or recreate the entire booking/);
+    assert.doesNotMatch(out.text,/No Squeegee customer or job was created/);
+    assert.match(out.html,/URGENT/);
+    assert.match(out.html,/&lt;script&gt;/);
+    assert.match(out.html,/&lt;Other&gt;/);
+    assert.doesNotMatch(out.html,/<script>/);
+    assert.doesNotMatch(out.html,/Date\/round check: <script>/);
+  }
+});
+test("unknown safe import reason also receives a branded manual review email",()=>{
+  const out=emailContent("NBG-ABCDE-ABCDEFGH","unknown_safe_reason",{
+    customerName:"Example",
+  });
+  assert.match(out.text,/Squeegee job not automatically confirmed/);
+  assert.match(out.html,/Example/);
+  assert.equal(emailContent("NBG-ABCDE-ABCDEFGH","malicious\nheader"),null);
 });
