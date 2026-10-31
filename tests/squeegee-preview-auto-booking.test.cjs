@@ -2382,3 +2382,65 @@ test("actual write grant accepts short NBG booking refs after an atomic claim",a
     },async()=>"wrong",runtime,env),/unavailable/);
   }
 });
+
+
+test("REAL Squeegee write authorization allows a new short-reference test booking to create customer and job",async()=>{
+  const api=require("../netlify/functions/lib/squeegeeApiV3");
+  const originalKey=process.env.SQUEEGEE_API_KEY;
+  const originalFlag=process.env.SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED;
+  const originalFetch=global.fetch;
+  const fakeKey="fake-not-a-real-key-autowrite-integration-test";
+  const seen=[];
+  process.env.SQUEEGEE_API_KEY=fakeKey;
+  process.env.SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED="true";
+  global.fetch=async(url,options)=>{
+    const full=String(url),method=options?.method;
+    seen.push({full,method});
+    assert.equal(options?.headers?.Authorization,"Bearer "+fakeKey);
+    assert.ok(full.startsWith("https://api02.sqgee.com/api/v3/public/customers"));
+    assert.equal(method,"POST");
+    const data=full.endsWith("/customers")?
+      customerId:{_id:"99999999-9999-4999-8999-999999999999"};
+    if(!full.endsWith("/customers")){
+      assert.equal(full,
+        "https://api02.sqgee.com/api/v3/public/customers/"+customerId+"/jobs");
+      const body=JSON.parse(options.body);
+      assert.deepEqual(body.services,[brownService]);
+      assert.equal(body.frequencyType,"weeks");
+      assert.equal(body.frequencyInterval,4);
+      assert.equal(body.price,5);
+    }
+    return {ok:true,status:200,json:async()=>({success:true,data})};
+  };
+  try{
+    const b=sampleBooking({bookingId:"NBG-P7KVB3NA"});
+    const h=makeHarness(b,{
+      deps:{
+        // Crucially: DO NOT replace the real write-grant or API-write
+        // methods with test no-op functions. These were previously bypassed.
+        withWrite:api.withApprovedPreviewAutomaticWrite,
+        createCustomer:api.createCustomer,
+        addJob:api.addJobToCustomer,
+      },
+    });
+    const result=await h.run();
+    assert.equal(result.status,"completed",JSON.stringify(result));
+    assert.equal(result.createdCustomer,true);
+    assert.equal(result.createdJobs,1);
+    assert.equal(seen.length,2);
+    assert.equal(seen[0].method,"POST");
+    assert.ok(seen[0].full.endsWith("/customers"));
+    assert.ok(seen[1].full.endsWith("/jobs"));
+    assert.equal(h.statuses.at(-1).stage,"created_customer_and_jobs");
+    // The unchanged original booking can never create another job.
+    const duplicate=await h.run();
+    assert.equal(duplicate.status,"held");
+    assert.equal(seen.length,2);
+  }finally{
+    global.fetch=originalFetch;
+    if(originalKey===undefined)delete process.env.SQUEEGEE_API_KEY;
+    else process.env.SQUEEGEE_API_KEY=originalKey;
+    if(originalFlag===undefined)delete process.env.SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED;
+    else process.env.SQUEEGEE_PREVIEW_AUTO_SYNC_ENABLED=originalFlag;
+  }
+});
