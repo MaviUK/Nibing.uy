@@ -362,6 +362,16 @@ function genericReviewContent(bookingId,reason,extra={}){
       extra.jobsConfirmed:null;
   const originalReason=CODE_RE.test(String(extra.matchReason||""))?
     extra.matchReason:"";
+  const failureStage=CODE_RE.test(String(extra.failureStage||""))?
+    extra.failureStage:"";
+  const failureClass=["squeegee_api","internal_error"].includes(extra.failureClass)?
+    extra.failureClass:"";
+  const httpStatus=Number.isInteger(extra.squeegeeHttpStatus) &&
+    extra.squeegeeHttpStatus>=0 && extra.squeegeeHttpStatus<=599?
+    String(extra.squeegeeHttpStatus):"";
+  const errorCode=Number.isSafeInteger(extra.squeegeeErrorCode) &&
+    extra.squeegeeErrorCode>=0 && extra.squeegeeErrorCode<=999999?
+    String(extra.squeegeeErrorCode):"";
   const refUrl="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId="+bookingId;
   const subject=uncertain?
     "NI Bin Guy — URGENT: SQUEEGEE IMPORT UNCONFIRMED — "+bookingId:
@@ -374,6 +384,10 @@ function genericReviewContent(bookingId,reason,extra={}){
     "Problem: "+help.category,
     "Reason code: "+reason,
     originalReason?"Additional detail: "+originalReason:"",
+    failureStage?"Failure stage: "+failureStage:"",
+    failureClass?"Failure class: "+failureClass:"",
+    httpStatus?"Squeegee HTTP status: "+httpStatus:"",
+    errorCode?"Squeegee API code: "+errorCode:"",
     name?"Customer: "+name:"",
     address?"Service address: "+address:"",
     email?"Email: "+email:"",
@@ -417,6 +431,8 @@ function genericReviewContent(bookingId,reason,extra={}){
     row("Booking reference",bookingId)+row("Import status",status)+
     row("Problem",help.category)+row("Reason code",reason)+
     row("Additional detail",originalReason)+
+    row("Failure stage",failureStage)+row("Failure class",failureClass)+
+    row("Squeegee HTTP status",httpStatus)+row("Squeegee API code",errorCode)+
     row("Customer",name)+row("Service address",address)+
     row("Email",email)+row("Phone",phone)+
     row("Requested bins",bins.join(" + "))+

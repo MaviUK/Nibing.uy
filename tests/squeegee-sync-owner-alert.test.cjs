@@ -572,3 +572,21 @@ test("missing Squeegee mapping email identifies the actual bin size and plan, no
   assert.doesNotMatch(msg.text,/Cleaning date, round or price could not be verified/);
   assert.match(msg.html,/Unmatched Squeegee services/);
 });
+
+
+test("urgent owner email safely identifies failed API stage and status when available",()=>{
+  const result=emailContent("NBG-ABCDE-ABCDEFGH","requires_reconciliation",{
+    matchReason:"partial_or_ambiguous_squeegee_write",
+    failureStage:"creating_customer",
+    failureClass:"squeegee_api",
+    squeegeeHttpStatus:422,
+    squeegeeErrorCode:1083,
+    jobsConfirmed:0,
+  });
+  assert.match(result.text,/Failure stage: creating_customer/);
+  assert.match(result.text,/Failure class: squeegee_api/);
+  assert.match(result.text,/Squeegee HTTP status: 422/);
+  assert.match(result.text,/Squeegee API code: 1083/);
+  assert.match(result.html,/Failure stage/);
+  assert.doesNotMatch(result.text,/Squeegee timed out/);
+});

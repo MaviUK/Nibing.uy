@@ -144,6 +144,14 @@ export default async function handler(request,context) {
         simple("ownerAlertDelivery")+simple("ownerAlertReason")+
         (quantityHelp?'<p><strong>Manual action: '+safe(quantityHelp)+'</strong></p>':'')+
         simple("createdCustomer")+simple("createdJobs")+simple("jobsConfirmed")+
+        simple("jobCount")+simple("binServicesPlanned")+
+        simple("failureStage")+simple("failureClass")+
+        simple("squeegeeHttpStatus")+simple("squeegeeErrorCode")+
+        simple("customerPostMayHaveSucceeded")+
+        simple("jobPostMayHaveSucceeded")+
+        (status.stage==="requires_reconciliation" &&
+          status.failureStage===undefined?
+          '<p><small>Historical diagnostic: the old jobPostMayHaveSucceeded flag could also be set during customer creation. It does NOT prove a job POST was made.</small></p>':"")+
         simple("physicalBins")+previewRows("physicalBinsPerJob")+
         simple("quantityVerificationRecommended")+previewRows("additionalExistingBins")+
         previewRows("firstCleanDates")+previewRows("dates")+previewRows("rounds")+

@@ -541,8 +541,13 @@ async function executeAutomaticPreviewBooking(payload,{
       propertyEtag=running.etag;
     }
 
-    let postAttempted=false,completed=0,creatingCustomer=false;
+    // These flags describe independent API operations. Previously a
+    // customer POST incorrectly set the "job may have posted" flag too.
+    let jobPostAttempted=false,completed=0,creatingCustomer=false;
     let customerCreated=false,customerClaimSettled=!propertyClaim;
+    // Stable PII-free diagnostics: never retain upstream response bodies,
+    // customer details, tokens or arbitrary exception messages.
+    let failureStage="write_authorisation";
     try {
       await use.withWrite({...bookingClaim,etag:bookingRunning.etag},
         async()=>{
@@ -551,7 +556,7 @@ async function executeAutomaticPreviewBooking(payload,{
           await mark("creating_customer",{jobCount:groupedJobs.length,
             binServices:bins.length});
           creatingCustomer=true;
-          postAttempted=true;
+          failureStage="creating_customer";
           const response=await use.createCustomer({
             ...plan.customerInput,
             notes:anotherProperty
@@ -559,9 +564,11 @@ async function executeAutomaticPreviewBooking(payload,{
               : "NI Bin Guy website booking (Preview 1) - verify before operational launch.",
           });
           customerCreated=true;
+          failureStage="validating_customer_result";
           const rawId=typeof response==="string"?response:
             response?._id||response?.id||response?.customerId;
           customerId=api.requireUuid(rawId,"created customer id");
+          failureStage="committing_customer_claim";
           const customerDone=await use.changeState({
             key:propertyClaim.key,etag:propertyEtag,bookingId,state:"succeeded",
           });
@@ -569,6 +576,7 @@ async function executeAutomaticPreviewBooking(payload,{
           propertyEtag=customerDone.etag;customerClaimSettled=true;
           creatingCustomer=false;
         }
+        failureStage="preparing_job_claims";
         // Each unique booking-colour reservation is transitioned before
         // any job POST. Multiple lines of the same colour and schedule may
         // share one reservation but still contribute their full price/count.
@@ -598,7 +606,8 @@ async function executeAutomaticPreviewBooking(payload,{
             jobNumber:index+1,jobCount:groupedJobs.length,
             binsOnJob:group.physicalBinCount,
           });
-          postAttempted=true;
+          failureStage="creating_job";
+          jobPostAttempted=true;
           // One Squeegee customer can own jobs at multiple service addresses.
           // Explicit jobAddress prevents a new property's bins being routed
           // to the customer's original billing/service address.
@@ -617,6 +626,7 @@ async function executeAutomaticPreviewBooking(payload,{
             }:{}),
           });
           completed++;
+          failureStage="committing_job_claims";
           for(const entry of entries){
             const done=await use.changeState({
               key:entry.claim.key,etag:entry.etag,bookingId,state:"succeeded",
@@ -632,11 +642,13 @@ async function executeAutomaticPreviewBooking(payload,{
           }
         }
       },runtimeScope,env);
+      failureStage="committing_booking_claim";
       const done=await use.changeState({
         key:bookingClaim.key,etag:bookingRunning.etag,bookingId,state:"succeeded",
       });
       if(!done.changed)throw new Error("booking_claim_commit_uncertain");
       if(pilotClaim) {
+        failureStage="committing_pilot_claim";
         const pilotDone=await use.changeState({
           key:pilotClaim.key,etag:pilotClaim.etag,bookingId,state:"succeeded",
         });
@@ -744,7 +756,16 @@ async function executeAutomaticPreviewBooking(payload,{
         binServices:plan.jobs.length,
         physicalBins:bins.reduce((n,bin)=>n+Number(bin.count),0),
         duplicateFlags});
-    }catch{
+    }catch(error){
+      // Strip all arbitrary upstream messages/bodies (may contain PII).
+      // Only permit a fixed stage label, numeric HTTP status and numeric
+      // Squeegee error code into the owner-only status / email.
+      const isApiError=error instanceof api.SqueegeeApiError ||
+        error?.name==="SqueegeeApiError";
+      const httpStatus=isApiError&&Number.isInteger(error?.status)&&
+        error.status>=0&&error.status<=599?error.status:null;
+      const apiCode=isApiError&&Number.isSafeInteger(error?.code)&&
+        error.code>=0&&error.code<=999999?error.code:null;
       // A pilot is one-use even on partial or uncertain external success.
       if(pilotClaim) {
         try {
@@ -782,9 +803,13 @@ async function executeAutomaticPreviewBooking(payload,{
       });}catch{}
       return await uncertain("partial_or_ambiguous_squeegee_write",{
         customerPostMayHaveSucceeded:creatingCustomer||customerCreated,
-        jobPostMayHaveSucceeded:postAttempted,
+        jobPostMayHaveSucceeded:jobPostAttempted,
         jobsConfirmed:completed,jobCount:groupedJobs.length,
         binServicesPlanned:bins.length,
+        failureStage,
+        failureClass:isApiError?"squeegee_api":"internal_error",
+        ...(httpStatus!==null?{squeegeeHttpStatus:httpStatus}:{}),
+        ...(apiCode!==null?{squeegeeErrorCode:apiCode}:{}),
       });
     }
   }catch{

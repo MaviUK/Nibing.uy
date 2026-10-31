@@ -2311,3 +2311,52 @@ test("same exact bin colour and capacity with conflicting recurrence still holds
   assert.equal(h.posts.length,0);
   assert.equal(h.ledger.records.size,0);
 });
+
+
+test("customer POST failure identifies customer stage without falsely claiming any job POST",async()=>{
+  const b=sampleBooking(),h=makeHarness(b,{customerError:true});
+  const result=await h.run();
+  assert.equal(result.status,"requires_reconciliation");
+  const report=h.statuses.at(-1);
+  assert.equal(report.failureStage,"creating_customer");
+  assert.equal(report.failureClass,"internal_error");
+  assert.equal(report.customerPostMayHaveSucceeded,true);
+  assert.equal(report.jobPostMayHaveSucceeded,false);
+  assert.equal(report.jobsConfirmed,0);
+  assert.equal(h.posts.filter(x=>x.kind==="job").length,0);
+  assert.equal((await h.run()).status,"held");
+});
+
+test("first job POST failure records job stage but never retries the same booking",async()=>{
+  const b=sampleBooking(),h=makeHarness(b,{jobErrorAt:1});
+  const result=await h.run();
+  assert.equal(result.status,"requires_reconciliation");
+  const report=h.statuses.at(-1);
+  assert.equal(report.failureStage,"creating_job");
+  assert.equal(report.customerPostMayHaveSucceeded,true);
+  assert.equal(report.jobPostMayHaveSucceeded,true);
+  assert.equal(report.jobsConfirmed,0);
+  assert.equal((await h.run()).status,"held");
+  assert.equal(h.posts.filter(x=>x.kind==="job").length,1);
+});
+
+test("Squeegee HTTP failures are classified without leaking response contents or PII",async()=>{
+  const b=sampleBooking(),h=makeHarness(b,{
+    deps:{
+      createCustomer:async()=>{
+        const {SqueegeeApiError}=require("../netlify/functions/lib/squeegeeApiV3");
+        throw new SqueegeeApiError("Customer secret injected for test",422,1083);
+      },
+    },
+  });
+  const result=await h.run();
+  assert.equal(result.status,"requires_reconciliation");
+  const report=h.statuses.at(-1);
+  assert.equal(report.failureStage,"creating_customer");
+  assert.equal(report.failureClass,"squeegee_api");
+  assert.equal(report.squeegeeHttpStatus,422);
+  assert.equal(report.squeegeeErrorCode,1083);
+  assert.equal(report.jobPostMayHaveSucceeded,false);
+  assert.ok(!JSON.stringify(h.statuses).includes("Customer secret injected"));
+  assert.ok(!JSON.stringify(h.statuses).includes(b.email));
+});
