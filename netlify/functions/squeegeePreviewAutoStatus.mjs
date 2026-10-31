@@ -108,6 +108,12 @@ export default async function handler(request,context) {
         dateHolds.slice(0,12).map(row=>
           '<li>'+safe(row?.bin||"Bin")+': '+safe(row?.reason||"unverified")+'</li>'
         ).join("")+'</ul>':"";
+      const matchHelp=status.reason==="customer_match_ambiguous_or_incomplete"?
+        '<p><strong>Customer match requires manual review.</strong> '+
+        'Squeegee has overlapping or incomplete identity details. This does '+
+        'not establish whether the customer is inactive. Check the full name, '+
+        'postcode and address against the original booking email. '+
+        'No new customer or job was created.</p>':"";
       const flags=alerts.duplicateFlagLabels(status.duplicateFlags);
       const duplicateDetail=flags.length?
         '<div class="notice"><strong>Duplicate information detected</strong>'+
@@ -121,7 +127,8 @@ export default async function handler(request,context) {
         status.reason==="duplicate_bin_types_in_same_booking"?
         "Repeated bin colour lines need manual quantity clarification; no new job was created.":"";
       content+='<div class="notice"><strong>Stage: '+safe(status.stage)+'</strong>'+
-        simple("reason")+dateDiagnosis+heldDetail+
+        simple("reason")+simple("matchReason")+matchHelp+
+        dateDiagnosis+heldDetail+
         simple("channel")+simple("customerMode")+
         simple("manualAction")+previewRows("requestedBinCounts")+
         simple("ownerAlertDelivery")+simple("ownerAlertReason")+

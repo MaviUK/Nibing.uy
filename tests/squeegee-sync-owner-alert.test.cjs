@@ -6,14 +6,16 @@ const path=require("node:path");
 const {emailContent,notifyOwnerOfSyncHold}=
   require("../netlify/functions/lib/squeegeeSyncOwnerAlert");
 
-test("held Squeegee import produces a concise action-needed owner alert with no customer PII",async()=>{
+test("ambiguous Squeegee match produces an owner-only manual review alert",async()=>{
   const bookingId="NBG-MVVCDC3D-83AB713D58";
   const a=emailContent(bookingId,"customer_match_ambiguous_or_incomplete",{
     matchReason:"possible_existing_address",
   });
-  assert.match(a.subject,/Squeegee booking needs review/);
+  assert.match(a.subject,/CUSTOMER SIGN-UP NEEDS REVIEW/);
+  assert.match(a.text,/not confirm.*inactive/i);
+  assert.match(a.html,/Customer Sign-Up Needs Review/);
   assert.match(a.text,/possible_existing_address/);
-  assert.match(a.text,/Do NOT submit a new website booking/);
+  assert.match(a.text,/Do not ask them to submit another booking/i);
   assert.ok(!a.text.includes("78 Groomsport"));
   assert.ok(!a.text.includes("gav@"));
   let sent=null,invocations=0;
@@ -28,6 +30,7 @@ test("held Squeegee import produces a concise action-needed owner alert with no 
   assert.equal(invocations,1);
   assert.deepEqual(sent.to,["info@nibing.uy"]);
   assert.equal(sent.text,a.text);
+  assert.equal(sent.html,a.html);
 });
 
 test("only safe booking refs and finite hold reasons may appear in notices",async()=>{
@@ -206,4 +209,61 @@ test("operational notices resolve the same default owner mailbox as normal booki
     "../netlify/functions/lib/squeegeeSyncOwnerAlert.js"),"utf8");
   assert.doesNotMatch(src,/!env\.BOOKINGS_TO/);
   assert.match(src,/!env\.RESEND_API_KEY/);
+});
+
+test("ambiguous returning customer gets detailed branded email without falsely claiming inactive",async()=>{
+  const id="NBG-ABCDE-ABCDEFGH";
+  const details={
+    matchReason:"possible_existing_address",
+    customerName:"Example Customer",
+    serviceAddress:"78 Groomsport Road, Bangor BT20 5NF",
+    customerEmail:"example@example.org",
+    customerPhone:"07700900123",
+    squeegeeAccountStatus:"inactive", // not yet verified by Squeegee GET
+    requestedBinCounts:["1 x Brown Bin"],
+    firstCleanDates:["2026-11-16"],
+    bookingTotal:5,
+  };
+  const draft=emailContent(id,"customer_match_ambiguous_or_incomplete",details);
+  assert.match(draft.subject,/CUSTOMER SIGN-UP NEEDS REVIEW/);
+  assert.doesNotMatch(draft.subject,/INACTIVE CUSTOMER/);
+  assert.match(draft.text,/Existing Squeegee status: not confirmed/);
+  assert.match(draft.text,/Customer matching issue: possible_existing_address/);
+  assert.match(draft.text,/78 Groomsport Road/);
+  assert.match(draft.text,/Requested bin: 1 x Brown Bin/);
+  assert.match(draft.text,/£5\.00/);
+  assert.match(draft.text,/confirm whether the correct account is inactive/);
+  assert.match(draft.text,/No Squeegee customer or job was created/);
+  assert.match(draft.html,/Customer Sign-Up Needs Review/);
+  assert.match(draft.html,/Example Customer/);
+  const sent=[];
+  const result=await notifyOwnerOfSyncHold(id,
+    "customer_match_ambiguous_or_incomplete",details,{
+      env:{RESEND_API_KEY:"fake-test-key-not-real"},
+      send:async email=>{sent.push(email);return {data:{id:"fake"}};},
+    });
+  assert.equal(result.sent,true);
+  assert.equal(sent.length,1);
+  assert.deepEqual(sent[0].to,["info@nibing.uy"]);
+  assert.match(sent[0].html,/VIEW READ-ONLY BOOKING STATUS/);
+  const hostile=emailContent(id,"customer_match_ambiguous_or_incomplete",{
+    ...details,customerName:"<script>alert(1)</script>",
+    matchReason:"<script>malicious</script>",
+  });
+  assert.doesNotMatch(hostile.html,/<script>/);
+  assert.match(hostile.html,/&lt;script&gt;/);
+  assert.doesNotMatch(hostile.html,/malicious/);
+});
+
+test("deployed modern Netlify worker injects the statically imported Resend email transport",()=>{
+  const source=fs.readFileSync(path.join(__dirname,
+    "../netlify/functions/squeegeePreviewAutoSync.mjs"),"utf8");
+  assert.match(source,/import \{Resend\} from "resend"/);
+  assert.match(source,/import ownerAlerts from "\.\/lib\/squeegeeSyncOwnerAlert\.js"/);
+  assert.match(source,/send:message=>provider\.emails\.send\(message\)/);
+  for(const name of [
+    "notifyOwnerOfSyncHold",
+    "notifyOwnerOfDuplicateSignals",
+    "notifyOwnerOfQuantityBooking",
+  ])assert.ok(source.includes("ownerAlerts."+name));
 });

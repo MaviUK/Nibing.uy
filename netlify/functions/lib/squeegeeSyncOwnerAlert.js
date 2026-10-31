@@ -40,6 +40,9 @@ function duplicateFlagLabels(flags){
 const INACTIVE_REASONS=new Set([
   "existing_customer_reactivation_required","existing_customer_inactive",
 ]);
+const CUSTOMER_REVIEW_REASONS=new Set([
+  ...INACTIVE_REASONS,"customer_match_ambiguous_or_incomplete",
+]);
 function cleanOwnerField(value,max=200){
   return String(value??"").replace(/[\x00-\x1f\x7f]+/g," ")
     .replace(/\s+/g," ").trim().slice(0,max);
@@ -49,8 +52,9 @@ function emailHtmlEscape(value){
     .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 function inactiveSignupEmailContent(bookingId,reason,extra={}){
-  if(!BOOKING_RE.test(String(bookingId||""))||!INACTIVE_REASONS.has(reason))
-    return null;
+  if(!BOOKING_RE.test(String(bookingId||""))||
+     !CUSTOMER_REVIEW_REASONS.has(reason))return null;
+  const ambiguous=reason==="customer_match_ambiguous_or_incomplete";
   const name=cleanOwnerField(extra.customerName,120);
   const address=cleanOwnerField(extra.serviceAddress,250);
   const email=cleanOwnerField(extra.customerEmail,180);
@@ -59,7 +63,10 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
   const knownStatuses=new Set([
     "inactive","deactivated","deleted","archived","cancelled","canceled",
   ]);
-  const accountStatus=knownStatuses.has(status)?status:"not confirmed";
+  const accountStatus=ambiguous?"not confirmed":
+    knownStatuses.has(status)?status:"not confirmed";
+  const matchReason=CODE_RE.test(String(extra.matchReason||""))?
+    extra.matchReason:"not_verified";
   const binCounts=Array.isArray(extra.requestedBinCounts)?
     extra.requestedBinCounts.filter(x=>typeof x==="string"&&
       /^(?:[1-9]\d?|1\d{2}|200) x (?:Black|Brown|Blue|Green) Bin$/.test(x))
@@ -71,19 +78,26 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
   const bookingTotal=Number.isFinite(total)&&total>=0&&total<=5000?
     "£"+total.toFixed(2):"See original booking";
   const needsReactivation=reason==="existing_customer_reactivation_required";
-  const statusCopy=needsReactivation?
-    "An existing customer is inactive or deactivated in Squeegee. Their website sign-up has been received, but no customer or job was created.":
-    "A previously registered customer has a closed or archived Squeegee record. Review its status before deciding whether it can be reactivated. No customer or job was created.";
-  const actionCopy=needsReactivation?
-    "Locate the existing Squeegee customer and reactivate them manually if appropriate.":
-    "Locate the existing Squeegee customer and review whether the account can be restored.";
+  const statusCopy=ambiguous?
+    "The website booking matches overlapping or incompletely formatted Squeegee customer information. We cannot safely identify the correct account or verify whether it is inactive. No customer or job was created.":
+    needsReactivation?
+      "An existing customer is inactive or deactivated in Squeegee. Their website sign-up has been received, but no customer or job was created.":
+      "A previously registered customer has a closed or archived Squeegee record. Review its status before deciding whether it can be reactivated. No customer or job was created.";
+  const actionCopy=ambiguous?
+    "Search Squeegee using the customer's full name, address, postcode and contact details. Check for duplicate records and confirm whether the correct account is inactive. Reactivate it only after verification.":
+    needsReactivation?
+      "Locate the existing Squeegee customer and reactivate them manually if appropriate.":
+      "Locate the existing Squeegee customer and review whether the account can be restored.";
   const statusUrl="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId="+bookingId;
   const text=[
-    "INACTIVE CUSTOMER SIGN-UP — MANUAL ACTION REQUIRED",
+    ambiguous?
+      "CUSTOMER SIGN-UP NEEDS REVIEW — MANUAL ACTION REQUIRED":
+      "INACTIVE CUSTOMER SIGN-UP — MANUAL ACTION REQUIRED",
     "",
     statusCopy,
     "Booking reference: "+bookingId,
     "Existing Squeegee status: "+accountStatus,
+    ambiguous?"Customer matching issue: "+matchReason:"",
     name?"Customer: "+name:"",
     address?"Service address: "+address:"",
     email?"Email: "+email:"",
@@ -106,7 +120,9 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
   const row=(label,value)=>value?
     '<tr><td style="font-size:13px;color:#596176;padding:8px 12px 8px 0;vertical-align:top;width:42%">'+emailHtmlEscape(label)+'</td>'+
     '<td style="font-size:14px;color:#16191e;padding:8px 0;font-weight:600;vertical-align:top;overflow-wrap:anywhere">'+emailHtmlEscape(value)+'</td></tr>':"";
-  const statusText=needsReactivation?"REACTIVATION REQUIRED":"CLOSED ACCOUNT — REVIEW REQUIRED";
+  const statusText=ambiguous?"POSSIBLE EXISTING ACCOUNT — REVIEW REQUIRED":
+    needsReactivation?"REACTIVATION REQUIRED":"CLOSED ACCOUNT — REVIEW REQUIRED";
+  const heading=ambiguous?"Customer Sign-Up Needs Review":"Inactive Customer Sign-Up";
   const html='<!doctype html><html lang="en"><head><meta charset="utf-8">'+
     '<meta name="viewport" content="width=device-width,initial-scale=1"></head>'+
     '<body style="margin:0;background:#0d0e11;font-family:Arial,Helvetica,sans-serif">'+
@@ -118,10 +134,11 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
     '<tr><td style="height:7px;background:#f5d84f"></td></tr>'+
     '<tr><td style="padding:26px 25px 8px">'+
     '<div style="font-size:12px;color:#926000;font-weight:800;letter-spacing:1px">'+emailHtmlEscape(statusText)+'</div>'+
-    '<h1 style="font-size:24px;color:#121212;margin:10px 0 14px">Inactive Customer Sign-Up</h1>'+
+    '<h1 style="font-size:24px;color:#121212;margin:10px 0 14px">'+emailHtmlEscape(heading)+'</h1>'+
     '<p style="font-size:15px;line-height:1.6;color:#333;margin:0">'+emailHtmlEscape(statusCopy)+'</p></td></tr>'+
     '<tr><td style="padding:10px 25px 18px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border-top:1px solid #e4e6e9;border-bottom:1px solid #e4e6e9">'+
     row("Booking reference",bookingId)+row("Squeegee account status",accountStatus)+
+    (ambiguous?row("Match issue",matchReason):"")+
     row("Customer",name)+row("Service address",address)+
     row("Email",email)+row("Phone",phone)+
     row("Requested bins",binCounts.join(" + "))+row("First clean(s)",firstDates.join(", "))+row("New booking total",bookingTotal)+
@@ -137,7 +154,9 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
     'Preview 1 integration notification · Owner only · No change to the live site'+
     '</td></tr></table></td></tr></table></body></html>';
   return {
-    subject:"NI Bin Guy — INACTIVE CUSTOMER SIGN-UP — "+bookingId,
+    subject:ambiguous?
+      "NI Bin Guy — CUSTOMER SIGN-UP NEEDS REVIEW — "+bookingId:
+      "NI Bin Guy — INACTIVE CUSTOMER SIGN-UP — "+bookingId,
     text,html,
   };
 }
@@ -145,7 +164,7 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
 function emailContent(bookingId,reason,extra={}) {
   if(!BOOKING_RE.test(String(bookingId||"")) ||
      !CODE_RE.test(String(reason||"")))return null;
-  if(INACTIVE_REASONS.has(reason))
+  if(CUSTOMER_REVIEW_REASONS.has(reason))
     return inactiveSignupEmailContent(bookingId,reason,extra);
   const matchReason=CODE_RE.test(String(extra?.matchReason||""))?
     extra.matchReason:"";

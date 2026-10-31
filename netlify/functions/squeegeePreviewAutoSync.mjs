@@ -9,6 +9,8 @@ import claims from "./lib/squeegeeIdempotencyClaims.js";
 import guard from "./lib/bookingSubmissionGuard.js";
 import rollout from "./lib/squeegeePreviewAutoRollout.js";
 import {getStore} from "@netlify/blobs";
+import {Resend} from "resend";
+import ownerAlerts from "./lib/squeegeeSyncOwnerAlert.js";
 
 const respond=(status,data)=>new Response(JSON.stringify(data),{
   status,headers:{
@@ -81,12 +83,26 @@ export default async function handler(request,context) {
       error:"Booking already queued or its sync status is uncertain; no retry",
     });
   }
+  // The working normal booking sender statically imports Resend from its
+  // ESM entrypoint. Inject the same transport for ALL owner notifications
+  // instead of dynamically requiring Resend in CommonJS after dispatch.
+  const provider=process.env.RESEND_API_KEY?
+    new Resend(process.env.RESEND_API_KEY):null;
+  const alertOptions=provider?{
+    env:process.env,send:message=>provider.emails.send(message),
+  }:{env:process.env};
   const task=auto.executeAutomaticPreviewBooking(booking,{
     channel:data.channel,runtimeScope:scope,
     deps:{
       claim:args=>claims.claimOnce({...args,store:claimStore}),
       changeState:args=>claims.changeClaimState({...args,store:claimStore}),
       save:(id,stage,extra)=>auto.saveAutoStatus(id,stage,extra,{store:statusStore}),
+      alert:(id,reason,details)=>
+        ownerAlerts.notifyOwnerOfSyncHold(id,reason,details,alertOptions),
+      duplicateAlert:(id,flags)=>
+        ownerAlerts.notifyOwnerOfDuplicateSignals(id,flags,alertOptions),
+      quantityAlert:(id,details)=>
+        ownerAlerts.notifyOwnerOfQuantityBooking(id,details,alertOptions),
     },
   }).catch(async()=>{
     try{await auto.saveAutoStatus(bookingId,"requires_reconciliation",

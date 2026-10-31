@@ -1761,3 +1761,49 @@ test("confirmed owner mail delivery appears as sent on an inactive booking hold"
   assert.equal(h.statuses.at(-1).ownerAlertReason,undefined);
   assert.equal(h.posts.length,0);
 });
+
+test("ambiguous return sign-up sends customer details only to owner alert, never creates a Squeegee record",async()=>{
+  const b=sampleBooking({
+    modified:x=>({...x,name:"Short Name",email:"shared@example.org"}),
+  });
+  const alerts=[];
+  const existing={_id:customerId,name:"Other Person",email:b.email,
+    phoneNumber:b.phone,status:"inactive",
+    address:{addressDescription:"7 Other Road, Bangor BT19 7ZW"}};
+  const h=makeHarness(b,{existingRows:[existing],deps:{
+    alert:async(id,reason,details)=>{
+      alerts.push({id,reason,details});return{sent:true};
+    },
+  }});
+  const r=await h.run();
+  assert.equal(r.status,"held");
+  assert.equal(r.reason,"customer_match_ambiguous_or_incomplete");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+  assert.equal(alerts.length,1);
+  assert.equal(alerts[0].reason,r.reason);
+  assert.equal(alerts[0].details.matchReason,"possible_existing_address");
+  assert.equal(alerts[0].details.squeegeeAccountStatus,"not confirmed");
+  assert.equal(alerts[0].details.customerName,b.name);
+  assert.equal(alerts[0].details.serviceAddress,b.address);
+  assert.equal(alerts[0].details.customerEmail,b.email);
+  assert.equal(alerts[0].details.customerPhone,b.phone);
+  assert.deepEqual(alerts[0].details.requestedBinCounts,["1 x Brown Bin"]);
+  assert.deepEqual(alerts[0].details.firstCleanDates,["2026-11-16"]);
+  const status=h.statuses.at(-1);
+  assert.equal(status.reason,r.reason);
+  assert.equal(status.matchReason,"possible_existing_address");
+  assert.equal(status.ownerAlertDelivery,"sent");
+  for(const key of ["customerName","serviceAddress","customerEmail",
+    "customerPhone","bookingTotal","squeegeeAccountStatus"])
+    assert.equal(status[key],undefined);
+});
+
+test("owner read-only status displays stored matchReason but not customer contacts",()=>{
+  const source=require("node:fs").readFileSync(
+    require("node:path").join(__dirname,
+    "../netlify/functions/squeegeePreviewAutoStatus.mjs"),"utf8");
+  assert.match(source,/simple\("matchReason"\)/);
+  assert.match(source,/Customer match requires manual review/);
+  assert.doesNotMatch(source,/status\.customerEmail/);
+});

@@ -301,6 +301,18 @@ async function executeAutomaticPreviewBooking(payload,{
       return await held("grouped_job_price_or_service_mismatch");
     }
 
+    // Email-only contact details for unresolved or inactive customer
+    // sign-ups. NEVER persist these details to the PII-free status ledger.
+    const ownerReviewEmailInfo=(accountStatus)=>({
+      customerName:payload.name,
+      serviceAddress:payload.address,
+      customerEmail:payload.email,
+      customerPhone:payload.phone,
+      requestedBinCounts:counts,
+      firstCleanDates:groupedJobs.map(group=>group.input.date),
+      bookingTotal:payload.pricing.total,
+      squeegeeAccountStatus:accountStatus,
+    });
     const customerMatch=await matchCustomersAcrossPages(payload,
       args=>use.listCustomers(args),{maxPages:100});
     // Email/phone duplicate flags remain informational. The independent
@@ -311,7 +323,7 @@ async function executeAutomaticPreviewBooking(payload,{
     if(!["matched","not_found","reactivation_required"].includes(customerMatch.status))
       return await held("customer_match_ambiguous_or_incomplete",{
         matchReason:customerMatch.reason||"unspecified_match_reason",
-      });
+      },ownerReviewEmailInfo("not confirmed"));
     const existing=customerMatch.status!=="not_found";
     const anotherProperty=customerMatch.relatedContactAtDifferentAddress===true;
     const matchedByIdentity=customerMatch.reason==="exact_identity_other_property" ||
@@ -322,18 +334,6 @@ async function executeAutomaticPreviewBooking(payload,{
     let customerId=existing?customerMatch.customerId:null;
     let differentProperty=false;
     const additionalTypes=new Set();
-    // Email-only contact details for an inactive customer re-sign-up.
-    // These NEVER enter the saved status or console output.
-    const inactiveOwnerEmailInfo=(accountStatus)=>({
-      customerName:payload.name,
-      serviceAddress:payload.address,
-      customerEmail:payload.email,
-      customerPhone:payload.phone,
-      requestedBinCounts:counts,
-      firstCleanDates:groupedJobs.map(group=>group.input.date),
-      bookingTotal:payload.pricing.total,
-      squeegeeAccountStatus:accountStatus,
-    });
     if(existing) {
       let record;
       try{record=await use.getCustomer(customerId);}
@@ -373,17 +373,17 @@ async function executeAutomaticPreviewBooking(payload,{
       if(["inactive","deactivated"].includes(recordStatus))
         return await held("existing_customer_reactivation_required",{
           matchReason:"inactive_exact_customer",
-        },inactiveOwnerEmailInfo(recordStatus));
+        },ownerReviewEmailInfo(recordStatus));
       if(["deleted","archived","cancelled","canceled"].includes(recordStatus))
         return await held("existing_customer_inactive",{},
-          inactiveOwnerEmailInfo(recordStatus));
+          ownerReviewEmailInfo(recordStatus));
       // A previously inactive LIST row may be stale; only the authoritative
       // detail response can permit continued normal append-only job creation.
       if(customerMatch.status==="reactivation_required" &&
          recordStatus!=="active")
         return await held("existing_customer_reactivation_required",{
           matchReason:"inactive_exact_customer",
-        },inactiveOwnerEmailInfo(recordStatus));
+        },ownerReviewEmailInfo(recordStatus));
       const catalog=resolveSqueegeeServiceIds(services.value);
       // A new accepted website booking of an already registered colour
       // means ADDITIONAL physical bins. Leave all earlier jobs and billing
