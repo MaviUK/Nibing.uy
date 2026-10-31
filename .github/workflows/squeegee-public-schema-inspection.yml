@@ -61,3 +61,21 @@ jobs:
               except Exception as error:
                   print("ERROR",str(error)[:200])
           PY
+
+      - name: Inspect public Add Job documentation and nearby quantity fields
+        shell: bash
+        run: |
+          python - <<'PY'
+          import urllib.request,re,html
+          req=urllib.request.Request("https://api02.sqgee.com/api/v3/docs",headers={"User-Agent":"NI-Bin-Guy-schema-inspection/1.0"})
+          with urllib.request.urlopen(req,timeout=12) as r:
+              page=r.read(250000).decode("utf-8","replace")
+          print("PUBLIC DOC LENGTH",len(page))
+          for token in ["AddJobBody","Add Job","Add Jobs","addJob","/customers/:id/jobs","/customers/{customerId}/jobs","frequencyInterval","firstAppointment","quantity","services"]:
+              matches=[m.start() for m in re.finditer(re.escape(token),page,re.I)]
+              print("----",token,"matches",len(matches))
+              for i in matches[:12]:
+                  excerpt=page[max(0,i-250):min(len(page),i+500)]
+                  excerpt=html.unescape(re.sub(r"\s+"," ",excerpt))
+                  print("CONTEXT",repr(excerpt)[:1100])
+          PY
