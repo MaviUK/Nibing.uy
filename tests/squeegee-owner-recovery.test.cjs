@@ -95,17 +95,32 @@ test("owner recovery endpoint is owner-session-gated, explicitly confirmed, and 
 });
 
 
-test("mobile form origin fallback requires same-origin browser metadata and owner confirmation",()=>{
-  const fs=require("node:fs");
-  const path=require("node:path");
-  const src=fs.readFileSync(
-    path.join(__dirname,"../netlify/functions/squeegeePreviewOwnerRecovery.mjs"),"utf8"
+test("owner recovery accepts omitted browser metadata, rejects explicit foreign values",()=>{
+  const {trustedOwnerPostMetadata,EXPECTED_ORIGIN}=require(
+    "../netlify/functions/lib/squeegeeOwnerPostHeaders"
   );
-  assert.match(src,/const origin=request\.headers\.get\("origin"\)/);
-  assert.match(src,/const fetchSite=request\.headers\.get\("sec-fetch-site"\)/);
-  assert.match(src,/origin==="https:\/\/deploy-preview-77--nibinguy\.netlify\.app"/);
-  assert.match(src,/!origin && fetchSite==="same-origin"/);
-  assert.match(src,/if\(!trustedOrigin\)/);
+  const headers=(values)=>new Headers(values);
+  for(const acceptable of [
+    {},
+    {"Sec-Fetch-Site":"same-origin"},
+    {"Sec-Fetch-Site":"none"},
+    {"Origin":EXPECTED_ORIGIN,"Sec-Fetch-Site":"same-origin"},
+    {"Referer":EXPECTED_ORIGIN+"/api/squeegee-preview-owner-recovery"},
+  ])assert.equal(trustedOwnerPostMetadata(headers(acceptable)),true);
+  for(const rejected of [
+    {"Origin":"null"},
+    {"Origin":"https://other.example"},
+    {"Origin":EXPECTED_ORIGIN,"Sec-Fetch-Site":"cross-site"},
+    {"Sec-Fetch-Site":"same-site"},
+    {"Referer":"https://other.example/"},
+    {"Referer":"malformed"},
+    {"Referer":EXPECTED_ORIGIN+".other.example/path"},
+  ])assert.equal(trustedOwnerPostMetadata(headers(rejected)),false);
+  const src=require("node:fs").readFileSync(
+    require("node:path").join(__dirname,
+      "../netlify/functions/squeegeePreviewOwnerRecovery.mjs"),"utf8"
+  );
+  assert.match(src,/ownerPost\.trustedOwnerPostMetadata\(request\.headers\)/);
   assert.match(src,/ownerAuthenticated\(request,scope\)/);
   assert.match(src,/equalToken\(params\.get\("csrf"\),ownerToken\(request\)\)/);
   assert.match(src,/params\.get\("confirm"\)!=="yes"/);

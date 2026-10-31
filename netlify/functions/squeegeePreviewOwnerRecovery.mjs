@@ -9,6 +9,7 @@ import session from "./lib/squeegeePreviewTestSession.js";
 import auto from "./lib/squeegeeAutomaticBooking.js";
 import claims from "./lib/squeegeeIdempotencyClaims.js";
 import recovery from "./lib/squeegeeOwnerRecovery.js";
+import ownerPost from "./lib/squeegeeOwnerPostHeaders.js";
 import stage from "./lib/squeegeeBookingStage.js";
 import matcher from "./lib/squeegeeCustomerMatcher.js";
 import planner from "./lib/squeegeeBookingPreparation.js";
@@ -280,14 +281,10 @@ export default async function handler(request,context){
       '">Email and enter your one-time owner code</a></p>',403);
   }
   if(request.method==="POST"){
-    // For mobile browsers that omit the Origin header, accept the browser's
-    // same-origin Fetch Metadata instead. Owner session and one-time HMAC
-    // confirmation token are also required below for every import.
-    const origin=request.headers.get("origin");
-    const fetchSite=request.headers.get("sec-fetch-site");
-    const trustedOrigin=origin==="https://deploy-preview-77--nibinguy.netlify.app" ||
-      (!origin && fetchSite==="same-origin");
-    if(!trustedOrigin)
+    // Reject any explicitly foreign request metadata, but do not require
+    // optional browser headers that Android privacy modes can omit.
+    // The signed owner session and session-bound HMAC token remain required.
+    if(!ownerPost.trustedOwnerPostMetadata(request.headers))
       return page("Request origin could not be verified.",403);
     if(!request.headers.get("content-type")?.startsWith("application/x-www-form-urlencoded"))
       return page("Expected confirmation form.",415);
