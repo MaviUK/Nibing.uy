@@ -66,7 +66,13 @@ const PLANS = [
   { id: "comm_gt660_oneoff", label: "Commercial >660L One-Off", price: 45 },
 ];
 
-const DEFAULT_BIN = { type: "", count: 1, planId: "domestic_4w" };
+const DEFAULT_BIN = { type: "", count: 1, planId: "domestic_4w", sizeLitres: null };
+
+const isLargeCommercialPlan = (planId) =>
+  planId === "comm_gt660_4w" || planId === "comm_gt660_oneoff";
+const hasRequiredBinSize = (bin) =>
+  !isLargeCommercialPlan(bin?.planId) ||
+  bin.sizeLitres === 660 || bin.sizeLitres === 1100;
 
 function money(value) {
   const amount = Math.round((Number(value) || 0) * 100) / 100;
@@ -218,7 +224,9 @@ export default function StreetBookingPage() {
         type: bin.type,
         count,
         planId: plan.id,
-        planLabel: plan.label,
+        sizeLitres: isLargeCommercialPlan(bin.planId) ? bin.sizeLitres : null,
+        planLabel: plan.label +
+          (isLargeCommercialPlan(bin.planId) && bin.sizeLitres ? ` — ${bin.sizeLitres}L` : ""),
         unitPrice: plan.price,
         baseUnit: plan.price,
         discounted: false,
@@ -230,7 +238,16 @@ export default function StreetBookingPage() {
   }, [bins]);
 
   const updateBin = (index, field, value) => {
-    setBins((current) => current.map((bin, binIndex) => binIndex === index ? { ...bin, [field]: field === "count" ? Math.max(1, parseInt(value || "1", 10)) : value } : bin));
+    setBins((current) => current.map((bin, binIndex) => {
+      if (binIndex !== index) return bin;
+      const updated = {
+        ...bin,
+        [field]: field === "count" ? Math.max(1, parseInt(value || "1", 10)) :
+          field === "sizeLitres" ? (value ? Number(value) : null) : value,
+      };
+      if (field === "planId" && !isLargeCommercialPlan(value)) updated.sizeLitres = null;
+      return updated;
+    }));
   };
 
   const reset = () => {
@@ -248,6 +265,10 @@ export default function StreetBookingPage() {
 
   const submit = async (event) => {
     event.preventDefault();
+    if (bins.some((bin) => !hasRequiredBinSize(bin))) {
+      alert("Please select 660L or 1100L for each large commercial bin.");
+      return;
+    }
     if (!name.trim() || !email.trim() || !phone.trim() || !address.trim() || bins.some((bin) => !bin.type)) {
       alert("Please complete all fields before submitting.");
       return;
@@ -346,6 +367,25 @@ export default function StreetBookingPage() {
                   <select value={bin.planId} onChange={(event) => updateBin(index, "planId", event.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-3">
                     {PLANS.map((plan) => <option key={plan.id} value={plan.id}>{plan.label} (£{money(plan.price)})</option>)}
                   </select>
+                  {isLargeCommercialPlan(bin.planId) && (
+                    <div className="space-y-1">
+                      <label htmlFor={`street-large-bin-size-${index}`} className="block text-sm font-bold text-gray-800">
+                        Commercial bin size (required)
+                      </label>
+                      <select
+                        id={`street-large-bin-size-${index}`}
+                        value={bin.sizeLitres ?? ""}
+                        onChange={(event) => updateBin(index, "sizeLitres", event.target.value)}
+                        required
+                        aria-required="true"
+                        className="w-full border border-gray-500 rounded-lg px-4 py-3"
+                      >
+                        <option value="">Select your bin size</option>
+                        <option value="660">660 litres (660L)</option>
+                        <option value="1100">1100 litres (1100L)</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               ))}
 

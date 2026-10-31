@@ -34,10 +34,34 @@ const SERVICE_DESCRIPTIONS = Object.freeze({
   }),
 });
 
-// Large-bin options stay deliberately UNMAPPED: the website currently says
-// >660L while the account has colour-specific 660L four-weekly and 1100L
-// one-off services only. A generic >660L booking does not prove the bin is
-// exactly 660L or 1100L. Never silently pick another size or colour.
+// Exact sizes and frequencies from the owner's Squeegee services.
+// Missing size/frequency/colour combinations are intentionally NOT mapped.
+const LARGE_SERVICE_DESCRIPTIONS = Object.freeze({
+  comm_gt660_4w: Object.freeze({
+    660: Object.freeze({
+      blue: "Blue 660L (4 weekly)",
+      green: "Green 660L (4 weekly)",
+    }),
+  }),
+  comm_gt660_oneoff: Object.freeze({
+    1100: Object.freeze({
+      blue: "Blue 1100L (one-off)",
+      green: "Green 1100L (one-off)",
+    }),
+  }),
+});
+
+function resolvedServiceIdForBin(serviceIds, bin) {
+  const planId = String(bin?.planId || "");
+  const type = String(bin?.type || "").trim().toLowerCase()
+    .replace(/\s*bin\b/g, "").replace(/[^a-z]/g, "");
+  if (!["black", "brown", "blue", "green"].includes(type)) return null;
+  if (planId === "comm_gt660_4w" || planId === "comm_gt660_oneoff") {
+    if (bin?.sizeLitres !== 660 && bin?.sizeLitres !== 1100) return null;
+    return serviceIds?.[planId]?.[bin.sizeLitres]?.[type] || null;
+  }
+  return serviceIds?.[planId]?.[type] || null;
+}
 function resolveSqueegeeServiceIds(services) {
   if (!Array.isArray(services)) throw new Error("Squeegee services must be an array");
   const byLabel = new Map();
@@ -66,7 +90,34 @@ function resolveSqueegeeServiceIds(services) {
       }
     }
   }
+  for (const [planId, sizes] of Object.entries(LARGE_SERVICE_DESCRIPTIONS)) {
+    serviceIds[planId] = {};
+    for (const [size, descriptions] of Object.entries(sizes)) {
+      serviceIds[planId][size] = {};
+      for (const [binType, description] of Object.entries(descriptions)) {
+        const candidates = byLabel.get(description) || [];
+        if (candidates.length !== 1) {
+          unresolved.push({
+            planId, sizeLitres: Number(size), binType, description,
+            reason: candidates.length ? "duplicate_service_label" : "missing_service_label",
+          });
+          continue;
+        }
+        try {
+          serviceIds[planId][size][binType] = requireUuid(candidates[0].id, "serviceId");
+        } catch {
+          unresolved.push({
+            planId, sizeLitres: Number(size), binType, description,
+            reason: "invalid_service_id",
+          });
+        }
+      }
+    }
+  }
   return { serviceIds, unresolved };
 }
 
-module.exports = { SERVICE_DESCRIPTIONS, resolveSqueegeeServiceIds };
+module.exports = {
+  SERVICE_DESCRIPTIONS, LARGE_SERVICE_DESCRIPTIONS,
+  resolveSqueegeeServiceIds, resolvedServiceIdForBin,
+};

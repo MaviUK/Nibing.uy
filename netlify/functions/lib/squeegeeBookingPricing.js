@@ -26,6 +26,20 @@ const DISCOUNTS = Object.freeze({
   },
 });
 const MONEY_EPSILON = 0.001;
+const LARGE_PLANS = new Set(["comm_gt660_4w", "comm_gt660_oneoff"]);
+function validateCommercialBinSizes(bins) {
+  for (const bin of Array.isArray(bins) ? bins : []) {
+    const large = LARGE_PLANS.has(bin?.planId);
+    if (large && bin.sizeLitres !== 660 && bin.sizeLitres !== 1100) {
+      return { ok: false, reason: "large_commercial_size_required" };
+    }
+    if (!large && bin?.sizeLitres !== null && bin?.sizeLitres !== undefined &&
+        bin?.sizeLitres !== "") {
+      return { ok: false, reason: "unexpected_commercial_size" };
+    }
+  }
+  return { ok: true };
+}
 const roundMoney = n => Math.round(Number(n) * 100) / 100;
 
 function normalizeCode(value) {
@@ -50,6 +64,8 @@ function verifyAndPriceBooking(bins, discountCode, postedPricing, { now = Date.n
   if (!Array.isArray(bins) || bins.length === 0 || bins.length > 20) {
     return { ok: false, reason: "invalid_bin_count" };
   }
+  const sizes = validateCommercialBinSizes(bins);
+  if (!sizes.ok) return sizes;
   const code = normalizeCode(discountCode);
   const nowMs = now instanceof Date ? now.getTime() : Number(now);
   if (!Number.isFinite(nowMs)) return { ok: false, reason: "invalid_server_time" };
@@ -86,7 +102,10 @@ function verifyAndPriceBooking(bins, discountCode, postedPricing, { now = Date.n
       else if (rule.type === "free") unitPrice = 0;
     }
     lines.push({
-      idx, type: bin.type, count, planId: bin.planId, planLabel: plan.label,
+      idx, type: bin.type, count, planId: bin.planId,
+      sizeLitres: LARGE_PLANS.has(bin.planId) ? bin.sizeLitres : null,
+      planLabel: plan.label +
+        (LARGE_PLANS.has(bin.planId) ? " — " + bin.sizeLitres + "L" : ""),
       baseUnit: plan.price, unitPrice, discounted: discount.applied,
       freeCount: 0, multiBuyDiscount: 0,
       lineTotal: roundMoney(unitPrice * count),
@@ -130,6 +149,7 @@ function verifyAndPriceBooking(bins, discountCode, postedPricing, { now = Date.n
     const posted = postedPricing.lines[line.idx];
     if (!posted || posted.idx !== line.idx ||
         posted.planId !== line.planId ||
+        (LARGE_PLANS.has(line.planId) && posted.sizeLitres !== line.sizeLitres) ||
         normalizedBinType(posted.type) !== normalizedBinType(line.type) ||
         !same(posted.count, line.count) ||
         !same(posted.baseUnit, line.baseUnit) ||
@@ -150,4 +170,7 @@ function verifyAndPriceBooking(bins, discountCode, postedPricing, { now = Date.n
   return { ok: true, canonical };
 }
 
-module.exports = { PLANS, DISCOUNTS, verifyAndPriceBooking, normalizedBinType };
+module.exports = {
+  PLANS, DISCOUNTS, verifyAndPriceBooking, normalizedBinType,
+  validateCommercialBinSizes,
+};

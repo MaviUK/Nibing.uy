@@ -2,6 +2,7 @@
 
 const crypto = require("node:crypto");
 const { requireUuid } = require("./squeegeeApiV3");
+const { resolvedServiceIdForBin } = require("./squeegeeServiceCatalog");
 
 const BOOKING_ID_RE = /^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i;
 const NI_POSTCODE_RE = /\b(BT\d{1,2}\s*\d[A-Z]{2})\b/i;
@@ -77,6 +78,11 @@ function makeJobPlan(booking, bin, index, dateRow, config) {
   if (!isOneOff && !isRegular) {
     return { index, bin: bin.type, status: "invalid_plan", date: null, input: null };
   }
+  const largeCommercial = bin.planId === "comm_gt660_4w" ||
+    bin.planId === "comm_gt660_oneoff";
+  if (largeCommercial && bin.sizeLitres !== 660 && bin.sizeLitres !== 1100) {
+    return { index, bin: bin.type, status: "bin_size_required", date: null, input: null };
+  }
   if (!dateRow || normalizedBinType(dateRow.bin) !== type ||
       dateRow.automatic !== true || !validDate(dateRow.assignedCleanDate)) {
     return { index, bin: bin.type, status: "date_to_confirm", date: null, input: null };
@@ -87,7 +93,7 @@ function makeJobPlan(booking, bin, index, dateRow, config) {
   // /services and GET /job-groups, not invented or hardcoded.
   // Account-specific services differ for one-off and four-weekly cleans.
   // Never silently use a regular-clean service for a one-off or commercial.
-  const serviceId = config?.serviceIds?.[bin.planId]?.[type] || null;
+  const serviceId = resolvedServiceIdForBin(config?.serviceIds, bin);
   if (!serviceId) return { index, bin: bin.type, status: "service_mapping_required", date, input: null };
   try { requireUuid(serviceId, "serviceId"); }
   catch (_) { return { index, bin: bin.type, status: "invalid_service_mapping", date, input: null }; }
@@ -98,6 +104,7 @@ function makeJobPlan(booking, bin, index, dateRow, config) {
   const validPrice = priceLine &&
     normalizedBinType(priceLine.type) === type &&
     priceLine.planId === bin.planId &&
+    (!largeCommercial || priceLine.sizeLitres === bin.sizeLitres) &&
     Number(priceLine.count) === quantity &&
     Number.isFinite(Number(priceLine.lineTotal)) &&
     Number(priceLine.lineTotal) >= 0 &&
@@ -114,6 +121,7 @@ function makeJobPlan(booking, bin, index, dateRow, config) {
       "NI Bin Guy website booking: " + String(booking.bookingId),
       quantity + " x " + String(bin.type),
       bin.planId.startsWith("comm_lt360_") ? "Commercial under 360L" : null,
+      largeCommercial ? "Commercial bin size: " + bin.sizeLitres + "L" : null,
       isOneOff ? "One-off clean" : "Every 4 weeks",
       "Website date: " + date,
     ].filter(Boolean).join(" | "),
@@ -132,7 +140,11 @@ function makeJobPlan(booking, bin, index, dateRow, config) {
     return { index, bin: bin.type, quantity, status: "job_group_mapping_required", date, input: null };
   }
   if (group) input.jobGroup = requireUuid(group, "jobGroup");
-  return { index, bin: bin.type, quantity, status: "ready", date, input };
+  return {
+    index, bin: bin.type, quantity,
+    sizeLitres: largeCommercial ? bin.sizeLitres : null,
+    status: "ready", date, input,
+  };
 }
 
 function buildSqueegeeBookingPlan(booking, verifiedSchedule, config = {}) {

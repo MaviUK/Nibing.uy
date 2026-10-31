@@ -2,7 +2,7 @@
 
 const { verifyAndPriceBooking } = require("./squeegeeBookingPricing");
 const { compareDisplayedSchedule } = require("./squeegeeScheduleCheck");
-const { resolveSqueegeeServiceIds } = require("./squeegeeServiceCatalog");
+const { resolveSqueegeeServiceIds, resolvedServiceIdForBin } = require("./squeegeeServiceCatalog");
 const { buildSqueegeeBookingPlan, normalizedBinType } = require("./squeegeeBookingPlan");
 const {
   CYCLE_ANCHOR_MONDAY,
@@ -31,7 +31,7 @@ function prepareReadOnlyBooking(booking, serverSchedule, services, { jobGroups }
 
   // Only the services on THIS booking must be present in Squeegee.
   const unmappedServices = bins.filter(bin =>
-    !mapped.serviceIds?.[bin?.planId]?.[normalizedBinType(bin?.type)])
+    !resolvedServiceIdForBin(mapped.serviceIds, bin))
     .map(bin => {
       const type = normalizedBinType(bin?.type);
       const planId = String(bin?.planId || "");
@@ -40,6 +40,8 @@ function prepareReadOnlyBooking(booking, serverSchedule, services, { jobGroups }
         binType: ["black", "brown", "green", "blue"].includes(type) ? type : "unknown",
         planId: /^(?:domestic|comm_lt360|comm_gt660)_(?:4w|oneoff)$/.test(planId) ?
           planId : "unknown",
+        sizeLitres: planId.startsWith("comm_gt660_") &&
+          [660, 1100].includes(bin.sizeLitres) ? bin.sizeLitres : null,
       };
     });
   if (unmappedServices.length) errors.push("unmapped_squeegee_services");
@@ -85,6 +87,7 @@ function prepareReadOnlyBooking(booking, serverSchedule, services, { jobGroups }
   const jobs = (plan?.jobs || []).map((job, index) => ({
     bin: job.bin,
     quantity: job.quantity || null,
+    sizeLitres: job.sizeLitres || null,
     date: job.date,
     frequency: job.input?.frequencyType || null,
     interval: job.input?.frequencyInterval || null,

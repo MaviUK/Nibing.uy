@@ -622,7 +622,15 @@ function createBookingSubmissionMeta() {
   };
 }
 
-const DEFAULT_BIN = { type: "", count: 1, planId: "domestic_4w" };
+const DEFAULT_BIN = { type: "", count: 1, planId: "domestic_4w", sizeLitres: null };
+
+function isLargeCommercialPlan(planId) {
+  return planId === "comm_gt660_4w" || planId === "comm_gt660_oneoff";
+}
+function hasRequiredBinSize(bin) {
+  return !isLargeCommercialPlan(bin?.planId) ||
+    bin.sizeLitres === 660 || bin.sizeLitres === 1100;
+}
 
 function normaliseBookingContactNumber(input) {
   const compact = String(input || "").trim().replace(/[\s().-]/g, "");
@@ -684,7 +692,8 @@ function BookingForm({ onClose, initialAddress = "" }) {
   }, [bookingStatus]);
 
 
-  const missingFields = useMemo(() => !name || !email || !address || !phone || bins.some((b) => !b.type), [name, email, address, phone, bins]);
+  const missingFields = useMemo(() => !name || !email || !address || !phone ||
+    bins.some((b) => !b.type || !hasRequiredBinSize(b)), [name, email, address, phone, bins]);
 
   const TOS_PREFIX = useMemo(() => `I confirm I’ve read and agree to the Ni Bin Guy Terms of Service (v${TERMS_VERSION})`, []);
 
@@ -694,10 +703,15 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const handleBinChange = (index, field, value) => {
     setBins((prev) => {
       const next = [...prev];
-      next[index] = {
+      const updated = {
         ...next[index],
-        [field]: field === "count" ? parseInt(value || 0, 10) : value,
+        [field]: field === "count" ? parseInt(value || 0, 10) :
+          field === "sizeLitres" ? (value ? Number(value) : null) : value,
       };
+      if (field === "planId" && !isLargeCommercialPlan(value)) {
+        updated.sizeLitres = null;
+      }
+      next[index] = updated;
       return next;
     });
   };
@@ -710,7 +724,8 @@ function BookingForm({ onClose, initialAddress = "" }) {
       .map((b, idx) => {
         const plan = getPlanById(b.planId);
         const baseUnit = plan?.price ?? 0;
-        const planLabel = plan?.label ?? "Unknown";
+        const planLabel = (plan?.label ?? "Unknown") +
+          (isLargeCommercialPlan(b.planId) && b.sizeLitres ? ` — ${b.sizeLitres}L` : "");
         const { unitPrice, discounted } = computeDiscountedUnitPrice(baseUnit, b.planId, discountCode);
 
         const qty = Math.max(1, Number(b.count) || 1);
@@ -721,6 +736,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
           type: b.type,
           count: qty,
           planId: b.planId,
+          sizeLitres: isLargeCommercialPlan(b.planId) ? b.sizeLitres : null,
           planLabel,
           baseUnit,
           unitPrice,
@@ -774,6 +790,10 @@ function BookingForm({ onClose, initialAddress = "" }) {
     if (emailSubmissionInFlightRef.current || emailBookingUncertain ||
         bookingStatus !== "idle") return;
 
+    if (bins.some((bin) => !hasRequiredBinSize(bin))) {
+      alert("Please select 660L or 1100L for each large commercial bin.");
+      return;
+    }
     if (missingFields) {
       alert("Please complete all fields before sending.");
       return;
@@ -1111,6 +1131,28 @@ function BookingForm({ onClose, initialAddress = "" }) {
                 );
               })}
             </select>
+            {isLargeCommercialPlan(bin.planId) && (
+              <div className="space-y-1">
+                <label htmlFor={`large-bin-size-${index}`} className="block text-sm font-bold text-gray-800">
+                  Commercial bin size (required)
+                </label>
+                <select
+                  id={`large-bin-size-${index}`}
+                  value={bin.sizeLitres ?? ""}
+                  onChange={(e) => handleBinChange(index, "sizeLitres", e.target.value)}
+                  required
+                  aria-required="true"
+                  className="w-full border border-gray-500 rounded-lg px-4 py-2"
+                >
+                  <option value="">Select your bin size</option>
+                  <option value="660">660 litres (660L)</option>
+                  <option value="1100">1100 litres (1100L)</option>
+                </select>
+                <p className="text-xs text-gray-600">
+                  Choose the bin capacity so we book the correct cleaning service.
+                </p>
+              </div>
+            )}
           </div>
         );
       })}
