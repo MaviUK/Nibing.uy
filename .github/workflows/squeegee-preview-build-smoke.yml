@@ -8,6 +8,7 @@ on:
       - src/LandingPage.jsx
       - src/bookingReference.mjs
       - netlify/functions/lib/bookingEmailTemplate.js
+      - netlify/functions/lib/ownerBookingTermsSummary.js
       - tests/squeegee-booking-reference.test.cjs
       - tests/squeegee-preview-booking-submit-ui.test.cjs
       - src/bookingScheduleBridge.js

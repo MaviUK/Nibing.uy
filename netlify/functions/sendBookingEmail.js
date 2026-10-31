@@ -5,6 +5,7 @@ const { autoEnrollBooking } = require("./arcadeLeaderboard");
 const { verifyPreviewBooking } = require("./previewBookingChallenge");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
+const { buildOwnerTermsSummary } = require("./lib/ownerBookingTermsSummary");
 const { validateBookingSubmission, claimBookingSubmission, submissionErrorResponse } = require("./lib/bookingSubmissionGuard");
 const { stageWithoutBlockingBooking } = require("./lib/squeegeeBookingStage");
 const {
@@ -73,21 +74,6 @@ const fmtGBP = (value) => {
   const amount = Math.round((Number(value) || 0) * 100) / 100;
   return `£${amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2)}`;
 };
-
-function tosHtmlBlock(version, timestampIso) {
-  const when = timestampIso
-    ? new Date(timestampIso).toLocaleString("en-GB", { timeZone: "Europe/London" })
-    : "—";
-
-  return `
-    <h3 style="margin:16px 0 6px">Terms of Service confirmation</h3>
-    <p style="margin:0 0 10px">
-      Version: <strong>${escapeHtml(version || TERMS_VERSION_DEFAULT)}</strong><br>
-      Confirmed at: <strong>${escapeHtml(when)}</strong>
-    </p>
-    <pre style="white-space:pre-wrap;background:#f6f6f6;padding:12px;border-radius:8px;border:1px solid #eee;margin:0">${escapeHtml(TERMS_BODY)}</pre>
-  `;
-}
 
 function buildPricingBlocks(pricing, discountCode) {
   const code = String(discountCode || "").trim();
@@ -308,11 +294,19 @@ exports.handler = async (event) => {
     const claim = await claimBookingSubmission({ ...submission, channel: "email" });
     if (!claim.ok) return submissionErrorResponse({ ...submission, duplicate: true });
 
+    // Both immediate customer and owner emails share this generated PDF.
+    // Preview 1 deferred owner delivery rebuilds the same acceptance
+    // certificate from the signed original booking details.
     const attachments = termsPdfAttachment ? [termsPdfAttachment] : undefined;
+    const ownerTerms=buildOwnerTermsSummary({
+      termsAccepted,termsVersion,termsTimestamp,
+      pdfAttached:Boolean(termsPdfAttachment),
+    });
     const subjectAdmin = `🗑️ New Bin Cleaning Booking (${source})`;
-    const textAdmin = `New Bin Cleaning Booking\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\n${lat != null && lng != null ? `Geo: ${lat}, ${lng}\n` : ""}${placeId ? `Place ID: ${placeId}\n` : ""}Bins:\n${binsText}\n\n${pricingBlocks.text}\n\n— TERMS —\nAccepted: ${termsAccepted ? "yes" : "no"}\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\nAcceptance line: ${termsAcceptanceText}\n`;
+    const textAdmin = `New Bin Cleaning Booking\n\nBooking reference: ${submission.bookingId}\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\n${lat != null && lng != null ? `Geo: ${lat}, ${lng}\n` : ""}${placeId ? `Place ID: ${placeId}\n` : ""}Bins:\n${binsText}\n\n${pricingBlocks.text}\n\n${ownerTerms.text}\n`;
     const htmlAdmin = `
       <h2>New Bin Cleaning Booking</h2>
+      <p><strong>Booking reference:</strong> ${escapeHtml(submission.bookingId)}</p>
       <p><strong>Name:</strong> ${escapeHtml(name)}</p>
       <p><strong>Address:</strong> ${escapeHtml(address)}</p>
       <p><strong>Phone:</strong> ${escapeHtml(phone)}</p>
@@ -321,12 +315,7 @@ exports.handler = async (event) => {
       ${placeId ? `<p><strong>Place ID:</strong> ${escapeHtml(placeId)}</p>` : ""}
       <p><strong>Bins:</strong><br>${binsHtml}</p>
       ${pricingBlocks.html}
-      <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb">
-      <div style="padding:12px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb">
-        <p style="margin:0 0 6px"><strong>TERMS</strong> <span style="color:#6b7280">(v${escapeHtml(termsVersion)})</span></p>
-        <p style="margin:0 0 6px"><em>${escapeHtml(termsAcceptanceText)}</em></p>
-        ${tosHtmlBlock(termsVersion, termsTimestamp)}
-      </div>
+      ${ownerTerms.html}
       <p style="color:#6b7280;font-size:12px;margin-top:12px">Source: ${escapeHtml(source)}</p>
     `;
 

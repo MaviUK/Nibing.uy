@@ -203,3 +203,45 @@ test("Preview 1 new booking reference is short, copyable, and included in custom
   assert.match(template,/YOUR BOOKING REFERENCE/);
   assert.match(template,/Keep this reference if you need to contact us/);
 });
+
+
+test("owner booking receipt shows concise acceptance and attaches customer certificate PDF",()=>{
+  const {buildOwnerTermsSummary}=require("../netlify/functions/lib/ownerBookingTermsSummary");
+  const accepted=buildOwnerTermsSummary({
+    termsAccepted:true,termsVersion:"August 2026",
+    termsTimestamp:"2026-10-31T22:11:23.000Z",pdfAttached:true,
+  });
+  assert.match(accepted.text,/Terms & Conditions: Accepted/);
+  assert.match(accepted.text,/Version: August 2026/);
+  assert.match(accepted.text,/Certificate PDF attached \(customer copy\)/);
+  assert.match(accepted.html,/Certificate PDF attached \(customer copy\)/);
+  assert.doesNotMatch(accepted.html,/<pre|Terms agreed to|13-clean minimum|Acceptance line/i);
+  const absent=buildOwnerTermsSummary({
+    termsAccepted:true,termsVersion:"August 2026",pdfAttached:false,
+  });
+  assert.doesNotMatch(absent.text,/Certificate PDF attached/);
+  assert.match(absent.text,/PDF not attached/);
+  const escaped=buildOwnerTermsSummary({
+    termsAccepted:true,termsVersion:'<script>alert("x")</script>',
+    termsTimestamp:"2026-10-31T20:00:00.000Z",pdfAttached:true,
+  });
+  assert.doesNotMatch(escaped.html,/<script>/);
+  assert.match(escaped.html,/&lt;script&gt;/);
+
+  const sender=fs.readFileSync(path.join(ROOT,"netlify/functions/sendBookingEmail.js"),"utf8");
+  const preview=fs.readFileSync(path.join(ROOT,"netlify/functions/squeegeePreviewAutoSync.mjs"),"utf8");
+  assert.match(sender,/buildOwnerTermsSummary\(/);
+  assert.match(sender,/\$\{ownerTerms\.text\}/);
+  assert.match(sender,/\$\{ownerTerms\.html\}/);
+  assert.doesNotMatch(sender,/function tosHtmlBlock\(/);
+  assert.doesNotMatch(sender,/\$\{escapeHtml\(TERMS_BODY\)\}/);
+  assert.match(sender,/const attachments = termsPdfAttachment \? \[termsPdfAttachment\] : undefined/);
+  assert.match(sender,/to:TO_ADMIN,subject:subjectAdmin/);
+  assert.match(sender,/replyTo:email\|\|undefined,attachments/);
+  assert.match(sender,/to: email,/);
+  assert.match(sender,/replyTo: TO_ADMIN,\s*attachments/);
+  assert.match(preview,/terms\.buildTermsAcceptancePdfAttachment\(/);
+  assert.match(preview,/termsBody:ownerReceipt\.termsBody/);
+  assert.match(preview,/ownerAlerts\.notifyOwnerOfCompletedBooking\(id,ownerReceipt/);
+  assert.match(preview,/\.\.\.alertOptions,attachments,attention/);
+});
