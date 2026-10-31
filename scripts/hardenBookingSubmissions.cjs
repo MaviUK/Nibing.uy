@@ -35,7 +35,8 @@ updateFile("src/LandingPage.jsx", (text) => {
 
   if (
     !text.includes('const emailSubmissionMeta = createBookingSubmissionMeta();') &&
-    !text.includes('const emailSubmissionMeta = emailSubmissionRef.current || createBookingSubmissionMeta();')
+    !text.includes('const emailSubmissionMeta = emailSubmissionRef.current || createBookingSubmissionMeta();') &&
+    !text.includes('emailSubmissionMeta = emailSubmissionRef.current || createBookingSubmissionMeta();')
   ) {
     text = mustReplace(
       text,
