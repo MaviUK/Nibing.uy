@@ -507,3 +507,210 @@
   }
   .n64-public-leaderboard .n64-board-join-cta button {font-size:.85rem;}
 }
+
+
+/* Owner-only full historical rankings inside the existing public section.
+   All 662 names arrive ONLY after the emailed owner session is verified
+   on the server. This does NOT change public leaderboard consent. */
+.n64-public-leaderboard .n64-rank-public[hidden],
+.n64-public-leaderboard .n64-owner-ranking[hidden] {
+  display:none!important;
+}
+.n64-public-leaderboard .n64-rank-visibility {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin:15px 0 22px;
+}
+.n64-public-leaderboard .n64-rank-visibility button {
+  appearance:none;
+  border:3px solid #b9cce1;
+  border-radius:0;
+  background:#d4e0ed;
+  box-shadow:3px 4px #3a5071;
+  color:#1d3653;
+  font:1000 .83rem/1.2 "Trebuchet MS",sans-serif;
+  cursor:pointer;
+  min-height:48px;
+  padding:11px 6px;
+  text-transform:uppercase;
+}
+.n64-public-leaderboard .n64-rank-visibility button.n64-rank-visibility--active {
+  background:#ffe273;
+  border-color:#fff5c0;
+  box-shadow:3px 4px #876b31;
+}
+.n64-public-leaderboard .n64-rank-visibility button:focus-visible,
+.n64-public-leaderboard .n64-owner-login button:focus-visible,
+.n64-public-leaderboard .n64-owner-list-footer button:focus-visible {
+  outline:3px solid #66e4b0;
+  outline-offset:3px;
+}
+.n64-public-leaderboard .n64-owner-ranking {
+  margin:0 auto;
+  text-align:left;
+  max-width:800px;
+}
+.n64-public-leaderboard .n64-owner-private-notice {
+  font-size:.9rem;
+  line-height:1.55;
+  margin:0 0 18px;
+  background:#182c40;
+  border-left:5px solid #ffe273;
+  padding:13px 15px;
+  color:#e3edf6;
+}
+.n64-public-leaderboard .n64-owner-private-notice strong {color:#ffe273;}
+.n64-public-leaderboard .n64-owner-summary {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin:18px 0 14px;
+}
+.n64-public-leaderboard .n64-owner-summary > div {
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:13px 9px;
+  background:#fff3c6;
+  border:3px solid #ffd96e;
+  box-shadow:3px 4px #233451;
+  color:#1d3552;
+}
+.n64-public-leaderboard .n64-owner-summary strong {
+  font-size:clamp(1.15rem,3vw,1.75rem);
+  line-height:1.1;
+  font-weight:1000;
+  overflow-wrap:anywhere;
+}
+.n64-public-leaderboard .n64-owner-summary span {
+  font-size:.66rem;
+  line-height:1.3;
+  letter-spacing:.025em;
+  font-weight:900;
+}
+.n64-public-leaderboard .n64-owner-source {
+  color:#dce7f5;
+  font-size:.78rem;
+  line-height:1.5;
+  text-align:left;
+  margin:0 0 18px;
+}
+.n64-public-leaderboard .n64-owner-search {
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+  margin:0 0 17px;
+  font-weight:900;
+  font-size:.73rem;
+  letter-spacing:.025em;
+  color:#fff2b3;
+}
+.n64-public-leaderboard .n64-owner-search input {
+  width:100%;
+  min-height:48px;
+  padding:10px 13px;
+  background:#fff7e1;
+  border:3px solid #24466e;
+  box-shadow:4px 4px #10243f;
+  border-radius:0;
+  color:#182a46;
+  font:700 1rem/1.3 system-ui,sans-serif;
+}
+.n64-public-leaderboard .n64-owner-ranking ol {
+  list-style:none;
+  padding:0;
+  margin:0;
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+}
+.n64-public-leaderboard .n64-owner-score-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:14px;
+  padding:13px 12px;
+  background:#ffefb4;
+  border:3px solid #fff7d5;
+  box-shadow:3px 4px #30496d;
+  color:#233b5b;
+}
+.n64-public-leaderboard .n64-owner-score-row > div {
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  min-width:0;
+}
+.n64-public-leaderboard .n64-owner-score-row > div strong {
+  font:1000 clamp(.84rem,3vw,1rem)/1.3 "Trebuchet MS",sans-serif;
+  overflow-wrap:anywhere;
+}
+.n64-public-leaderboard .n64-owner-score-row small {
+  font-size:.68rem;
+  line-height:1.25;
+  font-weight:900;
+  color:#68778b;
+}
+.n64-public-leaderboard .n64-owner-score-row .n64-owner-points {
+  font:1000 clamp(.86rem,3vw,1.07rem)/1.3 "Trebuchet MS",sans-serif;
+  color:#176d53;
+  white-space:nowrap;
+}
+.n64-public-leaderboard .n64-owner-list-footer {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+  flex-wrap:wrap;
+  padding:15px 0;
+  color:#f6e0a4;
+  font-size:.77rem;
+  font-weight:900;
+}
+.n64-public-leaderboard .n64-owner-list-footer button,
+.n64-public-leaderboard .n64-owner-login button,
+.n64-public-leaderboard .n64-owner-login a {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:11px 13px;
+  min-height:44px;
+  background:#ffe273;
+  color:#1e3551;
+  border:3px solid #273f59;
+  box-shadow:3px 3px #0d213a;
+  border-radius:0;
+  cursor:pointer;
+  font:900 .8rem/1.25 "Trebuchet MS",sans-serif;
+  text-decoration:none;
+  text-align:center;
+}
+.n64-public-leaderboard .n64-owner-login {
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:15px;
+  padding:20px;
+  border:3px solid #ffdd77;
+  background:#243956;
+  color:#f5ebd9;
+}
+.n64-public-leaderboard .n64-owner-login p {
+  margin:0;
+  font-size:.87rem;
+  text-align:left;
+  line-height:1.5;
+}
+@media(max-width:550px) {
+  .n64-public-leaderboard .n64-rank-visibility button {font-size:.67rem;padding:10px 4px;}
+  .n64-public-leaderboard .n64-owner-summary {gap:5px;}
+  .n64-public-leaderboard .n64-owner-summary > div {padding:10px 6px;}
+  .n64-public-leaderboard .n64-owner-summary strong {font-size:clamp(1rem,4.3vw,1.4rem);}
+  .n64-public-leaderboard .n64-owner-summary span {font-size:.57rem;}
+  .n64-public-leaderboard .n64-owner-score-row {padding:10px 8px;gap:7px;}
+  .n64-public-leaderboard .n64-owner-score-row > div strong {font-size:.77rem;}
+  .n64-public-leaderboard .n64-owner-score-row small {font-size:.6rem;}
+  .n64-public-leaderboard .n64-owner-score-row .n64-owner-points {font-size:.87rem;}
+}
