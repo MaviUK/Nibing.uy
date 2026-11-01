@@ -250,7 +250,8 @@ exports.handler = async (event) => {
         arcadeOptOut: payload.arcadeOptOut === true,
         arcadeRegistered: Boolean(arcadeEntry?.registered),
         arcadePlayerToken: arcadeEntry?.playerToken || null,
-        arcadeDisplayName: arcadeEntry?.displayName || null,
+        arcadeCustomerRef: arcadeEntry?.customerRef || null,
+        arcadeTown: arcadeEntry?.town || null,
       });
 
       // WhatsApp already calculated the server-side cleaning dates. Reuse
