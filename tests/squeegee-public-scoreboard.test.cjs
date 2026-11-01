@@ -93,11 +93,11 @@ test("UI uses a public scoreboard; login is only for private Customer HQ stats",
   const hq=fs.readFileSync(path.join(root,"src/pages/CustomerHQ.jsx"),"utf8");
   assert.match(board,/SHOW MORE PUBLIC SCORES/);
   assert.match(board,/ARCADE PLAYER/);
-  assert.match(board,/Everyone can see the leaderboard without signing in/);
+  assert.match(board,/Every eligible customer is ranked here by first name, town and cleaning points on the N64 test website/);
   assert.match(board,/showOwnerControls/);
   assert.match(board,/setPublicShownCount/);
   assert.match(board,/<CustomerHQ embedded/);
-  assert.match(api,/publicEligibleScoreboard/);
+  assert.match(api,/previewFirstNameScoreboard/);
   assert.match(api,/public_eligible_scores/);
   assert.match(api,/anonymous:true/);
   assert.match(hq,/request-code/);
