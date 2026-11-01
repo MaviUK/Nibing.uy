@@ -38,7 +38,7 @@ test("Preview 1 weather is cosmetic, mobile-safe, and booking code is untouched"
   assert.match(jsx, /<Hero weather=\{weather\}/);
   assert.match(jsx, /getPreviewBookingProof/);
   assert.doesNotMatch(jsx, /<SnowCanvas enabled=/);
-  assert.doesNotMatch(component, /deploy-preview-77--nibinguy\.netlify\.app/);
+  assert.match(component, /deploy-preview-77--nibinguy\.netlify\.app/);
   assert.match(component, /\/\.netlify\/functions\/arcadeWeather/);
   assert.match(css, /prefers-reduced-motion:reduce/);
   assert.match(css, /pointer-events:none/);
@@ -46,20 +46,34 @@ test("Preview 1 weather is cosmetic, mobile-safe, and booking code is untouched"
 });
 
 
-test("the forecast changes only the scenery and never adds a visible weather widget", () => {
+test("Preview 1 weather theme buttons override only the scenery and Auto restores real forecasts", () => {
   const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
   const component = read("src/components/ArcadeWeather.jsx");
   const landing = read("src/LandingPage.jsx");
   const css = read("src/n64-weather.css");
   const app = read("src/App.jsx");
   assert.match(component, /export function useArcadeWeather\(\)/);
-  assert.match(component, /setWeather\(next\)/);
+  assert.match(component, /setForecast\(next\)/);
   assert.match(component, /\/\.netlify\/functions\/arcadeWeather/);
-  assert.doesNotMatch(component, /testMode|chooseWeather|WEATHER_TEST_OPTIONS|ArcadeWeatherBadge|ArcadeWeatherPreviewBar/);
+  assert.match(component, /window\.location\.hostname === "deploy-preview-77--nibinguy\.netlify\.app"/);
+  assert.match(component, /const \[chosenTheme, setChosenTheme\] = useState\(readThemeChoice\)/);
+  assert.match(component, /setChosenTheme\(next\)/);
+  assert.match(component, /chosenTheme === "night" \? "sunny" : chosenTheme/);
+  assert.match(component, /isNight: chosenTheme === "night"/);
+  assert.match(component, /window\.history\.replaceState/);
+  assert.match(component, /if \(next === "auto"\) url\.searchParams\.delete\("weather"\)/);
+  for (const mode of ["auto", "sunny", "cloudy", "rain", "snow", "storm", "fog", "night"]) {
+    assert.ok(component.includes('["' + mode + '",'), "Missing weather theme option " + mode);
+  }
+  assert.match(component, /weather\.chooseTheme\(value\)/);
+  assert.match(component, /aria-pressed=\{weather\.chosenTheme === value\}/);
+  assert.match(landing, /<ArcadeWeatherPreviewBar weather=\{weather\} \/>/);
   assert.match(landing, /<ArcadeWeatherScene mode=\{weather\.mode\} isNight=\{weather\.isNight\} \/>/);
   assert.match(landing, /data-weather=\{weather\.mode\}/);
-  assert.doesNotMatch(landing, /ArcadeWeatherBadge|ArcadeWeatherPreviewBar|n64-weather-testing/);
-  assert.doesNotMatch(css, /n64-weather-badge|n64-weather-test-/);
+  assert.doesNotMatch(landing, /ArcadeWeatherBadge/);
+  assert.doesNotMatch(css, /n64-weather-badge/);
+  assert.match(css, /n64-weather-test-grid/);
+  assert.match(css, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(app, /MET Norway/);
   assert.match(css, /data-weather="rain"/);
   assert.match(css, /data-weather="snow"/);

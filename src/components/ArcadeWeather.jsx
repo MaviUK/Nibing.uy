@@ -16,12 +16,58 @@ function readCache() {
   } catch { return null; }
 }
 
+// Preview 1 only: manual style testing, never a real forecast override in production.
+const WEATHER_THEME_OPTIONS = [
+  ["auto", "↻", "Auto"],
+  ["sunny", "☀", "Sun"],
+  ["cloudy", "☁", "Cloud"],
+  ["rain", "☂", "Rain"],
+  ["snow", "❄", "Snow"],
+  ["storm", "⚡", "Storm"],
+  ["fog", "≋", "Fog"],
+  ["night", "☾", "Night"]
+];
+
+function isWeatherPreview() {
+  return typeof window !== "undefined" &&
+    window.location.hostname === "deploy-preview-77--nibinguy.netlify.app";
+}
+function readThemeChoice() {
+  if (!isWeatherPreview()) return "auto";
+  const mode = new URLSearchParams(window.location.search).get("weather")?.toLowerCase();
+  return WEATHER_THEME_OPTIONS.some(([value]) => value === mode) ? mode : "auto";
+}
+
 /** Auto-update a fixed Bangor forecast without tracking customers or asking for GPS. */
 export function useArcadeWeather() {
-  const [weather, setWeather] = useState(() => {
+  const [chosenTheme, setChosenTheme] = useState(readThemeChoice);
+  const [forecast, setForecast] = useState(() => {
     const saved = readCache();
     return saved ? { ...saved.weather, available: true } : FALLBACK;
   });
+  const isPreview = isWeatherPreview();
+
+  const chooseTheme = (next) => {
+    if (!isPreview || !WEATHER_THEME_OPTIONS.some(([value]) => value === next)) return;
+    setChosenTheme(next);
+    // Keep the selected visual theme on refresh, without scrolling to the top.
+    try {
+      const url = new URL(window.location.href);
+      if (next === "auto") url.searchParams.delete("weather");
+      else url.searchParams.set("weather", next);
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    } catch { /* The buttons work even when history is unavailable. */ }
+  };
+
+  // Only the preview gets a manual override. Auto always uses the true forecast.
+  const weather = isPreview && chosenTheme !== "auto"
+    ? {
+        ...FALLBACK,
+        mode: chosenTheme === "night" ? "sunny" : chosenTheme,
+        isNight: chosenTheme === "night",
+        isPreview, chosenTheme, chooseTheme
+      }
+    : { ...forecast, isPreview, chosenTheme: "auto", chooseTheme };
 
   useEffect(() => {
     document.documentElement.dataset.arcadeWeather = weather.mode;
@@ -49,10 +95,10 @@ export function useArcadeWeather() {
           temperatureC: Number.isFinite(data.temperatureC) ? data.temperatureC : null,
           available: true, stale: Boolean(data.stale)
         };
-        setWeather(next);
+        setForecast(next);
         try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ weather: next, savedAt: Date.now() })); } catch {}
       } catch {
-        if (active && !readCache()) setWeather(FALLBACK);
+        if (active && !readCache()) setForecast(FALLBACK);
       } finally { clearTimeout(timeout); controller = null; }
     };
     const cached = readCache();
@@ -131,6 +177,37 @@ function N64LowPolySkyOrb({ isNight }) {
         </>
       )}
     </svg>
+  );
+}
+
+/**
+ * Temporary theme switcher for the unmerged N64 site, separate from real weather.
+ * Deliberately no forecast badge, temperature, or weather status label.
+ */
+export function ArcadeWeatherPreviewBar({ weather }) {
+  if (!weather?.isPreview) return null;
+  return (
+    <div className="n64-weather-test-bar" role="group" aria-label="Preview weather themes">
+      <div className="n64-weather-test-heading">
+        <strong>🎮 WEATHER THEMES</strong>
+        <small>Auto = current Bangor forecast</small>
+      </div>
+      <div className="n64-weather-test-grid">
+        {WEATHER_THEME_OPTIONS.map(([value, icon, label]) => (
+          <button
+            key={value}
+            type="button"
+            className="n64-weather-test-button"
+            aria-pressed={weather.chosenTheme === value}
+            aria-label={value === "auto" ? "Use automatic Bangor weather" : "Preview " + label + " theme"}
+            onClick={() => weather.chooseTheme(value)}
+          >
+            <span aria-hidden="true">{icon}</span>
+            <b>{label}</b>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
