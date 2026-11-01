@@ -82,20 +82,34 @@ async function getPersonalSummary({stores,privateCustomers,customerId,
   const alias=historical.canonicalLegacyRef(customerId);
   if(!eligible || !alias || !eligible.aliases.has(alias) ||
      !Buffer.isBuffer(secretKey)||secretKey.length<16){
-    // An authenticated customer outside the public cohort retains only
-    // their already dated cleaning points. Unknown website XP is excluded.
-    const yearTotals=new Map();
+    // An authenticated customer outside the public cohort still earns
+    // verified-date website rewards. They just have no public rank.
+    const yearTotals=new Map(),cleaningByYear=new Map();
     for(const event of Array.isArray(account.events)?account.events:[]){
       const year=Number(String(event?.date||"").slice(0,4));
-      const points=annual.annualCleaningXP([event],year,privateCustomers.asOf);
-      if(!annual.validVerifiedYear(year,now)||!points)continue;
-      yearTotals.set(year,(yearTotals.get(year)||0)+points);
+      const xp=annual.annualCleaningXP([event],year,privateCustomers.asOf);
+      if(!annual.validVerifiedYear(year,now)||!xp)continue;
+      cleaningByYear.set(year,(cleaningByYear.get(year)||0)+xp);
+      yearTotals.set(year,(yearTotals.get(year)||0)+xp);
+    }
+    if(alias){
+      const earnedWeb=await annual.datedWebsiteXP(stores,new Set([alias]),now);
+      for(const [year,xp] of earnedWeb.get(alias)||new Map()){
+        if(!annual.validVerifiedYear(year,now)||xp<=0)continue;
+        yearTotals.set(year,(yearTotals.get(year)||0)+xp);
+      }
     }
     const yearly={};
-    let points=0;
-    for(const [year,xp] of yearTotals){yearly[String(year)]={points:xp,rank:null};points+=xp;}
-    return {points,cleaningPoints:points,websiteXp:0,rank:null,yearly,
-      yearlyXpTotal:points,rankingAvailable:false};
+    let points=0,cleaningPoints=0;
+    for(const [year,xp] of yearTotals){
+      yearly[String(year)]={points:xp,rank:null};
+      points+=xp;
+    }
+    for(const xp of cleaningByYear.values())cleaningPoints+=xp;
+    if(points>100000||!Number.isSafeInteger(points))
+      throw new Error("personal_dated_total_needs_review");
+    return {points,cleaningPoints,websiteXp:points-cleaningPoints,
+      rank:null,yearly,yearlyXpTotal:points,rankingAvailable:false};
   }
   const [mode,published]=await Promise.all([
     stores.history.get(historical.MODE_KEY,{type:"json",consistency:"strong"}),
