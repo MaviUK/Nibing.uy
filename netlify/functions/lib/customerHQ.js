@@ -58,6 +58,7 @@ function validateSource(raw){
   const known=new Map(history.ENTRIES.map(([alias,town,points])=>[alias,{town,points}]));
   const seenId=new Set(),seenRef=new Set(),emailCounts=new Map();
   let total=0,rankedCount=0,rankedPoints=0,eventCount=0;
+  let rankedWithEmail=0,rankedWithEmailPoints=0;
   const accounts=[];
   for(const item of raw.accounts){
     if(!item || !UUID.test(item.id) ||
@@ -80,6 +81,7 @@ function validateSource(raw){
     const alias=canonicalLegacyRef(item.id),expected=known.get(alias);
     if(expected){
       rankedCount++;rankedPoints+=item.points;
+      if(item.email){rankedWithEmail++;rankedWithEmailPoints+=item.points;}
       if(expected.points!==item.points||expected.town!==item.town)
         throw new Error("hq_public_score_mismatch");
     }else if(item.points>0&&item.town!=="Town unavailable"){
@@ -113,10 +115,44 @@ function validateSource(raw){
     throw new Error("hq_active_leaderboard_reconciliation_failed");
   return {version:1,asOf:raw.asOf,scoringVersion:raw.scoringVersion,accounts,
     summary:{activeAccounts:accounts.length,rankedCustomers:rankedCount,
-      rankedPoints,emailAvailable:accounts.filter(a=>a.email).length,
+      rankedPoints,rankedWithEmail,rankedWithEmailPoints,
+      emailAvailable:accounts.filter(a=>a.email).length,
       duplicateEmailCount:[...emailCounts.values()].filter(n=>n>1).length,
       historyEvents:eventCount,allHistoricalPoints:total}};
 }
+/**
+ * Email is now a mandatory condition for being counted in the historical
+ * public leaderboard. Re-use only a private, owner-imported Squeegee backup;
+ * never infer eligibility from an individual public player ID or browser data.
+ * Existing history is preserved in the private import when email is absent.
+ */
+function eligibleRankedEmailAccounts(snapshot){
+  if(!snapshot || snapshot.version!==1 || snapshot.asOf!==history.AS_OF ||
+     snapshot.scoringVersion!==RULE_VERSION ||
+     !Array.isArray(snapshot.accounts) || snapshot.accounts.length!==1022)
+    return null;
+  const known=new Map(history.ENTRIES.map(([alias,town,points])=>
+    [alias,{town,points}]));
+  const aliases=new Set(),seen=new Set();
+  let historicalPoints=0;
+  for(const account of snapshot.accounts){
+    if(!account || !UUID.test(String(account.id||"")) ||
+       seen.has(account.id.toLowerCase()))return null;
+    seen.add(account.id.toLowerCase());
+    const alias=canonicalLegacyRef(account.id);
+    const baseline=known.get(alias);
+    if(!baseline)continue;
+    if(baseline.town!==account.town ||
+       baseline.points!==account.points ||
+       typeof account.email!=="string")return null;
+    if(account.email && normalizeEmail(account.email)===account.email){
+      aliases.add(alias);historicalPoints+=account.points;
+    }
+  }
+  if(seen.size!==1022 || aliases.size>941)return null;
+  return {aliases,count:aliases.size,historicalPoints};
+}
+
 function accountForEmail(snapshot,email){
   if(!snapshot || snapshot.version!==1 || !Array.isArray(snapshot.accounts))return null;
   const found=snapshot.accounts.filter(a=>a.email===email);
@@ -208,6 +244,6 @@ async function revokeSession({authStore,token}){
     {...old.data,revoked:true},{onlyIfMatch:old.etag});
 }
 module.exports={DATA_STORE,AUTH_STORE,DATA_KEY,COOKIE,OTP_MS,SESSION_MS,
-  normalizeEmail,signature,secret,validateSource,accountForEmail,
+  normalizeEmail,signature,secret,validateSource,eligibleRankedEmailAccounts,accountForEmail,
   validateApiCustomer,publicAccount,issueCode,verifyCode,
   createSession,readSession,revokeSession,cookieFromHeader,setCookie,clearCookie};
