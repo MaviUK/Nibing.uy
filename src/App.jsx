@@ -22,6 +22,7 @@ const TenSecondChallenge = lazy(() => import("./TenSecondChallenge"))
 const AdminLogin = lazy(() => import("./admin/AdminLogin"))
 const AdminDashboard = lazy(() => import("./admin/AdminDashboard"))
 const AuthCallback = lazy(() => import("./auth/AuthCallback"))
+const CustomerHQ = lazy(() => import("./pages/CustomerHQ"))
 
 function SiteFooter() {
   return (
@@ -56,6 +57,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/street-booking" element={<StreetBookingPage />} />
+        <Route path="/customer-hq" element={<CustomerHQ />} />
         <Route path="/metric" element={<div className="n64-metrics"><Metrics /></div>} />
         <Route path="/metrics" element={<div className="n64-metrics"><Metrics /></div>} />
         <Route path="/challenge-email-test-0825" element={<div className="n64-challenge-route"><TenSecondChallenge autoWin /></div>} />
