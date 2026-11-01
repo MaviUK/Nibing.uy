@@ -268,7 +268,11 @@
       }
       top.forEach((item) => {
         const li = document.createElement("li");
-        const name = document.createElement("span");
+        const name = document.createElement("a");
+        name.href = "/customer-hq";
+        name.title = "Sign in to view your own private points history";
+        name.style.color = "inherit";
+        name.style.textDecoration = "underline";
         name.textContent = item.rank + ". " + String(item.displayName || item.customerRef || "Player") + " · " + String(item.town || "Town unavailable");
         const score = document.createElement("strong");
         score.textContent = Number(item.points || 0).toLocaleString("en-GB") + " XP";
