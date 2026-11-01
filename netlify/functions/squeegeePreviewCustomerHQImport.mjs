@@ -74,7 +74,8 @@ export default async function handler(request,ctx){
       '</p></section>'+
       '<section><h2>Upload private customer points history</h2>'+
       '<form method="post" enctype="multipart/form-data" action="'+PATH+'">'+
-      '<input type="file" name="history" accept="application/json,.json" required>'+
+      '<input type="file" name="history" required>'+
+      '<p><small>On Android, select the NI_Bin_Guy_Customer_HQ_Secure_Import_PRIVATE_2026-10-31.json file (about 2 MB). All file types can now be selected; the server checks the JSON content securely before importing.</small></p>'+
       '<button type="submit">Import customer history privately</button></form>'+
       '<p><small>Maximum 3 MB. A newer, checked import replaces the old private snapshot. Repeating the same file does not duplicate points.</small></p></section>'+
       '<p><a href="/customer-hq">Open Customer HQ</a></p>');
