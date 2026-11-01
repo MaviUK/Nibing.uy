@@ -5,6 +5,7 @@ const historicalPreview = require("./lib/squeegeeActivePreviewBoard");
 const nameConsents = require("./lib/squeegeeLeaderboardNameConsent");
 const customerHQ = require("./lib/customerHQ");
 const arcadeMerge = require("./lib/arcadeCustomerMerge");
+const yearlyPreview = require("./lib/squeegeeYearlyPreviewBoard");
 const { publicCustomerReference, townFromAddress, safePublicTown, safePublicReference } =
   require("./lib/arcadePublicIdentity");
 const {
@@ -411,40 +412,58 @@ exports.handler = async (event) => {
     const stores = storePair();
     if (event.httpMethod === "GET") {
       if(isExactN64PreviewRequest(event)){
-        // EMAIL REQUIRED: the only trusted eligibility data is a PRIVATE,
-        // owner-imported active-account Squeegee snapshot. Never fall back
-        // to the 941-row public seed while this private import is missing.
+        const now=Date.now();
+        const rawYear=event.queryStringParameters?.year;
+        const years=yearlyPreview.availableYears(now);
+        let annualYear=null;
+        if(rawYear!==undefined && rawYear!==null){
+          if(typeof rawYear!=="string"||!/^\d{4}$/.test(rawYear)||
+             !yearlyPreview.validYear(Number(rawYear),now))
+            return out(400,{error:"invalid_leaderboard_year"});
+          annualYear=Number(rawYear);
+        }
+        const period=annualYear===null?"overall":String(annualYear);
+        // EMAIL REQUIRED: the ONLY trusted eligibility data is the private
+        // owner-imported active Squeegee snapshot; no public seed fallback.
         const privateCustomers=await stores.portal.get(customerHQ.DATA_KEY,{
           type:"json",consistency:"strong"
         });
         const eligible=customerHQ.eligibleRankedEmailAccounts(privateCustomers);
         if(!eligible){
-          return out(200,publicLeaderboard({
+          return out(200,{...publicLeaderboard({
             entries:[],totalPlayers:0,status:"eligibility_pending"
-          }));
+          }),period,availableYears:years});
         }
+        const annualCleaningTotal=annualYear===null?eligible.historicalPoints:
+          privateCustomers.accounts.reduce((sum,account)=>
+            eligible.aliases.has(historical.canonicalLegacyRef(account.id))
+              ?sum+yearlyPreview.annualCleaningXP(
+                account.events,annualYear,privateCustomers.asOf):sum,0);
         const [privateNames,mode,published]=await Promise.all([
           stores.names.get(nameConsents.KEY,{type:"json",consistency:"strong"}),
           stores.history.get(historical.MODE_KEY,{type:"json",consistency:"strong"}),
           stores.history.get(historical.PUBLISHED_KEY,{type:"json",consistency:"strong"}),
         ]);
         if(mode?.activeOnly===true && !published){
-          // Keep the owner's previous HIDE action authoritative.
+          // The owner's previous HIDE action is authoritative for every year.
           return out(200,{...publicLeaderboard({
             entries:[],totalPlayers:0,status:"consent_pending"
           }),eligiblePlayers:eligible.count,
-          verifiedPlayers:eligible.verifiedCount,
-          verifiedActiveAccounts:eligible.verifiedActiveEmailAccounts,
-          verifiedAsOf:eligible.verificationAsOf,
-          eligibleCleaningXp:eligible.historicalPoints});
+            verifiedPlayers:eligible.verifiedCount,
+            verifiedActiveAccounts:eligible.verifiedActiveEmailAccounts,
+            verifiedAsOf:eligible.verificationAsOf,
+            eligibleCleaningXp:annualCleaningTotal,
+            period,availableYears:years});
         }
-        // Public board is NOT a customer login. All current email-eligible
-        // customers have public scores; first-name/town are displayed ONLY
-        // for customers with proven consent. No consent list -> anonymity.
-        // The key is NEVER exposed to the browser or public source code.
+        // Yearly points are from dated private cleaning and website reward
+        // records only. Undated legacy XP stays in the Overall board.
+        // The same secret-keyed public first-name wrapper protects both.
         const privateKey=customerHQ.secret(process.env);
-        if(!privateKey) return out(503,{error:"leaderboard_secret_unavailable"});
-        const full=await historicalPreview.getStaticPreviewBoard(stores,Date.now(),true);
+        if(!privateKey)return out(503,{error:"leaderboard_secret_unavailable"});
+        const full=annualYear===null
+          ?await historicalPreview.getStaticPreviewBoard(stores,now,true)
+          :await yearlyPreview.getAnnualPreviewBoard(
+            stores,privateCustomers,eligible.aliases,annualYear,now);
         const publicScores=nameConsents.previewFirstNameScoreboard(
           privateCustomers,full,eligible.aliases,privateNames,privateKey
         );
@@ -454,7 +473,8 @@ exports.handler = async (event) => {
           verifiedPlayers:eligible.verifiedCount,
           verifiedActiveAccounts:eligible.verifiedActiveEmailAccounts,
           verifiedAsOf:eligible.verificationAsOf,
-          eligibleCleaningXp:eligible.historicalPoints});
+          eligibleCleaningXp:annualCleaningTotal,
+          period,availableYears:years});
       }
       const activeBoard=await getActiveHistoricalBoard(stores);
       // Production/non-Preview hosts retain the existing website-only board.

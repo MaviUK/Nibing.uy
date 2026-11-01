@@ -10,6 +10,10 @@ const CustomerHQ=React.lazy(()=>import("../pages/CustomerHQ"));
 
 export default function ArcadeLeaderboard() {
   const [players, setPlayers] = useState([]);
+  const [selectedYear,setSelectedYear] = useState("overall");
+  const [availableYears,setAvailableYears] = useState(() =>
+    Array.from({length:Math.max(0,new Date().getFullYear()-2023)},(_,i)=>2024+i)
+  );
   const [publicShownCount,setPublicShownCount] = useState(20);
   const [publicNamedCount,setPublicNamedCount] = useState(0);
   // The owner-only view is accessible via a deliberate deep link, not a
@@ -85,6 +89,15 @@ export default function ArcadeLeaderboard() {
   }, [activePanel]);
   const [changes, setChanges] = useState({});
   const previousPlayers = useRef(null);
+  const selectYear = (period) => {
+    if(selectedYear===period)return;
+    setPlayers([]);
+    setChanges({});
+    previousPlayers.current=null;
+    setPublicShownCount(20);
+    setConnection("connecting");
+    setSelectedYear(period);
+  };
   const [localScore, setLocalScore] = useState({ points: 0, registered: false });
 
   function showPublicRankings(){
@@ -183,10 +196,18 @@ export default function ArcadeLeaderboard() {
       if (busy) { refreshAgain = true; return; }
       busy = true;
       try {
-        const response = await fetch(ENDPOINT, { cache: "no-store" });
+        const url=selectedYear==="overall"?ENDPOINT:
+          ENDPOINT+"?year="+encodeURIComponent(selectedYear);
+        const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) throw new Error("Leaderboard temporarily unavailable");
         const data = await response.json();
         if (!mounted) return;
+        // Never display an Overall score as an annual score.
+        if(selectedYear!=="overall" && data.period!==selectedYear)
+          throw new Error("Unexpected leaderboard year");
+        if(Array.isArray(data.availableYears)&&
+           data.availableYears.every(y=>Number.isInteger(y)&&y>=2024&&y<=2099))
+          setAvailableYears(data.availableYears);
         const publicScores=data.status==="public_eligible_scores" ||
           data.status==="preview_public_first_names";
         const next = Array.isArray(data.entries)
@@ -253,7 +274,7 @@ export default function ArcadeLeaderboard() {
       void showOwnerRankings();
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
-    }, REFRESH_MS);
+    }, selectedYear==="overall"?REFRESH_MS:60000);
     window.addEventListener("n64:leaderboard-updated", refresh);
     window.addEventListener("online", refresh);
     window.addEventListener("focus", refresh);
@@ -268,7 +289,7 @@ export default function ArcadeLeaderboard() {
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, [selectedYear]);
 
 
   return (
@@ -289,7 +310,8 @@ export default function ArcadeLeaderboard() {
             {connection === "live" ? (sourceAsOf ? "BACKUP SNAPSHOT" : "LIVE") : connection === "connecting" ? "CONNECTING" : "RECONNECTING"}
           </span>
         </div>
-        <h2 id="n64-board-title">{rankingMode==="owner"?"Verified Customer Rankings":"Global Leaderboard"}</h2>
+        <h2 id="n64-board-title">{rankingMode==="owner"?"Verified Customer Rankings":
+          selectedYear==="overall"?"Global Leaderboard":selectedYear+" Leaderboard"}</h2>
         {showOwnerControls && <div className="n64-rank-visibility" role="group" aria-label="Ranking visibility">
           <button type="button" className={rankingMode==="public"?"n64-rank-visibility--active":""}
             aria-pressed={rankingMode==="public"} onClick={showPublicRankings}>
@@ -301,6 +323,22 @@ export default function ArcadeLeaderboard() {
           </button>
         </div>}
         <div hidden={rankingMode!=="public"} className="n64-rank-public">
+        <div className="n64-leaderboard-years" role="group" aria-label="Choose leaderboard year">
+          {["overall",...availableYears].map(period=>
+            <button type="button" key={period}
+              aria-pressed={selectedYear===String(period)}
+              className={selectedYear===String(period)?"n64-year-selected":""}
+              onClick={()=>selectYear(String(period))}>
+              {period==="overall"?"OVERALL":period}
+            </button>
+          )}
+        </div>
+        <p className="n64-leaderboard-year-note">
+          {selectedYear==="overall"
+            ?"All-time Squeegee cleaning and website rewards, including older XP whose individual earning dates were not saved."
+            :"Only verified cleaning XP and individually dated website rewards earned in "+selectedYear+
+              ". Older undated website XP stays in Overall. Cleaning visits come from the 31 Oct 2026 Squeegee backup."}
+        </p>
         <p>{eligibilityPending
           ? "The customer list is being verified. Only Squeegee customers with a registered email qualify."
           : sourceAsOf
@@ -334,6 +372,8 @@ export default function ArcadeLeaderboard() {
             <li className="n64-board-empty">
               <span>{connection !== "live" ? "Connecting to the leaderboard…" : eligibilityPending
                 ? "Verifying customers with registered emails."
+                : nameConsentMode && selectedYear!=="overall"
+                ? "No verified XP recorded for "+selectedYear+" among eligible customers."
                 : nameConsentMode
                 ? "Public scores are being prepared."
                 : "No registered public players yet."}</span>

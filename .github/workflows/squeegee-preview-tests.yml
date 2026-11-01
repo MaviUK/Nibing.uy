@@ -87,6 +87,9 @@ on:
       - tests/squeegee-active-streak-import.test.cjs
       - netlify/functions/lib/squeegeeActivePreviewSnapshot.js
       - netlify/functions/lib/squeegeeActivePreviewBoard.js
+      - netlify/functions/lib/squeegeeYearlyPreviewBoard.js
+      - tests/squeegee-annual-leaderboards.test.cjs
+      - src/n64-finale.css
       - netlify/functions/lib/arcadeCustomerMerge.js
       - tests/squeegee-customer-website-merge.test.cjs
       - netlify/functions/lib/squeegeeLeaderboardNameConsent.js

@@ -105,6 +105,55 @@
 @media(max-width:600px){.n64-public-leaderboard{padding:52px 12px 65px;}.n64-public-leaderboard ol{padding:6px;box-shadow:5px 6px 0 #567ba5;}.n64-public-leaderboard li{padding:13px 7px;font-size:.83rem;}}
 
 
+/* Overall / annual XP tabs sit above the public rankings. Four equal
+   columns fit narrow Android displays; keep the N64 square-button style. */
+.n64-public-leaderboard .n64-leaderboard-years {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+  margin:8px auto 16px;
+  max-width:660px;
+}
+.n64-public-leaderboard .n64-leaderboard-years button {
+  min-width:0;
+  padding:12px 3px;
+  border:3px solid #395276;
+  border-radius:0;
+  box-shadow:4px 5px 0 #0b1730;
+  background:#e0effc;
+  color:#20345c;
+  font:1000 clamp(.7rem,2.7vw,.96rem)/1.25 "Trebuchet MS",sans-serif;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+.n64-public-leaderboard .n64-leaderboard-years .n64-year-selected {
+  border-color:#fff6ce;
+  background:#ffe266;
+  color:#1a3055;
+  box-shadow:4px 5px 0 #518a72;
+}
+.n64-public-leaderboard .n64-leaderboard-years button:focus-visible {
+  outline:3px solid #78f4c0;
+  outline-offset:3px;
+}
+.n64-public-leaderboard .n64-rank-public p.n64-leaderboard-year-note {
+  max-width:660px;
+  margin:8px auto 14px;
+  font-size:.82rem;
+  line-height:1.5;
+  color:#f6e6ae;
+  text-align:center;
+}
+@media(max-width:400px){
+  .n64-public-leaderboard .n64-leaderboard-years {gap:5px;}
+  .n64-public-leaderboard .n64-leaderboard-years button {
+    padding:11px 2px;
+    border-width:2px;
+    font-size:.69rem;
+    box-shadow:3px 4px 0 #0b1730;
+  }
+}
+
 /* ── LIVE GLOBAL SCOREBOARD V2 ─────────────────────────────────────────────
    Retro square edges, real connection state and subtle score-change motion.
 */
