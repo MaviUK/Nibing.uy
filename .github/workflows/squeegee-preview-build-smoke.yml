@@ -40,6 +40,11 @@ on:
       - netlify/functions/sendBookingEmail.js
       - netlify/functions/sendTosReceipt.js
       - netlify/functions/lib/squeegeeApiV3.js
+      - netlify/functions/lib/arcadePublicIdentity.js
+      - netlify/functions/arcadeLeaderboard.js
+      - src/components/ArcadeLeaderboard.jsx
+      - public/n64-scoreboard.js
+      - tests/squeegee-leaderboard-privacy.test.cjs
       - netlify/functions/lib/squeegeeOwnerReactivation.js
       - netlify/functions/squeegeePreviewOwnerReactivation.mjs
       - tests/squeegee-owner-reactivation.test.cjs
