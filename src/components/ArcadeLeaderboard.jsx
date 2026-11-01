@@ -142,6 +142,7 @@ export default function ArcadeLeaderboard() {
             : "Checking scores…"}
           </span>
         </div>
+        <p style={{textAlign:"center",margin:"12px 0"}}><a href="/customer-hq" style={{color:"#fce164",fontWeight:900}}>SIGN IN TO VIEW MY CLEANING POINTS →</a></p>
         <ol aria-label="Live top ten players">
           {!players.length ? (
             <li><span>{connection !== "live" ? "Waiting for live scores…" : nameConsentMode
@@ -152,7 +153,7 @@ export default function ArcadeLeaderboard() {
             return (
               <li key={player.customerRef}
                 className={change ? "n64-board-row n64-board-row--" + change : "n64-board-row"}>
-                <span><strong>{String(i + 1).padStart(2, "0")}</strong> {player.displayName || player.customerRef}<span className="n64-board-town"> · {player.town}</span></span>
+                <a href="/customer-hq" title="Sign in to see your own points — this public entry does not grant account access" style={{color:"inherit",textDecoration:"none"}}><strong>{String(i + 1).padStart(2, "0")}</strong> {player.displayName || player.customerRef}<span className="n64-board-town"> · {player.town}</span></a>
                 <span className="n64-board-score">
                   {change && <em className="n64-rank-change" aria-label={
                     change === "new" ? "New player" :
@@ -172,7 +173,7 @@ export default function ArcadeLeaderboard() {
         )}
         <small>
           {historyStatus ? "Active account-status verification is out of date; historical scores are temporarily hidden. " : ""}
-          The display refreshes every 10 seconds. Historical Squeegee scores only change after a verified data update.
+          Tap any leaderboard name to open secure Customer HQ sign-in. You can only see the account verified by your own email code. The display refreshes every 10 seconds. Historical Squeegee scores only change after a verified data update.
           {nameConsentMode ? "Public entries show first name, town and XP only after recorded customer permission. Squeegee references and contact details remain private." : "Public entries show a pseudonymous customer reference, town and XP, never names or full addresses. Contact details remain private."}
         </small>
       </div>
