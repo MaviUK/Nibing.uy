@@ -14,6 +14,8 @@ export default function ArcadeLeaderboard() {
   const [nameConsentMode, setNameConsentMode] = useState(false);
   const [eligibilityPending, setEligibilityPending] = useState(false);
   const [eligiblePlayers, setEligiblePlayers] = useState(null);
+  const [verifiedPlayers, setVerifiedPlayers] = useState(null);
+  const [verifiedAsOf, setVerifiedAsOf] = useState(null);
   const [eligibleCleaningXp, setEligibleCleaningXp] = useState(null);
   const [activePanel, setActivePanel] = useState("leaderboard");
   // Retain the code-challenge state when switching between the two panels.
@@ -86,6 +88,9 @@ export default function ArcadeLeaderboard() {
         setNameConsentMode(data.status === "consent_only" || data.status === "consent_pending");
         setEligibilityPending(data.status === "eligibility_pending");
         setEligiblePlayers(Number.isInteger(data.eligiblePlayers) ? data.eligiblePlayers : null);
+        setVerifiedPlayers(Number.isInteger(data.verifiedPlayers) ? data.verifiedPlayers : null);
+        setVerifiedAsOf(/^\d{4}-\d{2}-\d{2}$/.test(data.verifiedAsOf||"")
+          ? data.verifiedAsOf : null);
         setEligibleCleaningXp(Number.isSafeInteger(data.eligibleCleaningXp)
           ? Math.max(0,data.eligibleCleaningXp) : null);
         setConnection("live");
@@ -163,7 +168,11 @@ export default function ArcadeLeaderboard() {
         <div className="n64-live-board-stats">
           <strong>{updatedAt ? totalPlayers.toLocaleString("en-GB") + (totalPlayers === 1 ? " PUBLIC PLAYER" : " PUBLIC PLAYERS") : "— PLAYERS"}</strong>
           <span>{connection === "live" && updatedAt
-            ? (eligiblePlayers !== null ? eligiblePlayers.toLocaleString("en-GB") + " email-eligible · " : "") + "Updated " + updatedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+            ? (verifiedPlayers !== null
+                ? verifiedPlayers.toLocaleString("en-GB") + " verified from backup · "
+                : eligiblePlayers !== null
+                  ? eligiblePlayers.toLocaleString("en-GB") + " email-eligible · " : "") +
+              "Updated " + updatedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
             : "Checking scores…"}
           </span>
         </div>
@@ -179,9 +188,13 @@ export default function ArcadeLeaderboard() {
                 ? "HIGH SCORES UNLOCK WHEN CUSTOMERS OPT IN"
                 : "No registered public players yet."}</span>
               {nameConsentMode && <small>
-                {eligiblePlayers!==null ? eligiblePlayers.toLocaleString("en-GB")+" customers are eligible. " : ""}
+                {verifiedPlayers!==null
+                  ? verifiedPlayers.toLocaleString("en-GB")+" Squeegee accounts are verified from the "+
+                    (verifiedAsOf||"imported")+" backup. "
+                  : eligiblePlayers!==null
+                    ? eligiblePlayers.toLocaleString("en-GB")+" customers are email-eligible. " : ""}
                 {eligibleCleaningXp!==null ? eligibleCleaningXp.toLocaleString("en-GB")+" cleaning XP are safely recorded. " : ""}
-                Each customer can choose to show their first name, town and points in My Customer HQ.
+                Public names still require each customer's permission; verification alone does not publish personal information. Customers can opt in through My Customer HQ.
               </small>}
             </li>
           ) : players.map((player, i) => {
