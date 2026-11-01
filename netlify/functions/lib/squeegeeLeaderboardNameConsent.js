@@ -179,7 +179,7 @@ function publicConsentBoard(snapshot,fullBoard){
   };
 }
 module.exports={
-  STORE_NAME,KEY,NOTICE_VERSION,EXPECTED,
+  STORE_NAME,KEY,NOTICE_VERSION,EXPECTED,MAX_BYTES,
   safeFirstName,parseSimpleCsv,preparePrivateConsentImport,
   changeConsent,consentStats,publicConsentBoard,
 };
