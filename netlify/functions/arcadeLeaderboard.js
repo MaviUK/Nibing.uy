@@ -142,7 +142,9 @@ async function getActiveHistoricalBoard(stores) {
       ? {entries:[],totalPlayers:0,lastUpdatedAt:null,
          status:"active_status_refresh_required"}:null;
   }
-  if(!historical.snapshotIsFresh(snapshot)) {
+  if(snapshot.version!==2 || !historical.snapshotIsFresh(snapshot)) {
+    // A previously published one-point (v1) mapping cannot override the
+    // owner's newer streak scale. It must be re-imported as scoring v2.
     return {entries:[],totalPlayers:0,sourceAsOf:snapshot.asOf,
       lastUpdatedAt:snapshot.importedAt,status:"active_status_refresh_required"};
   }
