@@ -179,8 +179,8 @@ export default function CustomerHQ({embedded=false}){
   // On the homepage the Squeegee login is already mounted above Customer HQ.
   // Stay on this page so the verified points session remains in place.
   // The standalone /customer-hq route falls back to the homepage anchor.
-  const squeegeePortalHref=embedded?"#customer-portal":
-    "/?ntl-drawer-state=hidden#customer-portal";
+  const squeegeePortalHref=embedded?"#customer-portal-login":
+    "/?ntl-drawer-state=hidden#customer-portal-login";
   const Container=embedded?"div":"main";
   return <Container className={"hq-page"+(embedded?" hq-embedded":"")}>
     <div className="hq-shell">
