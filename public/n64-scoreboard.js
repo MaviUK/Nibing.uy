@@ -269,13 +269,13 @@
       top.forEach((item) => {
         const li = document.createElement("li");
         const name = document.createElement("span");
-        name.textContent = item.rank + ". " + item.name;
+        name.textContent = item.rank + ". " + String(item.customerRef || "NBG-UNKNOWN") + " · " + String(item.town || "Town unavailable");
         const score = document.createElement("strong");
         score.textContent = Number(item.points || 0).toLocaleString("en-GB") + " XP";
         li.append(name,score);
         boardNode.appendChild(li);
       });
-      boardNote.textContent = "Public: display name and XP only.";
+      boardNote.textContent = "Public: customer reference, town and XP only. No names or addresses.";
     } catch (_) { boardNote.textContent = "Leaderboard currently unavailable. Your XP remains on this device."; }
   }
 
@@ -405,7 +405,7 @@
       '<ol class="n64-score-history"></ol>',
       '<p class="n64-score-persistence"></p>',
       '<div class="n64-score-controls"><button type="button" class="n64-score-save">Save XP (cookie)</button><button type="button" class="n64-score-reset">Reset score</button></div>',
-      '<p class="n64-score-legal">After a confirmed booking, your name and XP go on the global board unless you opted out while booking. XP is saved with a first-party cookie. Private prize contacts stay private.</p>',
+      '<p class="n64-score-legal">After a confirmed booking, your pseudonymous customer reference, town and XP appear on the global board. Your name and contact details remain private. XP is saved with a first-party cookie.</p>',
       '</div>',
     ].join("");
 
