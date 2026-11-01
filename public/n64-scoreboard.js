@@ -275,7 +275,9 @@
         li.append(name,score);
         boardNode.appendChild(li);
       });
-      boardNote.textContent = "Public: customer reference, town and XP only. No names or addresses.";
+      boardNote.textContent = data.sourceAsOf
+        ? "Squeegee active-account snapshot: " + data.sourceAsOf + ". Paid cleans only until website XP is verified. No names or addresses."
+        : "Public: customer reference, town and XP only. No names or addresses.";
     } catch (_) { boardNote.textContent = "Leaderboard currently unavailable. Your XP remains on this device."; }
   }
 
