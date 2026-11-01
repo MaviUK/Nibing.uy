@@ -86,7 +86,7 @@ test("backup expiry hides stale active accounts, not just a dated label",async()
   assert.equal(expired.status,"active_status_refresh_required");
 });
 
-test("website endpoint serves the 941-row seed on preview 77, NEVER on the main hostname",async()=>{
+test("website endpoint blocks all historical entries until private email eligibility import on preview 77",async()=>{
   const original=Module._load;
   const realNow=Date.now;
   Date.now=()=>NOW; // test is independent of the real seven-day snapshot expiry
@@ -110,9 +110,9 @@ test("website endpoint serves the 941-row seed on preview 77, NEVER on the main 
     }});
     assert.equal(preview.statusCode,200);
     const board=JSON.parse(preview.body);
-    const expected=staticHistory.getHistoricalSnapshot();
-    assert.equal(board.totalPlayers,expected.totalPlayers);
-    assert.ok(board.entries.every(x=>Object.keys(x).sort().join(",")==="customerRef,points,rank,town"));
+    assert.equal(board.totalPlayers,0);
+    assert.deepEqual(board.entries,[]);
+    assert.equal(board.status,"eligibility_pending");
     assert.ok(!preview.body.includes("squeegeeId"));
     const production=await api.handler({httpMethod:"GET",headers:{
       host:"nibing.uy"
