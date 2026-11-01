@@ -23,10 +23,13 @@ const pending={
 test("owner-only preview shows actual Squeegee customer ranks while pending consent",()=>{
   const p=ownerPrivateLeaderboardPreview(privateData,pending,el);
   assert.equal(p.count,1);
+  assert.equal(p.verified,1);
+  assert.equal(p.verifiedAsOf,AS_OF);
   assert.equal(p.approved,0);
   assert.equal(p.cleaningXp,80);
   assert.deepEqual(p.rows,[{rank:1,customerReference:"CUS1298",
-    firstName:"Sarah",town:"Bangor",points:80,permission:"pending"}]);
+    firstName:"Sarah",town:"Bangor",points:80,
+    verification:"verified_from_squeegee_backup",permission:"pending"}]);
   assert.equal(ownerPrivateLeaderboardPreview(privateData,pending,null),null);
   assert.equal(ownerPrivateLeaderboardPreview(privateData,pending,{aliases:new Set(),historicalPoints:0}).count,0);
 });
@@ -42,6 +45,8 @@ test("owner preview distinguishes approved and withdrawn; public still requires 
     withdrawnAt:"2026-11-01T13:20:00Z"}]};
   const b=ownerPrivateLeaderboardPreview(privateData,withdrawn,el);
   assert.equal(b.approved,0);
+  assert.equal(b.verified,1);
+  assert.equal(b.rows[0].verification,"verified_from_squeegee_backup");
   assert.equal(b.rows[0].permission,"withdrawn");
   const actualPublicSource={version:1,sourceAsOf:AS_OF,records:pending.records};
   const fullBoard={entries:[{rank:1,customerRef:ALIAS,town:"Bangor",points:80}],
@@ -77,4 +82,24 @@ test("owner private ranking cannot leak through public leaderboard; public API r
   assert.doesNotMatch(api,/ownerPrivateLeaderboardPreview/);
   assert.match(api,/publicConsentBoard/);
   assert.match(api,/eligibleCleaningXp:eligible\.historicalPoints/);
+});
+
+
+test("verified Squeegee membership is separate from public permission",()=>{
+  const root=path.resolve(__dirname,"..");
+  const verification=fs.readFileSync(path.join(root,"netlify/functions/lib/customerHQ.js"),"utf8");
+  const api=fs.readFileSync(path.join(root,"netlify/functions/arcadeLeaderboard.js"),"utf8");
+  const owner=fs.readFileSync(path.join(root,"netlify/functions/squeegeePreviewLeaderboardNames.mjs"),"utf8");
+  assert.match(verification,/verificationStatus:"verified_from_squeegee_backup"/);
+  assert.match(verification,/verifiedCount:aliases\.size/);
+  assert.match(verification,/verifiedActiveEmailAccounts/);
+  assert.match(api,/verifiedPlayers:eligible\.verifiedCount/);
+  assert.match(api,/verifiedAsOf:eligible\.verificationAsOf/);
+  assert.match(owner,/VERIFIED TOP 20/);
+  assert.match(owner,/Waiting for permission/);
+  assert.match(owner,/verifyTestSessionCookie/);
+  const consent=fs.readFileSync(path.join(root,"netlify/functions/lib/squeegeeLeaderboardNameConsent.js"),"utf8");
+  assert.match(consent,/r\.consent==="granted"/);
+  assert.match(consent,/emailEligibleAliases\.has\(r\.alias\)/);
+  assert.doesNotMatch(api,/r\.consent="granted"/);
 });
