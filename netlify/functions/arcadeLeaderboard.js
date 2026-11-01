@@ -3,6 +3,7 @@ const { getStore } = require("@netlify/blobs");
 const historical = require("./lib/squeegeeActiveLeaderboardImport");
 const historicalPreview = require("./lib/squeegeeActivePreviewBoard");
 const nameConsents = require("./lib/squeegeeLeaderboardNameConsent");
+const customerHQ = require("./lib/customerHQ");
 const { publicCustomerReference, townFromAddress, safePublicTown, safePublicReference } =
   require("./lib/arcadePublicIdentity");
 const {
@@ -46,6 +47,7 @@ function storePair() {
     history: open(historical.BLOB_STORE),
     links: open("n64-preview1-squeegee-player-links"),
     names: open(nameConsents.STORE_NAME),
+    portal: open(customerHQ.DATA_STORE),
   };
 }
 
@@ -198,7 +200,7 @@ function publicLeaderboard(snapshot) {
     lastUpdatedAt: typeof snapshot?.lastUpdatedAt === "string"
       ? snapshot.lastUpdatedAt : null,
     ...(typeof snapshot?.sourceAsOf === "string"?{sourceAsOf:snapshot.sourceAsOf}:{}),
-    ...(["active_status_refresh_required","consent_pending","consent_only"]
+    ...(["active_status_refresh_required","eligibility_pending","consent_pending","consent_only"]
        .includes(snapshot?.status)?{status:snapshot.status}:{}),
   };
 }
@@ -384,26 +386,47 @@ exports.handler = async (event) => {
     const stores = storePair();
     if (event.httpMethod === "GET") {
       if(isExactN64PreviewRequest(event)){
-        const privateNames=await stores.names.get(nameConsents.KEY,{
+        // EMAIL REQUIRED: the only trusted eligibility data is a PRIVATE,
+        // owner-imported active-account Squeegee snapshot. Never fall back
+        // to the 941-row public seed while this private import is missing.
+        const privateCustomers=await stores.portal.get(customerHQ.DATA_KEY,{
           type:"json",consistency:"strong"
         });
-        if(privateNames){
-          // Once first names are staged, ONLY proven opt-ins can appear.
-          // No public fallback to old customer aliases or unconsented names.
-          const full=await historicalPreview.getStaticPreviewBoard(stores,Date.now(),true);
-          const allowed=nameConsents.publicConsentBoard(privateNames,full);
-          return out(200,publicLeaderboard(allowed||{
-            entries:[],totalPlayers:0,status:"consent_pending"
+        const eligible=customerHQ.eligibleRankedEmailAccounts(privateCustomers);
+        if(!eligible){
+          return out(200,publicLeaderboard({
+            entries:[],totalPlayers:0,status:"eligibility_pending"
           }));
         }
+        const [privateNames,mode,published]=await Promise.all([
+          stores.names.get(nameConsents.KEY,{type:"json",consistency:"strong"}),
+          stores.history.get(historical.MODE_KEY,{type:"json",consistency:"strong"}),
+          stores.history.get(historical.PUBLISHED_KEY,{type:"json",consistency:"strong"}),
+        ]);
+        if(mode?.activeOnly===true && !published){
+          // Keep the owner's previous HIDE action authoritative.
+          return out(200,{...publicLeaderboard({
+            entries:[],totalPlayers:0,status:"consent_pending"
+          }),eligiblePlayers:eligible.count});
+        }
+        if(!privateNames){
+          return out(200,{...publicLeaderboard({
+            entries:[],totalPlayers:0,status:"consent_pending"
+          }),eligiblePlayers:eligible.count});
+        }
+        const full=await historicalPreview.getStaticPreviewBoard(stores,Date.now(),true);
+        const allowed=nameConsents.publicConsentBoard(
+          privateNames,full,eligible.aliases
+        );
+        return out(200,{...publicLeaderboard(allowed||{
+          entries:[],totalPlayers:0,status:"consent_pending"
+        }),eligiblePlayers:eligible.count});
       }
       const activeBoard=await getActiveHistoricalBoard(stores);
-      // When the owner has not yet uploaded the private UUID mapping, use
-      // the reviewed 941-row REF/TOWN/PAID-POINT snapshot on PREVIEW 1 only.
-      // Owner-controlled publication/unpublication always takes precedence.
-      const previewBoard=!activeBoard && isExactN64PreviewRequest(event)
-        ? await historicalPreview.getStaticPreviewBoard(stores) : null;
-      return out(200,publicLeaderboard(activeBoard||previewBoard||await getSnapshot(stores)));
+      // Production/non-Preview hosts retain the existing website-only board.
+      // The exact N64 Preview host has already returned above using the
+      // owner-imported, email-eligible, consent-only account pool.
+      return out(200,publicLeaderboard(activeBoard||await getSnapshot(stores)));
     }
     if (typeof event.body !== "string" || event.body.length > 16000) {
       return out(400, { error: "Invalid leaderboard request" });
