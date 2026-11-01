@@ -11,6 +11,7 @@ import matcher from "./lib/squeegeeCustomerMatcher.js";
 import stage from "./lib/squeegeeBookingStage.js";
 import prepare from "./lib/squeegeeBookingPreparation.js";
 import reactivate from "./lib/squeegeeOwnerReactivation.js";
+import ownerLink from "./lib/squeegeeOwnerReviewLink.js";
 
 const PATH="/api/squeegee-preview-owner-reactivation";
 const BUILD="preview77-owner-reactivation-v1";
@@ -149,25 +150,26 @@ async function outcome(id,stage,extra={}){
     bookingId:id,stage,updatedAt:new Date().toISOString(),...extra,
   });}catch{}
 }
-function blocked(text,id,day){
+function blocked(text,id,day,reviewPath=null){
+  const back=reviewPath||PATH+"?bookingId="+encodeURIComponent(id)+
+    "&day="+encodeURIComponent(day);
   return page('<div class="notice"><h2>Import not started</h2><p>'+
     safe(text)+'</p></div>'+
-    '<p><a href="'+PATH+'?bookingId='+encodeURIComponent(id)+
-    '&day='+encodeURIComponent(day)+'">Recheck booking (read-only)</a></p>',409);
+    '<p><a href="'+safe(back)+'">Recheck booking (read-only)</a></p>',409);
 }
-async function resumeOnce(check,id,day,scope){
+async function resumeOnce(check,id,day,scope,reviewPath){
   const store=claimsStore(),key=reactivate.recoveryKey(id);
   const reserved=await claims.claimOnce({
     key,bookingId:id,channel:"owner_reactivation",store,
   });
   if(!reserved.acquired)
-    return blocked("A one-time resume already exists, or could not be reserved safely.",id,day);
+    return blocked("A one-time resume already exists, or could not be reserved safely.",id,day,reviewPath);
   const started=await claims.changeClaimState({
     key,etag:reserved.etag,bookingId:id,
     state:"request_in_progress",store,
   });
   if(!started.changed)
-    return blocked("The one-time reservation could not be confirmed. Nothing was sent.",id,day);
+    return blocked("The one-time reservation could not be confirmed. Nothing was sent.",id,day,reviewPath);
   await outcome(id,"request_in_progress");
   let result={status:"requires_reconciliation",
     reason:"owner_reactivation_worker_exception"};
@@ -270,14 +272,26 @@ export default async function handler(request,context){
     return page("Invalid booking reference or original booking date",400);
   if(!["GET","POST"].includes(request.method))
     return page("Method not allowed",405);
-  if(!signedOwner(request,scope)){
-    const returnTo=PATH+"?bookingId="+encodeURIComponent(id)+
-      "&day="+encodeURIComponent(day);
-    return page('<div class="notice"><p>Owner verification is required. '+
-      'Opening the email does not create any Squeegee jobs.</p></div>'+
+  // A valid private owner-email link replaces the extra OTP step. Old
+  // notifications without a signed link keep the existing session fallback.
+  const authParams={
+    bookingId:id,day,
+    expires:u.searchParams.get("expires")||"",
+    signature:u.searchParams.get("signature")||"",
+  };
+  const viaEmailLink=ownerLink.verifyLink(authParams,{env:process.env});
+  const reviewPath=viaEmailLink?
+    PATH+"?"+new URLSearchParams(authParams).toString():
+    PATH+"?bookingId="+encodeURIComponent(id)+"&day="+encodeURIComponent(day);
+  if(!viaEmailLink && !signedOwner(request,scope)){
+    return page('<div class="notice"><p>This older or expired email link '+
+      'requires owner verification. New notification emails open the '+
+      'booking review directly. Opening a link never creates a job.</p></div>'+
       '<p><a href="/api/squeegee-preview-test?returnTo='+
-      encodeURIComponent(returnTo)+'">Email me an owner access code</a></p>',403);
+      encodeURIComponent(reviewPath)+'">Email me an owner access code</a></p>',403);
   }
+  const expectedCsrf=viaEmailLink?
+    ownerLink.confirmationToken(authParams,process.env):token(request,id,day);
   if(request.method==="POST"){
     if(!request.headers.get("content-type")?.toLowerCase()
       .startsWith("application/x-www-form-urlencoded"))
@@ -287,16 +301,16 @@ export default async function handler(request,context){
     const form=new URLSearchParams(raw);
     if(form.get("bookingId")!==id || form.get("day")!==day ||
        form.get("confirm")!=="yes" ||
-       !secureEqual(form.get("csrf"),token(request,id,day)))
+       !secureEqual(form.get("csrf"),expectedCsrf))
       return page("Owner confirmation is missing or invalid",403);
   }
   let check;
   try{check=await preflight(id,day);}
   catch{
-    return blocked("An original audit, Squeegee or council read-only verification failed. No write was attempted.",id,day);
+    return blocked("An original audit, Squeegee or council read-only verification failed. No write was attempted.",id,day,reviewPath);
   }
-  if(!check.ok)return blocked(check.reason,id,day);
-  if(request.method==="POST")return resumeOnce(check,id,day,scope);
+  if(!check.ok)return blocked(check.reason,id,day,reviewPath);
+  if(request.method==="POST")return resumeOnce(check,id,day,scope,reviewPath);
   const list=check.booking.bins.map(bin=>'<li>'+
     safe(bin.count)+' × '+safe(bin.type)+
     (bin.sizeLitres?' ('+safe(bin.sizeLitres)+'L)':'')+
@@ -304,8 +318,7 @@ export default async function handler(request,context){
   const groups=check.grouped.map(j=>'<li>'+safe(j.input.date)+
     ' · '+(j.input.frequencyType==="adhoc"?"One-off":"Every four weeks")+
     ' · £'+Number(j.input.price).toFixed(2)+'</li>').join("");
-  const action=PATH+"?bookingId="+encodeURIComponent(id)+
-    "&day="+encodeURIComponent(day);
+  const action=reviewPath;
   return page('<p><strong>Original booking:</strong> '+safe(id)+'</p>'+
     '<p><strong>Existing customer:</strong> '+safe(check.booking.name)+'</p>'+
     '<p><strong>Service address:</strong> '+safe(check.booking.address)+'</p>'+
@@ -318,10 +331,10 @@ export default async function handler(request,context){
     '<form method="post" action="'+safe(action)+'">'+
     '<input type="hidden" name="bookingId" value="'+safe(id)+'">'+
     '<input type="hidden" name="day" value="'+safe(day)+'">'+
-    '<input type="hidden" name="csrf" value="'+token(request,id,day)+'">'+
+    '<input type="hidden" name="csrf" value="'+expectedCsrf+'">'+
     '<label><input type="checkbox" name="confirm" value="yes" required>'+
     ' I have reactivated this customer in Squeegee and confirm these jobs are not already present.</label>'+
-    '<button type="submit">Process this original booking ONCE</button></form>'+
+    '<button type="submit">Confirm &amp; Process Booking</button></form>'+
     '<p><small>Opening the link never writes to Squeegee. '+
     'Once import is attempted, automatic retries are permanently disabled.</small></p>');
 }

@@ -6,8 +6,10 @@ on:
     paths:
       - netlify/functions/lib/squeegeeApiV3.js
       - netlify/functions/lib/squeegeeOwnerReactivation.js
+      - netlify/functions/lib/squeegeeOwnerReviewLink.js
       - netlify/functions/squeegeePreviewOwnerReactivation.mjs
       - tests/squeegee-owner-reactivation.test.cjs
+      - tests/squeegee-owner-review-link.test.cjs
       - netlify/functions/lib/squeegeePartialGreenReconciliation.js
       - netlify/functions/squeegeePreviewPartialGreenReconciliation.mjs
       - tests/squeegee-partial-green-reconciliation.test.cjs

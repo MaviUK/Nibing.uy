@@ -128,7 +128,8 @@ test("owner route is GET-only until signed owner confirmation POST; import remai
   assert.match(src,/api\.isExactPreview1\(process\.env,scope\)/);
   assert.match(src,/session\.verifyTestSessionCookie/);
   assert.match(src,/if\(request\.method==="POST"\)/);
-  assert.match(src,/secureEqual\(form\.get\("csrf"\),token\(request,id,day\)\)/);
+  assert.match(src,/ownerLink\.verifyLink\(authParams/);
+  assert.match(src,/secureEqual\(form\.get\("csrf"\),expectedCsrf\)/);
   assert.match(src,/claims\.claimOnce\(/);
   assert.match(src,/claims\.changeClaimState\(/);
   assert.match(src,/auto\.executeAutomaticPreviewBooking\(/);

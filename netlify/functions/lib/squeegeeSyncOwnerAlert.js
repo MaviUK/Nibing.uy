@@ -11,6 +11,7 @@
 const BOOKING_RE=/^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i;
 const CODE_RE=/^[a-z][a-z0-9_]{0,100}$/;
 const {DUPLICATE_SIGNAL_CODES}=require("./squeegeeCustomerMatcher");
+const ownerLink=require("./squeegeeOwnerReviewLink");
 const KNOWN_FLAGS=new Set(DUPLICATE_SIGNAL_CODES);
 const FLAG_LABELS=Object.freeze({
   email_already_registered:"Email is already registered on another Squeegee record",
@@ -51,7 +52,7 @@ function emailHtmlEscape(value){
   return String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;")
     .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
-function inactiveSignupEmailContent(bookingId,reason,extra={}){
+function inactiveSignupEmailContent(bookingId,reason,extra={},options={}){
   if(!BOOKING_RE.test(String(bookingId||""))||
      !CUSTOMER_REVIEW_REASONS.has(reason))return null;
   const ambiguous=reason==="customer_match_ambiguous_or_incomplete";
@@ -93,8 +94,10 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
   const statusUrl="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId="+bookingId;
   const day=String(extra.bookingSubmittedDay||"");
   const recoveryUrl=needsReactivation && /^\d{4}-\d{2}-\d{2}$/.test(day)?
-    "https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-owner-reactivation?bookingId="+
-    encodeURIComponent(bookingId)+"&day="+encodeURIComponent(day):null;
+    ownerLink.issueLink(bookingId,day,{
+      env:options.env||process.env,
+      now:Number.isSafeInteger(options.now)?options.now:Date.now(),
+    }):null;
   const text=[
     ambiguous?
       "CUSTOMER SIGN-UP NEEDS REVIEW — MANUAL ACTION REQUIRED":
@@ -124,6 +127,7 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
       "4. Confirm with the customer. Do not ask them to submit another booking.",
     "",
     "This website booking is HELD and will not automatically retry.",
+    recoveryUrl?"This direct owner link expires after seven days. Keep it private.":"",
     "No Squeegee customer or job was created for this submission.",
     recoveryUrl?"PROCESS BOOKING AFTER REACTIVATION: "+recoveryUrl:"",
     "Read-only booking status: "+statusUrl,
@@ -166,9 +170,9 @@ function inactiveSignupEmailContent(bookingId,reason,extra={}){
        'Review the original booking before making any manual changes.')+'</p>'+
     (recoveryUrl?
       '<a href="'+emailHtmlEscape(recoveryUrl)+'" style="display:block;background:#f5d84f;color:#111;font-size:14px;text-align:center;font-weight:800;padding:16px;text-decoration:none;margin:16px 0">PROCESS BOOKING AFTER REACTIVATION</a>'+
-      '<p style="font-size:12px;line-height:1.5;color:#5a6271">The link opens an owner-only review. Nothing is imported until you confirm the booking on that page.</p>':"")+
+      '<p style="font-size:12px;line-height:1.5;color:#5a6271">The signed link expires after seven days. Keep it private. Opening it is read-only; nothing is imported until you confirm the booking on that page.</p>':"")+
     '<a href="'+emailHtmlEscape(statusUrl)+'" style="display:block;background:#111;color:#f5d84f;font-size:14px;text-align:center;font-weight:800;padding:14px;text-decoration:none;margin-top:16px">VIEW READ-ONLY BOOKING STATUS</a>'+
-    '<p style="font-size:13px;line-height:1.6;color:#72530c;background:#fff6d8;padding:12px;margin:18px 0 0">No Squeegee customer or job has been created for this submission. Reactivate the existing customer in Squeegee first; processing requires owner verification and a one-time confirmation.</p>'+
+    '<p style="font-size:13px;line-height:1.6;color:#72530c;background:#fff6d8;padding:12px;margin:18px 0 0">No Squeegee customer or job has been created for this submission. Reactivate the existing customer in Squeegee first; processing requires reviewing the original booking and your one-time confirmation.</p>'+
     '</td></tr><tr><td style="background:#f2f3f5;padding:18px 25px;font-size:12px;color:#676767">'+
     'Preview 1 integration notification · Owner only · No change to the live site'+
     '</td></tr></table></td></tr></table></body></html>';
@@ -473,18 +477,18 @@ function genericReviewContent(bookingId,reason,extra={}){
   return {subject,text,html};
 }
 
-function emailContent(bookingId,reason,extra={}) {
+function emailContent(bookingId,reason,extra={},options={}) {
   if(!BOOKING_RE.test(String(bookingId||"")) ||
      !CODE_RE.test(String(reason||"")))return null;
   if(CUSTOMER_REVIEW_REASONS.has(reason))
-    return inactiveSignupEmailContent(bookingId,reason,extra);
+    return inactiveSignupEmailContent(bookingId,reason,extra,options);
   return genericReviewContent(bookingId,reason,extra);
 }
 
 async function notifyOwnerOfSyncHold(bookingId,reason,extra={},{
   env=process.env,send=null,
 }={}) {
-  const email=emailContent(bookingId,reason,extra);
+  const email=emailContent(bookingId,reason,extra,{env});
   if(!email)return {sent:false,reason:"invalid_alert_details"};
   return deliverOwnerEmail(email,{env,send});
 }
