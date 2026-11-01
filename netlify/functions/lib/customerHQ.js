@@ -150,7 +150,14 @@ function eligibleRankedEmailAccounts(snapshot){
     }
   }
   if(seen.size!==1022 || aliases.size>941)return null;
-  return {aliases,count:aliases.size,historicalPoints};
+  // The owner has verified the imported Squeegee BACKUP as the source for
+  // this historical cohort. Account verification is NOT a public-display
+  // consent, not a live Squeegee login, and not a current-status guarantee.
+  // The private customer UUIDs and email addresses never leave this helper.
+  return {aliases,count:aliases.size,historicalPoints,
+    verifiedAliases:aliases,verifiedCount:aliases.size,
+    verificationStatus:"verified_from_squeegee_backup",
+    verificationAsOf:snapshot.asOf};
 }
 
 function accountForEmail(snapshot,email){
