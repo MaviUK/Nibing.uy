@@ -8,6 +8,7 @@ import api from "./lib/squeegeeApiV3.js";
 import auth from "./lib/customerHQ.js";
 import nameConsents from "./lib/squeegeeLeaderboardNameConsent.js";
 import {canonicalLegacyRef} from "./lib/squeegeeActiveLeaderboardImport.js";
+import merge from "./lib/arcadeCustomerMerge.js";
 
 const ORIGIN="https://deploy-preview-77--nibinguy.netlify.app";
 const PATH="/api/customer-hq";
@@ -30,33 +31,63 @@ function scope(request,ctx) {
 const dataStore=()=>getStore({name:auth.DATA_STORE,consistency:"strong"});
 const authStore=()=>getStore({name:auth.AUTH_STORE,consistency:"strong"});
 const consentStore=()=>getStore({name:nameConsents.STORE_NAME,consistency:"strong"});
+const activityStore=()=>getStore({name:merge.STORE,consistency:"strong"});
+const arcadeStores=()=>({
+  publicStore:getStore({name:"n64-preview-arcade-public",consistency:"strong"}),
+  privateStore:getStore({name:"n64-preview-arcade-private",consistency:"strong"}),
+  linkStore:getStore({name:"n64-preview1-squeegee-player-links",consistency:"strong"}),
+});
 async function currentlyActive(id,email){
   const row=await api.getCustomer(id);
   return auth.validateApiCustomer(row,{id,email});
 }
 async function linkedWebsiteXP(customerId) {
-  // One Squeegee UUID can only own one verified website XP balance.
-  // Conflicting/ambiguous mappings produce zero, not double-counted points.
+  // Existing verified booking links may have an older contact email.
+  // Search those private links by immutable UUID; refuse collisions.
   try {
-    const linkStore=getStore({name:"n64-preview1-squeegee-player-links",consistency:"strong"});
-    const publicStore=getStore({name:"n64-preview-arcade-public",consistency:"strong"});
+    const {publicStore,privateStore,linkStore}=arcadeStores();
     const list=await linkStore.list({prefix:"player:"});
     const matches=[];const keys=Array.isArray(list?.blobs)?list.blobs:[];
-    if(keys.length>5000)return 0;
+    if(keys.length>5000)return {points:0,progressXP:0};
     for(const {key} of keys){
       if(!/^player:[a-f0-9]{64}$/.test(String(key||"")))continue;
       const link=await linkStore.get(key,{type:"json"});
       if(link?.verified===true&&link.squeegeeId===customerId){
         matches.push(key);
-        if(matches.length>1)return 0;
+        if(matches.length>1)return {points:0,progressXP:0};
       }
     }
-    if(matches.length!==1)return 0;
-    const player=await publicStore.get(matches[0],{type:"json"});
-    const points=Number(player?.points);
-    return Number.isSafeInteger(points)&&points>=0 ? Math.min(points,100000):0;
-  }catch{return 0;}
+    if(matches.length!==1)return {points:0,progressXP:0};
+    const [player,privatePlayer]=await Promise.all([
+      publicStore.get(matches[0],{type:"json"}),
+      privateStore.get(matches[0],{type:"json"})
+    ]);
+    return {points:Number.isSafeInteger(player?.points)?player.points:0,
+      progressXP:Number.isSafeInteger(privatePlayer?.progressXP)
+        ?privatePlayer.progressXP:0};
+  }catch{return {points:0,progressXP:0};}
 }
+async function customerWebsiteXP(customerId){
+  const [linked,activity]=await Promise.all([
+    linkedWebsiteXP(customerId),
+    merge.readActivity(activityStore(),customerId).catch(()=>0),
+  ]);
+  return merge.combinedWebsiteXP({
+    linkedPoints:linked.points,linkedProgressXP:linked.progressXP,
+    portalActivityXP:activity
+  });
+}
+async function attachMatchedWebsiteBooking(session){
+  // The email-code login has already verified an ACTIVE Squeegee record.
+  // Linking an old booking still requires its exact full name and property.
+  try{
+    return await merge.linkVerifiedPortalAccount({
+      account:session.account,liveCustomer:session.liveCustomer,
+      ...arcadeStores()
+    });
+  }catch{return {linked:false,reason:"link_temporarily_unavailable"};}
+}
+
 async function consentChoice(customerId) {
   const saved=await consentStore().get(nameConsents.KEY,{
     type:"json",consistency:"strong"
@@ -74,9 +105,11 @@ async function lookupVerifiedSession(request,ledger,now=Date.now()) {
   if(!record)return null;
   const snapshot=await dataStore().get(auth.DATA_KEY,{type:"json",consistency:"strong"});
   const account=snapshot?.accounts?.find(x=>x.id===record.customerId);
-  if(!account || !account.email)return null;
-  if(!await currentlyActive(account.id,account.email))return null;
-  return {account,token};
+  if(!account || !account.email ||
+     auth.accountForEmail(snapshot,account.email)?.id!==account.id)return null;
+  const liveCustomer=await api.getCustomer(account.id);
+  if(!auth.validateApiCustomer(liveCustomer,account))return null;
+  return {account,token,liveCustomer};
 }
 async function sendLoginCode(email,code){
   if(!process.env.RESEND_API_KEY)
@@ -107,8 +140,9 @@ export default async function handler(request,context) {
       const session=await lookupVerifiedSession(request,ledger);
       if(!session)return respond(200,{ready:true,authenticated:false,
         loginMethod:"email_code",sourceAsOf:snapshot.asOf});
+      await attachMatchedWebsiteBooking(session);
       const [websiteXp,visibility]=await Promise.all([
-        linkedWebsiteXP(session.account.id),
+        customerWebsiteXP(session.account.id),
         consentChoice(session.account.id),
       ]);
       return respond(200,{ready:true,authenticated:true,
@@ -169,6 +203,19 @@ export default async function handler(request,context) {
       return respond(200,{authenticated:true},{
         "Set-Cookie":auth.setCookie(session.token,session.expiresAt)
       });
+    }
+    if(action==="sync-website-xp"){
+      const session=await lookupVerifiedSession(request,ledger);
+      if(!session)return respond(401,{error:"sign_in_required"});
+      if(!Array.isArray(body.claimed)||body.claimed.length>200)
+        return respond(400,{error:"invalid_website_activity"});
+      await attachMatchedWebsiteBooking(session);
+      const saved=await merge.syncActivity({
+        customerId:session.account.id,claimed:body.claimed,
+        store:activityStore(),
+      });
+      return respond(200,{saved:true,changed:saved.changed,
+        websiteXp:await customerWebsiteXP(session.account.id)});
     }
     if(action==="leaderboard-opt-in"||action==="leaderboard-withdraw"){
       const session=await lookupVerifiedSession(request,ledger);

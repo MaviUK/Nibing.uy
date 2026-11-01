@@ -4,6 +4,7 @@ const historical = require("./lib/squeegeeActiveLeaderboardImport");
 const historicalPreview = require("./lib/squeegeeActivePreviewBoard");
 const nameConsents = require("./lib/squeegeeLeaderboardNameConsent");
 const customerHQ = require("./lib/customerHQ");
+const arcadeMerge = require("./lib/arcadeCustomerMerge");
 const { publicCustomerReference, townFromAddress, safePublicTown, safePublicReference } =
   require("./lib/arcadePublicIdentity");
 const {
@@ -48,6 +49,7 @@ function storePair() {
     links: open("n64-preview1-squeegee-player-links"),
     names: open(nameConsents.STORE_NAME),
     portal: open(customerHQ.DATA_STORE),
+    activity: open(arcadeMerge.STORE),
   };
 }
 

@@ -2,6 +2,30 @@ import React, {useEffect,useMemo,useState} from "react";
 import "../customer-hq.css";
 
 const API="/api/customer-hq";
+// Anonymous website achievements are saved on the same device until the
+// customer signs in; never submit cookie XP totals or client booking claims.
+const SCORE_COOKIE="nbg_arcade_score_v1";
+function earnedWebsiteKeys(){
+  try{
+    if(typeof window.n64Score?.activityKeys==="function"){
+      const keys=window.n64Score.activityKeys();
+      if(Array.isArray(keys))return keys.slice(0,100);
+    }
+    const pair=document.cookie.split("; ").find(x=>x.startsWith(SCORE_COOKIE+"="));
+    if(!pair)return [];
+    const value=JSON.parse(decodeURIComponent(pair.slice(SCORE_COOKIE.length+1)));
+    return value?.v===1 && Array.isArray(value.claimed)
+      ?value.claimed.filter(x=>typeof x==="string").slice(0,100):[];
+  }catch{return [];}
+}
+async function syncWebsiteAchievements(){
+  const claimed=earnedWebsiteKeys();
+  if(!claimed.length)return false;
+  const {response,data}=await action({action:"sync-website-xp",claimed});
+  if(!response.ok)return false;
+  if(data.changed===true)window.dispatchEvent(new Event("n64:leaderboard-updated"));
+  return data.changed===true;
+}
 function formatDate(value){
   const d=new Date(String(value||"")+"T12:00:00Z");
   return Number.isNaN(d.getTime())?String(value||""):
@@ -59,17 +83,43 @@ export default function CustomerHQ({embedded=false}){
     }else{
       setAccount(null);setPermission(null);
     }
+    return data.authenticated===true && Boolean(data.account);
   }
   useEffect(()=>{
     let active=true;
     async function start(){
-      try{await refresh();}
+      try{
+        const signedIn=await refresh();
+        if(signedIn){
+          const changed=await syncWebsiteAchievements().catch(()=>false);
+          if(changed&&active)await refresh();
+        }
+      }
       catch{if(active)setError("Customer HQ is temporarily unavailable. Please try again.");}
       finally{if(active)setLoading(false);}
     }
     void start();
     return()=>{active=false;};
   },[]);
+  // Rewards earned after login, while browsing the embedded leaderboard,
+  // are merged automatically too. The server deduplicates each achievement.
+  useEffect(()=>{
+    if(!signedIn)return;
+    let timer=null;
+    const onScore=()=>{
+      if(timer)window.clearTimeout(timer);
+      timer=window.setTimeout(async()=>{
+        try{
+          if(await syncWebsiteAchievements())await refresh();
+        }catch{ /* Keep offline achievements on this phone for next login. */ }
+      },1200);
+    };
+    window.addEventListener("n64:score-updated",onScore);
+    return()=>{
+      if(timer)window.clearTimeout(timer);
+      window.removeEventListener("n64:score-updated",onScore);
+    };
+  },[signedIn]);
   const recent=useMemo(()=>Array.isArray(account?.history)?
     account.history.slice(0,showCount):[],[account,showCount]);
   async function sendCode(event){
@@ -91,8 +141,11 @@ export default function CustomerHQ({embedded=false}){
       if(!response.ok)throw new Error(response.status===401?
         "That code couldn't be verified. Check it or request a new code.":
         "We couldn't complete sign-in. Please try again.");
+      const merged=await syncWebsiteAchievements().catch(()=>false);
       await refresh();
-      setMessage("You're securely signed in.");
+      setMessage(merged?
+        "You're signed in. Your website XP has joined your cleaning rewards.":
+        "You're securely signed in. Your rewards are shown together.");
     }catch(err){setError(err.message);}
     finally{setBusy(false);}
   }
@@ -205,7 +258,7 @@ export default function CustomerHQ({embedded=false}){
           </section>
           <div className="hq-stats">
             <Score label="TOTAL REWARDS" value={number(account.points)+" XP"}
-              highlight sub="Historical cleans + verified arcade XP"/>
+              highlight sub="Historical cleans + website XP"/>
             <Score label="CURRENT STREAK" value={number(account.currentStreak)}
               sub="Consecutive cleaning visits"/>
             <Score label="NEXT CLEAN BONUS" value={"+"+number(account.nextBonus)}
@@ -216,7 +269,7 @@ export default function CustomerHQ({embedded=false}){
           <GamePanel label="YOUR XP EXPLAINED">
             <div className="hq-balance-line"><span>Cleaning streak rewards</span>
               <strong>{number(account.cleaningPoints)} XP</strong></div>
-            <div className="hq-balance-line"><span>Verified website rewards</span>
+            <div className="hq-balance-line"><span>Website rewards (levels and bookings)</span>
               <strong>+{number(account.websiteXp)} XP</strong></div>
             <div className="hq-balance-line hq-total"><span>Total XP</span>
               <strong>{number(account.points)} XP</strong></div>

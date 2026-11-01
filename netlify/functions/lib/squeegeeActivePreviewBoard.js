@@ -1,6 +1,7 @@
 "use strict";
 const staticHistory=require("./squeegeeActivePreviewSnapshot");
 const active=require("./squeegeeActiveLeaderboardImport");
+const merge=require("./arcadeCustomerMerge");
 
 // Dated, pseudonymous 31 Oct 2026 Squeegee customer snapshot. This code is
 // deployed on N64 PREVIEW 1 only and is selected only by the exact preview
@@ -32,12 +33,36 @@ async function getStaticPreviewBoard(stores, now=Date.now(), full=false) {
       const websitePlayer=await stores.public.get(key,{type:"json"});
       const xp=Number(websitePlayer?.points);
       if(!Number.isSafeInteger(xp)||xp<0||xp>100000)continue;
-      scores.set(customerRef,xp);
+      const detail=await stores.private?.get?.(key,{type:"json"});
+      scores.set(customerRef,{points:xp,progressXP:detail?.progressXP||0});
     }catch { /* An unverified or unreadable link contributes no XP. */ }
   }
   for(const ref of collisions)scores.delete(ref);
+  // Only customer-email-code sessions can populate this private activity
+  // ledger. Its values contain whitelisted level/area achievements, not
+  // browser-supplied totals or unverified booking/payment claims.
+  const portalActivity=new Map();
+  if(stores.activity){
+    try {
+      const listed=await stores.activity.list({prefix:"customer:"});
+      const keys=Array.isArray(listed?.blobs)?listed.blobs:[];
+      if(keys.length>5000)throw new Error("activity_ledger_review_required");
+      for(const {key} of keys){
+        if(!/^customer:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(String(key||"")))continue;
+        const ref=active.canonicalLegacyRef(key.slice("customer:".length));
+        if(!refs.has(ref))continue;
+        const entry=await stores.activity.get(key,{type:"json",consistency:"strong"});
+        portalActivity.set(ref,merge.activityXP(entry?.claimed));
+      }
+    }catch{ /* A blob outage never removes historical cleaning XP. */ }
+  }
   const entries=staticHistory.ENTRIES.map(([customerRef,town,historicalStreakPoints])=>({
-    customerRef,town,points:Math.min(100000,historicalStreakPoints+(scores.get(customerRef)||0))
+    customerRef,town,points:Math.min(100000,historicalStreakPoints+
+      merge.combinedWebsiteXP({
+        linkedPoints:scores.get(customerRef)?.points||0,
+        linkedProgressXP:scores.get(customerRef)?.progressXP||0,
+        portalActivityXP:portalActivity.get(customerRef)||0
+      }))
   }));
   entries.sort((a,b)=>b.points-a.points||a.customerRef.localeCompare(b.customerRef));
   return {
