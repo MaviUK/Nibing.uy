@@ -82,7 +82,7 @@ test("public name display is only connected to the exact N64 preview host",()=>{
   assert.ok(start>=0&&call>start&&prod>call);
   assert.match(source,/preview_public_first_names/);
   assert.match(ui,/data\.status==="preview_public_first_names"/);
-  assert.match(ui,/Everyone can see the N64 test leaderboard by first name, town and points/);
+  assert.doesNotMatch(ui,/Everyone can see the N64 test leaderboard by first name, town and points/);
   assert.match(ui,/SHOW MORE PUBLIC SCORES/);
   assert.match(ui,/<CustomerHQ embedded/);
 });
