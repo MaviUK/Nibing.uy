@@ -58,7 +58,7 @@ test("a skip on the same day as another completed bin resets the streak first", 
   ]);
   assert.equal(result.historicalPoints, 62);
   assert.equal(result.recordedSkippedVisits, 1);
-  assert.deepEqual(result.audit.map(x => x.pointsAwarded), [20, 20, 0, 22]);
+  assert.deepEqual(result.audit.map(x => x.pointsAwarded), [20, 0, 20, 22]);
 });
 
 test("completed clean awaiting payment doesn't earn points or reset attendance streak", () => {
