@@ -83,7 +83,8 @@ test("owner private ranking cannot leak through public leaderboard; public API r
   assert.doesNotMatch(api,/ownerPrivateLeaderboardPreview/);
   assert.match(api,/previewFirstNameScoreboard/);
   assert.match(api,/anonymous:true/);
-  assert.match(api,/eligibleCleaningXp:eligible\.historicalPoints/);
+  assert.match(api,/const annualCleaningTotal=annualYear===null\?eligible\.historicalPoints:/);
+  assert.match(api,/eligibleCleaningXp:annualCleaningTotal/);
 });
 
 
