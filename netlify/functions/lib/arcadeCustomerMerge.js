@@ -154,23 +154,24 @@ function sortedRewardsHistory(cleaningHistory,websiteHistory){
   }));
   return clean.concat(Array.isArray(websiteHistory)?websiteHistory:[])
     .sort((a,b)=>{
+      // All activities use newest-first chronology, not numeric level order.
+      // Level 08 is earned after Level 07, so it appears ABOVE Level 07.
       const aDate=String(a.date||"");
       const bDate=String(b.date||"");
       if(aDate!==bDate)return bDate.localeCompare(aDate);
-      const aLevel=a.category==="website_level";
-      const bLevel=b.category==="website_level";
-      // On the same day, make the visible website progress chronological
-      // by LEVEL number (01,02,03...) rather than network/animation timing.
-      // Other actions retain their original most-recent-first sorting.
-      if(aLevel!==bLevel)return aLevel?-1:1;
-      if(aLevel&&bLevel){
-        const first=levelOrdinal(a.label);
-        const second=levelOrdinal(b.label);
-        if(first!==null&&second!==null&&first!==second)return first-second;
-      }
+      // Same UK day: use original timestamps when available. Older
+      // Squeegee imports may carry dates only; display those after events
+      // whose precise earning time is available on that same date.
       const aTime=String(a.earnedAt||a.recordedAt||a.date||"");
       const bTime=String(b.earnedAt||b.recordedAt||b.date||"");
-      return bTime.localeCompare(aTime);
+      if(aTime!==bTime)return bTime.localeCompare(aTime);
+      // When two levels really have an identical stored timestamp, Level 08
+      // still appears before 07, then 06 ... 01 (latest progression first).
+      const aLevel=a.category==="website_level"?levelOrdinal(a.label):null;
+      const bLevel=b.category==="website_level"?levelOrdinal(b.label):null;
+      if(aLevel!==null&&bLevel!==null&&aLevel!==bLevel)
+        return bLevel-aLevel;
+      return 0;
     });
 }
 function combinedWebsiteXP({

@@ -373,7 +373,7 @@ test("server does not award skipped levels or reorder an out-of-order submitted 
   assert.equal(repeat.points,400);
 });
 
-test("same-day level rows appear in ascending level number, with older days first",()=>{
+test("all rewards appear newest-first, including levels, daily activity, and older cleaning dates",()=>{
   const rows=[
     {date:"2026-11-01",category:"website_level",label:"Website level 07 completed",points:50,earnedAt:"2026-11-01T12:00:00Z"},
     {date:"2026-11-01",category:"website_level",label:"Website level 03 completed",points:50,earnedAt:"2026-11-01T15:00:00Z"},
@@ -382,14 +382,69 @@ test("same-day level rows appear in ascending level number, with older days firs
     {date:"2026-10-31",category:"website_level",label:"Website level 02 completed",points:50,earnedAt:"2026-10-31T13:00:00Z"},
   ];
   const result=merge.sortedRewardsHistory([{date:"2026-11-01",points:22,event:"paid_completed_clean"}],rows);
-  assert.deepEqual(result.slice(0,3).map(e=>e.label),[
-    "Website level 01 completed","Website level 03 completed","Website level 07 completed"
+  assert.deepEqual(result.map(e=>e.label||"Cleaning"),[
+    "Visited customer portal",
+    "Website level 03 completed",
+    "Website level 07 completed",
+    "Website level 01 completed",
+    "Cleaning",
+    "Website level 02 completed",
   ]);
   assert.equal(result.at(-1).date,"2026-10-31");
   assert.equal(result.reduce((sum,e)=>sum+e.points,0),247);
   assert.equal(merge.levelOrdinal("Website level 01 completed"),1);
   assert.equal(merge.levelOrdinal("Website level 08 completed"),8);
   assert.equal(merge.levelOrdinal("Contact Us"),null);
+});
+
+test("after completing Levels 1 through 8 in order, newest Level 8 is at the top",()=>{
+  const levels=Array.from({length:8},(_,i)=>({
+    date:"2026-11-01",category:"website_level",
+    label:"Website level "+String(i+1).padStart(2,"0")+" completed",
+    earnedAt:new Date(Date.parse("2026-11-01T10:00:00Z")+i*60_000).toISOString(),
+    points:50
+  }));
+  const shuffled=[levels[2],levels[7],levels[0],levels[4],levels[1],levels[6],levels[3],levels[5]];
+  const result=merge.sortedRewardsHistory([],shuffled);
+  assert.deepEqual(result.map(e=>e.label),[
+    "Website level 08 completed","Website level 07 completed",
+    "Website level 06 completed","Website level 05 completed",
+    "Website level 04 completed","Website level 03 completed",
+    "Website level 02 completed","Website level 01 completed",
+  ]);
+  assert.equal(result.reduce((n,e)=>n+e.points,0),400);
+});
+
+test("another reward earned between levels is interleaved by actual time, not forced to the end",()=>{
+  const levels=Array.from({length:8},(_,i)=>({
+    date:"2026-11-01",category:"website_level",
+    label:"Website level "+String(i+1).padStart(2,"0")+" completed",
+    earnedAt:new Date(Date.parse("2026-11-01T10:00:00Z")+i*60_000).toISOString(),
+    points:50
+  }));
+  const action={
+    date:"2026-11-01",category:"website_action",label:"Visited customer portal",
+    points:25,earnedAt:"2026-11-01T10:04:30.000Z",
+  };
+  const result=merge.sortedRewardsHistory([],[...levels,action]);
+  assert.deepEqual(result.map(e=>e.label),[
+    "Website level 08 completed","Website level 07 completed",
+    "Website level 06 completed","Website level 05 completed",
+    "Visited customer portal","Website level 04 completed",
+    "Website level 03 completed","Website level 02 completed",
+    "Website level 01 completed",
+  ]);
+  assert.equal(result.reduce((n,e)=>n+e.points,0),425);
+});
+
+test("identical timestamps for completed levels tie-break in reverse completion order",()=>{
+  const levels=[1,2,3,4,5,6,7,8].map(i=>({
+    date:"2026-11-01",category:"website_level",
+    label:"Website level "+String(i).padStart(2,"0")+" completed",
+    earnedAt:"2026-11-01T10:00:00.000Z",points:50
+  }));
+  assert.deepEqual(merge.sortedRewardsHistory([],levels).map(e=>merge.levelOrdinal(e.label)),
+    [8,7,6,5,4,3,2,1]);
 });
 
 test("already recorded legacy out-of-order rewards retain their awarded XP",async()=>{
