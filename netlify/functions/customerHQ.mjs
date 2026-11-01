@@ -137,15 +137,7 @@ async function customerWebsiteRewards(customerId){
   return {websiteXp,history};
 }
 function allRewardsHistory(cleaningHistory,websiteHistory){
-  const clean=(Array.isArray(cleaningHistory)?cleaningHistory:[]).map(e=>({
-    ...e,source:"cleaning",category:"cleaning",
-  }));
-  const both=clean.concat(Array.isArray(websiteHistory)?websiteHistory:[]);
-  return both.sort((a,b)=>{
-    const aTime=a.earnedAt||a.recordedAt||a.date||"";
-    const bTime=b.earnedAt||b.recordedAt||b.date||"";
-    return bTime.localeCompare(aTime);
-  });
+  return merge.sortedRewardsHistory(cleaningHistory,websiteHistory);
 }
 
 async function attachMatchedWebsiteBooking(session){

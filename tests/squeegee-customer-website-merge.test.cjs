@@ -158,22 +158,27 @@ test("public Preview 1 board merges private login activity and verified bookings
 });
 
 
-test("UK calendar monthly levels reset in a new month, never multiple times in one month",async()=>{
+test("UK calendar monthly levels reset in a new month and require earlier levels",async()=>{
   const db=store(),id=UUID;
   const oct=Date.parse("2026-10-31T17:00:00Z");
   const nov=Date.parse("2026-11-01T11:00:00Z");
-  const oldEvent={key:"l:the-process@2026-10",at:new Date(oct).toISOString()};
-  const newEvent={key:"l:the-process@2026-11",at:new Date(nov).toISOString()};
-  const first=await merge.syncActivity({store:db,customerId:id,events:[oldEvent],now:oct});
-  assert.deepEqual({changed:first.changed,points:first.points},{changed:true,points:50});
-  const repeat=await merge.syncActivity({store:db,customerId:id,events:[oldEvent],now:oct+1000});
-  assert.deepEqual({changed:repeat.changed,points:repeat.points},{changed:false,points:50});
-  const next=await merge.syncActivity({store:db,customerId:id,events:[newEvent],now:nov});
-  assert.deepEqual({changed:next.changed,points:next.points},{changed:true,points:100});
+  const event=(id,month,at)=>({key:"l:"+id+"@"+month,at:new Date(at).toISOString()});
+  const oldFirst=event("what-we-do","2026-10",oct);
+  const oldSecond=event("the-process","2026-10",oct+1000);
+  const first=await merge.syncActivity({store:db,customerId:id,events:[oldFirst,oldSecond],now:oct+1000});
+  assert.deepEqual({changed:first.changed,points:first.points},{changed:true,points:100});
+  const repeat=await merge.syncActivity({store:db,customerId:id,events:[oldSecond],now:oct+2000});
+  assert.deepEqual({changed:repeat.changed,points:repeat.points},{changed:false,points:100});
+  const skipped=await merge.syncActivity({store:db,customerId:id,
+    events:[event("the-process","2026-11",nov)],now:nov});
+  assert.deepEqual({changed:skipped.changed,points:skipped.points},{changed:false,points:100});
+  const next=await merge.syncActivity({store:db,customerId:id,
+    events:[event("what-we-do","2026-11",nov),event("the-process","2026-11",nov+1000)],now:nov+1000});
+  assert.deepEqual({changed:next.changed,points:next.points},{changed:true,points:200});
   const balance=merge.activityBalance(db.rows.get(merge.activityKey(id)));
   assert.equal(balance.legacyXP,0);
-  assert.equal(balance.periodicXP,100);
-  assert.equal(merge.activityHistory(db.rows.get(merge.activityKey(id))).length,2);
+  assert.equal(balance.periodicXP,200);
+  assert.equal(merge.activityHistory(db.rows.get(merge.activityKey(id))).length,4);
 });
 test("daily actions reset at UK midnight, not at UTC midnight",async()=>{
   const db=store();
@@ -339,4 +344,65 @@ test("earlier linked bookings use an account record date, but verified booking a
   assert.match(api,/dateKind:"recorded"/);
   assert.match(ui,/entry\.dateKind==="recorded"\?"Recorded on "/);
   assert.match(ui,/entry\.source==="website"\?"Earned on "/);
+});
+
+
+test("server does not award skipped levels or reorder an out-of-order submitted batch",async()=>{
+  const db=store();
+  const now=Date.parse("2026-11-01T15:00:00Z");
+  const ids=["what-we-do","the-process","bins-we-clean","why-clean-your-bin",
+    "why-ni-bin-guy","areas-we-cover","customer-portal","level-08-final"];
+  const make=(id,n)=>({
+    key:"l:"+id+"@2026-11",at:new Date(now+n*1000).toISOString(),
+  });
+  const result=await merge.syncActivity({store:db,customerId:UUID,now:now+15000,
+    events:[make(ids[6],6),make(ids[2],2),make(ids[0],0),make(ids[1],1)]
+  });
+  assert.equal(result.points,100);
+  assert.deepEqual(db.rows.get(merge.activityKey(UUID)).events
+    .filter(e=>e.category==="website_level").map(e=>e.rule),
+    ["l:what-we-do","l:the-process"]);
+  const later=await merge.syncActivity({store:db,customerId:UUID,
+    events:ids.slice(2).map((id,i)=>make(id,i+2)),now:now+15000});
+  assert.equal(later.points,400);
+  const repeat=await merge.syncActivity({store:db,customerId:UUID,
+    events:ids.map((id,i)=>make(id,i)),now:now+20000});
+  assert.equal(repeat.changed,false);
+  assert.equal(repeat.points,400);
+});
+
+test("same-day level rows appear in ascending level number, with older days first",()=>{
+  const rows=[
+    {date:"2026-11-01",category:"website_level",label:"Website level 07 completed",points:50,earnedAt:"2026-11-01T12:00:00Z"},
+    {date:"2026-11-01",category:"website_level",label:"Website level 03 completed",points:50,earnedAt:"2026-11-01T15:00:00Z"},
+    {date:"2026-11-01",category:"website_level",label:"Website level 01 completed",points:50,earnedAt:"2026-11-01T10:00:00Z"},
+    {date:"2026-11-01",category:"website_action",label:"Visited customer portal",points:25,earnedAt:"2026-11-01T16:00:00Z"},
+    {date:"2026-10-31",category:"website_level",label:"Website level 02 completed",points:50,earnedAt:"2026-10-31T13:00:00Z"},
+  ];
+  const result=merge.sortedRewardsHistory([{date:"2026-11-01",points:22,event:"paid_completed_clean"}],rows);
+  assert.deepEqual(result.slice(0,3).map(e=>e.label),[
+    "Website level 01 completed","Website level 03 completed","Website level 07 completed"
+  ]);
+  assert.equal(result.at(-1).date,"2026-10-31");
+  assert.equal(result.reduce((sum,e)=>sum+e.points,0),247);
+  assert.equal(merge.levelOrdinal("Website level 01 completed"),1);
+  assert.equal(merge.levelOrdinal("Website level 08 completed"),8);
+  assert.equal(merge.levelOrdinal("Contact Us"),null);
+});
+
+test("already recorded legacy out-of-order rewards retain their awarded XP",async()=>{
+  const previous=[
+    {key:"l:customer-portal@2026-11",rule:"l:customer-portal",period:"2026-11",
+      points:50,category:"website_level",label:"Website level 07 completed",
+      earnedAt:"2026-11-01T08:00:00.000Z"},
+  ];
+  const db=store([[merge.activityKey(UUID),{
+    version:2,claimed:[],events:previous,updatedAt:"2026-11-01T09:00:00Z",
+  }]]);
+  const now=Date.parse("2026-11-01T15:00:00Z");
+  const response=await merge.syncActivity({store:db,customerId:UUID,now,
+    events:[{key:"l:level-08-final@2026-11",at:new Date(now).toISOString()}]});
+  assert.equal(response.points,50);
+  assert.equal(response.changed,false);
+  assert.equal(merge.activityBalance(db.rows.get(merge.activityKey(UUID))).total,50);
 });

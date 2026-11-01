@@ -11,6 +11,9 @@
   const TRACK = ".n64-level-track";
   const registered = new WeakSet();
   const waiting = new Set();
+  // A later level can complete its visual animation while still being
+  // locked. Credit XP only on a later visible revisit after earlier levels.
+  const pendingCredits = new Set();
   const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
   let checkScheduled = false;
 
@@ -47,6 +50,30 @@
     area.appendChild(track);
   }
 
+  function creditCompletedLevel(track) {
+    if(!track.isConnected)return;
+    const levelId=track.closest("section")?.id;
+    const status=window.n64Score?.levelStatus?.(levelId);
+    const label=track.querySelector(".n64-level-complete");
+    if(status==="earned"){
+      if(label)label.textContent="LEVEL COMPLETED!";
+      pendingCredits.delete(track);
+      return;
+    }
+    if(status==="locked"){
+      if(label)label.textContent="LEVEL LOCKED — 0 XP";
+      pendingCredits.add(track);
+      return;
+    }
+    if(status==="ready" && window.n64Score?.awardLevel(levelId)){
+      if(label)label.textContent="LEVEL COMPLETED!";
+      pendingCredits.delete(track);
+      return;
+    }
+    // No false XP pop-up if this track does not correspond to a game level.
+    pendingCredits.delete(track);
+  }
+
   function finish(track) {
     if (!track.isConnected || track.dataset.n64RunStage === "complete") return;
     window.clearTimeout(track._n64Timer);
@@ -56,8 +83,7 @@
     track.classList.add("n64-run-complete");
     waiting.delete(track);
 
-    const levelId = track.closest("section")?.id;
-    window.n64Score?.awardLevel(levelId);
+    creditCompletedLevel(track);
   }
 
   function runOnce(track) {
@@ -93,6 +119,16 @@
     const h = window.innerHeight || document.documentElement.clientHeight;
     const safeTop = Math.min(150, h * 0.2);
     const enterLine = Math.max(safeTop + 5, h * 0.68);
+
+    // Rewards never arrive out of order: an already completed later level
+    // waits for a *visible revisit* rather than silently adding XP offscreen.
+    for(const track of pendingCredits){
+      if(!track.isConnected){pendingCredits.delete(track);continue;}
+      const rect=track.getBoundingClientRect();
+      if(rect.height>0 && rect.top<enterLine && rect.bottom>safeTop){
+        creditCompletedLevel(track);
+      }
+    }
 
     for (const track of waiting) {
       if (!track.isConnected) {
@@ -155,6 +191,7 @@
     window.addEventListener("scroll", scheduleCheck, { passive: true });
     window.addEventListener("resize", scheduleCheck, { passive: true });
     window.addEventListener("pageshow", scheduleCheck);
+    window.addEventListener("n64:score-updated", scheduleCheck);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") scheduleCheck();
     });

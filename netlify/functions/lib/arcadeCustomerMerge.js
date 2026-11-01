@@ -54,6 +54,11 @@ function activityKeys(input){
 function activityXP(input){
   return activityKeys(input).reduce((n,k)=>n+ACTIVITY_POINTS[k],0);
 }
+function levelOrdinal(label){
+  const match=/^Website level (\d{2}) completed$/.exec(String(label||""));
+  const n=Number(match?.[1]);
+  return Number.isSafeInteger(n)&&n>=1&&n<=LEVEL_IDS.length?n:null;
+}
 function bounded(value,cap){
   const n=Number(value);
   return Number.isSafeInteger(n)&&n>=0?Math.min(n,cap):0;
@@ -109,6 +114,31 @@ function activityBalance(row){
     periodicXP+=e.points;
   }
   return {legacyXP,periodicXP,total:legacyXP+periodicXP};
+}
+function sortedRewardsHistory(cleaningHistory,websiteHistory){
+  const clean=(Array.isArray(cleaningHistory)?cleaningHistory:[]).map(entry=>({
+    ...entry,source:"cleaning",category:"cleaning",
+  }));
+  return clean.concat(Array.isArray(websiteHistory)?websiteHistory:[])
+    .sort((a,b)=>{
+      const aDate=String(a.date||"");
+      const bDate=String(b.date||"");
+      if(aDate!==bDate)return bDate.localeCompare(aDate);
+      const aLevel=a.category==="website_level";
+      const bLevel=b.category==="website_level";
+      // On the same day, make the visible website progress chronological
+      // by LEVEL number (01,02,03...) rather than network/animation timing.
+      // Other actions retain their original most-recent-first sorting.
+      if(aLevel!==bLevel)return aLevel?-1:1;
+      if(aLevel&&bLevel){
+        const first=levelOrdinal(a.label);
+        const second=levelOrdinal(b.label);
+        if(first!==null&&second!==null&&first!==second)return first-second;
+      }
+      const aTime=String(a.earnedAt||a.recordedAt||a.date||"");
+      const bTime=String(b.earnedAt||b.recordedAt||b.date||"");
+      return bTime.localeCompare(aTime);
+    });
 }
 function combinedWebsiteXP({
   linkedPoints=0,linkedProgressXP=0,portalActivityXP=0,
@@ -190,6 +220,9 @@ async function syncActivity({customerId,claimed=[],events=[],store,now=Date.now(
      !Array.isArray(events)||events.length>100)
     throw new Error("invalid_website_activity");
   const incoming=activityKeys(claimed),key=activityKey(customerId);
+  // Preserve supplied order. New monthly level awards must follow 01, 02,
+  // 03... within that same UK month. A scroll jump cannot award Level 07
+  // without Levels 01-06; existing legacy awards are never removed.
   const fresh=new Map();
   for(const item of events){
     const valid=normalisePeriodEvent(item,now);
@@ -201,7 +234,23 @@ async function syncActivity({customerId,claimed=[],events=[],store,now=Date.now(
     const merged=activityKeys(old.concat(incoming));
     const prior=Array.isArray(snap?.data?.events)?snap.data.events:[];
     const known=new Set(prior.map(e=>e?.key));
-    const additional=[...fresh.values()].filter(e=>!known.has(e.key));
+    const additional=[];
+    for(const event of fresh.values()){
+      if(known.has(event.key))continue;
+      if(event.category==="website_level"){
+        const index=LEVEL_IDS.findIndex(id=>event.rule==="l:"+id);
+        if(index<0)continue;
+        const previous=LEVEL_IDS.slice(0,index);
+        if(!previous.every(id=>known.has("l:"+id+"@"+event.period)))continue;
+        // Within a single import batch, a later level may not predate the
+        // previous one. Historic already-saved awards remain untouched.
+        const prevEvent=additional.findLast(e=>
+          e.category==="website_level" && e.period===event.period);
+        if(prevEvent && event.earnedAt<prevEvent.earnedAt)continue;
+      }
+      known.add(event.key);
+      additional.push(event);
+    }
     if(merged.length===old.length&&!additional.length){
       return {changed:false,points:activityBalance(snap?.data).total};
     }
@@ -291,5 +340,5 @@ async function linkVerifiedPortalAccount({account,liveCustomer,
 }
 module.exports={STORE,ACTIVITY_POINTS,DAILY_POINTS,ACTIVITY_LABELS,
   activityKeys,activityXP,ukDay,normalisePeriodEvent,activityBalance,
-  activityHistory,recordedAtFrom,readActivityRecord,combinedWebsiteXP,
+  activityHistory,levelOrdinal,sortedRewardsHistory,recordedAtFrom,readActivityRecord,combinedWebsiteXP,
   activityKey,readActivity,syncActivity,linkVerifiedPortalAccount};

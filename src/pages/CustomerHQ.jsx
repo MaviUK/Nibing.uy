@@ -1,4 +1,4 @@
-import React, {useEffect,useMemo,useState} from "react";
+import React, {useEffect,useMemo,useRef,useState} from "react";
 import "../customer-hq.css";
 
 const API="/api/customer-hq";
@@ -93,6 +93,7 @@ export default function CustomerHQ({embedded=false}){
   const [agree,setAgree]=useState(false);
   const [preferredFirstName,setPreferredFirstName]=useState("");
   const [tab,setTab]=useState("history");
+  const verifiedSnapshotRef=useRef(null);
   const signedIn=Boolean(account);
 
   async function refresh(){
@@ -101,15 +102,24 @@ export default function CustomerHQ({embedded=false}){
     if(!response.ok)throw new Error("Couldn't retrieve Customer HQ right now.");
     setReady(data.ready===true);
     if(data.authenticated&&data.account){
-      setAccount(data.account);
+      const prior=verifiedSnapshotRef.current;
+      const current=prior &&
+        prior.customerReference===data.account.customerReference &&
+        Number.isSafeInteger(prior.points) &&
+        prior.points>data.account.points ? prior : data.account;
+      // An in-flight older GET must not roll the profile back when the
+      // verified star has already received newer XP.
+      verifiedSnapshotRef.current=current;
+      setAccount(current);
       setPermission(data.leaderboard||null);
       setPreferredFirstName(data.leaderboard?.displayedFirstName||
-        data.account.firstName||"");
+        current.firstName||"");
       setChallenge(null);setCode("");
       window.dispatchEvent(new CustomEvent("n64:account-score",{
-        detail:{points:data.account.points},
+        detail:{points:current.points,customerReference:current.customerReference},
       }));
     }else{
+      verifiedSnapshotRef.current=null;
       setAccount(null);setPermission(null);
       window.dispatchEvent(new CustomEvent("n64:account-score",{
         detail:{points:null},
@@ -152,6 +162,36 @@ export default function CustomerHQ({embedded=false}){
       window.removeEventListener("n64:score-updated",onScore);
     };
   },[signedIn]);
+  // HUD and profile share the SAME verified server score. If the HUD
+  // finishes a more recent verified fetch, update this profile immediately
+  // and reload its dated history in the background.
+  useEffect(()=>{
+    if(!signedIn)return;
+    let timer=null;
+    const onVerified=(event)=>{
+      const detail=event?.detail;
+      const current=verifiedSnapshotRef.current;
+      if(!current || !detail ||
+         detail.customerReference!==current.customerReference ||
+         !Number.isSafeInteger(detail.points) ||
+         detail.points<=current.points)return;
+      const next={...current,points:detail.points,
+        websiteXp:Math.max(0,detail.points-current.cleaningPoints)};
+      verifiedSnapshotRef.current=next;
+      setAccount(next);
+      if(timer)window.clearTimeout(timer);
+      timer=window.setTimeout(()=>{
+        timer=null;
+        void refresh().catch(()=>{});
+      },250);
+    };
+    window.addEventListener("n64:verified-total",onVerified);
+    window.dispatchEvent(new Event("n64:request-verified-total"));
+    return()=>{
+      if(timer)window.clearTimeout(timer);
+      window.removeEventListener("n64:verified-total",onVerified);
+    };
+  },[signedIn]);
   const allHistory=Array.isArray(account?.rewardsHistory)?
     account.rewardsHistory:Array.isArray(account?.history)?account.history:[];
   const recent=useMemo(()=>allHistory.slice(0,showCount),[allHistory,showCount]);
@@ -185,6 +225,7 @@ export default function CustomerHQ({embedded=false}){
   async function logout(){
     setBusy(true);setError("");
     try{await action({action:"logout"});setChallenge(null);setCode("");
+      verifiedSnapshotRef.current=null;
       setAccount(null);setPermission(null);setMessage("Signed out successfully.");
       window.dispatchEvent(new CustomEvent("n64:account-score",{
         detail:{points:null},

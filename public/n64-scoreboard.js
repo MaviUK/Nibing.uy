@@ -106,6 +106,7 @@
   let history = stored ? stored.history : [];
   let periodEvents = readPeriodEvents(stored?.periodic);
   let accountTotal = null;
+  let accountCustomerRef = null;
   let accountRefreshPending = false;
   let accountRefreshQueued = false;
   let accountRevision = 0;
@@ -277,6 +278,12 @@
   // previously started account lookup that finishes after a newer verified
   // login or logout event. This prevents an older guest response replacing
   // the correctly signed-in badge on slower mobile connections.
+  function publishVerifiedTotal(){
+    if(!Number.isSafeInteger(accountTotal)||accountTotal<0)return;
+    window.dispatchEvent(new CustomEvent("n64:verified-total",{
+      detail:{points:accountTotal,customerReference:accountCustomerRef},
+    }));
+  }
   async function refreshAccountTotal(force=false) {
     if (accountRefreshPending) {
       if (force) accountRefreshQueued = true;
@@ -288,25 +295,40 @@
     const requestRevision = accountRevision;
     try {
       const response = await fetch("/api/customer-hq", {
-        method: "GET", cache: "no-store", credentials: "same-origin",
+        method: "GET",cache: "no-store",credentials: "same-origin",
       });
       if (!response.ok) throw new Error("account_request_failed");
-      const data = await response.json();
-      if (accountRevision === requestRevision) {
-        accountTotal = data?.authenticated === true &&
-          Number.isSafeInteger(data.account?.points) &&
-          data.account.points >= 0 ? data.account.points : null;
+      const data=await response.json();
+      if (accountRevision !== requestRevision) return;
+      const fresh=data?.authenticated===true &&
+        Number.isSafeInteger(data.account?.points) &&
+        data.account.points>=0 ? data.account : null;
+      if(!fresh){
+        accountTotal=null;
+        accountCustomerRef=null;
         redraw();
+        return;
+      }
+      const ref=typeof fresh.customerReference==="string"?
+        fresh.customerReference:null;
+      // XP increases during an ordinary session. A slower, older lookup
+      // must not overwrite a newer verified total. A different verified
+      // customer starts a new account score rather than inheriting it.
+      const same=accountCustomerRef===ref;
+      if(!same || accountTotal===null || fresh.points>=accountTotal){
+        const changed=accountTotal!==fresh.points || !same;
+        accountTotal=fresh.points;
+        accountCustomerRef=ref;
+        redraw();
+        if(changed)publishVerifiedTotal();
       }
     } catch (_) {
-      // A temporary connection error must not erase a total that Customer
-      // HQ already verified. A confirmed logout or unauthenticated response
-      // still resets it to the guest/device value.
-      if (accountRevision === requestRevision && accountTotal === null) redraw();
+      // Network failures leave a previously verified total intact.
+      if(accountTotal===null)redraw();
     } finally {
       accountRefreshPending = false;
-      if (accountRefreshQueued) {
-        accountRefreshQueued = false;
+      if(accountRefreshQueued){
+        accountRefreshQueued=false;
         void refreshAccountTotal(true);
       }
     }
@@ -616,14 +638,28 @@
     refreshLeaderboard();
     // Register the verified-account listener BEFORE fetching, so neither
     // a quick login nor a slow response can leave the star on local XP.
+    window.addEventListener("n64:request-verified-total",publishVerifiedTotal);
     window.addEventListener("n64:account-score",(event)=>{
-      if (!event?.detail || !Object.prototype.hasOwnProperty.call(event.detail,"points")) return;
-      accountRevision += 1;
+      if(!event?.detail || !Object.prototype.hasOwnProperty.call(event.detail,"points"))return;
+      accountRevision+=1;
       const total=event.detail.points;
-      accountTotal=Number.isSafeInteger(total)&&total>=0?total:null;
+      const ref=typeof event.detail.customerReference==="string"?
+        event.detail.customerReference:null;
+      if(!Number.isSafeInteger(total)||total<0){
+        accountTotal=null;
+        accountCustomerRef=null;
+      }else if(accountTotal===null || accountCustomerRef!==ref ||
+               total>=accountTotal){
+        accountTotal=total;
+        accountCustomerRef=ref;
+      }else{
+        // Customer HQ received an older snapshot. Re-publish the fresher
+        // verified result so the profile and the badge converge immediately.
+        publishVerifiedTotal();
+      }
       accountLastCheck=Date.now();
       redraw();
-      if (accountRefreshPending) accountRefreshQueued=true;
+      if(accountRefreshPending)accountRefreshQueued=true;
     });
     void refreshAccountTotal(true);
     window.addEventListener("online", scheduleProgressSync);
