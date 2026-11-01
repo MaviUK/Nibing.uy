@@ -424,3 +424,30 @@ html[data-arcade-weather="snow"] #level-08-final{
     transition:none!important;
   }
 }
+
+
+/* Storm hero readability: its navy-to-grey sky is too dark for the default
+   navy/pink paragraph. Use a dark, square N64 dialogue panel with high-
+   contrast white/yellow lettering, also legible during lightning flashes. */
+#main-content.n64-world[data-weather="storm"] .n64-hero .n64-lead {
+  color:#f8fbff!important;
+  background:rgba(15,30,55,.86)!important;
+  border:3px solid #d7e6f3!important;
+  border-left:5px solid #ffd857!important;
+  border-radius:0!important;
+  padding:12px 15px;
+  box-shadow:5px 6px 0 rgba(11,24,46,.68)!important;
+  text-shadow:0 2px 0 #10213b,1px 1px 0 rgba(10,24,47,.75)!important;
+}
+#main-content.n64-world[data-weather="storm"] .n64-hero .n64-lead strong {
+  color:#ffe783!important;
+  text-shadow:0 2px 0 #10213b!important;
+}
+@media(max-width:600px){
+  #main-content.n64-world[data-weather="storm"] .n64-hero .n64-lead {
+    padding:10px 11px;
+    border-width:2px!important;
+    border-left-width:4px!important;
+    box-shadow:3px 4px 0 rgba(11,24,46,.68)!important;
+  }
+}

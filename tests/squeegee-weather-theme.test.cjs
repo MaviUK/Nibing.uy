@@ -133,3 +133,22 @@ test("storm lightning has a visible side fork pulsing with the main bolt every t
   assert.match(css, /fork \{[\s\S]*?animation:none!important;[\s\S]*?opacity:\.36!important;/);
   assert.match(css, /@keyframes n64-storm-bolt-flash/);
 });
+
+
+test("storm hero text stays readable against dark skies on desktop and mobile", () => {
+  const css = fs.readFileSync(path.join(__dirname, "..", "src/n64-weather.css"), "utf8");
+  const landing = fs.readFileSync(path.join(__dirname, "..", "src/LandingPage.jsx"), "utf8");
+  assert.match(landing, /<p className="n64-lead">/);
+  assert.match(css, /data-weather="storm"\] \.n64-hero \.n64-lead\s*\{/);
+  assert.match(css, /color:#f8fbff!important/);
+  assert.match(css, /background:rgba\(15,30,55,\.86\)!important/);
+  assert.match(css, /border-left:5px solid #ffd857!important/);
+  assert.match(css, /data-weather="storm"\] \.n64-hero \.n64-lead strong\s*\{/);
+  assert.match(css, /color:#ffe783!important/);
+  assert.match(css, /@media\(max-width:600px\)\s*\{[\s\S]*?data-weather="storm"\] \.n64-hero \.n64-lead\s*\{[\s\S]*?padding:10px 11px/);
+  // Keep the weather switcher, N64 meshes and lightning timing intact.
+  assert.match(landing, /<ArcadeWeatherPreviewBar weather=\{weather\} \/>/);
+  assert.match(css, /animation:n64-storm-sky-flash 10s linear infinite/);
+  assert.match(css, /animation:n64-storm-bolt-flash 10s linear infinite/);
+  assert.match(css, /n64-weather-lightning-fork/);
+});
