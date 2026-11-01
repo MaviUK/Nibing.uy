@@ -261,3 +261,45 @@ html[data-arcade-weather="snow"] #level-08-final{
 @media(prefers-reduced-motion:reduce){
   #main-content.n64-world .n64-weather-test-button{transition:none!important;}
 }
+
+
+/*
+ * Thunderstorm: two short, soft lightning pulses every ten seconds.
+ * Illuminate just the N64 sky, not the page's content or controls.
+ * Two modest pulses keep the effect atmospheric rather than strobing.
+ */
+#main-content.n64-world[data-weather="storm"] .n64-weather-scene::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  background:linear-gradient(180deg,rgba(238,246,255,.68),rgba(220,239,255,.28));
+  opacity:0;
+  animation:n64-storm-sky-flash 10s linear infinite;
+}
+#main-content.n64-world[data-weather="storm"] .n64-weather-lightning {
+  z-index:2;
+  opacity:.06;
+  animation:n64-storm-bolt-flash 10s linear infinite;
+}
+@keyframes n64-storm-sky-flash {
+  0%, 90.5%, 91.7%, 94.1%, 95.5%, 100% {opacity:0;}
+  91.2% {opacity:.27;}
+  94.8% {opacity:.43;}
+}
+@keyframes n64-storm-bolt-flash {
+  0%, 90.5%, 91.7%, 94.1%, 95.5%, 100% {opacity:.06;}
+  91.2% {opacity:.77;}
+  94.8% {opacity:.98;}
+}
+@media(prefers-reduced-motion:reduce) {
+  #main-content.n64-world[data-weather="storm"] .n64-weather-scene::after {
+    animation:none!important;
+    opacity:0!important;
+  }
+  #main-content.n64-world[data-weather="storm"] .n64-weather-lightning {
+    animation:none!important;
+    opacity:.36!important;
+  }
+}

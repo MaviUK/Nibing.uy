@@ -75,3 +75,18 @@ test("night mode has a pixel moon and readable white paragraph", () => {
   assert.match(css, /data-night="true".*\.n64-hero \.n64-lead/s);
   assert.match(css, /color:#f8f9f2!important/);
 });
+
+
+test("storm mode shows two subtle lightning flashes every ten seconds, with reduced-motion fallback", () => {
+  const css = fs.readFileSync(path.join(__dirname, "..", "src/n64-weather.css"), "utf8");
+  const component = fs.readFileSync(path.join(__dirname, "..", "src/components/ArcadeWeather.jsx"), "utf8");
+  assert.match(component, /mode === "storm" && <span className="n64-weather-lightning"/);
+  assert.match(css, /data-weather="storm"\] \.n64-weather-scene::after/);
+  assert.match(css, /animation:n64-storm-sky-flash 10s linear infinite/);
+  assert.match(css, /animation:n64-storm-bolt-flash 10s linear infinite/);
+  assert.match(css, /@keyframes n64-storm-sky-flash\s*\{/);
+  assert.match(css, /@keyframes n64-storm-bolt-flash\s*\{/);
+  assert.match(css, /91\.2% \{opacity:\.27;\}/);
+  assert.match(css, /94\.8% \{opacity:\.43;\}/);
+  assert.match(css, /prefers-reduced-motion:reduce\)\s*\{[\s\S]*?n64-weather-scene::after\s*\{[\s\S]*?animation:none!important/);
+});
