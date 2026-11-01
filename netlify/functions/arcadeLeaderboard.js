@@ -1,5 +1,7 @@
 const crypto = require("node:crypto");
 const { getStore } = require("@netlify/blobs");
+const { publicCustomerReference, townFromAddress, safePublicTown, safePublicReference } =
+  require("./lib/arcadePublicIdentity");
 const {
   signBooking, verifyBooking, bookingPoints, signPlayerSession, verifyPlayerSession
 } = require("./lib/arcadeBookingProof");
@@ -12,7 +14,7 @@ const HEADERS = {
 const out = (statusCode, data) => ({
   statusCode, headers: HEADERS, body: JSON.stringify(data),
 });
-const SNAPSHOT_KEY = "leaderboard:top10:v2";
+const SNAPSHOT_KEY = "leaderboard:top10:v3-ref-town";
 const SNAPSHOT_MAX_AGE_MS = 35000;
 const LEVEL_KEYS = new Set([
   "l:what-we-do", "l:the-process", "l:bins-we-clean", "l:why-clean-your-bin",
@@ -51,76 +53,87 @@ function activityXP(claimed) {
     + (keys.has("a:bin-checker") ? 35 : 0);
 }
 
-async function rebuildSnapshot(store) {
-  // Blobs is suitable for this limited preview, not for transactional prizes.
-  // list() WITHOUT paginate:true returns all pages as one collection.
-  const { blobs = [] } = await store.list({ prefix: "player:" });
+async function rebuildSnapshot(stores) {
+  // The old v2 snapshot is NEVER read. Existing points are retained.
+  const { blobs = [] } = await stores.public.list({ prefix: "player:" });
   const records = [];
-  // Bound concurrent reads so many visitors can poll a single small snapshot,
-  // instead of loading every player on every 10-second refresh.
   for (let i = 0; i < blobs.length; i += 20) {
     const rows = await Promise.all(blobs.slice(i, i + 20).map(async ({ key }) => {
-      try { return await store.get(key, { type: "json" }); }
-      catch (_) { return null; }
+      if (typeof key !== "string" || !/^player:[a-f0-9]{64}$/.test(key)) return null;
+      const customerRef = publicCustomerReference(key.slice("player:".length));
+      if (!customerRef) return null;
+      try {
+        const row = await stores.public.get(key, { type: "json" });
+        if (!row || !Number.isFinite(Number(row.points))) return null;
+        let town = safePublicTown(row.town);
+        if (town === "Town unavailable") {
+          // Legacy entries may contain a full name. Only read the PRIVATE
+          // address to derive the town; neither address nor name is returned.
+          const privateRow = await stores.private.get(key, { type: "json" });
+          if (!privateRow || !(privateRow.enrolledAt || privateRow.consentedAt))
+            return null;
+          town = townFromAddress(privateRow.address);
+        }
+        return {
+          customerRef, town, points: limitInt(row.points, 100000),
+          createdAt: row.createdAt || "", lastUpdatedAt: row.lastUpdatedAt || "",
+        };
+      } catch (_) { return null; }
     }));
-    for (const row of rows) {
-      if (row && typeof row.displayName === "string" && row.displayName.trim()) {
-        records.push(row);
-      }
-    }
+    for (const row of rows) if (row) records.push(row);
   }
   const ranked = records.sort((a, b) =>
     limitInt(b.points, 100000) - limitInt(a.points, 100000) ||
     String(a.createdAt || "").localeCompare(String(b.createdAt || ""))
   );
-  const entries = ranked.slice(0, 10).map((row, i) => ({
-    rank: i + 1,
-    name: String(row.displayName).slice(0, 45),
-    points: limitInt(row.points, 100000),
-  }));
-  const lastUpdatedAt = records.reduce((last, row) => {
-    const timestamp = row.lastUpdatedAt || row.createdAt || "";
-    return timestamp > last ? timestamp : last;
-  }, "");
   const snapshot = {
-    entries,
+    entries: ranked.slice(0, 10).map((row, i) => ({
+      rank: i + 1, customerRef: row.customerRef, town: row.town,
+      points: limitInt(row.points, 100000),
+    })),
     totalPlayers: ranked.length,
-    lastUpdatedAt: lastUpdatedAt || null,
+    lastUpdatedAt: records.reduce((last, row) => {
+      const t = row.lastUpdatedAt || row.createdAt || "";
+      return t > last ? t : last;
+    }, "") || null,
     builtAt: new Date().toISOString(),
   };
-  try {
-    await store.setJSON(SNAPSHOT_KEY, snapshot);
-  } catch (error) {
-    // The leaderboard should still load if a read-only or temporarily
-    // unavailable snapshot cache cannot be written to.
+  try { await stores.public.setJSON(SNAPSHOT_KEY, snapshot); }
+  catch (error) {
     console.warn("Leaderboard snapshot cache write failed:", error?.message || "unknown");
   }
   return snapshot;
 }
 
-async function getSnapshot(store) {
-  const cached = await store.get(SNAPSHOT_KEY, { type: "json" });
+async function getSnapshot(stores) {
+  const cached = await stores.public.get(SNAPSHOT_KEY, { type: "json" });
   const age = Date.now() - Date.parse(cached?.builtAt || "");
   if (Array.isArray(cached?.entries) &&
+      cached.entries.every(e => safePublicReference(e?.customerRef) &&
+        safePublicTown(e?.town) === e?.town && Number.isFinite(Number(e?.points))) &&
       Number.isFinite(age) && age >= 0 && age < SNAPSHOT_MAX_AGE_MS) {
     return cached;
   }
-  return rebuildSnapshot(store);
+  return rebuildSnapshot(stores);
 }
 
 function publicLeaderboard(snapshot) {
+  // Strict allowlist: no cached name, contact, address or invoice fields.
   return {
-    entries: snapshot.entries,
-    totalPlayers: snapshot.totalPlayers,
-    lastUpdatedAt: snapshot.lastUpdatedAt,
-    // Last-check timestamps are generated by clients. Nothing private here.
+    entries: (Array.isArray(snapshot?.entries) ? snapshot.entries : [])
+      .filter(e => safePublicReference(e?.customerRef))
+      .slice(0, 10).map((e, i) => ({
+        rank: i + 1, customerRef: e.customerRef, town: safePublicTown(e.town),
+        points: limitInt(e.points, 100000),
+      })),
+    totalPlayers: limitInt(snapshot?.totalPlayers, 1000000),
+    lastUpdatedAt: typeof snapshot?.lastUpdatedAt === "string"
+      ? snapshot.lastUpdatedAt : null,
   };
 }
-
-async function refreshSnapshotAfterWrite(store) {
-  try { await rebuildSnapshot(store); }
+async function refreshSnapshotAfterWrite(stores) {
+  try { await rebuildSnapshot(stores); }
   catch (error) {
-    // The player record remains valid; a later GET will rebuild the snapshot.
     console.warn("Leaderboard snapshot refresh failed:", error?.message || "unknown");
   }
 }
@@ -142,7 +155,7 @@ async function notifyOwner(booking, points) {
         "Address: " + booking.address,
         "Booking reference: " + booking.id,
         "Total XP: " + points,
-        "Consent: public name/XP, private contact for prize fulfilment.",
+        "Consent: public customer reference/town/XP, private contact for prize fulfilment.",
         "Consent recorded: " + new Date().toISOString(),
       ].join("\n"),
     });
@@ -169,6 +182,8 @@ async function updateActivePlayer(body, stores) {
   const nextActivity = Math.max(previousActivity, activityXP(body.claimed));
   const earned = nextActivity - previousActivity;
   const oldPoints = limitInt(player.points, 100000);
+  const customerRef = publicCustomerReference(key);
+  if (!customerRef) return out(503, { error: "Leaderboard reference unavailable" });
   if (!earned) return out(200, { success: true, changed: false, points: oldPoints });
   const points = Math.min(100000, oldPoints + earned);
   const timestamp = new Date().toISOString();
@@ -176,9 +191,12 @@ async function updateActivePlayer(body, stores) {
     ...contact, points, progressXP: nextActivity, lastUpdatedAt: timestamp,
   });
   await stores.public.setJSON(recordKey, {
-    ...player, points, lastUpdatedAt: timestamp,
+    customerRef,
+    town: safePublicTown(player.town) === "Town unavailable"
+      ? townFromAddress(contact.address) : safePublicTown(player.town),
+    points, createdAt: player.createdAt || timestamp, lastUpdatedAt: timestamp,
   });
-  await refreshSnapshotAfterWrite(stores.public);
+  await refreshSnapshotAfterWrite(stores);
   return out(200, { success: true, changed: true, points });
 }
 
@@ -191,6 +209,9 @@ async function registerBooking(body, stores, internalAuto = false) {
   const emailKey = crypto.createHash("sha256")
     .update(String(booking.email).trim().toLowerCase()).digest("hex");
   const recordKey = "player:" + emailKey;
+  const customerRef = publicCustomerReference(emailKey);
+  if (!customerRef) return out(503, { error: "Leaderboard reference unavailable" });
+  const town = townFromAddress(booking.address);
 
   const [oldPublic, oldPrivate] = await Promise.all([
     stores.public.get(recordKey, { type: "json" }),
@@ -235,12 +256,10 @@ async function registerBooking(body, stores, internalAuto = false) {
       lastUpdatedAt: timestamp,
     });
     await stores.public.setJSON(recordKey, {
-      displayName: name,
-      points,
-      createdAt: oldPublic?.createdAt || timestamp,
-      lastUpdatedAt: timestamp,
+      customerRef, town, points,
+      createdAt: oldPublic?.createdAt || timestamp, lastUpdatedAt: timestamp,
     });
-    await refreshSnapshotAfterWrite(stores.public);
+    await refreshSnapshotAfterWrite(stores);
     // The normal booking email already informs the owner and includes all private details.
     if (newBooking && !internalAuto) await notifyOwner(booking, points);
   }
@@ -250,7 +269,8 @@ async function registerBooking(body, stores, internalAuto = false) {
     changed,
     duplicate: !newBooking,
     points,
-    displayName: oldPublic?.displayName || name,
+    customerRef,
+    town,
     playerToken: signPlayerSession(emailKey),
   });
 }
@@ -278,7 +298,8 @@ exports.autoEnrollBooking = async function autoEnrollBooking(payload) {
   return {
     registered: true,
     playerToken: body.playerToken,
-    displayName: body.displayName,
+    customerRef: body.customerRef,
+    town: body.town,
     points: body.points,
     duplicate: body.duplicate,
   };
@@ -291,7 +312,7 @@ exports.handler = async (event) => {
   try {
     const stores = storePair();
     if (event.httpMethod === "GET") {
-      return out(200, publicLeaderboard(await getSnapshot(stores.public)));
+      return out(200, publicLeaderboard(await getSnapshot(stores)));
     }
     if (typeof event.body !== "string" || event.body.length > 16000) {
       return out(400, { error: "Invalid leaderboard request" });
