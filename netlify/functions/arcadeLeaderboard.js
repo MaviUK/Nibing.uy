@@ -2,6 +2,7 @@ const crypto = require("node:crypto");
 const { getStore } = require("@netlify/blobs");
 const historical = require("./lib/squeegeeActiveLeaderboardImport");
 const historicalPreview = require("./lib/squeegeeActivePreviewBoard");
+const nameConsents = require("./lib/squeegeeLeaderboardNameConsent");
 const { publicCustomerReference, townFromAddress, safePublicTown, safePublicReference } =
   require("./lib/arcadePublicIdentity");
 const {
@@ -44,6 +45,7 @@ function storePair() {
     private: open("n64-preview-arcade-private"),
     history: open(historical.BLOB_STORE),
     links: open("n64-preview1-squeegee-player-links"),
+    names: open(nameConsents.STORE_NAME),
   };
 }
 
@@ -188,12 +190,16 @@ function publicLeaderboard(snapshot) {
       .slice(0, 10).map((e, i) => ({
         rank: i + 1, customerRef: e.customerRef, town: safePublicTown(e.town),
         points: limitInt(e.points, 100000),
+        ...(snapshot?.status==="consent_only" &&
+          nameConsents.safeFirstName(e.displayName)
+          ? {displayName:e.displayName}:{}),
       })),
     totalPlayers: limitInt(snapshot?.totalPlayers, 1000000),
     lastUpdatedAt: typeof snapshot?.lastUpdatedAt === "string"
       ? snapshot.lastUpdatedAt : null,
     ...(typeof snapshot?.sourceAsOf === "string"?{sourceAsOf:snapshot.sourceAsOf}:{}),
-    ...(snapshot?.status === "active_status_refresh_required"?{status:snapshot.status}:{}),
+    ...(["active_status_refresh_required","consent_pending","consent_only"]
+       .includes(snapshot?.status)?{status:snapshot.status}:{}),
   };
 }
 async function refreshSnapshotAfterWrite(stores) {
@@ -377,6 +383,20 @@ exports.handler = async (event) => {
   try {
     const stores = storePair();
     if (event.httpMethod === "GET") {
+      if(isExactN64PreviewRequest(event)){
+        const privateNames=await stores.names.get(nameConsents.KEY,{
+          type:"json",consistency:"strong"
+        });
+        if(privateNames){
+          // Once first names are staged, ONLY proven opt-ins can appear.
+          // No public fallback to old customer aliases or unconsented names.
+          const full=await historicalPreview.getStaticPreviewBoard(stores,Date.now(),true);
+          const allowed=nameConsents.publicConsentBoard(privateNames,full);
+          return out(200,publicLeaderboard(allowed||{
+            entries:[],totalPlayers:0,status:"consent_pending"
+          }));
+        }
+      }
       const activeBoard=await getActiveHistoricalBoard(stores);
       // When the owner has not yet uploaded the private UUID mapping, use
       // the reviewed 941-row REF/TOWN/PAID-POINT snapshot on PREVIEW 1 only.
