@@ -33,6 +33,9 @@
 # Public _redirects takes precedence over netlify.toml and must win BEFORE /:shortcode.
 /customer-hq /index.html 200
 /customer-hq/ /index.html 200
+# Keep Squeegee's own login on a direct route, not the short document wildcard.
+/squeegee-portal /index.html 200
+/squeegee-portal/ /index.html 200
 /standee/* /index.html 200
 /admin /index.html 200
 /admin/* /index.html 200
