@@ -58,7 +58,7 @@ test("manual weather modes render instantly in Preview 1, with Auto restoring fo
   assert.match(component, /isNight: testMode === "night"/);
   assert.match(component, /window\.history\.replaceState/);
   for (const mode of ["auto", "sunny", "cloudy", "rain", "snow", "storm", "fog", "night"]) {
-    assert.match(component, new RegExp('\\\\["' + mode + '",'));
+    assert.ok(component.includes('["' + mode + '",'), 'Missing preview mode: ' + mode);
   }
   assert.match(component, /aria-pressed=\{weather\.testMode === value\}/);
   assert.match(landing, /<ArcadeWeatherPreviewBar weather=\{weather\} \/>/);
