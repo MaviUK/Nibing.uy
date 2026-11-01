@@ -176,6 +176,11 @@ export default function CustomerHQ({embedded=false}){
     finally{setBusy(false);}
   }
 
+  // On the homepage the Squeegee login is already mounted above Customer HQ.
+  // Stay on this page so the verified points session remains in place.
+  // The standalone /customer-hq route falls back to the homepage anchor.
+  const squeegeePortalHref=embedded?"#customer-portal":
+    "/?ntl-drawer-state=hidden#customer-portal";
   const Container=embedded?"div":"main";
   return <Container className={"hq-page"+(embedded?" hq-embedded":"")}>
     <div className="hq-shell">
@@ -203,8 +208,8 @@ export default function CustomerHQ({embedded=false}){
 
       {loading?<GamePanel><div className="hq-loading">LOADING CUSTOMER HQ…</div></GamePanel>:
       !ready?<GamePanel label="COMING ONLINE">
-        <p>We're connecting your historical cleaning points to secure customer accounts. The Squeegee portal is still available below.</p>
-        <a className="hq-button hq-primary" href="/squeegee-portal?ntl-drawer-state=hidden">OPEN SQUEEGEE PORTAL ↗</a>
+        <p>We're connecting your historical cleaning points to secure customer accounts. The Squeegee sign-in section is still available.</p>
+        <a className="hq-button hq-primary" href={squeegeePortalHref}>GO TO SQUEEGEE LOGIN ↓</a>
       </GamePanel>:
       !signedIn?
         <div className="hq-login-grid">
@@ -240,8 +245,8 @@ export default function CustomerHQ({embedded=false}){
           <GamePanel label="ALREADY USE SQUEEGEE?">
             <h2 className="hq-panel-heading">YOUR EXISTING PORTAL IS STILL HERE</h2>
             <p>Need your Squeegee account or service information instead? Open the original Squeegee login.</p>
-            <a className="hq-button hq-green" href="/squeegee-portal?ntl-drawer-state=hidden">
-              OPEN SQUEEGEE PORTAL ↗
+            <a className="hq-button hq-green" href={squeegeePortalHref}>
+              GO TO SQUEEGEE LOGIN ↓
             </a>
             <p className="hq-small">Squeegee may ask you to sign in separately. We cannot share login sessions between the two systems.</p>
             <p className="hq-small">No email registered, or more than one customer on the same email? <a href="mailto:info@nibing.uy?subject=Customer%20HQ%20account%20help">Contact NI Bin Guy</a> for an account check.</p>
@@ -339,8 +344,8 @@ export default function CustomerHQ({embedded=false}){
               <h2>SQUEEGEE CUSTOMER PORTAL</h2>
             </div>
             <p>To see your existing services, account information, invoices or payment features offered by Squeegee, open its usual customer portal.</p>
-            <a className="hq-button hq-green" href="/squeegee-portal?ntl-drawer-state=hidden">
-              GO TO MY SQUEEGEE PORTAL ↗
+            <a className="hq-button hq-green" href={squeegeePortalHref}>
+              GO TO MY SQUEEGEE LOGIN ↓
             </a>
             <p className="hq-small">This is a separate login provided by Squeegee. No payments or Squeegee records are changed from this rewards dashboard.</p>
           </GamePanel>

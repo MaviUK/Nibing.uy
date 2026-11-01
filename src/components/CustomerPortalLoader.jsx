@@ -12,10 +12,23 @@ export default function CustomerPortalLoader({ standalone = false }) {
     document.head.appendChild(script)
   }, [])
 
+  // A direct link from /customer-hq loads the homepage before React mounts
+  // the anchor, so explicitly honour the hash once this section is present.
+  useEffect(() => {
+    if (window.location.hash !== "#customer-portal") return
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("customer-portal")?.scrollIntoView({
+        behavior: "auto", block: "start",
+      })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [])
+
   return (
     <section
       id="customer-portal"
       style={{
+        scrollMarginTop: "110px",
         padding: "64px 16px",
         background: "black",
         textAlign: "center",

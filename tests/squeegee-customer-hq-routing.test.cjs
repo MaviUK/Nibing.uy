@@ -49,11 +49,19 @@ test("dedicated Squeegee portal (with or without slash) avoids the certificate h
   assert.match(toml,/from = "\/squeegee-portal"\s+to = "\/index\.html"\s+status = 200/);
 });
 
-test("all Customer HQ Squeegee buttons open the portal route, never a homepage anchor",()=>{
+test("Customer HQ Squeegee buttons scroll to the existing homepage login widget",()=>{
   const code=fs.readFileSync(path.join(ROOT,"src/pages/CustomerHQ.jsx"),"utf8");
-  const target='href="/squeegee-portal?ntl-drawer-state=hidden"';
+  const target="href={squeegeePortalHref}";
   assert.equal(code.split(target).length-1,3);
-  assert.ok(!code.includes('href="/#customer-portal"'));
+  assert.match(code,/embedded\?"#customer-portal":\s*"\/\?ntl-drawer-state=hidden#customer-portal"/);
+  assert.ok(!code.includes('href="/squeegee-portal?ntl-drawer-state=hidden"'));
+  const app=fs.readFileSync(path.join(ROOT,"src/App.jsx"),"utf8");
+  assert.match(app,/<CustomerPortalLoader \/>/);
+  const widget=fs.readFileSync(path.join(ROOT,"src/components/CustomerPortalLoader.jsx"),"utf8");
+  assert.match(widget,/id="customer-portal"/);
+  assert.match(widget,/scrollMarginTop: "110px"/);
+  assert.match(widget,/window\.location\.hash !== "#customer-portal"/);
+  assert.match(widget,/scrollIntoView/);
 });
 
 test("Squeegee standalone page uses original official widget, not a fake login or API",()=>{
