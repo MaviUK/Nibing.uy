@@ -38,3 +38,23 @@ Production readiness still requires owner validation of email-code delivery, liv
 ## Regression tests
 
 `tests/squeegee-customer-hq.test.cjs` tests OTP hashing, expiry, retry cap, one-time use, shared-email hold, active account/email verification, private response redaction, and session revocation. Run `node --test tests/squeegee-*.test.cjs` and `npm run build` in preview. CI workflows have both as required checks.
+
+
+## 1 November 2026 — owner change: registered email is required for leaderboard eligibility
+
+The owner explicitly instructed that customers **without a valid email in Squeegee are not counted on the leaderboard**. This supersedes previous wording that all 941 historical ranked records should appear publicly. Historical points themselves are retained privately; a later verified Squeegee email update can make the customer eligible.
+
+Source: private 31 October 2026 Customer HQ JSON, independently reconciled to the public-safe historical snapshot:
+
+- **1,022** active non-deleted Squeegee accounts in the private file.
+- **293** accounts have no usable email. **729** have a valid registered email.
+- Of the 941 historical accounts with positive points and a verified town, **662** have an email (**519,442** total historical streak XP), **279** have no email (**288,874** historical XP retained privately, not ranked).
+- **Four** of the 662 ranked accounts share **two** email addresses with other active accounts. They qualify on the email-present criterion but cannot use self-service sign-in until the identity conflict is resolved securely. No wrong account may be selected.
+- Public first-name leaderboard is additionally **consent-gated**. Before each eligible customer's permission is recorded, that customer is **not displayed publicly**, and \`totalPlayers\` denotes the count actually opted in. Aggregate \`eligiblePlayers\` may report 662 separately; no PII is disclosed.
+- **No unfiltered 941-player public fallback** is permitted in the exact Preview 1 hostname when the private Customer HQ eligibility import is missing. The API returns an empty \`eligibility_pending\` response instead. This is intentional fail-closed behaviour: do not display customers who might have no email.
+- After owner uploads \`NI_Bin_Guy_Customer_HQ_Secure_Import_PRIVATE_2026-10-31.json\` to \`/api/squeegee-preview-hq-import\`, the server reads a private Blob to compute the list of allowable pseudonymous aliases; this allowlist is never committed to GitHub and no customer email is sent to the public browser.
+- Owner grant screen now checks the same private allowlist and refuses granting a public leaderboard entry to an account with no email. Withdrawal remains supported.
+- Customer point history for no-email accounts is not discarded; the original 20/22/24 scoring, skipped-clean reset and website-XP join are unchanged. A separate authenticated Squeegee account verification remains mandatory before private data is shown.
+
+Preview branch \`preview/n64-retro-site\` / draft PR #77 only. No Squeegee API writes and no Production changes. No private customer file was uploaded automatically.
+
