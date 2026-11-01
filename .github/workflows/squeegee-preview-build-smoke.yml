@@ -42,6 +42,9 @@ on:
       - netlify/functions/lib/squeegeeApiV3.js
       - netlify/functions/lib/arcadePublicIdentity.js
       - netlify/functions/lib/squeegeeActiveLeaderboardImport.js
+      - netlify/functions/lib/squeegeeCleaningStreak.js
+      - tests/squeegee-cleaning-streak.test.cjs
+      - tests/squeegee-active-streak-import.test.cjs
       - netlify/functions/lib/squeegeeActivePreviewSnapshot.js
       - netlify/functions/lib/squeegeeActivePreviewBoard.js
       - tests/squeegee-active-preview-population.test.cjs
