@@ -28,7 +28,7 @@ function Score({label,value,sub,highlight=false}){
     <span>{label}</span><strong>{value}</strong>{sub&&<small>{sub}</small>}
   </div>;
 }
-export default function CustomerHQ(){
+export default function CustomerHQ({embedded=false}){
   const [loading,setLoading]=useState(true);
   const [ready,setReady]=useState(false);
   const [account,setAccount]=useState(null);
@@ -114,6 +114,8 @@ export default function CustomerHQ(){
         "Please enter your correct first name.":
         "We couldn't save your choice. Please try again.");
       await refresh();setAgree(false);
+      // Refresh the public board in the same home-page section instantly.
+      window.dispatchEvent(new Event("n64:leaderboard-updated"));
       setMessage(actionName==="leaderboard-opt-in"?
         "Your permission has been recorded. Your first name and town can now appear on the leaderboard.":
         "Your public leaderboard entry has been removed. Your points are safe.");
@@ -121,18 +123,26 @@ export default function CustomerHQ(){
     finally{setBusy(false);}
   }
 
-  return <main className="hq-page">
+  const Container=embedded?"div":"main";
+  return <Container className={"hq-page"+(embedded?" hq-embedded":"")}>
     <div className="hq-shell">
-      <nav className="hq-topbar" aria-label="Customer HQ navigation">
+      {!embedded && <nav className="hq-topbar" aria-label="Customer HQ navigation">
         <a href="/" className="hq-back">← NI BIN GUY</a>
         <div className="hq-title-tag">N64 • CUSTOMER HQ</div>
         {signedIn&&<button className="hq-logout" disabled={busy}
           onClick={logout}>Sign out</button>}
-      </nav>
-      <header className="hq-hero">
-        <div className="hq-pixel-stars" aria-hidden="true">✦  ✦  ✦</div>
+      </nav>}
+      {embedded && signedIn &&
+        <div className="hq-embedded-session">
+          <span>★ VERIFIED CUSTOMER</span>
+          <button className="hq-logout" disabled={busy} onClick={logout}>SIGN OUT</button>
+        </div>
+      }
+      <header className={"hq-hero"+(embedded?" hq-hero--embedded":"")}>
+        {!embedded && <div className="hq-pixel-stars" aria-hidden="true">✦  ✦  ✦</div>}
         <div className="hq-level">LEVEL 07 / YOUR HOME BASE</div>
-        <h1>CUSTOMER <span>HQ</span></h1>
+        {embedded ? <h2>MY CUSTOMER <span>HQ</span></h2> :
+          <h1>CUSTOMER <span>HQ</span></h1>}
         <p>Your cleaning rewards, streaks and customer services — all in one place.</p>
       </header>
       {message&&<div className="hq-notice" role="status">{message}</div>}
@@ -282,8 +292,8 @@ export default function CustomerHQ(){
             <p className="hq-small">This is a separate login provided by Squeegee. No payments or Squeegee records are changed from this rewards dashboard.</p>
           </GamePanel>
         </>}
-      <footer className="hq-footer"><a href="/">← BACK TO NI BIN GUY</a>
-        <span>NI BIN GUY / CUSTOMER HQ · N64 PREVIEW</span></footer>
+      {!embedded && <footer className="hq-footer"><a href="/">← BACK TO NI BIN GUY</a>
+        <span>NI BIN GUY / CUSTOMER HQ · N64 PREVIEW</span></footer>}
     </div>
-  </main>;
+  </Container>;
 }
