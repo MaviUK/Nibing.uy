@@ -6,6 +6,8 @@ const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PUBLIC_REF_RE=/^NBG-[A-F0-9]{10}$/;
 const BLOB_STORE="n64-preview1-squeegee-active-only";
 const SNAPSHOT_KEY="active-accounts-v1";
+const PUBLISHED_KEY="published-active-accounts-v1";
+const MODE_KEY="active-only-mode-v1";
 const MAX_CSV_BYTES=250000;
 const MAX_ACCOUNTS=5000;
 const REQUIRED_COLUMNS=Object.freeze([
@@ -149,7 +151,7 @@ function snapshotIsFresh(snapshot,now=Date.now(),maxAgeDays=7) {
   return Number.isFinite(age) && age>=-86400000 && age<=maxAgeDays*86400000;
 }
 module.exports={
-  BLOB_STORE,SNAPSHOT_KEY,MAX_CSV_BYTES,
+  BLOB_STORE,SNAPSHOT_KEY,PUBLISHED_KEY,MODE_KEY,MAX_CSV_BYTES,
   parseCsv,canonicalLegacyRef,normalizeActiveImport,
   eligibleHistoricalEntries,combinedPublicBoard,snapshotIsFresh
 };
