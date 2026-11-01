@@ -93,6 +93,8 @@ on:
       - netlify/functions/squeegeePreviewCustomerHQImport.mjs
       - public/_redirects
       - tests/squeegee-customer-hq-routing.test.cjs
+      - index.html
+      - tests/squeegee-scroll-restoration.test.cjs
       - tests/squeegee-leaderboard-inline-hq.test.cjs
       - netlify/functions/squeegeePreviewVerifiedLeaderboard.mjs
       - tests/squeegee-verified-owner-board.test.cjs

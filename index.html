@@ -3,6 +3,66 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- A normal refresh starts at the TOP instead of inheriting Android
+       scroll restoration or re-following an old #section link. Explicit
+       section links on fresh visits and button taps continue to work. -->
+  <script data-nbg-refresh-scroll>
+    (function () {
+      "use strict";
+      try {
+        var navigation = window.performance &&
+          window.performance.getEntriesByType &&
+          window.performance.getEntriesByType("navigation")[0];
+        var isReload = navigation
+          ? navigation.type === "reload"
+          : Boolean(window.performance && window.performance.navigation &&
+            window.performance.navigation.type === 1);
+        if (!isReload) return;
+        var route = window.location.pathname.replace(/\/+$/, "") || "/";
+        if (!["/", "/customer-hq", "/squeegee-portal", "/street-booking"].includes(route)) return;
+
+        // The hash may be left over from a previous click to the leaderboard
+        // or customer portal. On a REFRESH it must not drag the page down.
+        // On a fresh direct link the hash is left intact.
+        var browserHistory = window.history;
+        var previousRestoration = browserHistory.scrollRestoration;
+        if ("scrollRestoration" in browserHistory) {
+          browserHistory.scrollRestoration = "manual";
+        }
+        if (window.location.hash) {
+          browserHistory.replaceState(browserHistory.state, "",
+            window.location.pathname + window.location.search);
+        }
+
+        function toTop() {
+          var root = document.documentElement;
+          if (!root) return;
+          var priorBehavior = root.style.scrollBehavior;
+          root.style.scrollBehavior = "auto"; // override the site's smooth CSS
+          window.scrollTo(0, 0);
+          root.style.scrollBehavior = priorBehavior;
+        }
+        toTop();
+        document.addEventListener("DOMContentLoaded", function () {
+          toTop();
+          window.requestAnimationFrame(toTop);
+        }, {once: true});
+        window.addEventListener("pageshow", function () {
+          toTop();
+          window.requestAnimationFrame(function () {
+            toTop();
+            if ("scrollRestoration" in browserHistory) {
+              browserHistory.scrollRestoration = previousRestoration;
+            }
+          });
+        }, {once: true});
+      } catch (error) {
+        // Scrolling must never prevent the booking or customer site loading.
+      }
+    })();
+  </script>
+
   <meta name='probely-verification' content='d76ae31b-037c-448a-be43-3d84754f60ff' />
   <title>Ni Bin Guy | Wheelie Bin Cleaning in County Down</title>
 
