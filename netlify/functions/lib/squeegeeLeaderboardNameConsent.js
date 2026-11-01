@@ -175,7 +175,7 @@ function publicConsentBoard(snapshot,fullBoard){
     totalPlayers:ranked.length,
     sourceAsOf:staticHistory.AS_OF,
     lastUpdatedAt:snapshot.updatedAt||snapshot.importedAt||null,
-    status:"consent_only",
+    status:ranked.length?"consent_only":"consent_pending",
   };
 }
 module.exports={
