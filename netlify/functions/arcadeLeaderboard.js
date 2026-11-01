@@ -189,14 +189,15 @@ function publicLeaderboard(snapshot) {
   return {
     entries: (Array.isArray(snapshot?.entries) ? snapshot.entries : [])
       .filter(e => safePublicReference(e?.customerRef))
-      .slice(0,snapshot?.status==="public_eligible_scores"?700:10)
+      .slice(0,["public_eligible_scores","preview_public_first_names"].includes(snapshot?.status)?700:10)
       .map((e,i)=>({
         rank: i + 1, customerRef: e.customerRef, town: safePublicTown(e.town),
         points: limitInt(e.points, 100000),
         ...(snapshot?.status==="public_eligible_scores" && e.anonymous===true
           ?{anonymous:true}:{}),
         ...((snapshot?.status==="consent_only" ||
-              snapshot?.status==="public_eligible_scores") &&
+              snapshot?.status==="public_eligible_scores" ||
+              snapshot?.status==="preview_public_first_names") &&
           nameConsents.safeFirstName(e.displayName)
           ? {displayName:e.displayName}:{}),
       })),
@@ -205,10 +206,13 @@ function publicLeaderboard(snapshot) {
       ? snapshot.lastUpdatedAt : null,
     ...(typeof snapshot?.sourceAsOf === "string"?{sourceAsOf:snapshot.sourceAsOf}:{}),
     ...(["active_status_refresh_required","eligibility_pending",
-         "consent_pending","consent_only","public_eligible_scores"]
+         "consent_pending","consent_only","public_eligible_scores",
+         "preview_public_first_names"]
        .includes(snapshot?.status)?{status:snapshot.status}:{}),
     ...(snapshot?.status==="public_eligible_scores"
       ?{publicNamedCount:limitInt(snapshot?.approvedCount,700)}:{}),
+    ...(snapshot?.status==="preview_public_first_names"
+      ?{publicNamedCount:limitInt(snapshot?.namedCount,700),testPreview:true}:{}),
   };
 }
 async function refreshSnapshotAfterWrite(stores) {
@@ -427,8 +431,8 @@ exports.handler = async (event) => {
         const privateKey=customerHQ.secret(process.env);
         if(!privateKey) return out(503,{error:"leaderboard_secret_unavailable"});
         const full=await historicalPreview.getStaticPreviewBoard(stores,Date.now(),true);
-        const publicScores=nameConsents.publicEligibleScoreboard(
-          privateNames,full,eligible.aliases,privateKey
+        const publicScores=nameConsents.previewFirstNameScoreboard(
+          privateCustomers,full,eligible.aliases,privateNames,privateKey
         );
         return out(200,{...publicLeaderboard(publicScores||{
           entries:[],totalPlayers:0,status:"eligibility_pending"
