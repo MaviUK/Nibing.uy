@@ -137,7 +137,7 @@ test("script URL is cache-busted and overrides generic Netlify JS caching",()=>{
   const hq=fs.readFileSync(path.join(ROOT,"src/pages/CustomerHQ.jsx"),"utf8");
   assert.match(hq,/new CustomEvent\("n64:account-score"/);
   assert.match(scoreboard,/accountRevision !== requestRevision/);
-  assert.match(scoreboard,/accountRevision \+= 1/);
+  assert.match(scoreboard,/accountRevision\s*\+=\s*1/);
 });
 
 
