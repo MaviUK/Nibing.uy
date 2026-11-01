@@ -179,6 +179,11 @@
   status = 200
 
 [[redirects]]
+  from = "/squeegee-portal"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
   from = "/metric"
   to = "/index.html"
   status = 200
