@@ -276,7 +276,7 @@
         boardNode.appendChild(li);
       });
       boardNote.textContent = data.sourceAsOf
-        ? "Squeegee active-account snapshot: " + data.sourceAsOf + ". Paid cleans only until website XP is verified. No names or addresses."
+        ? "Squeegee active-account snapshot: " + data.sourceAsOf + ". Streak: 20 points first paid clean, +2 each consecutive visit; a recorded skip resets the next bonus. Website XP joins after account verification. No names or addresses."
         : "Public: customer reference, town and XP only. No names or addresses.";
     } catch (_) { boardNote.textContent = "Leaderboard currently unavailable. Your XP remains on this device."; }
   }
