@@ -1,5 +1,97 @@
 /* NI BIN GUY — weather-responsive N64 scenery. Preview 1 only. */
 /* N64 background weather visuals, with no status badges or test bar. */
+
+/* N64-era rounded cloud meshes with broad flat-shaded polygon facets.
+   Styling is limited to scenery, not the square-corner website interface. */
+#main-content.n64-world {
+  --n64-cloud-base:#e6f0fd;
+  --n64-cloud-light:#ffffff;
+  --n64-cloud-top:#f8fcff;
+  --n64-cloud-side:#d6e4f4;
+  --n64-cloud-bottom:#bed4e8;
+  --n64-cloud-facet:#eef8ff;
+}
+#main-content.n64-world[data-weather="cloudy"] {
+  --n64-cloud-base:#d0dce7;--n64-cloud-light:#f2f6fa;
+  --n64-cloud-top:#ecf2f7;--n64-cloud-side:#b1c6d5;
+  --n64-cloud-bottom:#90afc4;--n64-cloud-facet:#e3eff6;
+}
+#main-content.n64-world[data-weather="rain"] {
+  --n64-cloud-base:#a6baca;--n64-cloud-light:#d7e4ed;
+  --n64-cloud-top:#c3d4df;--n64-cloud-side:#819db1;
+  --n64-cloud-bottom:#607e96;--n64-cloud-facet:#bad0de;
+}
+#main-content.n64-world[data-weather="storm"] {
+  --n64-cloud-base:#758ba3;--n64-cloud-light:#acbccc;
+  --n64-cloud-top:#9bacc1;--n64-cloud-side:#586f88;
+  --n64-cloud-bottom:#354e69;--n64-cloud-facet:#859bb2;
+}
+#main-content.n64-world[data-weather="snow"] {
+  --n64-cloud-base:#e1ecf7;--n64-cloud-light:#ffffff;
+  --n64-cloud-top:#ffffff;--n64-cloud-side:#d2e4f1;
+  --n64-cloud-bottom:#b8d3e6;--n64-cloud-facet:#f8ffff;
+}
+#main-content.n64-world[data-weather="fog"] {
+  --n64-cloud-base:#cbd6d8;--n64-cloud-light:#eff2f0;
+  --n64-cloud-top:#e3eceb;--n64-cloud-side:#b5c7c7;
+  --n64-cloud-bottom:#9eb5b5;--n64-cloud-facet:#e2ebea;
+}
+#main-content.n64-world[data-night="true"] {
+  --n64-cloud-base:#8799b5;--n64-cloud-light:#bfcbe0;
+  --n64-cloud-top:#afbdd5;--n64-cloud-side:#677f9f;
+  --n64-cloud-bottom:#526b90;--n64-cloud-facet:#9dabca;
+}
+#main-content.n64-world .n64-lowpoly-cloud {
+  position:absolute;
+  display:block;
+  z-index:1;
+  width:202px;
+  height:110px;
+  pointer-events:none;
+  overflow:visible;
+  opacity:.88;
+  filter:drop-shadow(0 7px 0 rgba(23,51,84,.13));
+  animation:n64-drift 7s ease-in-out infinite alternate;
+}
+#main-content.n64-world .n64-weather-extra-cloud {
+  opacity:.84;
+  width:218px;
+  height:119px;
+  animation:n64-weather-clouds 11s ease-in-out infinite alternate;
+}
+#main-content.n64-world .n64-weather-extra-cloud--one {
+  top:12%;left:41%;transform:scale(.87);
+}
+#main-content.n64-world .n64-weather-extra-cloud--two {
+  top:37%;right:-4%;transform:scale(1.03);animation-delay:-4s;
+}
+#main-content.n64-world .n64-weather-orb {
+  position:absolute;top:11%;right:7%;z-index:1;
+  display:block;width:134px;height:134px;
+  pointer-events:none;overflow:visible;
+  opacity:.90;
+}
+#main-content.n64-world .n64-weather-orb--sun {
+  --n64-orb-rim:#f0c456;--n64-orb-base:#ffe071;
+  --n64-orb-light:#fff7bd;--n64-orb-facet:#ffe48c;
+  --n64-orb-shade:#e5aa46;--n64-orb-bottom:#eec15d;
+  filter:drop-shadow(0 0 13px rgba(255,238,145,.27));
+}
+#main-content.n64-world .n64-weather-orb--moon {
+  --n64-orb-rim:#8da4c5;--n64-orb-base:#e6dfc7;
+  --n64-orb-light:#fff8e1;--n64-orb-facet:#f3edce;
+  --n64-orb-shade:#bac2c0;--n64-orb-bottom:#d3d8c6;
+  filter:drop-shadow(0 0 16px rgba(237,240,227,.19));
+}
+@media(max-width:600px) {
+  #main-content.n64-world .n64-lowpoly-cloud {width:170px;height:93px;}
+  #main-content.n64-world .n64-weather-extra-cloud {width:190px;height:104px;}
+  #main-content.n64-world .n64-weather-orb {top:16%;right:5%;width:91px;height:91px;}
+}
+@media(prefers-reduced-motion:reduce) {
+  #main-content.n64-world .n64-lowpoly-cloud {animation:none!important;}
+}
+
 #main-content.n64-world .n64-weather-scene{
   position:absolute;inset:0;overflow:hidden;z-index:1;pointer-events:none;
 }
@@ -12,7 +104,11 @@
 }
 @keyframes n64-weather-rays{to{transform:rotate(360deg)}}
 
-/* Sky palettes. The normal sunny world is unchanged. */
+/* The sun is now a faceted N64 mesh, so the sky needs no CSS sun disc. */
+#main-content.n64-world[data-weather="sunny"] .n64-hero {
+  background:linear-gradient(180deg,#61bbfa 0%,#b1e9ff 59%,#effcce 77%,#8ed76c 100%)!important;
+}
+/* Weather palettes, with the orb rendered as 3D scenery. */
 #main-content.n64-world[data-weather="cloudy"] .n64-hero{
   background:linear-gradient(180deg,#a2bed4 0%,#cfdee8 61%,#bed3c2 81%,#84ae82 100%)!important;
 }
@@ -23,15 +119,13 @@
   background:linear-gradient(180deg,#354a73 0%,#637693 55%,#9cabb9 80%,#597c77 100%)!important;
 }
 #main-content.n64-world[data-weather="snow"] .n64-hero{
-  background:radial-gradient(circle at 84% 13%,#fffefa 0 42px,#dff4fc 44px 63px,transparent 65px),
-    linear-gradient(180deg,#8fbedf 0%,#e2f4fa 64%,#fffdf2 85%,#c9e4d8 100%)!important;
+  background:linear-gradient(180deg,#8fbedf 0%,#e2f4fa 64%,#fffdf2 85%,#c9e4d8 100%)!important;
 }
 #main-content.n64-world[data-weather="fog"] .n64-hero{
   background:linear-gradient(180deg,#a4b6c3 0%,#d1dbdf 58%,#dfe3d7 81%,#9bb4a4 100%)!important;
 }
 #main-content.n64-world[data-night="true"] .n64-hero{
-  background:radial-gradient(circle at 84% 13%,#fff7cf 0 34px,#b4c6ec 35px 44px,transparent 46px),
-    linear-gradient(180deg,#172b57 0%,#34476f 58%,#7486a0 78%,#476f70 100%)!important;
+  background:linear-gradient(180deg,#172b57 0%,#34476f 58%,#7486a0 78%,#476f70 100%)!important;
 }
 #main-content.n64-world[data-night="true"][data-weather="storm"] .n64-hero{
   background:linear-gradient(180deg,#122044 0%,#283656 54%,#586983 79%,#455e68 100%)!important;
@@ -45,25 +139,7 @@
 #main-content.n64-world[data-weather="fog"] .n64-hero::before{background:#9db5aa;}
 #main-content.n64-world[data-night="true"] .n64-hero::before{background:#355e65;}
 #main-content.n64-world[data-night="true"][data-weather="snow"] .n64-hero::before{background:#d2e5e7;}
-#main-content.n64-world[data-weather="cloudy"] .n64-cloud{background:#e8eff3!important;}
-#main-content.n64-world[data-weather="rain"] .n64-cloud{background:#bac9d6!important;}
-#main-content.n64-world[data-weather="storm"] .n64-cloud{background:#8997ad!important;}
-#main-content.n64-world[data-weather="snow"] .n64-cloud{background:#fff!important;}
-#main-content.n64-world[data-weather="fog"] .n64-cloud{background:#e7ecea!important;}
-#main-content.n64-world[data-night="true"] .n64-cloud{background:#b3bfd5!important;}
-
-/* Extra pixel clouds drift slowly in cloudy, rainy and snowy worlds. */
-#main-content.n64-world .n64-weather-extra-clouds i{
-  display:block;position:absolute;width:175px;height:78px;background:#eef2f4;opacity:.75;
-  clip-path:polygon(0 52%,13% 52%,13% 27%,30% 27%,30% 0,64% 0,64% 24%,82% 24%,82% 49%,100% 49%,100% 76%,83% 76%,83% 89%,12% 89%,12% 75%,0 75%);
-  animation:n64-weather-clouds 10s ease-in-out infinite alternate;
-}
-#main-content.n64-world .n64-weather-extra-clouds i:first-child{top:11%;left:42%;transform:scale(.8);}
-#main-content.n64-world .n64-weather-extra-clouds i:last-child{top:40%;right:-3%;transform:scale(1.1);animation-delay:-4s;}
-#main-content.n64-world[data-weather="rain"] .n64-weather-extra-clouds i{background:#a1b7c7;}
-#main-content.n64-world[data-weather="storm"] .n64-weather-extra-clouds i{background:#7786a0;}
-#main-content.n64-world[data-weather="snow"] .n64-weather-extra-clouds i{background:#fff;}
-#main-content.n64-world[data-night="true"] .n64-weather-extra-clouds i{background:#8798b3;}
+/* Low-poly extra clouds use the same shaded mesh as the three main clouds. */
 @keyframes n64-weather-clouds{from{margin-left:-10px}to{margin-left:18px}}
 
 #main-content.n64-world .n64-weather-rain,
@@ -147,8 +223,7 @@ html[data-arcade-weather="snow"] #level-08-final{
 }
 
 
-/* Night is not merely a dark sky: replace the soft round moon with pixel art
-   and make all hero copy legible against a midnight-blue background. */
+/* At night the N64 sky deepens, and the light-coloured copy stays readable. */
 #main-content.n64-world[data-night="true"] .n64-hero{
   background:linear-gradient(180deg,#112143 0%,#24395f 56%,#526d8a 79%,#41686d 100%)!important;
 }
@@ -160,19 +235,6 @@ html[data-arcade-weather="snow"] #level-08-final{
 }
 #main-content.n64-world[data-night="true"] .n64-hero .n64-lead strong{
   color:#ffe786!important;
-}
-#main-content.n64-world .n64-weather-pixel-moon{
-  position:absolute;top:14%;right:8%;width:90px;height:90px;
-  background:#fff1bc;opacity:.96;
-  filter:drop-shadow(0 0 10px rgba(255,238,173,.25));
-  clip-path:polygon(27% 0,73% 0,73% 9%,91% 9%,91% 27%,100% 27%,
-    100% 73%,91% 73%,91% 91%,73% 91%,73% 100%,27% 100%,
-    27% 91%,9% 91%,9% 73%,0 73%,0 27%,9% 27%,9% 9%,27% 9%);
-}
-@media(max-width:600px){
-  #main-content.n64-world .n64-weather-pixel-moon {
-    top:19%;right:6%;width:64px;height:64px;
-  }
 }
 
 /*

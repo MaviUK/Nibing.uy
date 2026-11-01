@@ -67,11 +67,25 @@ test("the forecast changes only the scenery and never adds a visible weather wid
   assert.match(css, /data-weather="fog"/);
 });
 
-test("night mode has a pixel moon and readable white paragraph", () => {
+test("N64 clouds and moon use 3D shaded facets instead of 8-bit silhouettes", () => {
   const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
   const component = read("src/components/ArcadeWeather.jsx");
+  const landing = read("src/LandingPage.jsx");
   const css = read("src/n64-weather.css");
-  assert.match(component, /isNight && <span className="n64-weather-pixel-moon"/);
+  assert.match(component, /export function N64LowPolyCloud/);
+  assert.match(component, /function N64LowPolySkyOrb/);
+  assert.match(component, /N64LowPolySkyOrb isNight=\{isNight\}/);
+  assert.match(component, /fill="var\(--n64-cloud-facet\)"/);
+  assert.match(component, /fill="var\(--n64-orb-shade\)"/);
+  assert.match(landing, /<N64LowPolyCloud className="n64-cloud--one"/);
+  assert.match(landing, /<N64LowPolyCloud className="n64-cloud--two"/);
+  assert.match(landing, /<N64LowPolyCloud className="n64-cloud--three"/);
+  assert.doesNotMatch(landing, /<div className="n64-cloud/);
+  assert.doesNotMatch(component, /n64-weather-pixel-moon|n64-weather-extra-clouds"><i/);
+  assert.doesNotMatch(css, /n64-weather-pixel-moon/);
+  assert.match(css, /\.n64-lowpoly-cloud \{/);
+  assert.match(css, /\.n64-weather-orb--moon \{/);
+  assert.match(css, /\.n64-weather-orb--sun \{/);
   assert.match(css, /data-night="true".*\.n64-hero \.n64-lead/s);
   assert.match(css, /color:#f8f9f2!important/);
 });
