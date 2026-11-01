@@ -73,7 +73,7 @@ function renderDashboard(snapshot,note="",emailEligibility=null,preview=null){
   return (note?'<section><strong>'+safe(note)+'</strong></section>':'')+
     '<section><h2>Private first-name preparation</h2>'+
     '<p><a style="display:block;background:#f7d45a;color:#14213b;text-decoration:none;padding:13px;font-weight:900;text-align:center" '+
-    'href="/?ntl-drawer-state=hidden&amp;owner-board=1#live-leaderboard">'+
+    'href="/api/squeegee-preview-test?returnTo=%2F%3Fntl-drawer-state%3Dhidden%26owner-board%3D1%26owner-auth-complete%3D1%23live-leaderboard">'+
     '★ VIEW ALL VERIFIED CUSTOMERS IN THE N64 LEADERBOARD →</a></p>'+
     '<p><strong>'+stats.total+'</strong> imported • <strong>'+stats.consented+
     '</strong> permission granted • '+stats.pending+' pending • '+
