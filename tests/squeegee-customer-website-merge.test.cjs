@@ -424,7 +424,7 @@ test("another reward earned between levels is interleaved by actual time, not fo
   }));
   const action={
     date:"2026-11-01",category:"website_action",label:"Visited customer portal",
-    points:25,earnedAt:"2026-11-01T10:04:30.000Z",
+    points:25,earnedAt:"2026-11-01T10:03:30.000Z",
   };
   const result=merge.sortedRewardsHistory([],[...levels,action]);
   assert.deepEqual(result.map(e=>e.label),[
