@@ -339,9 +339,13 @@ export default function CustomerHQ({embedded=false}){
             <Score label="TOTAL REWARDS" value={number(account.points)+" XP"}
               highlight sub="Historical cleans + website XP"/>
             <Score label="CURRENT STREAK" value={number(account.currentStreak)}
-              sub="Consecutive cleaning visits"/>
+              sub={account.streakExpired?
+                "Last recorded clean: "+formatDate(account.lastCompletedOn):
+                "Consecutive cleaning visits"}/>
             <Score label="NEXT CLEAN BONUS" value={"+"+number(account.nextBonus)}
-              sub="If your next scheduled clean is completed and paid"/>
+              sub={account.streakExpired?
+                "Restarts at 20 XP when the next clean is completed and paid":
+                "If your next scheduled clean is completed and paid"}/>
             <Score label="PAID CLEANS" value={number(account.paidCleans)}
               sub="Historical verified jobs"/>
           </div>
@@ -352,7 +356,7 @@ export default function CustomerHQ({embedded=false}){
               <strong>+{number(account.websiteXp)} XP</strong></div>
             <div className="hq-balance-line hq-total"><span>Total XP</span>
               <strong>{number(account.points)} XP</strong></div>
-            <p className="hq-small">Cleans start at 20 points, rising by 2 per consecutive visit. A recorded skipped appointment resets the bonus to 20; it never removes points already earned.</p>
+            <p className="hq-small">Cleans start at 20 points, rising by 2 per consecutive four-weekly visit. A recorded skip or more than 35 days without a completed clean resets the next bonus to 20 (allowing seven extra days for schedule changes). Points already earned are never removed.</p>
             <p className="hq-small">Source: Squeegee backup of {formatDate(account.historyAsOf)}. New payments and cleans are not automatically added until the next verified import.</p>
           </GamePanel>
           <div className="hq-account-tabs" role="group" aria-label="Customer account sections">

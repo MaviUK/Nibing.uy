@@ -104,7 +104,7 @@ test("Customer HQ session is opaque, HttpOnly and revocable independently",async
   assert.equal(await hq.readSession({authStore:db,token:session.token,now:NOW+2000}),null);
 });
 test("a signed in account sees its own history but no private UUID, email or address",()=>{
-  const pub=hq.publicAccount(account,550);
+  const pub=hq.publicAccount(account,550,Date.parse("2026-03-01T13:00:00Z"));
   assert.equal(pub.points,616);
   assert.equal(pub.cleaningPoints,66);
   assert.equal(pub.websiteXp,550);
@@ -116,6 +116,27 @@ test("a signed in account sees its own history but no private UUID, email or add
   assert.ok(!output.includes(account.email));
   assert.ok(!output.includes("address"));
 });
+
+test("an August clean no longer carries a 26 XP bonus into November",()=>{
+  const stale={...account,
+    events:[
+      {date:"2026-06-17",event:"paid_completed_clean",points:20,streak:1},
+      {date:"2026-07-15",event:"paid_completed_clean",points:22,streak:2},
+      {date:"2026-08-12",event:"paid_completed_clean",points:24,streak:3},
+    ],
+  };
+  const result=hq.publicAccount(stale,441,Date.parse("2026-11-01T16:17:00Z"));
+  assert.equal(result.currentStreak,0);
+  assert.equal(result.nextBonus,20);
+  assert.equal(result.streakExpired,true);
+  assert.equal(result.lastCompletedOn,"2026-08-12");
+  assert.equal(result.points,507);
+  assert.equal(result.cleaningPoints,66);
+  assert.equal(result.websiteXp,441);
+  assert.deepEqual(result.history.map(item=>item.points),[24,22,20]);
+  assert.ok(!JSON.stringify(result).includes(stale.email));
+});
+
 test("invalid imported source fails closed instead of exposing mixed customer histories",()=>{
   assert.throws(()=>hq.validateSource(null),/invalid_hq_source/);
   assert.throws(()=>hq.validateSource({version:1,accounts:[]}),/invalid_hq_source/);

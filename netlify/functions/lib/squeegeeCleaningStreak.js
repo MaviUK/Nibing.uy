@@ -31,6 +31,67 @@ function validDate(value) {
     date.toISOString().slice(0, 10) === value;
 }
 
+/**
+ * A preview-only projection of the next cleaning visit, separate from the
+ * already-earned historical XP ledger. A missed four-week cycle (28 days)
+ * gets up to seven days' scheduling/bank-holiday allowance; longer gaps
+ * cannot carry a previous visit multiplier indefinitely. Paid and unpaid
+ * completed visits count for attendance, but only paid visits earned XP.
+ * Do not infer an actual Squeegee "skipped" occurrence from elapsed time.
+ */
+const MAX_ACTIVE_GAP_DAYS = 28 + 7;
+const MS_PER_DAY = 86400000;
+function ukCalendarDate(now) {
+  if (typeof now !== "number" || !Number.isFinite(now)) return null;
+  const time = new Date(now);
+  if (Number.isNaN(time.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London", year: "numeric",
+    month: "2-digit", day: "2-digit",
+  }).formatToParts(time);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  const day = values.year + "-" + values.month + "-" + values.day;
+  return validDate(day) ? day : null;
+}
+function effectiveCleaningStreak(events, { now = Date.now() } = {}) {
+  const fallback = { currentStreak: 0, nextBonus: 20,
+    expired: false, lastCompletedOn: null };
+  const today = ukCalendarDate(now);
+  if (!today || !Array.isArray(events) || events.length > 2000)
+    return fallback;
+  const byDate = new Map();
+  for (const item of events) {
+    if (!item || !validDate(item.date) || item.date > today) continue;
+    const flags = byDate.get(item.date) || { skipped: false, completed: false };
+    if (item.event === "recorded_skip") flags.skipped = true;
+    if (item.event === "paid_completed_clean" ||
+        item.event === "completed_payment_not_verified") flags.completed = true;
+    byDate.set(item.date, flags);
+  }
+
+  let currentStreak = 0;
+  let lastDay = null;
+  let lastCompletedOn = null;
+  for (const [date, flags] of [...byDate].sort((a, b) =>
+      a[0].localeCompare(b[0]))) {
+    if (flags.skipped) {
+      currentStreak = 0;
+      lastDay = null;
+    }
+    if (!flags.completed) continue;
+    const day = Date.parse(date + "T00:00:00Z") / MS_PER_DAY;
+    currentStreak = lastDay !== null && day - lastDay <= MAX_ACTIVE_GAP_DAYS
+      ? currentStreak + 1 : 1;
+    lastDay = day;
+    lastCompletedOn = date;
+  }
+  const todayDay = Date.parse(today + "T00:00:00Z") / MS_PER_DAY;
+  const expired = lastDay !== null && todayDay - lastDay > MAX_ACTIVE_GAP_DAYS;
+  if (expired) currentStreak = 0;
+  return { currentStreak, nextBonus: 20 + currentStreak * 2,
+    expired, lastCompletedOn };
+}
+
 function scoreCustomerVisits(input, { asOf = "2026-10-31" } = {}) {
   if (!Array.isArray(input) || input.length > 20000 || !validDate(asOf)) {
     throw new Error("invalid_streak_input");
@@ -129,4 +190,4 @@ function scoreCustomerVisits(input, { asOf = "2026-10-31" } = {}) {
   };
 }
 
-module.exports = { RULE_VERSION, validDate, scoreCustomerVisits };
+module.exports = { RULE_VERSION, validDate, scoreCustomerVisits, effectiveCleaningStreak };

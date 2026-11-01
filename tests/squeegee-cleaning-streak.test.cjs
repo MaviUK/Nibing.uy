@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { RULE_VERSION, scoreCustomerVisits } =
+const { RULE_VERSION, scoreCustomerVisits, effectiveCleaningStreak } =
   require("../netlify/functions/lib/squeegeeCleaningStreak");
 
 const event = (id, date, status = "completed", paid = true) => ({
@@ -80,6 +80,57 @@ test("a gap of eight weeks does not falsely count as a skipped appointment", () 
   ]);
   assert.equal(result.historicalPoints, 42);
   assert.equal(result.recordedSkippedVisits, 0);
+});
+
+
+test("four-weekly streak stays active through 28 days plus seven days grace",()=>{
+  const events=[
+    {date:"2026-06-17",event:"paid_completed_clean"},
+    {date:"2026-07-15",event:"completed_payment_not_verified"},
+    {date:"2026-08-12",event:"paid_completed_clean"},
+  ];
+  const stillActive=effectiveCleaningStreak(events,{
+    now:Date.parse("2026-09-16T10:00:00Z"),
+  });
+  assert.equal(stillActive.currentStreak,3);
+  assert.equal(stillActive.nextBonus,26);
+  assert.equal(stillActive.expired,false);
+  const overdue=effectiveCleaningStreak(events,{
+    now:Date.parse("2026-09-17T10:00:00Z"),
+  });
+  assert.equal(overdue.currentStreak,0);
+  assert.equal(overdue.nextBonus,20);
+  assert.equal(overdue.expired,true);
+  assert.equal(overdue.lastCompletedOn,"2026-08-12");
+});
+
+test("missing a four-weekly cycle breaks the projected next bonus, not prior XP",()=>{
+  const events=[
+    {date:"2026-01-01",event:"paid_completed_clean"},
+    {date:"2026-02-26",event:"paid_completed_clean"},
+    {date:"2026-03-26",event:"paid_completed_clean"},
+    {date:"2026-04-23",event:"paid_completed_clean"},
+  ];
+  const projection=effectiveCleaningStreak(events,{
+    now:Date.parse("2026-05-01T12:00:00Z"),
+  });
+  assert.equal(projection.currentStreak,3);
+  assert.equal(projection.nextBonus,26);
+  const historical=score(events.map((e,i)=>event("gap-"+i,e.date)));
+  assert.equal(historical.historicalPoints,92);
+});
+
+test("multiple jobs on one day count as one visit, recorded skip resets before clean",()=>{
+  const result=effectiveCleaningStreak([
+    {date:"2026-09-02",event:"paid_completed_clean"},
+    {date:"2026-09-02",event:"paid_completed_clean"},
+    {date:"2026-09-30",event:"recorded_skip"},
+    {date:"2026-09-30",event:"completed_payment_not_verified"},
+    {date:"2026-10-28",event:"paid_completed_clean"},
+  ],{now:Date.parse("2026-11-01T12:00:00Z")});
+  assert.equal(result.currentStreak,2);
+  assert.equal(result.nextBonus,24);
+  assert.equal(result.expired,false);
 });
 
 test("re-importing same clean occurrence is idempotent, conflicts rejected", () => {

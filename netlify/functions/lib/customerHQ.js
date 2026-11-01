@@ -4,7 +4,7 @@ const crypto=require("node:crypto");
 const {canonicalLegacyRef}=require("./squeegeeActiveLeaderboardImport");
 const history=require("./squeegeeActivePreviewSnapshot");
 const {safePublicTown}=require("./arcadePublicIdentity");
-const {RULE_VERSION}=require("./squeegeeCleaningStreak");
+const {RULE_VERSION,effectiveCleaningStreak}=require("./squeegeeCleaningStreak");
 
 const DATA_STORE="n64-preview1-customer-hq-data-private";
 const AUTH_STORE="n64-preview1-customer-hq-auth-private";
@@ -177,14 +177,20 @@ function validateApiCustomer(apiRow,account){
      normalizeEmail(apiRow.email)!==account.email)return false;
   return true;
 }
-function publicAccount(account,websiteXp=0){
+function publicAccount(account,websiteXp=0,now=Date.now()){
   if(!account)return null;
   const xp=Number.isSafeInteger(websiteXp)&&websiteXp>=0?Math.min(100000,websiteXp):0;
+  const projected=effectiveCleaningStreak(account.events,{now});
+  // Imported streak/next bonus are immutable backup values, not a promise
+  // that the streak is still active several missed four-week cycles later.
+  const currentStreak=Math.min(account.currentStreak,projected.currentStreak);
   return {firstName:account.firstName||null,town:account.town,
     customerReference:account.ref,points:account.points+xp,
     cleaningPoints:account.points,websiteXp:xp,
-    paidCleans:account.paidCleans,currentStreak:account.currentStreak,
-    nextBonus:account.nextBonus,recordedSkippedVisits:account.recordedSkips,
+    paidCleans:account.paidCleans,currentStreak,
+    nextBonus:20+2*currentStreak,streakExpired:projected.expired,
+    lastCompletedOn:projected.lastCompletedOn,
+    recordedSkippedVisits:account.recordedSkips,
     historyAsOf:history.AS_OF,
     history:account.events.map(x=>({...x})).reverse()};
 }
