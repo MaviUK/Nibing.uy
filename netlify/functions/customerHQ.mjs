@@ -8,6 +8,8 @@ import api from "./lib/squeegeeApiV3.js";
 import auth from "./lib/customerHQ.js";
 import nameConsents from "./lib/squeegeeLeaderboardNameConsent.js";
 import {canonicalLegacyRef} from "./lib/squeegeeActiveLeaderboardImport.js";
+import historicalBoards from "./lib/squeegeeActiveLeaderboardImport.js";
+import personalRanks from "./lib/squeegeePersonalLeaderboard.js";
 import merge from "./lib/arcadeCustomerMerge.js";
 
 const ORIGIN="https://deploy-preview-77--nibinguy.netlify.app";
@@ -37,6 +39,12 @@ const arcadeStores=()=>({
   privateStore:getStore({name:"n64-preview-arcade-private",consistency:"strong"}),
   linkStore:getStore({name:"n64-preview1-squeegee-player-links",consistency:"strong"}),
 });
+const rankingStores=()=>{
+  const {publicStore,privateStore,linkStore}=arcadeStores();
+  return {public:publicStore,private:privateStore,links:linkStore,
+    activity:activityStore(),
+    history:getStore({name:historicalBoards.BLOB_STORE,consistency:"strong"})};
+};
 async function currentlyActive(id,email){
   const row=await api.getCustomer(id);
   return auth.validateApiCustomer(row,{id,email});
@@ -204,6 +212,30 @@ export default async function handler(request,context) {
       if(!session)return respond(200,{ready:true,authenticated:false,
         loginMethod:"email_code",sourceAsOf:snapshot.asOf});
       await attachMatchedWebsiteBooking(session);
+      // The homepage total-XP card may read ONLY this authenticated, minimal
+      // response. Never infer a customer from a clicked public leaderboard row.
+      if(new URL(request.url).searchParams.get("view")==="rank-summary"){
+        const rewards=await customerWebsiteRewards(session.account.id);
+        const account=auth.publicAccount(session.account,rewards.websiteXp);
+        let summary;
+        try{
+          const consent=await consentStore().get(nameConsents.KEY,{
+            type:"json",consistency:"strong"
+          });
+          summary=await personalRanks.getPersonalSummary({
+            stores:rankingStores(),privateCustomers:snapshot,
+            customerId:session.account.id,points:account.points,
+            consentSnapshot:consent,secretKey:auth.secret(process.env)
+          });
+        }catch{
+          // Ranking dependencies can be briefly unavailable. The signed-in
+          // total is still authoritative; never fabricate a year or position.
+          console.warn("Customer leaderboard rankings temporarily unavailable");
+          summary={points:account.points,rank:null,yearly:{},
+            rankingAvailable:false};
+        }
+        return respond(200,{ready:true,authenticated:true,summary});
+      }
       const [rewards,visibility]=await Promise.all([
         customerWebsiteRewards(session.account.id),
         consentChoice(session.account.id),
