@@ -121,3 +121,23 @@ test("invalid imported source fails closed instead of exposing mixed customer hi
   assert.throws(()=>hq.validateSource({version:1,accounts:[]}),/invalid_hq_source/);
   assert.equal(hq.secret({}),null);
 });
+
+test("Netlify deploy manifest can statically extract every Customer HQ route",()=>{
+  // Netlify requires a literal string at config.path in each function source;
+  // using "path:PATH" deployed functions but omitted their custom aliases,
+  // causing an actual user-facing branded 404 before function execution.
+  const fs=require("node:fs");
+  const path=require("node:path");
+  const root=path.join(__dirname,"../netlify/functions");
+  for(const [file,route] of [
+    ["squeegeePreviewCustomerHQImport.mjs","/api/squeegee-preview-hq-import"],
+    ["customerHQ.mjs","/api/customer-hq"],
+    ["squeegeePreviewLeaderboardNames.mjs","/api/squeegee-preview-leaderboard-names"]
+  ]){
+    const source=fs.readFileSync(path.join(root,file),"utf8");
+    assert.ok(source.includes('path:"'+route+'"'),
+      file+" must declare a literal route to Netlify");
+    assert.ok(!source.includes("export const config={path:PATH}"),
+      file+" must not rely on dynamic route extraction");
+  }
+});
