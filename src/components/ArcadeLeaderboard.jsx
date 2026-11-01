@@ -208,22 +208,18 @@ export default function ArcadeLeaderboard() {
             rank:Number.isSafeInteger(stats.rank)&&stats.rank>0?stats.rank:null
           };
         }
-        const datedXp=Object.values(yearly).reduce(
+        const verifiedYearTotal=Object.values(yearly).reduce(
           (total,entry)=>total+entry.points,0
         );
-        const hasVerifiedBreakdown=sum.yearBreakdownStatus==="reconciled" &&
-          Number.isSafeInteger(sum.unassignedXp) && sum.unassignedXp>=0 &&
-          Number.isSafeInteger(sum.yearlyXpTotal) &&
-          sum.yearlyXpTotal===datedXp &&
-          datedXp+sum.unassignedXp===sum.points;
+        // Dated periods MUST add up to Overall. A stale response cannot
+        // silently re-credit unsupported legacy website XP.
+        if(verifiedYearTotal!==sum.points)
+          throw new Error("personal_xp_years_do_not_reconcile");
         setCustomerSummary({
           points:sum.points,
           rank:Number.isSafeInteger(sum.rank)&&sum.rank>0?sum.rank:null,
           rankingAvailable:sum.rankingAvailable===true,
-          yearly,
-          datedXp:hasVerifiedBreakdown?datedXp:null,
-          unassignedXp:hasVerifiedBreakdown?sum.unassignedXp:null,
-          yearBreakdownStatus:hasVerifiedBreakdown?"reconciled":sum.yearBreakdownStatus
+          yearly
         });
         setCustomerSummaryStatus("ready");
       }catch{
@@ -444,22 +440,6 @@ export default function ArcadeLeaderboard() {
                 </button>
               )}
             </div>
-            {customerSummary.unassignedXp>0 &&
-              <div className="n64-personal-reconciliation">
-                <div className="n64-personal-unassigned">
-                  <strong>OLDER / YEAR UNKNOWN XP</strong>
-                  <span>{customerSummary.unassignedXp.toLocaleString("en-GB")} XP</span>
-                </div>
-                <small>
-                  {customerSummary.datedXp.toLocaleString("en-GB")} XP from dated years +
-                  {" "}{customerSummary.unassignedXp.toLocaleString("en-GB")} XP without a verified year =
-                  {" "}{customerSummary.points.toLocaleString("en-GB")} XP overall.
-                  These older rewards count towards Overall but aren't placed in
-                  a year until their earning dates can be verified.
-                </small>
-              </div>}
-            {customerSummary.yearBreakdownStatus==="needs-review" &&
-              <small>The yearly breakdown needs checking. Your verified total XP has not changed.</small>}
             {customerSummary.rankingAvailable===false &&
               <small>Your verified XP is available, but the public ranking is temporarily unavailable.</small>}
           </> : <small>
