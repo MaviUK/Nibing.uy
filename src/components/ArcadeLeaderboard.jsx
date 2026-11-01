@@ -152,7 +152,8 @@ export default function ArcadeLeaderboard() {
         if (!response.ok) throw new Error("Leaderboard temporarily unavailable");
         const data = await response.json();
         if (!mounted) return;
-        const publicScores=data.status==="public_eligible_scores";
+        const publicScores=data.status==="public_eligible_scores" ||
+          data.status==="preview_public_first_names";
         const next = Array.isArray(data.entries)
           ? data.entries.slice(0, publicScores?700:10).map((p, i) => ({
               rank: i + 1,
@@ -185,7 +186,8 @@ export default function ArcadeLeaderboard() {
         setSourceAsOf(/^\d{4}-\d{2}-\d{2}$/.test(data.sourceAsOf || "") ? data.sourceAsOf : null);
         setHistoryStatus(data.status === "active_status_refresh_required" ? data.status : null);
         setNameConsentMode(data.status === "consent_only" || data.status === "consent_pending" ||
-          data.status === "public_eligible_scores");
+          data.status === "public_eligible_scores" ||
+          data.status === "preview_public_first_names");
         setPublicNamedCount(Number.isInteger(data.publicNamedCount)
           ? data.publicNamedCount:0);
         setEligibilityPending(data.status === "eligibility_pending");
@@ -267,7 +269,7 @@ export default function ArcadeLeaderboard() {
         <p>{eligibilityPending
           ? "The customer list is being verified. Only Squeegee customers with a registered email qualify."
           : sourceAsOf
-          ? "Everyone can see the leaderboard without signing in. Customers who have agreed appear by first name and town; other eligible scores use an anonymous player label. Sign in only to see your own clean-by-clean points history."
+          ? "Everyone can see the N64 test leaderboard by first name, town and points. Sign in only to see your own clean-by-clean history, streak and private stats."
           : "Public cleaning rewards leaderboard. Sign in only to see your own private points breakdown."}</p>
 
         <div className="n64-your-score" aria-label="Your device score">
@@ -307,7 +309,7 @@ export default function ArcadeLeaderboard() {
                   : eligiblePlayers!==null
                     ? eligiblePlayers.toLocaleString("en-GB")+" customers are email-eligible. " : ""}
                 {eligibleCleaningXp!==null ? eligibleCleaningXp.toLocaleString("en-GB")+" cleaning XP are safely recorded. " : ""}
-                Public scores are viewable by everyone. Names and towns remain hidden unless the customer has given permission. Sign in to My Customer HQ for your private breakdown.
+                First name, town and cleaning points appear on the N64 test leaderboard. Sign in to My Customer HQ for your own private breakdown.
               </small>}
             </li>
           ) : players.slice(0,publicShownCount).map((player, i) => {
@@ -338,8 +340,7 @@ export default function ArcadeLeaderboard() {
           </button>
         </div>}
         {nameConsentMode && players.length>0 && <p className="n64-board-display-note">
-          {publicNamedCount.toLocaleString("en-GB")} customers currently display their
-          first name and town. The other scores remain anonymous.
+          {publicNamedCount.toLocaleString("en-GB")} customers are displayed by first name and town on this N64 preview.
         </p>}
         {connection === "reconnecting" && (
           <p className="n64-board-error" role="status">
@@ -349,7 +350,7 @@ export default function ArcadeLeaderboard() {
         <small>
           {historyStatus ? "Active account-status verification is out of date; historical scores are temporarily hidden. " : ""}
           Tap a player or choose My Customer HQ above to open the email-code sign-in in this section. You can only see the account verified by your own email code. Public rankings refresh every 10 seconds; historical Squeegee scores change after a verified import.
-          {nameConsentMode || eligibilityPending ? "A registered email is required for a score to qualify. First name and town appear only with permission; others are shown anonymously. Squeegee references and contact details remain private." : "Full cleaning histories require secure sign-in. Public scores never grant access to another customer's account."}
+          {nameConsentMode || eligibilityPending ? "A registered email is required to qualify. First name, town and points are visible on this test leaderboard. Squeegee references and contact details remain private." : "Full cleaning histories require secure sign-in. Public scores never grant access to another customer's account."}
         </small>
         </div>
         <div className="n64-owner-ranking" hidden={rankingMode!=="owner"}>
