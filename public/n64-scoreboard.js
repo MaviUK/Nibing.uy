@@ -273,7 +273,7 @@
       top.forEach((item) => {
         const li = document.createElement("li");
         const name = document.createElement("a");
-        name.href = "/customer-hq";
+        name.href = "/customer-hq?ntl-drawer-state=hidden";
         name.title = "Sign in to view your own private points history";
         name.style.color = "inherit";
         name.style.textDecoration = "underline";
