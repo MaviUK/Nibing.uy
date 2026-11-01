@@ -269,13 +269,15 @@
       top.forEach((item) => {
         const li = document.createElement("li");
         const name = document.createElement("span");
-        name.textContent = item.rank + ". " + String(item.customerRef || "NBG-UNKNOWN") + " · " + String(item.town || "Town unavailable");
+        name.textContent = item.rank + ". " + String(item.displayName || item.customerRef || "Player") + " · " + String(item.town || "Town unavailable");
         const score = document.createElement("strong");
         score.textContent = Number(item.points || 0).toLocaleString("en-GB") + " XP";
         li.append(name,score);
         boardNode.appendChild(li);
       });
-      boardNote.textContent = data.sourceAsOf
+      boardNote.textContent = data.status === "consent_only" || data.status === "consent_pending"
+        ? "Only customers who agreed to publication appear by first name and town. Squeegee references and contact details remain private."
+        : data.sourceAsOf
         ? "Squeegee active-account snapshot: " + data.sourceAsOf + ". Streak: 20 points first paid clean, +2 each consecutive visit; a recorded skip resets the next bonus. Website XP joins after account verification. No names or addresses."
         : "Public: customer reference, town and XP only. No names or addresses.";
     } catch (_) { boardNote.textContent = "Leaderboard currently unavailable. Your XP remains on this device."; }
