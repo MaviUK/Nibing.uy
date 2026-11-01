@@ -4,6 +4,7 @@
 import api from "./lib/squeegeeApiV3.js";
 import session from "./lib/squeegeePreviewTestSession.js";
 import hq from "./lib/customerHQ.js";
+import nameConsents from "./lib/squeegeeLeaderboardNameConsent.js";
 import {getStore} from "@netlify/blobs";
 import crypto from "node:crypto";
 
@@ -92,11 +93,25 @@ export default async function handler(request,ctx){
     if(previous?.sourceHash===hash)
       return page("<section>Already imported — no duplicate points awarded.</section>"+
         '<p><a href="'+PATH+'">Return to setup</a></p>');
+    const pendingConsent=nameConsents.initialiseFromPrivateCustomerHQ(validated);
+    const consentStore=getStore({name:nameConsents.STORE_NAME,consistency:"strong"});
     const saved=await store.setJSON(hq.DATA_KEY,{
       ...validated,sourceHash:hash,importedAt:new Date().toISOString()
     });
     if(saved?.modified!==true)
       return page("<section>Unable to save private history. No public change made.</section>",503);
+    // First import creates 941 PENDING opt-ins, never automatically grants.
+    // Existing permission choices are not overwritten by later imports.
+    const existingConsent=await consentStore.get(nameConsents.KEY,{
+      type:"json",consistency:"strong"
+    });
+    if(!existingConsent){
+      const created=await consentStore.setJSON(nameConsents.KEY,pendingConsent,{
+        onlyIfNew:true
+      });
+      if(created?.modified!==true)
+        return page("<section>Customer history saved, but the optional leaderboard consent list needs owner review. No first names were published.</section>",503);
+    }
     return page('<section><strong>PRIVATE CUSTOMER HQ HISTORY READY</strong>'+
       '<p>Validated '+validated.summary.activeAccounts+' active customers and '+
       validated.summary.historyEvents+' clean history entries. '+
