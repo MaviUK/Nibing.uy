@@ -118,7 +118,7 @@ export default function ArcadeLeaderboard() {
         </div>
         <h2 id="n64-board-title">Global Leaderboard</h2>
         <p>{sourceAsOf
-          ? `Active Squeegee customer rankings from the ${new Date(sourceAsOf + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} backup. Only paid-clean points and verified linked website XP are counted.`
+          ? `Active Squeegee customer rankings from the ${new Date(sourceAsOf + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} backup. Loyalty points start at 20 per paid clean, rise by 2 for each consecutive completed visit, then restart at 20 after a recorded skipped visit. Verified linked website XP is added separately.`
           : "High scores update automatically. Only customer references, towns and XP are displayed."}</p>
 
         <div className="n64-your-score" aria-label="Your device score">
