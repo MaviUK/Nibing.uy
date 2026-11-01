@@ -202,7 +202,7 @@
     #site-menu-toggle span, #site-menu-toggle span::before, #site-menu-toggle span::after { display: block; width: 22px; height: 2px; background: #4ade80; border-radius: 999px; content: ""; position: relative; }
     #site-menu-toggle span::before { position: absolute; top: -7px; left: 0; }
     #site-menu-toggle span::after { position: absolute; top: 7px; left: 0; }
-    #site-section-menu { position: fixed; top: 68px; right: 14px; z-index: 39; width: max-content; max-width: calc(100vw - 28px); min-width: 0; padding: 12px; border: 1px solid rgba(255,255,255,0.22); border-radius: 18px; background: rgba(24,24,27,0.97); box-shadow: 0 18px 42px rgba(0,0,0,0.44); box-sizing: border-box; text-align: right; display: none; }
+    #site-section-menu { position: fixed; top: 68px; right: 14px; z-index: 39; width: max-content; max-width: calc(100vw - 28px); max-height: calc(100vh - 82px); max-height: calc(100dvh - 82px); overflow-y: auto; overscroll-behavior: contain; min-width: 0; padding: 12px; border: 1px solid rgba(255,255,255,0.22); border-radius: 18px; background: rgba(24,24,27,0.97); box-shadow: 0 18px 42px rgba(0,0,0,0.44); box-sizing: border-box; text-align: right; display: none; }
     #site-section-menu[data-open="true"] { display: block; }
     #site-section-menu a, #site-section-menu button { display: block; width: 100%; padding: 12px 13px; border: 0; border-radius: 12px; background: transparent; color: white; cursor: pointer; font: inherit; text-decoration: none; font-weight: 700; text-align: right; white-space: nowrap; }
     #site-section-menu a:hover, #site-section-menu a:focus, #site-section-menu button:hover, #site-section-menu button:focus { background: rgba(74,222,128,0.16); color: #86efac; outline: none; }
@@ -224,6 +224,7 @@
     <a href="#why-ni-bin-guy">Why Ni Bin Guy</a>
     <a href="#customer-reviews">Customer Reviews</a>
     <a href="#wheelie-bin-cleaning-questions">Customer Questions</a>
+    <a href="#areas-we-cover">Areas We Cover</a>
     <a href="#customer-portal-login">Customer Portal</a>
   </nav>
 
