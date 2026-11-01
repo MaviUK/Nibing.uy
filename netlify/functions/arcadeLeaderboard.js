@@ -132,8 +132,15 @@ async function getSnapshot(stores) {
 }
 
 async function getActiveHistoricalBoard(stores) {
-  const snapshot=await stores.history.get(historical.SNAPSHOT_KEY,{type:"json",consistency:"strong"});
-  if(!snapshot || snapshot.published!==true)return null;
+  const snapshot=await stores.history.get(historical.PUBLISHED_KEY,{type:"json",consistency:"strong"});
+  if(!snapshot || snapshot.published!==true){
+    const mode=await stores.history.get(historical.MODE_KEY,{type:"json",consistency:"strong"});
+    // Once active-only mode has been enabled, unpublishing a history
+    // snapshot must never fall back to unverified website-only players.
+    return mode?.activeOnly===true
+      ? {entries:[],totalPlayers:0,lastUpdatedAt:null,
+         status:"active_status_refresh_required"}:null;
+  }
   if(!historical.snapshotIsFresh(snapshot)) {
     return {entries:[],totalPlayers:0,sourceAsOf:snapshot.asOf,
       lastUpdatedAt:snapshot.importedAt,status:"active_status_refresh_required"};
