@@ -253,6 +253,92 @@ function publicEligibleScoreboard(snapshot,fullBoard,eligibleAliases,secretKey){
   };
 }
 
+
+/**
+ * N64 DEPLOY PREVIEW 77 ONLY. Build the requested public test leaderboard
+ * directly from the already-validated PRIVATE Squeegee customer import:
+ * first name, safe town and cleaning XP. NO customer login / owner login.
+ *
+ * Do not manufacture "granted" permissions. The consent ledger remains
+ * unchanged; any recorded withdrawal is respected. This staging-only
+ * helper must never be called from the production hostname or from
+ * browser-side code. Real Squeegee identifiers, email and history stay
+ * server-side; each row gets a new secret-keyed public reference.
+ */
+function previewFirstNameScoreboard(
+  privateCustomers,fullBoard,eligibleAliases,consentSnapshot,secretKey
+){
+  if(privateCustomers?.version!==1 ||
+     privateCustomers.asOf!==staticHistory.AS_OF ||
+     !Array.isArray(privateCustomers.accounts) ||
+     !(eligibleAliases instanceof Set) ||
+     !Buffer.isBuffer(secretKey)||secretKey.length<16)return null;
+  if(fullBoard?.status==="active_status_refresh_required"){
+    return {entries:[],totalPlayers:0,
+      sourceAsOf:staticHistory.AS_OF,
+      status:"active_status_refresh_required"};
+  }
+  if(!Array.isArray(fullBoard?.entries) ||
+     fullBoard.sourceAsOf!==staticHistory.AS_OF)return null;
+  const permissions=consentSnapshot?.version===1 &&
+    consentSnapshot?.sourceAsOf===staticHistory.AS_OF &&
+    Array.isArray(consentSnapshot.records)
+    ?new Map(consentSnapshot.records.map(r=>[r.alias,r])):new Map();
+  const byAlias=new Map();
+  for(const account of privateCustomers.accounts){
+    if(typeof account?.id!=="string" || !account.id)continue;
+    const alias=canonicalLegacyRef(account.id);
+    if(!eligibleAliases.has(alias))continue;
+    const town=safePublicTown(account.town);
+    // The trusted private score and the historical alias must join on the
+    // immutable Squeegee UUID ONLY, not a first name or reusable email.
+    if(town==="Town unavailable"||town!==account.town ||
+       typeof account.email!=="string" || !account.email ||
+       byAlias.has(alias))return null;
+    const permission=permissions.get(alias);
+    const firstName=safeFirstName(
+      permission?.consent==="granted" &&
+      !permission.withdrawnAt &&
+      permission?.noticeVersion===NOTICE_VERSION &&
+      permission?.firstName ?permission.firstName:account.firstName
+    );
+    byAlias.set(alias,{
+      firstName:firstName||"Customer",
+      usableName:!!firstName,
+      town,withdrawn:permission?.consent==="withdrawn" ||
+        !!permission?.withdrawnAt,
+    });
+  }
+  if(byAlias.size!==eligibleAliases.size)return null;
+  const rows=[];
+  for(const score of fullBoard.entries){
+    if(!eligibleAliases.has(score.customerRef))continue;
+    const p=byAlias.get(score.customerRef);
+    if(!p || p.town!==score.town ||
+       !Number.isSafeInteger(score.points)||score.points<0)return null;
+    if(p.withdrawn)continue;
+    // Opaque reference only. Never return the deterministic internal alias,
+    // customer UUID, Squeegee reference, surname or email to the browser.
+    const publicRef="NBG-"+crypto.createHmac("sha256",secretKey)
+      .update("n64-preview-public-first-name-v1:"+score.customerRef)
+      .digest("hex").slice(0,10).toUpperCase();
+    rows.push({customerRef:publicRef,displayName:p.firstName,
+      town:p.town,points:score.points,usableName:p.usableName});
+  }
+  rows.sort((a,b)=>b.points-a.points ||
+    a.customerRef.localeCompare(b.customerRef));
+  return {entries:rows.map((r,i)=>({
+      rank:i+1,customerRef:r.customerRef,displayName:r.displayName,
+      town:r.town,points:r.points
+    })),
+    totalPlayers:rows.length,
+    namedCount:rows.filter(r=>r.usableName).length,
+    sourceAsOf:staticHistory.AS_OF,
+    lastUpdatedAt:fullBoard.lastUpdatedAt||null,
+    status:"preview_public_first_names",
+  };
+}
+
 function publicConsentBoard(snapshot,fullBoard,emailEligibleAliases){
   // Without the PRIVATE Customer HQ email eligibility set, nothing is public.
   // A valid consent alone can never re-add an account with no email.
@@ -285,5 +371,5 @@ module.exports={
   STORE_NAME,KEY,NOTICE_VERSION,EXPECTED,MAX_BYTES,
   safeFirstName,parseSimpleCsv,preparePrivateConsentImport,
   changeConsent,initialiseFromPrivateCustomerHQ,consentStats,publicConsentBoard,
-  publicEligibleScoreboard,
+  publicEligibleScoreboard,previewFirstNameScoreboard,
 };
