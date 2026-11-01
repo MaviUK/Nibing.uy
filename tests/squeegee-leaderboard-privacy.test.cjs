@@ -75,6 +75,7 @@ test("legacy public names and v2 snapshots cannot leak through either new GET or
   const pub = fakeStore(publicData), priv = fakeStore(privateData);
   const historyData = new Map(), linkData = new Map();
   const history = fakeStore(historyData), links = fakeStore(linkData);
+  const privateNameConsents = fakeStore(new Map());
   Module._load = function (id, parent, isMain) {
     if (id === "@netlify/blobs") return {
       getStore({ name }) {
@@ -82,6 +83,7 @@ test("legacy public names and v2 snapshots cannot leak through either new GET or
         if (name === "n64-preview-arcade-private") return priv;
         if (name === "n64-preview1-squeegee-active-only") return history;
         if (name === "n64-preview1-squeegee-player-links") return links;
+        if (name === "n64-preview1-arcade-leaderboard-names-private") return privateNameConsents;
         throw new Error("Unexpected store");
       }
     };
