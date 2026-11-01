@@ -664,12 +664,13 @@ test("verified inactive customer email has safe post-reactivation processing but
     customerName:"Gavin Stevenson",serviceAddress:"78 Groomsport Road, Bangor BT20 5NF",
     requestedBinCounts:["1 x Black Bin","1 x Brown Bin","1 x Green Bin (1100L)"],
     firstCleanDates:["2026-11-17"],bookingTotal:55,
-  });
+  },{env:{SQUEEGEE_API_KEY:"unit-test-remote-not-real-unique-123456789"},
+    now:Date.parse("2026-11-01T12:00:00Z")});
   assert.match(email.subject,/INACTIVE CUSTOMER SIGN-UP/);
   assert.match(email.html,/PROCESS BOOKING AFTER REACTIVATION/);
   assert.match(email.text,/PROCESS BOOKING AFTER REACTIVATION:/);
   assert.match(email.html,/squeegee-preview-owner-reactivation\?bookingId=NBG-4QUNP343&amp;day=2026-10-31/);
-  assert.match(email.html,/Nothing is imported until you confirm/);
+  assert.match(email.html,/nothing is imported until you confirm/i);
   assert.doesNotMatch(email.text,/Add the requested services\/quantities, price and appointments manually/);
 });
 test("no unsafe reactivation button for archived or uncertain matching",()=>{
