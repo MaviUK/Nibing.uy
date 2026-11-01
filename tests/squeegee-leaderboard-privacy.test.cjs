@@ -168,7 +168,7 @@ test("legacy public names and v2 snapshots cannot leak through either new GET or
 
     // A published active customer enters ONCE, without website XP until the
     // separately verified, private Squeegee UUID link exists.
-    historyData.set(historic.SNAPSHOT_KEY,{...statusSnapshot,published:true});
+    historyData.set(historic.PUBLISHED_KEY,{...statusSnapshot,published:true});
     response=await get();
     let historicBoard=JSON.parse(response.body);
     assert.equal(response.statusCode,200);
@@ -192,12 +192,18 @@ test("legacy public names and v2 snapshots cannot leak through either new GET or
 
     // An out-of-date active account snapshot cannot continue ranking someone
     // who might have since been deactivated in Squeegee.
-    historyData.set(historic.SNAPSHOT_KEY,{
+    historyData.set(historic.PUBLISHED_KEY,{
       ...statusSnapshot,asOf:"2025-01-01",published:true
     });
     const stale=JSON.parse((await get()).body);
     assert.equal(stale.entries.length,0);
     assert.equal(stale.status,"active_status_refresh_required");
+    historyData.delete(historic.PUBLISHED_KEY);
+    historyData.set(historic.MODE_KEY,{activeOnly:true});
+    const unpublished=JSON.parse((await get()).body);
+    assert.equal(unpublished.entries.length,0);
+    assert.equal(unpublished.totalPlayers,0);
+    assert.equal(unpublished.status,"active_status_refresh_required");
   } finally {
     Module._load = originalLoad;
     if (envSecret === undefined) delete process.env.N64_PREVIEW_LEADERBOARD_SECRET;
