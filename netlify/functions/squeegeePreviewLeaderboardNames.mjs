@@ -72,6 +72,9 @@ function renderDashboard(snapshot,note="",emailEligibility=null,preview=null){
   const stats=names.consentStats(snapshot);
   return (note?'<section><strong>'+safe(note)+'</strong></section>':'')+
     '<section><h2>Private first-name preparation</h2>'+
+    '<p><a style="display:block;background:#f7d45a;color:#14213b;text-decoration:none;padding:13px;font-weight:900;text-align:center" '+
+    'href="/?ntl-drawer-state=hidden&amp;owner-board=1#live-leaderboard">'+
+    '★ VIEW ALL VERIFIED CUSTOMERS IN THE N64 LEADERBOARD →</a></p>'+
     '<p><strong>'+stats.total+'</strong> imported • <strong>'+stats.consented+
     '</strong> permission granted • '+stats.pending+' pending • '+
     stats.withdrawn+' withdrawn • '+stats.requiresNameReview+
