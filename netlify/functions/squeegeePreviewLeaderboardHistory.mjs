@@ -13,22 +13,23 @@ const ACTIVE_STATUS="n64-preview1-squeegee-active-only";
 const activeStore=()=>getStore({name:ACTIVE_STATUS,consistency:"strong"});
 async function currentActiveSnapshots() {
   const store=activeStore();
-  const [staged,published]=await Promise.all([
+  const [staged,published,mode]=await Promise.all([
     store.get(active.SNAPSHOT_KEY,{type:"json",consistency:"strong"}),
     store.get(active.PUBLISHED_KEY,{type:"json",consistency:"strong"}),
+    store.get(active.MODE_KEY,{type:"json",consistency:"strong"}),
   ]);
-  return {staged,published};
+  return {staged,published,mode};
 }
-function activeSection({staged,published}={}) {
+function activeSection({staged,published,mode}={}) {
   const snapshot=staged||published||null;
   const publicPreview=publicSeed.getHistoricalSnapshot();
-  const preloaded=publicPreview.totalPlayers>0;
+  const preloaded=publicPreview.totalPlayers>0 && mode?.activeOnly!==true;
   const list=snapshot?active.combinedPublicBoard(snapshot):null;
   const summary=snapshot?.summary;
   const identical=Boolean(staged && published && staged.sourceHash===published.sourceHash);
   const state=published
     ? (identical?"PUBLISHED ON PREVIEW 1":"NEW IMPORT STAGED — PREVIOUS APPROVED SNAPSHOT STILL LIVE")
-    : (staged?"STAGED FOR OWNER REVIEW":"NOT IMPORTED");
+    : (staged?"STAGED FOR OWNER REVIEW":(mode?.activeOnly===true?"HIDDEN BY OWNER":"NOT IMPORTED"));
   const table=list?.entries?.map(e=>
     "<li><strong>"+safe(e.customerRef)+"</strong> · "+safe(e.town)+
     " · "+String(e.points)+" XP</li>").join("")||"";
