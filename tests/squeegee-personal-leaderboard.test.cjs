@@ -48,7 +48,8 @@ test("verified customer gets total XP and exact public rank, plus years with ear
   const summary=get();
   assert.deepEqual(summary,{
     points:600,rank:2,rankingAvailable:true,
-    yearly:{"2024":{points:120,rank:1},"2026":{points:90,rank:2}}
+    yearly:{"2024":{points:120,rank:1},"2026":{points:90,rank:2}},
+    yearlyXpTotal:210,unassignedXp:390,yearBreakdownStatus:"reconciled"
   });
   // Annual XP cannot be reverse-calculated from lifetime XP. Older undated
   // earnings remain in Overall, never misattributed to 2026.
@@ -59,6 +60,35 @@ test("verified customer gets total XP and exact public rank, plus years with ear
     eligibleAliases,consentSnapshot,secretKey);
   assert.equal(publicOverall.entries[1].rank,summary.rank);
   assert.equal(publicOverall.entries[1].customerRef,personal.publicRef(aliases[0],secretKey));
+});
+test("a real-world-style 2025/2026 gap is visibly accounted for without assigning made-up dates",()=>{
+  const summary=get({
+    points:507,
+    years:[
+      board([[0,22],[1,10]],2025),
+      board([[1,470],[0,425]],2026)
+    ],
+    overall:board([[1,700],[0,507],[2,100]])
+  });
+  assert.equal(summary.yearly["2025"].points,22);
+  assert.equal(summary.yearly["2026"].points,425);
+  assert.equal(summary.yearlyXpTotal,447);
+  assert.equal(summary.unassignedXp,60);
+  assert.equal(summary.points,
+    summary.yearlyXpTotal+summary.unassignedXp);
+  assert.equal(summary.yearly["2024"],undefined);
+  assert.equal(summary.rank,2);
+});
+test("fully dated XP needs no unassigned part, and overcounts require review",()=>{
+  const annualBoards=[board([[0,22]],2025),board([[0,425]],2026)];
+  const allDated=get({points:447,years:annualBoards});
+  assert.equal(allDated.unassignedXp,0);
+  assert.equal(allDated.yearBreakdownStatus,"reconciled");
+  const mismatch=get({points:440,years:annualBoards});
+  assert.equal(mismatch.unassignedXp,null);
+  assert.equal(mismatch.yearlyXpTotal,null);
+  assert.equal(mismatch.yearBreakdownStatus,"needs-review");
+  assert.equal(mismatch.points,440,"never rewrite verified lifetime XP");
 });
 test("customer with a public withdrawal keeps private points but has no public position",()=>{
   const withdrawn={
@@ -100,4 +130,9 @@ test("homepage only requests rank summary through verified session and not brows
   assert.doesNotMatch(ui,/ARCADE XP ON THIS PHONE|localScore\.points/);
   assert.match(ui,/Sign in to see your total XP, leaderboard position and years with points/);
   assert.match(style,/n64-personal-year-active/);
+  assert.match(ui,/hasVerifiedBreakdown/);
+  assert.match(ui,/customerSummary\.unassignedXp>0/);
+  assert.match(ui,/OLDER \/ YEAR UNKNOWN XP/);
+  assert.match(ui,/without a verified year/);
+  assert.match(style,/n64-personal-reconciliation/);
 });
