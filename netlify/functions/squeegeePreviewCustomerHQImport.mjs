@@ -129,4 +129,5 @@ export default async function handler(request,ctx){
     return page("<section>Private history validation failed. No records were imported. Check that you selected the correct NI Bin Guy Customer HQ JSON.</section>",422);
   }
 }
-export const config={path:PATH};
+// Netlify's static route manifest requires a literal path here, not PATH.
+export const config={path:"/api/squeegee-preview-hq-import"};
