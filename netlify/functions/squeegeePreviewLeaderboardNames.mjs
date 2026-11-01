@@ -4,6 +4,7 @@ import { getStore } from "@netlify/blobs";
 import owner from "./lib/squeegeePreviewTestSession.js";
 import api from "./lib/squeegeeApiV3.js";
 import names from "./lib/squeegeeLeaderboardNameConsent.js";
+import customerHQ from "./lib/customerHQ.js";
 
 const PATH="/api/squeegee-preview-leaderboard-names";
 const ORIGIN="https://deploy-preview-77--nibinguy.netlify.app";
@@ -40,7 +41,7 @@ function runtimeScope(request,ctx){
     deployContext:ctx?.deploy?.context,siteId:ctx?.site?.id};
 }
 function store(){return getStore({name:names.STORE_NAME,consistency:"strong"});}
-function renderDashboard(snapshot,note=""){
+function renderDashboard(snapshot,note="",emailEligibility=null){
   const stats=names.consentStats(snapshot);
   return (note?'<section><strong>'+safe(note)+'</strong></section>':'')+
     '<section><h2>Private first-name preparation</h2>'+
@@ -48,6 +49,12 @@ function renderDashboard(snapshot,note=""){
     '</strong> permission granted • '+stats.pending+' pending • '+
     stats.withdrawn+' withdrawn • '+stats.requiresNameReview+
     ' names needing additional verification.</p>'+
+    '<p><strong>'+(emailEligibility?
+      emailEligibility.count+' with an email address qualify for ranking':
+      'Email eligibility not loaded yet')+
+      '</strong>. Accounts without a valid Squeegee email address are excluded '+
+      'from rankings and player counts, even if they have past cleans. '+
+      'Their historical points are not deleted.</p>'+
     '<p>Original Squeegee reference stays private. Public entries use only '+ 
     '<strong>first name · town · XP</strong> and require recorded permission.'+
     ' When the first list is imported, customers without recorded consent '+ 
@@ -105,8 +112,13 @@ export default async function handler(request,ctx){
   }
   const db=store();
   if(request.method==="GET"){
-    const snapshot=await db.get(names.KEY,{type:"json",consistency:"strong"});
-    return page(renderDashboard(snapshot));
+    const [snapshot,customerSnapshot]=await Promise.all([
+      db.get(names.KEY,{type:"json",consistency:"strong"}),
+      getStore({name:customerHQ.DATA_STORE,consistency:"strong"})
+        .get(customerHQ.DATA_KEY,{type:"json",consistency:"strong"}),
+    ]);
+    return page(renderDashboard(snapshot,"",
+      customerHQ.eligibleRankedEmailAccounts(customerSnapshot)));
   }
   if(request.headers.get("origin")!==ORIGIN)
     return page("<section>Cross-site request blocked. Nothing changed.</section>",403);
@@ -130,19 +142,26 @@ export default async function handler(request,ctx){
       const current=await db.getWithMetadata(names.KEY,{type:"json",consistency:"strong"});
       if(!current?.data || !current?.etag)
         return page("<section>Import the private first-name CSV first.</section>",409);
+      const privateSnapshot=await getStore({
+        name:customerHQ.DATA_STORE,consistency:"strong"
+      }).get(customerHQ.DATA_KEY,{type:"json",consistency:"strong"});
+      const eligible=customerHQ.eligibleRankedEmailAccounts(privateSnapshot);
+      if(action==="grant" && !eligible)
+        return page("<section>Import the private Customer HQ history first. No customer can be ranked until email eligibility is verified.</section>",409);
       const next=names.changeConsent(current.data,{
         reference:String(form.get("ref")||""),
         action,method:String(form.get("method")||""),
         evidenceRef:String(form.get("evidence")||""),
         confirm:String(form.get("confirm")||""),
         correctedFirstName:String(form.get("firstName")||""),
-      });
+      },Date.now(),eligible?.aliases||null);
       const saved=await db.setJSON(names.KEY,next,{onlyIfMatch:current.etag});
       if(saved?.modified!==true)
         return page("<section>Another update was saved. Refresh and check again.</section>",409);
       return page(renderDashboard(next,action==="grant"
         ?"Permission recorded. First name and town are now eligible for public display."
-        :"Permission withdrawn. Entry removed from the public leaderboard."));
+        :"Permission withdrawn. Entry removed from the public leaderboard.",
+        eligible));
     }
     return page("<section>Unsupported action.</section>",400);
   }catch(err){
@@ -150,7 +169,8 @@ export default async function handler(request,ctx){
     const known=new Set(["unexpected_private_customer_count","consent_proof_required",
       "first_name_needs_verification","consent_reference_not_found",
       "consent_source_validation_failed","invalid_consent_csv_header",
-      "invalid_private_consent_csv","consent_csv_overflow"]);
+      "invalid_private_consent_csv","consent_csv_overflow",
+      "email_required_for_leaderboard"]);
     const code=known.has(err?.message)?err.message:"invalid_or_conflicting_request";
     return page('<section><strong>Could not save the change.</strong>'+
       '<p>Reason: '+safe(code)+'. Please review the private file or account reference.</p></section>',422);
