@@ -29,6 +29,7 @@ function ownerPrivateLeaderboardPreview(privateSnapshot,consentSnapshot,eligible
         firstName:approved?permission.firstName:(safeFirstName(r.firstName)||null),
         town:String(r.town||"Town unavailable"),
         points:r.points,
+        verification:"verified_from_squeegee_backup",
         permission:approved?"approved":permission?.consent==="withdrawn"?"withdrawn":"pending",
       };
     })
@@ -39,6 +40,8 @@ function ownerPrivateLeaderboardPreview(privateSnapshot,consentSnapshot,eligible
   return {
     count:all.length,
     cleaningXp:eligible.historicalPoints,
+    verified:all.length,
+    verifiedAsOf:privateSnapshot.asOf,
     approved:all.filter(r=>r.permission==="approved").length,
     rows:all.slice(0,limit).map((r,i)=>({rank:i+1,...r})),
   };
