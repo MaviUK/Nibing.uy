@@ -85,6 +85,9 @@ on:
       - tests/squeegee-active-streak-import.test.cjs
       - netlify/functions/lib/squeegeeActivePreviewSnapshot.js
       - netlify/functions/lib/squeegeeActivePreviewBoard.js
+      - netlify/functions/lib/squeegeeLeaderboardNameConsent.js
+      - netlify/functions/squeegeePreviewLeaderboardNames.mjs
+      - tests/squeegee-leaderboard-name-consent.test.cjs
       - tests/squeegee-active-preview-population.test.cjs
       - netlify/functions/lib/arcadeSqueegeeLink.js
       - tests/squeegee-active-leaderboard.test.cjs
