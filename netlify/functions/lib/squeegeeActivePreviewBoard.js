@@ -36,8 +36,8 @@ async function getStaticPreviewBoard(stores, now=Date.now()) {
     }catch { /* An unverified or unreadable link contributes no XP. */ }
   }
   for(const ref of collisions)scores.delete(ref);
-  const entries=staticHistory.ENTRIES.map(([customerRef,town,paidCleans])=>({
-    customerRef,town,points:Math.min(100000,paidCleans+(scores.get(customerRef)||0))
+  const entries=staticHistory.ENTRIES.map(([customerRef,town,historicalStreakPoints])=>({
+    customerRef,town,points:Math.min(100000,historicalStreakPoints+(scores.get(customerRef)||0))
   }));
   entries.sort((a,b)=>b.points-a.points||a.customerRef.localeCompare(b.customerRef));
   return {
