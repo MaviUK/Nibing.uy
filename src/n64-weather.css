@@ -170,3 +170,94 @@ html[data-arcade-weather="snow"] #level-08-final{
   #main-content.n64-world .n64-weather-rain i{top:18%;opacity:.3;}
   #main-content.n64-world .n64-weather-snow i{top:18%;opacity:.5;}
 }
+
+
+/* TEMPORARY PREVIEW 1 ONLY — responsive 8-mode manual weather tester.
+   The fixed menu/area controls occupy the upper 110px on mobile. */
+#main-content.n64-world .n64-hero-layout-v2.n64-weather-testing{
+  padding-top:130px!important;
+}
+#main-content.n64-world .n64-weather-test-bar{
+  position:relative;z-index:9;max-width:1100px;margin:0 auto 24px;
+  padding:9px 10px 10px;border:3px solid #20345c!important;
+  background:#fff7dc;color:#20345c;box-shadow:5px 6px 0 #56789b;
+}
+#main-content.n64-world .n64-weather-test-heading{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  margin:0 0 9px;font:900 .72rem/1.3 Verdana,sans-serif;
+}
+#main-content.n64-world .n64-weather-test-heading small{
+  color:#4e6180;text-align:right;font:750 .59rem/1.3 Verdana,sans-serif;
+}
+#main-content.n64-world .n64-weather-test-grid{
+  display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:7px;
+}
+#main-content.n64-world .n64-weather-test-button{
+  appearance:none;display:flex;justify-content:center;align-items:center;
+  min-width:0;min-height:45px;gap:6px;padding:7px 4px;
+  border:3px solid #20345c!important;border-radius:0!important;
+  background:#fffdf3!important;color:#20345c!important;
+  box-shadow:2px 3px 0 #7b9aaf;cursor:pointer;touch-action:manipulation;
+  font:900 .72rem/1 Verdana,sans-serif;
+}
+#main-content.n64-world .n64-weather-test-button span{font-size:1.1rem;line-height:1;}
+#main-content.n64-world .n64-weather-test-button[aria-pressed="true"]{
+  background:#ffe069!important;box-shadow:2px 3px 0 #b78a31;
+  outline:2px solid #fff!important;outline-offset:-5px;
+}
+#main-content.n64-world .n64-weather-test-button:focus-visible{
+  outline:3px solid #257498!important;outline-offset:2px;
+}
+#main-content.n64-world .n64-weather-test-button:active{
+  transform:translateY(2px);box-shadow:none;
+}
+/* Night is not merely a dark sky: replace the soft round moon with pixel art
+   and make all hero copy legible against a midnight-blue background. */
+#main-content.n64-world[data-night="true"] .n64-hero{
+  background:linear-gradient(180deg,#112143 0%,#24395f 56%,#526d8a 79%,#41686d 100%)!important;
+}
+#main-content.n64-world[data-night="true"][data-weather="storm"] .n64-hero{
+  background:linear-gradient(180deg,#111a32 0%,#273656 56%,#51677f 79%,#3d5867 100%)!important;
+}
+#main-content.n64-world[data-night="true"] .n64-hero .n64-lead{
+  color:#f8f9f2!important;text-shadow:0 2px 0 rgba(10,19,42,.4)!important;
+}
+#main-content.n64-world[data-night="true"] .n64-hero .n64-lead strong{
+  color:#ffe786!important;
+}
+#main-content.n64-world .n64-weather-pixel-moon{
+  position:absolute;top:14%;right:8%;width:90px;height:90px;
+  background:#fff1bc;opacity:.96;
+  filter:drop-shadow(0 0 10px rgba(255,238,173,.25));
+  clip-path:polygon(27% 0,73% 0,73% 9%,91% 9%,91% 27%,100% 27%,
+    100% 73%,91% 73%,91% 91%,73% 91%,73% 100%,27% 100%,
+    27% 91%,9% 91%,9% 73%,0 73%,0 27%,9% 27%,9% 9%,27% 9%);
+}
+@media(max-width:800px){
+  #main-content.n64-world .n64-weather-test-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+  }
+  #main-content.n64-world .n64-weather-test-button{
+    flex-direction:column;gap:3px;min-height:51px;
+  }
+}
+@media(max-width:600px){
+  #main-content.n64-world .n64-hero-layout-v2.n64-weather-testing{
+    padding-top:128px!important;
+  }
+  #main-content.n64-world .n64-weather-test-bar{
+    padding:8px 7px 10px;margin-bottom:20px;box-shadow:3px 4px 0 #56789b;
+  }
+  #main-content.n64-world .n64-weather-test-heading{font-size:.62rem;gap:4px;}
+  #main-content.n64-world .n64-weather-test-heading small{font-size:.48rem;}
+  #main-content.n64-world .n64-weather-test-button{
+    min-height:49px;padding:5px 2px;font-size:.61rem;border-width:2px!important;
+  }
+  #main-content.n64-world .n64-weather-test-button span{font-size:1.05rem;}
+  #main-content.n64-world .n64-weather-pixel-moon{
+    top:19%;right:6%;width:64px;height:64px;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  #main-content.n64-world .n64-weather-test-button{transition:none!important;}
+}

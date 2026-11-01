@@ -21,22 +21,48 @@ function readCache() {
   } catch { return null; }
 }
 
-function previewMode() {
-  if (typeof window === "undefined" ||
-      window.location.hostname !== "deploy-preview-77--nibinguy.netlify.app") return null;
-  const requested = new URLSearchParams(window.location.search).get("weather")?.toLowerCase();
-  if (!MODES.has(requested) && requested !== "night") return null;
-  return { ...FALLBACK, mode: requested === "night" ? "sunny" : requested,
-    isNight: requested === "night", isDemo: true };
+// This toolbar is intentionally restricted to the unmerged N64 test deploy.
+const WEATHER_TEST_OPTIONS = [
+  ["auto", "↻", "Auto"], ["sunny", "☀", "Sun"], ["cloudy", "☁", "Cloud"],
+  ["rain", "☂", "Rain"], ["snow", "❄", "Snow"], ["storm", "⚡", "Storm"],
+  ["fog", "≋", "Fog"], ["night", "☾", "Night"]
+];
+function onPreviewSite() {
+  return typeof window !== "undefined" &&
+    window.location.hostname === "deploy-preview-77--nibinguy.netlify.app";
+}
+function getInitialTestMode() {
+  if (!onPreviewSite()) return "auto";
+  const param = new URLSearchParams(window.location.search).get("weather")?.toLowerCase();
+  return WEATHER_TEST_OPTIONS.some(([mode]) => mode === param) ? param : "auto";
 }
 
 /** Auto-update a fixed Bangor forecast without tracking customers or asking for GPS. */
 export function useArcadeWeather() {
-  const [demo] = useState(previewMode);
-  const [weather, setWeather] = useState(() => {
-    const cached = readCache();
-    return demo || (cached ? { ...cached.weather, available: true } : FALLBACK);
+  // The fetched Bangor forecast remains separate from test-only overrides.
+  const [testMode, setTestMode] = useState(getInitialTestMode);
+  const [forecast, setForecast] = useState(() => {
+    const saved = readCache();
+    return saved ? { ...saved.weather, available: true } : FALLBACK;
   });
+  const isPreview = onPreviewSite();
+
+  function chooseWeather(next) {
+    if (!isPreview || !WEATHER_TEST_OPTIONS.some(([mode]) => mode === next)) return;
+    setTestMode(next);
+    // Keep the chosen test weather on refresh, without a page navigation.
+    try {
+      const url = new URL(window.location.href);
+      if (next === "auto") url.searchParams.delete("weather");
+      else url.searchParams.set("weather", next);
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    } catch { /* Testing still works when history is blocked. */ }
+  }
+
+  const weather = isPreview && testMode !== "auto"
+    ? { ...FALLBACK, mode: testMode === "night" ? "sunny" : testMode,
+        isNight: testMode === "night", isDemo: true, isPreview, testMode, chooseWeather }
+    : { ...forecast, isDemo: false, isPreview, testMode: "auto", chooseWeather };
 
   useEffect(() => {
     document.documentElement.dataset.arcadeWeather = weather.mode;
@@ -48,7 +74,6 @@ export function useArcadeWeather() {
   }, [weather.mode, weather.isNight]);
 
   useEffect(() => {
-    if (demo) return;
     let active = true, controller = null;
     const refresh = async () => {
       if (document.hidden || controller) return;
@@ -65,10 +90,10 @@ export function useArcadeWeather() {
           temperatureC: Number.isFinite(data.temperatureC) ? data.temperatureC : null,
           available: true, stale: Boolean(data.stale)
         };
-        setWeather(next);
+        setForecast(next);
         try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ weather: next, savedAt: Date.now() })); } catch {}
       } catch {
-        if (active && !readCache()) setWeather(FALLBACK);
+        if (active && !readCache()) setForecast(FALLBACK);
       } finally { clearTimeout(timeout); controller = null; }
     };
     const cached = readCache();
@@ -85,8 +110,35 @@ export function useArcadeWeather() {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [demo]);
+  }, []);
   return weather;
+}
+
+/** Preview-only, clickable weather switcher; no reload is needed. */
+export function ArcadeWeatherPreviewBar({ weather }) {
+  if (!weather?.isPreview) return null;
+  return (
+    <div className="n64-weather-test-bar" role="group" aria-label="Temporary weather theme testing buttons">
+      <div className="n64-weather-test-heading">
+        <strong>🎮 WEATHER TEST</strong>
+        <small>Auto restores the real Bangor weather</small>
+      </div>
+      <div className="n64-weather-test-grid">
+        {WEATHER_TEST_OPTIONS.map(([value, icon, label]) => (
+          <button
+            key={value}
+            type="button"
+            className="n64-weather-test-button"
+            aria-pressed={weather.testMode === value}
+            aria-label={value === "auto" ? "Show automatic real weather" : "Preview " + label + " theme"}
+            onClick={() => weather.chooseWeather(value)}
+          >
+            <span aria-hidden="true">{icon}</span><b>{label}</b>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function ArcadeWeatherScene({ mode, isNight }) {
@@ -94,6 +146,7 @@ export function ArcadeWeatherScene({ mode, isNight }) {
   return (
     <div className="n64-weather-scene" aria-hidden="true">
       {mode === "sunny" && !isNight && <span className="n64-weather-rays" />}
+      {isNight && <span className="n64-weather-pixel-moon" />}
       {isNight && <div className="n64-weather-stars">{STARS.map(i =>
         <i key={i} style={{ left: ((i * 47 + 9) % 97) + "%", top: ((i * 31 + 8) % 59) + "%" }} />
       )}</div>}

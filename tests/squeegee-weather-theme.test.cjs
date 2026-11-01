@@ -44,3 +44,34 @@ test("Preview 1 weather is cosmetic, mobile-safe, and booking code is untouched"
   assert.match(css, /pointer-events:none/);
   assert.match(read("src/App.jsx"), /n64-weather\.css/);
 });
+
+
+test("manual weather modes render instantly in Preview 1, with Auto restoring forecast", () => {
+  const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
+  const component = read("src/components/ArcadeWeather.jsx");
+  const landing = read("src/LandingPage.jsx");
+  const css = read("src/n64-weather.css");
+  assert.match(component, /window\.location\.hostname === "deploy-preview-77--nibinguy\.netlify\.app"/);
+  assert.match(component, /const \[testMode, setTestMode\] = useState\(getInitialTestMode\)/);
+  assert.match(component, /setTestMode\(next\)/);
+  assert.match(component, /testMode === "night" \? "sunny" : testMode/);
+  assert.match(component, /isNight: testMode === "night"/);
+  assert.match(component, /window\.history\.replaceState/);
+  for (const mode of ["auto", "sunny", "cloudy", "rain", "snow", "storm", "fog", "night"]) {
+    assert.match(component, new RegExp('\\\\["' + mode + '",'));
+  }
+  assert.match(component, /aria-pressed=\{weather\.testMode === value\}/);
+  assert.match(landing, /<ArcadeWeatherPreviewBar weather=\{weather\} \/>/);
+  assert.match(css, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+});
+
+test("night mode has a pixel moon and readable white paragraph", () => {
+  const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
+  const component = read("src/components/ArcadeWeather.jsx");
+  const css = read("src/n64-weather.css");
+  assert.match(component, /isNight && <span className="n64-weather-pixel-moon"/);
+  assert.match(component, /weather\?\.isDemo \? "TEST WEATHER"/);
+  assert.match(component, /"CLEAR NIGHT"/);
+  assert.match(css, /data-night="true".*\.n64-hero \.n64-lead/s);
+  assert.match(css, /color:#f8f9f2!important/);
+});
