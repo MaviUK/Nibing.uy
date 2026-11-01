@@ -41,6 +41,11 @@ on:
       - netlify/functions/sendTosReceipt.js
       - netlify/functions/lib/squeegeeApiV3.js
       - netlify/functions/lib/arcadePublicIdentity.js
+      - netlify/functions/lib/squeegeeActiveLeaderboardImport.js
+      - netlify/functions/lib/arcadeSqueegeeLink.js
+      - tests/squeegee-active-leaderboard.test.cjs
+      - tests/squeegee-arcade-link.test.cjs
+      - netlify/functions/squeegeePreviewLeaderboardHistory.mjs
       - netlify/functions/arcadeLeaderboard.js
       - src/components/ArcadeLeaderboard.jsx
       - public/n64-scoreboard.js
