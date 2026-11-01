@@ -10,6 +10,7 @@ export default function ArcadeLeaderboard() {
   const [updatedAt, setUpdatedAt] = useState(null);
   const [sourceAsOf, setSourceAsOf] = useState(null);
   const [historyStatus, setHistoryStatus] = useState(null);
+  const [nameConsentMode, setNameConsentMode] = useState(false);
   const [changes, setChanges] = useState({});
   const previousPlayers = useRef(null);
   const [localScore, setLocalScore] = useState({ points: 0, registered: false });
@@ -44,6 +45,8 @@ export default function ArcadeLeaderboard() {
           ? data.entries.slice(0, 10).map((p, i) => ({
               rank: i + 1,
               customerRef: String(p.customerRef || "NBG-UNKNOWN").slice(0, 20),
+              displayName: typeof p.displayName === "string"
+                ? p.displayName.slice(0, 40) : null,
               town: String(p.town || "Town unavailable").slice(0, 32),
               points: Number(p.points || 0),
             }))
@@ -68,6 +71,7 @@ export default function ArcadeLeaderboard() {
         setUpdatedAt(new Date());
         setSourceAsOf(/^\d{4}-\d{2}-\d{2}$/.test(data.sourceAsOf || "") ? data.sourceAsOf : null);
         setHistoryStatus(data.status === "active_status_refresh_required" ? data.status : null);
+        setNameConsentMode(data.status === "consent_only" || data.status === "consent_pending");
         setConnection("live");
       } catch (_) {
         if (mounted) setConnection("reconnecting");
@@ -117,7 +121,9 @@ export default function ArcadeLeaderboard() {
           </span>
         </div>
         <h2 id="n64-board-title">Global Leaderboard</h2>
-        <p>{sourceAsOf
+        <p>{nameConsentMode
+          ? "Only customers who have agreed to appear are shown by first name and town. Everyone else keeps their points privately."
+          : sourceAsOf
           ? `Active Squeegee customer rankings from the ${new Date(sourceAsOf + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} backup. Loyalty points start at 20 per paid clean, rise by 2 for each consecutive completed visit, then restart at 20 after a recorded skipped visit. Verified linked website XP is added separately.`
           : "High scores update automatically. Only customer references, towns and XP are displayed."}</p>
 
@@ -138,13 +144,15 @@ export default function ArcadeLeaderboard() {
         </div>
         <ol aria-label="Live top ten players">
           {!players.length ? (
-            <li><span>{connection === "live" ? "No registered players yet — be the first!" : "Waiting for live scores…"}</span></li>
+            <li><span>{connection !== "live" ? "Waiting for live scores…" : nameConsentMode
+              ? "Customer permissions are being collected — no public names yet."
+              : "No registered players yet — be the first!"}</span></li>
           ) : players.map((player, i) => {
             const change = changes[player.customerRef];
             return (
               <li key={player.customerRef}
                 className={change ? "n64-board-row n64-board-row--" + change : "n64-board-row"}>
-                <span><strong>{String(i + 1).padStart(2, "0")}</strong> {player.customerRef}<span className="n64-board-town"> · {player.town}</span></span>
+                <span><strong>{String(i + 1).padStart(2, "0")}</strong> {player.displayName || player.customerRef}<span className="n64-board-town"> · {player.town}</span></span>
                 <span className="n64-board-score">
                   {change && <em className="n64-rank-change" aria-label={
                     change === "new" ? "New player" :
@@ -165,7 +173,7 @@ export default function ArcadeLeaderboard() {
         <small>
           {historyStatus ? "Active account-status verification is out of date; historical scores are temporarily hidden. " : ""}
           The display refreshes every 10 seconds. Historical Squeegee scores only change after a verified data update.
-          Public entries show a pseudonymous customer reference, town and XP, never names or full addresses. Contact details remain private.
+          {nameConsentMode ? "Public entries show first name, town and XP only after recorded customer permission. Squeegee references and contact details remain private." : "Public entries show a pseudonymous customer reference, town and XP, never names or full addresses. Contact details remain private."}
         </small>
       </div>
     </section>
