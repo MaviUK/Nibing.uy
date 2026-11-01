@@ -175,6 +175,8 @@ export default function ArcadeLeaderboard() {
     };
 
     void refresh();
+    if(new URLSearchParams(window.location.search).get("owner-board")==="1")
+      void showOwnerRankings();
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
     }, REFRESH_MS);
@@ -318,9 +320,8 @@ export default function ArcadeLeaderboard() {
             <p>Sign in using your existing NI Bin Guy owner code to view all
               verified first names, towns and points. This does not change
               anyone's leaderboard permission.</p>
-            <a href="/api/squeegee-preview-leaderboard-names"
-              target="_blank" rel="noopener noreferrer">
-              OPEN SECURE OWNER SIGN-IN ↗
+            <a href="/api/squeegee-preview-leaderboard-names">
+              OPEN SECURE OWNER SIGN-IN →
             </a>
             <button type="button" onClick={showOwnerRankings}>
               I'VE SIGNED IN — LOAD ALL RANKINGS
