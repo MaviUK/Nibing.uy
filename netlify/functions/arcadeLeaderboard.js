@@ -455,13 +455,14 @@ exports.handler = async (event) => {
             eligibleCleaningXp:annualCleaningTotal,
             period,availableYears:years});
         }
-        // Yearly points are from dated private cleaning and website reward
-        // records only. Undated legacy XP stays in the Overall board.
+        // All periods, including Overall, use only verified earning dates.
+        // Legacy XP without earning dates is excluded, not reassigned.
         // The same secret-keyed public first-name wrapper protects both.
         const privateKey=customerHQ.secret(process.env);
         if(!privateKey)return out(503,{error:"leaderboard_secret_unavailable"});
         const full=annualYear===null
-          ?await historicalPreview.getStaticPreviewBoard(stores,now,true)
+          ?(await yearlyPreview.getDatedScoreBoards(
+            stores,privateCustomers,eligible.aliases,now)).overallBoard
           :await yearlyPreview.getAnnualPreviewBoard(
             stores,privateCustomers,eligible.aliases,annualYear,now);
         const publicScores=nameConsents.previewFirstNameScoreboard(
