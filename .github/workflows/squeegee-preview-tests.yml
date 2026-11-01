@@ -96,6 +96,9 @@ on:
       - public/_redirects
       - tests/squeegee-customer-hq-routing.test.cjs
       - index.html
+      - public/privacy-link.js
+      - public/n64-areas-navigation.js
+      - tests/squeegee-areas-scroll-navigation.test.cjs
       - tests/squeegee-scroll-restoration.test.cjs
       - tests/squeegee-leaderboard-inline-hq.test.cjs
       - netlify/functions/squeegeePreviewVerifiedLeaderboard.mjs
