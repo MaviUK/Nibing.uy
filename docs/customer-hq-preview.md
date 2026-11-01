@@ -58,3 +58,19 @@ Source: private 31 October 2026 Customer HQ JSON, independently reconciled to th
 
 Preview branch \`preview/n64-retro-site\` / draft PR #77 only. No Squeegee API writes and no Production changes. No private customer file was uploaded automatically.
 
+
+## 1 November 2026 — bulk account verification for the preview
+
+The owner requested that **all imported Squeegee customer records be marked verified**, while retaining the previously agreed rule that customers without an email do not count on the leaderboard.
+
+The preview now derives the explicit verification status directly from the validated, private 31 October 2026 Squeegee backup; there is no additional manual verification task or upload. In the trusted imported snapshot:
+
+- **1,022** active, non-deleted account records are recognised as verified *source records*.
+- **729** have a valid registered email, and **662** of those have points and a verified town and therefore qualify for leaderboard ranking (**519,442 historical cleaning XP**).
+- **293** active account records have no valid email; **279** of those have historical qualifying points but remain outside the public leaderboard. Their private point histories are retained.
+- The owner-only top-20 view now labels eligible accounts **Verified from Squeegee backup** and separately shows **Waiting for permission**, **Consent recorded**, or **Withdrawn**.
+- The public API reports only aggregate \`verifiedPlayers\`, \`verifiedActiveAccounts\`, \`verifiedAsOf\` counts and date. It does not disclose names, private references, or account identities of unconsented customers.
+- **Verification does not equal customer consent**, and no existing pending consent is converted into a granted one. Public names, towns and scores remain opt-in only. No synthetic consent evidence is created.
+- This is historical backup verification, not a claim that the Squeegee account is currently active. Private Customer HQ still requires a customer email code **and** live Squeegee account/email checks before releasing private data; shared-email conflicts remain blocked.
+
+All changes remain on draft N64 preview PR #77. Production remains unmodified; no Squeegee write endpoints were called.
