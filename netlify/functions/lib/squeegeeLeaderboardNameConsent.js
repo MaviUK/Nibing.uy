@@ -115,7 +115,7 @@ function preparePrivateConsentImport(csv,prior=null,now=Date.now()){
 }
 function changeConsent(snapshot,{
   reference,action,method,evidenceRef,confirm,correctedFirstName
-},now=Date.now()){
+},now=Date.now(),emailEligibleAliases=null){
   if(snapshot?.version!==1||!Array.isArray(snapshot.records)||
      snapshot.sourceAsOf!==staticHistory.AS_OF)
     throw new Error("consent_dataset_missing");
@@ -127,6 +127,8 @@ function changeConsent(snapshot,{
   const old=snapshot.records[index];
   const revised={...old};
   if(action==="grant"){
+    if(emailEligibleAliases instanceof Set && !emailEligibleAliases.has(old.alias))
+      throw new Error("email_required_for_leaderboard");
     if(confirm!=="yes"||!["signed_form","email_reply","recorded_call","portal_email_code"].includes(method)||
        typeof evidenceRef!=="string"||evidenceRef.trim().length<3||
        evidenceRef.length>120)throw new Error("consent_proof_required");
@@ -191,13 +193,16 @@ function consentStats(snapshot) {
     requiresNameReview:rows.filter(r=>r.quality!=="ready_for_consent").length,
   };
 }
-function publicConsentBoard(snapshot,fullBoard){
+function publicConsentBoard(snapshot,fullBoard,emailEligibleAliases){
+  // Without the PRIVATE Customer HQ email eligibility set, nothing is public.
+  // A valid consent alone can never re-add an account with no email.
   if(snapshot?.version!==1 || snapshot?.sourceAsOf!==staticHistory.AS_OF ||
-     !Array.isArray(snapshot.records))
+     !Array.isArray(snapshot.records) || !(emailEligibleAliases instanceof Set))
     return null;
   if(fullBoard?.status==="active_status_refresh_required")
     return {...fullBoard,entries:[],totalPlayers:0};
   const approved=new Map(snapshot.records.filter(r=>
+    emailEligibleAliases.has(r.alias) &&
     r.consent==="granted" && !r.withdrawnAt &&
     r.noticeVersion===NOTICE_VERSION && r.consentAt &&
     r.method && r.evidenceRef && safeFirstName(r.firstName) &&
