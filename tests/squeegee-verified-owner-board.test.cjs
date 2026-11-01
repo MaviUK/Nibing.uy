@@ -86,7 +86,8 @@ test("N64 home page offers public and private owner views with no private client
   assert.match(client,/SEARCH VERIFIED CUSTOMERS BY FIRST NAME OR TOWN/);
   assert.match(client,/SHOW 25 MORE/);
   assert.match(client,/PUBLIC PERMISSION NOT RECORDED/);
-  assert.match(client,/have <strong>not<\/strong> all given permission/);
+  assert.match(client,/Customer consent records/);
+  assert.match(client,/CUSTOMER CONSENT/);
   assert.match(css,/\.n64-rank-public\[hidden\]/);
   assert.match(css,/\.n64-owner-ranking\[hidden\]/);
   assert.doesNotMatch(client,/localStorage\.setItem\([^)]*owner/i);
