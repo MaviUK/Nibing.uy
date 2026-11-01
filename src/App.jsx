@@ -36,6 +36,9 @@ function SiteFooter() {
       <p className="mt-2 text-sm">
         <a className="text-green-400 underline" href="/privacy-policy.html">Privacy Policy</a>
       </p>
+      <p className="mt-2 text-xs">
+        Background weather data: <a className="text-zinc-400 underline" href="https://www.met.no/en" target="_blank" rel="noopener noreferrer">MET Norway</a> (CC BY 4.0)
+      </p>
     </footer>
   )
 }

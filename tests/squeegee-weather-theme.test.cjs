@@ -38,7 +38,7 @@ test("Preview 1 weather is cosmetic, mobile-safe, and booking code is untouched"
   assert.match(jsx, /<Hero weather=\{weather\}/);
   assert.match(jsx, /getPreviewBookingProof/);
   assert.doesNotMatch(jsx, /<SnowCanvas enabled=/);
-  assert.match(component, /deploy-preview-77--nibinguy\.netlify\.app/);
+  assert.doesNotMatch(component, /deploy-preview-77--nibinguy\.netlify\.app/);
   assert.match(component, /\/\.netlify\/functions\/arcadeWeather/);
   assert.match(css, /prefers-reduced-motion:reduce/);
   assert.match(css, /pointer-events:none/);
@@ -46,23 +46,25 @@ test("Preview 1 weather is cosmetic, mobile-safe, and booking code is untouched"
 });
 
 
-test("manual weather modes render instantly in Preview 1, with Auto restoring forecast", () => {
+test("the forecast changes only the scenery and never adds a visible weather widget", () => {
   const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
   const component = read("src/components/ArcadeWeather.jsx");
   const landing = read("src/LandingPage.jsx");
   const css = read("src/n64-weather.css");
-  assert.match(component, /window\.location\.hostname === "deploy-preview-77--nibinguy\.netlify\.app"/);
-  assert.match(component, /const \[testMode, setTestMode\] = useState\(getInitialTestMode\)/);
-  assert.match(component, /setTestMode\(next\)/);
-  assert.match(component, /testMode === "night" \? "sunny" : testMode/);
-  assert.match(component, /isNight: testMode === "night"/);
-  assert.match(component, /window\.history\.replaceState/);
-  for (const mode of ["auto", "sunny", "cloudy", "rain", "snow", "storm", "fog", "night"]) {
-    assert.ok(component.includes('["' + mode + '",'), 'Missing preview mode: ' + mode);
-  }
-  assert.match(component, /aria-pressed=\{weather\.testMode === value\}/);
-  assert.match(landing, /<ArcadeWeatherPreviewBar weather=\{weather\} \/>/);
-  assert.match(css, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  const app = read("src/App.jsx");
+  assert.match(component, /export function useArcadeWeather\(\)/);
+  assert.match(component, /setWeather\(next\)/);
+  assert.match(component, /\/\.netlify\/functions\/arcadeWeather/);
+  assert.doesNotMatch(component, /testMode|chooseWeather|WEATHER_TEST_OPTIONS|ArcadeWeatherBadge|ArcadeWeatherPreviewBar/);
+  assert.match(landing, /<ArcadeWeatherScene mode=\{weather\.mode\} isNight=\{weather\.isNight\} \/>/);
+  assert.match(landing, /data-weather=\{weather\.mode\}/);
+  assert.doesNotMatch(landing, /ArcadeWeatherBadge|ArcadeWeatherPreviewBar|n64-weather-testing/);
+  assert.doesNotMatch(css, /n64-weather-badge|n64-weather-test-/);
+  assert.match(app, /MET Norway/);
+  assert.match(css, /data-weather="rain"/);
+  assert.match(css, /data-weather="snow"/);
+  assert.match(css, /data-weather="cloudy"/);
+  assert.match(css, /data-weather="fog"/);
 });
 
 test("night mode has a pixel moon and readable white paragraph", () => {
@@ -70,8 +72,6 @@ test("night mode has a pixel moon and readable white paragraph", () => {
   const component = read("src/components/ArcadeWeather.jsx");
   const css = read("src/n64-weather.css");
   assert.match(component, /isNight && <span className="n64-weather-pixel-moon"/);
-  assert.match(component, /weather\?\.isDemo \? "TEST WEATHER"/);
-  assert.match(component, /"CLEAR NIGHT"/);
   assert.match(css, /data-night="true".*\.n64-hero \.n64-lead/s);
   assert.match(css, /color:#f8f9f2!important/);
 });

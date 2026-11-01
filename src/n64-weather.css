@@ -1,20 +1,5 @@
 /* NI BIN GUY — weather-responsive N64 scenery. Preview 1 only. */
-/* Badge sits in the hero column, never over navigation or forms. */
-#main-content.n64-world .n64-weather-badge{
-  display:inline-flex;gap:9px;align-items:center;max-width:100%;margin-top:16px;
-  border:3px solid #20345c!important;background:#fff9e8;color:#23365e;
-  padding:7px 11px;box-shadow:4px 5px 0 #4d7f9d;
-  font:800 .67rem/1.35 Verdana,sans-serif;text-align:left;position:relative;z-index:4;
-}
-#main-content.n64-world .n64-weather-badge-icon{
-  display:grid;place-items:center;flex-shrink:0;width:30px;height:30px;
-  background:#ffe078;border:2px solid #20345c;font-size:1.15rem;
-}
-#main-content.n64-world .n64-weather-badge small{
-  display:block;font-size:.55rem;line-height:1.45;font-weight:650;color:#4e5870;
-}
-#main-content.n64-world .n64-weather-badge a{color:inherit;text-decoration:underline;}
-#main-content.n64-world .n64-weather-badge+.n64-kicker{margin-top:23px;}
+/* N64 background weather visuals, with no status badges or test bar. */
 #main-content.n64-world .n64-weather-scene{
   position:absolute;inset:0;overflow:hidden;z-index:1;pointer-events:none;
 }
@@ -149,17 +134,7 @@ html[data-arcade-weather="snow"] #level-08-final{
   background:linear-gradient(160deg,#c4e2f5 0%,#f2f9fb 68%,#d3e8db 100%)!important;
 }
 
-@media(max-width:950px){
-  #main-content.n64-world .n64-weather-badge{margin-left:auto;margin-right:auto;}
-}
 @media(max-width:600px){
-  #main-content.n64-world .n64-weather-badge{
-    gap:7px;margin-top:13px;padding:6px 8px;max-width:100%;
-    font-size:.59rem;box-shadow:3px 4px 0 #4d7f9d;
-  }
-  #main-content.n64-world .n64-weather-badge-icon{width:26px;height:26px;font-size:1rem;}
-  #main-content.n64-world .n64-weather-badge small{font-size:.49rem;}
-  #main-content.n64-world .n64-weather-badge+.n64-kicker{margin-top:18px;}
   #main-content.n64-world .n64-weather-rays{width:120px;height:120px;}
   #main-content.n64-world .n64-weather-lightning{right:10%;width:50px;height:95px;}
 }
@@ -172,45 +147,6 @@ html[data-arcade-weather="snow"] #level-08-final{
 }
 
 
-/* TEMPORARY PREVIEW 1 ONLY — responsive 8-mode manual weather tester.
-   The fixed menu/area controls occupy the upper 110px on mobile. */
-#main-content.n64-world .n64-hero-layout-v2.n64-weather-testing{
-  padding-top:130px!important;
-}
-#main-content.n64-world .n64-weather-test-bar{
-  position:relative;z-index:9;max-width:1100px;margin:0 auto 24px;
-  padding:9px 10px 10px;border:3px solid #20345c!important;
-  background:#fff7dc;color:#20345c;box-shadow:5px 6px 0 #56789b;
-}
-#main-content.n64-world .n64-weather-test-heading{
-  display:flex;align-items:center;justify-content:space-between;gap:8px;
-  margin:0 0 9px;font:900 .72rem/1.3 Verdana,sans-serif;
-}
-#main-content.n64-world .n64-weather-test-heading small{
-  color:#4e6180;text-align:right;font:750 .59rem/1.3 Verdana,sans-serif;
-}
-#main-content.n64-world .n64-weather-test-grid{
-  display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:7px;
-}
-#main-content.n64-world .n64-weather-test-button{
-  appearance:none;display:flex;justify-content:center;align-items:center;
-  min-width:0;min-height:45px;gap:6px;padding:7px 4px;
-  border:3px solid #20345c!important;border-radius:0!important;
-  background:#fffdf3!important;color:#20345c!important;
-  box-shadow:2px 3px 0 #7b9aaf;cursor:pointer;touch-action:manipulation;
-  font:900 .72rem/1 Verdana,sans-serif;
-}
-#main-content.n64-world .n64-weather-test-button span{font-size:1.1rem;line-height:1;}
-#main-content.n64-world .n64-weather-test-button[aria-pressed="true"]{
-  background:#ffe069!important;box-shadow:2px 3px 0 #b78a31;
-  outline:2px solid #fff!important;outline-offset:-5px;
-}
-#main-content.n64-world .n64-weather-test-button:focus-visible{
-  outline:3px solid #257498!important;outline-offset:2px;
-}
-#main-content.n64-world .n64-weather-test-button:active{
-  transform:translateY(2px);box-shadow:none;
-}
 /* Night is not merely a dark sky: replace the soft round moon with pixel art
    and make all hero copy legible against a midnight-blue background. */
 #main-content.n64-world[data-night="true"] .n64-hero{
@@ -233,35 +169,11 @@ html[data-arcade-weather="snow"] #level-08-final{
     100% 73%,91% 73%,91% 91%,73% 91%,73% 100%,27% 100%,
     27% 91%,9% 91%,9% 73%,0 73%,0 27%,9% 27%,9% 9%,27% 9%);
 }
-@media(max-width:800px){
-  #main-content.n64-world .n64-weather-test-grid{
-    grid-template-columns:repeat(4,minmax(0,1fr));
-  }
-  #main-content.n64-world .n64-weather-test-button{
-    flex-direction:column;gap:3px;min-height:51px;
-  }
-}
 @media(max-width:600px){
-  #main-content.n64-world .n64-hero-layout-v2.n64-weather-testing{
-    padding-top:128px!important;
-  }
-  #main-content.n64-world .n64-weather-test-bar{
-    padding:8px 7px 10px;margin-bottom:20px;box-shadow:3px 4px 0 #56789b;
-  }
-  #main-content.n64-world .n64-weather-test-heading{font-size:.62rem;gap:4px;}
-  #main-content.n64-world .n64-weather-test-heading small{font-size:.48rem;}
-  #main-content.n64-world .n64-weather-test-button{
-    min-height:49px;padding:5px 2px;font-size:.61rem;border-width:2px!important;
-  }
-  #main-content.n64-world .n64-weather-test-button span{font-size:1.05rem;}
-  #main-content.n64-world .n64-weather-pixel-moon{
+  #main-content.n64-world .n64-weather-pixel-moon {
     top:19%;right:6%;width:64px;height:64px;
   }
 }
-@media(prefers-reduced-motion:reduce){
-  #main-content.n64-world .n64-weather-test-button{transition:none!important;}
-}
-
 
 /*
  * Thunderstorm: two short, soft lightning pulses every ten seconds.

@@ -6,7 +6,7 @@ import LevelWasher from "./components/LevelWasher.jsx";
 import { CustomerReviews, CustomerQuestions } from "./components/CustomerTrustSections.jsx";
 import BookingAddressAutocomplete, { findNiPostcode } from "./components/BookingAddressAutocomplete.jsx";
 import { createFriendlyBookingReference } from "./bookingReference.mjs";
-import { useArcadeWeather, ArcadeWeatherScene, ArcadeWeatherBadge, ArcadeWeatherPreviewBar } from "./components/ArcadeWeather.jsx";
+import { useArcadeWeather, ArcadeWeatherScene } from "./components/ArcadeWeather.jsx";
 
 const TenSecondChallenge = lazy(() => import("./TenSecondChallenge.jsx"));
 const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
@@ -1338,12 +1338,11 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage, weathe
 
 
   return (
-    <section className={`n64-hero n64-hero-layout-v2${weather.isPreview ? " n64-weather-testing" : ""}`} aria-labelledby="n64-hero-title">
+    <section className="n64-hero n64-hero-layout-v2" aria-labelledby="n64-hero-title">
       <div className="n64-cloud n64-cloud--one" aria-hidden="true" />
       <div className="n64-cloud n64-cloud--two" aria-hidden="true" />
       <div className="n64-cloud n64-cloud--three" aria-hidden="true" />
       <ArcadeWeatherScene mode={weather.mode} isNight={weather.isNight} />
-      <ArcadeWeatherPreviewBar weather={weather} />
 
       <div className="n64-hero-inner">
         <div className="n64-hero-copy">
@@ -1362,7 +1361,6 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage, weathe
             </div>
           </div>
 
-          <ArcadeWeatherBadge weather={weather} />
           <div className="n64-kicker">★ THE 4-WEEKLY CLEANING ADVENTURE ★</div>
           <h1 id="n64-hero-title" className="n64-headline">
             BIN CLEANING<br />
