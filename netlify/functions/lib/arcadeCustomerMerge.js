@@ -144,6 +144,35 @@ function reconcileActivity(row,now=Date.now()){
     periodicXP:rawPeriodicXP-duplicateXP,duplicateXP,
     total:legacyXP+rawPeriodicXP-duplicateXP};
 }
+/**
+ * Authenticated, private reward eligibility. An identical customer UUID has
+ * one server-side set of earned achievements regardless of which phone logs in.
+ * Only return the active UK month/day and lifetime once-only keys; this is not
+ * a public leaderboard field and contains no customer identifiers.
+ */
+function achievementState(row,now=Date.now()){
+  const currentDay=ukDay(now);
+  const month=currentDay.slice(0,7);
+  const {claimed,dated,recordedAt}=reconcileActivity(row,now);
+  const earned=new Set();
+  // Previous lifetime achievements are recoverable if their earliest
+  // recorded month is the current month; older months can earn levels anew.
+  const recordedMonth=ukDay(Date.parse(recordedAt)).slice(0,7);
+  for(const key of claimed){
+    if(key.startsWith("l:")){
+      if(recordedMonth===month)earned.add(key+"@"+month);
+    }else{
+      earned.add(key); // bin day and coverage are once ever
+    }
+  }
+  for(const event of dated){
+    if(event.category==="website_level"&&event.period===month)
+      earned.add(event.key);
+    else if(event.category==="website_action"&&event.period===currentDay)
+      earned.add(event.key);
+  }
+  return {month,day:currentDay,earnedKeys:[...earned].sort()};
+}
 function activityBalance(row){
   const {legacyXP,periodicXP,duplicateXP,total}=reconcileActivity(row);
   return {legacyXP,periodicXP,duplicateXP,total};
@@ -366,6 +395,6 @@ async function linkVerifiedPortalAccount({account,liveCustomer,
     {linked:false,reason:"link_race_requires_review"};
 }
 module.exports={STORE,ACTIVITY_POINTS,DAILY_POINTS,ACTIVITY_LABELS,
-  activityKeys,activityXP,ukDay,normalisePeriodEvent,reconcileActivity,activityBalance,
+  activityKeys,activityXP,ukDay,normalisePeriodEvent,reconcileActivity,achievementState,activityBalance,
   activityHistory,levelOrdinal,sortedRewardsHistory,recordedAtFrom,readActivityRecord,combinedWebsiteXP,
   activityKey,readActivity,syncActivity,linkVerifiedPortalAccount};

@@ -107,6 +107,12 @@
   let periodEvents = readPeriodEvents(stored?.periodic);
   let accountTotal = null;
   let accountCustomerRef = null;
+  // This is server-confirmed, per-customer progress (never copied into the
+  // anonymous cookie or into another customer's phone history).
+  let accountAchievementMode = "loading";
+  let accountAchievementMonth = null;
+  let accountAchievementDay = null;
+  let accountEarnedKeys = new Set();
   let accountRefreshPending = false;
   let accountRefreshQueued = false;
   let accountRevision = 0;
@@ -213,6 +219,11 @@
   }
 
   function awardPeriod(key,points,label) {
+    // Do not award while checking whether this phone belongs to a customer
+    // who already completed the task on another device.
+    if(accountAchievementMode==="loading")return false;
+    if(accountAchievementMode==="verified"&&accountEarnedKeys.has(key))
+      return false;
     if(periodEvents.some(x=>x.key===key))return false;
     if(!Number.isSafeInteger(points)||points<=0||points>1000)return false;
     saved=true;
@@ -231,10 +242,19 @@
   function levelStatus(sectionId){
     const level=LEVELS[String(sectionId||"")];
     if(!level)return "unknown";
+    if(accountAchievementMode==="loading")return "pending";
     const month=ukDate().slice(0,7);
-    if(periodEvents.some(e=>e.key==="l:"+sectionId+"@"+month))return "earned";
-    const unlocked=LEVEL_SEQUENCE.slice(0,level-1).every(id=>
-      periodEvents.some(e=>e.key==="l:"+id+"@"+month));
+    // If a tab remained open into a new month, refresh verified eligibility
+    // before trying to award any XP for that month.
+    if(accountAchievementMode==="verified"&&accountAchievementMonth!==month)
+      return "pending";
+    const earned=id=>{
+      const key="l:"+id+"@"+month;
+      return (accountAchievementMode==="verified"&&accountEarnedKeys.has(key))||
+        periodEvents.some(e=>e.key===key);
+    };
+    if(earned(sectionId))return "earned";
+    const unlocked=LEVEL_SEQUENCE.slice(0,level-1).every(earned);
     return unlocked?"ready":"locked";
   }
   function awardLevel(sectionId) {
@@ -244,8 +264,14 @@
       POINTS.level,"Level "+String(level).padStart(2,"0")+" completed");
   }
   function awardAction(name) {
-    if(name==="coverage")return award("a:coverage",POINTS.coverage,"Checked service area");
-    if(name==="bin-checker")return award("a:bin-checker",POINTS.binChecker,"Checked bin collection day");
+    if(accountAchievementMode==="loading")return false;
+    if(name==="coverage" || name==="bin-checker"){
+      const key="a:"+name;
+      if(accountAchievementMode==="verified"&&accountEarnedKeys.has(key))
+        return false;
+      return award(key,name==="coverage"?POINTS.coverage:POINTS.binChecker,
+        name==="coverage"?"Checked service area":"Checked bin collection day");
+    }
     const daily={
       "free-clean":[POINTS.freeClean,"Played Free Bin Clean"],
       "customer-portal":[POINTS.customerPortal,"Visited customer portal"],
@@ -283,6 +309,37 @@
   }
 
 
+  function applyAchievementState(account){
+    let mode="guest",month=null,day=null,keys=new Set();
+    if(account){
+      mode="loading"; // Fail closed until the verified ledger is available.
+      const record=account.achievementState;
+      if(record&&typeof record==="object"&&
+         record.month===ukDate().slice(0,7)&&
+         record.day===ukDate()&&Array.isArray(record.earnedKeys)&&
+         record.earnedKeys.length<=200){
+        mode="verified";
+        month=record.month;
+        day=record.day;
+        keys=new Set(record.earnedKeys.filter(key=>
+          typeof key==="string"&&
+          /^(?:l:[a-z0-9-]+@\d{4}-\d{2}|a:[a-z-]+(?:@\d{4}-\d{2}-\d{2})?)$/.test(key)));
+      }
+    }
+    const changed=mode!==accountAchievementMode ||
+      month!==accountAchievementMonth ||
+      day!==accountAchievementDay ||
+      keys.size!==accountEarnedKeys.size ||
+      [...keys].some(key=>!accountEarnedKeys.has(key));
+    accountAchievementMode=mode;
+    accountAchievementMonth=month;
+    accountAchievementDay=day;
+    accountEarnedKeys=keys;
+    if(changed){
+      window.dispatchEvent(new Event("n64:achievement-state-changed"));
+    }
+  }
+
   // The verified customer session is HttpOnly. The badge never guesses an
   // account from a public leaderboard name or the unsigned website cookie.
   // Customer HQ is the authority for the combined score. Ignore any
@@ -317,6 +374,7 @@
       if(!fresh){
         accountTotal=null;
         accountCustomerRef=null;
+        applyAchievementState(null);
         redraw();
         return;
       }
@@ -328,6 +386,7 @@
       const changed=accountTotal!==fresh.points || accountCustomerRef!==ref;
       accountTotal=fresh.points;
       accountCustomerRef=ref;
+      applyAchievementState(fresh);
       redraw();
       if(changed)publishVerifiedTotal();
     } catch (_) {
@@ -656,10 +715,14 @@
       if(!Number.isSafeInteger(total)||total<0){
         accountTotal=null;
         accountCustomerRef=null;
+        applyAchievementState(null);
       }else{
         // Verified Customer HQ can also report a corrected LOWER total.
-        // Do not retain stale, inflated XP after the server deduplicates it.
         accountTotal=total;
+        if(accountCustomerRef!==ref || event.detail.achievementState)
+          applyAchievementState({
+            achievementState:event.detail.achievementState,
+          });
         accountCustomerRef=ref;
       }
       accountLastCheck=Date.now();
@@ -675,11 +738,25 @@
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
         scheduleProgressSync();
-        void refreshAccountTotal();
+        // Fetch also when the month/day has rolled over, even if the
+        // ordinary 15-second refresh throttle has not elapsed.
+        void refreshAccountTotal(
+          accountAchievementMode==="verified"&&
+          (accountAchievementMonth!==ukDate().slice(0,7)||
+            accountAchievementDay!==ukDate())
+        );
       }
     });
     window.setInterval(() => {
       if (!panel.hidden && document.visibilityState === "visible") void refreshLeaderboard();
+      if(document.visibilityState==="visible"&&
+         accountAchievementMode==="verified"){
+        // Another phone can earn XP while this one remains open.
+        // Recheck verified progress roughly every 15 seconds.
+        const periodChanged=accountAchievementMonth!==ukDate().slice(0,7)||
+          accountAchievementDay!==ukDate();
+        void refreshAccountTotal(periodChanged);
+      }
     }, 15000);
     if (playerToken) scheduleProgressSync();
     else window.setTimeout(recoverExistingBookings, 1100);

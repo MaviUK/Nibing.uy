@@ -74,8 +74,9 @@ function scoreboardInBrowser({getCustomerHQ,localXP=400}={}){
   return {
     window,requests,
     score:()=>nodes.get("[data-n64-score]").textContent,
-    announce(points,customerReference=null){
-      window.dispatchEvent({type:"n64:account-score",detail:{points,customerReference}});
+    announce(points,customerReference=null,achievementState){
+      window.dispatchEvent({type:"n64:account-score",
+        detail:{points,customerReference,achievementState}});
     }
   };
 }
@@ -132,7 +133,7 @@ test("temporary customer API failures do not erase the last verified total",asyn
 test("script URL is cache-busted and overrides generic Netlify JS caching",()=>{
   const html=fs.readFileSync(path.join(ROOT,"index.html"),"utf8");
   const toml=fs.readFileSync(path.join(ROOT,"netlify.toml"),"utf8");
-  assert.match(html,/n64-scoreboard\.js\?v=20261101-dedupe-history-4/);
+  assert.match(html,/n64-scoreboard\.js\?v=20261101-cross-device-progress-5/);
   assert.match(toml,/for = "\/n64-scoreboard\.js"\s+\[headers\.values\]\s+Cache-Control = "no-store, no-cache, max-age=0, must-revalidate"/);
   const hq=fs.readFileSync(path.join(ROOT,"src/pages/CustomerHQ.jsx"),"utf8");
   assert.match(hq,/new CustomEvent\("n64:account-score"/);
@@ -190,12 +191,14 @@ test("the profile accepts corrected totals in both directions and refreshes date
 });
 
 
-test("website level XP is earned 01 to 08 in sequence, never by skipping forward",()=>{
+test("website level XP is earned 01 to 08 in sequence, never by skipping forward",async()=>{
   const h=scoreboardInBrowser({
     getCustomerHQ:async()=>({ok:true,json:async()=>({authenticated:false})}),
     localXP:0,
   });
   const game=h.window.n64Score;
+  assert.equal(game.levelStatus("what-we-do"),"pending");
+  await tick(); // Guest mode is known only after Customer HQ auth resolves.
   const ids=["what-we-do","the-process","bins-we-clean","why-clean-your-bin",
     "why-ni-bin-guy","areas-we-cover","customer-portal","level-08-final"];
   assert.equal(game.levelStatus(ids[0]),"ready");
@@ -221,7 +224,7 @@ test("completed visual level can be revisited when earlier checkpoints unlock it
   assert.match(levelRun,/creditCompletedLevel\(track\)/);
   assert.match(levelRun,/addEventListener\("n64:score-updated", scheduleCheck\)/);
   const html=fs.readFileSync(path.join(ROOT,"index.html"),"utf8");
-  assert.match(html,/n64-level-run\.js\?v=8-ordered-rewards/);
+  assert.match(html,/n64-level-run\.js\?v=9-cross-device-progress/);
 });
 
 
@@ -235,4 +238,107 @@ test("the profile must not reject valid lower totals after legacy XP is deduplic
   assert.ok(!hud.includes("total>=accountTotal"));
   assert.match(hud,/accountTotal=fresh\.points/);
   assert.match(hud,/accountTotal=total/);
+});
+
+
+function ukNow(){
+  const parts=Object.fromEntries(new Intl.DateTimeFormat("en-GB",{
+    timeZone:"Europe/London",year:"numeric",month:"2-digit",day:"2-digit",
+  }).formatToParts(new Date()).map(x=>[x.type,x.value]));
+  return parts.year+"-"+parts.month+"-"+parts.day;
+}
+const IDS=["what-we-do","the-process","bins-we-clean","why-clean-your-bin",
+  "why-ni-bin-guy","areas-we-cover","customer-portal","level-08-final"];
+function remoteState(completed=IDS){
+  const day=ukNow(),month=day.slice(0,7);
+  return {
+    month,day,
+    earnedKeys:completed.map(id=>"l:"+id+"@"+month)
+      .concat(["a:bin-checker","a:customer-portal@"+day])
+  };
+}
+
+test("different phone inherits all eight completed levels after verified login",async()=>{
+  const state=remoteState();
+  const h=scoreboardInBrowser({
+    localXP:0,
+    getCustomerHQ:async()=>({ok:true,json:async()=>({
+      authenticated:true,
+      account:{points:607,customerReference:"CUS987",achievementState:state},
+    })}),
+  });
+  const score=h.window.n64Score;
+  assert.equal(score.levelStatus("what-we-do"),"pending",
+    "cannot award anything until the account lookup finishes");
+  assert.equal(score.awardLevel("what-we-do"),false);
+  await tick();
+  assert.equal(h.score(),"607");
+  for(const id of IDS){
+    assert.equal(score.levelStatus(id),"earned",id+" stays finished");
+    assert.equal(score.awardLevel(id),false,id+" cannot pay XP again");
+  }
+  assert.equal(score.awardAction("bin-checker"),false);
+  assert.equal(score.awardAction("customer-portal"),false);
+  assert.equal(score.activityEvents().length,0,
+    "the new phone is not given unearned local XP or duplicated records");
+  assert.equal(score.points(),607,"account score is authoritative across phones");
+});
+
+test("partial completed account carries over and only the next level is eligible",async()=>{
+  const h=scoreboardInBrowser({
+    localXP:0,
+    getCustomerHQ:async()=>({ok:true,json:async()=>({
+      authenticated:true,account:{
+        points:200,customerReference:"CUS123",
+        achievementState:remoteState(IDS.slice(0,3)),
+      }
+    })})
+  });
+  await tick();
+  const game=h.window.n64Score;
+  for(let i=0;i<3;i++){
+    assert.equal(game.levelStatus(IDS[i]),"earned");
+    assert.equal(game.awardLevel(IDS[i]),false);
+  }
+  assert.equal(game.levelStatus(IDS[3]),"ready");
+  assert.equal(game.levelStatus(IDS[4]),"locked");
+  assert.equal(game.awardLevel(IDS[4]),false);
+  assert.equal(game.awardLevel(IDS[3]),true);
+  assert.equal(game.levelStatus(IDS[3]),"earned");
+  assert.equal(game.levelStatus(IDS[4]),"ready");
+  assert.equal(game.points(),200,"new local actions never inflate verified XP");
+  assert.equal(game.activityEvents().length,1);
+});
+
+test("sign-out and switching customers clears the previous account's earned levels",async()=>{
+  const h=scoreboardInBrowser({
+    localXP:0,
+    getCustomerHQ:async()=>({ok:true,json:async()=>({
+      authenticated:true,account:{
+        points:450,customerReference:"CUS1",achievementState:remoteState(),
+      }
+    })})
+  });
+  await tick();
+  assert.equal(h.window.n64Score.levelStatus(IDS[0]),"earned");
+  h.announce(null);
+  assert.equal(h.window.n64Score.levelStatus(IDS[0]),"ready",
+    "the previous customer's completion isn't copied into guest progress");
+  h.announce(25,"CUS2",remoteState([]));
+  assert.equal(h.window.n64Score.levelStatus(IDS[0]),"ready");
+  assert.equal(h.window.n64Score.awardLevel(IDS[2]),false);
+  assert.equal(h.window.n64Score.awardLevel(IDS[0]),true);
+});
+
+test("level animation waits for verified progress and marks remote-earned flags without replay",()=>{
+  const source=fs.readFileSync(path.join(ROOT,"public/n64-level-run.js"),"utf8");
+  assert.match(source,/function markAlreadyEarned\(track\)/);
+  assert.match(source,/function onAchievementStateChanged\(\)/);
+  assert.match(source,/addEventListener\("n64:achievement-state-changed"/);
+  assert.match(source,/if\(status==="pending"\)return/);
+  assert.match(source,/if\(status==="earned"\)\{markAlreadyEarned\(track\);continue;\}/);
+  const hq=fs.readFileSync(path.join(ROOT,"src/pages/CustomerHQ.jsx"),"utf8");
+  assert.match(hq,/achievementState:current\.achievementState/);
+  assert.match(scoreboard,/accountAchievementMode === "loading"|"loading"\)/);
+  assert.match(scoreboard,/accountAchievementMode==="verified"&&accountEarnedKeys\.has\(key\)/);
 });

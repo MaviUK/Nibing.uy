@@ -50,14 +50,32 @@
     area.appendChild(track);
   }
 
+  function markAlreadyEarned(track) {
+    // A fresh phone inherits completion from Customer HQ without replaying
+    // the washer animation or showing another +50 XP.
+    if(!track.isConnected)return;
+    window.clearTimeout(track._n64Timer);
+    track._n64Timer=null;
+    track.dataset.n64RunStage="complete";
+    track.classList.remove("n64-run-active");
+    track.classList.add("n64-run-complete");
+    const label=track.querySelector(".n64-level-complete");
+    if(label)label.textContent="LEVEL COMPLETED!";
+    waiting.delete(track);
+    pendingCredits.delete(track);
+  }
+
   function creditCompletedLevel(track) {
     if(!track.isConnected)return;
     const levelId=track.closest("section")?.id;
     const status=window.n64Score?.levelStatus?.(levelId);
     const label=track.querySelector(".n64-level-complete");
     if(status==="earned"){
-      if(label)label.textContent="LEVEL COMPLETED!";
-      pendingCredits.delete(track);
+      markAlreadyEarned(track);
+      return;
+    }
+    if(status==="pending"){
+      pendingCredits.add(track);
       return;
     }
     if(status==="locked"){
@@ -88,6 +106,12 @@
 
   function runOnce(track) {
     if (!track.isConnected || track.dataset.n64RunStage !== "ready") return;
+    const status=window.n64Score?.levelStatus?.(track.closest("section")?.id);
+    if(status==="earned"){
+      markAlreadyEarned(track);
+      return;
+    }
+    if(status==="pending")return;
     track.dataset.n64RunStage = "running";
     waiting.delete(track);
 
@@ -124,6 +148,9 @@
     // waits for a *visible revisit* rather than silently adding XP offscreen.
     for(const track of pendingCredits){
       if(!track.isConnected){pendingCredits.delete(track);continue;}
+      const status=window.n64Score?.levelStatus?.(track.closest("section")?.id);
+      if(status==="earned"){markAlreadyEarned(track);continue;}
+      if(status==="pending")continue;
       const rect=track.getBoundingClientRect();
       if(rect.height>0 && rect.top<enterLine && rect.bottom>safeTop){
         creditCompletedLevel(track);
@@ -139,6 +166,9 @@
         waiting.delete(track);
         continue;
       }
+      const status=window.n64Score?.levelStatus?.(track.closest("section")?.id);
+      if(status==="earned"){markAlreadyEarned(track);continue;}
+      if(status==="pending")continue;
       const rect = track.getBoundingClientRect();
       // Wait until the strip is actually visible rather than starting the
       // animation when the level container first enters the viewport.
@@ -162,6 +192,10 @@
     if (registered.has(track)) return;
     if (!track.closest("#main-content.n64-world, #areas-we-cover, #customer-portal, #level-08-final")) return;
     registered.add(track);
+    if(window.n64Score?.levelStatus?.(track.closest("section")?.id)==="earned"){
+      markAlreadyEarned(track);
+      return;
+    }
     track.dataset.n64RunStage = "ready";
     waiting.add(track);
     scheduleCheck();
@@ -174,6 +208,18 @@
     }
     if (node.matches?.(TRACK)) register(node);
     node.querySelectorAll?.(TRACK).forEach(register);
+  }
+
+  function onAchievementStateChanged(){
+    // A customer may sign in after the page has rendered. Convert ALL of
+    // their previously completed level tracks to permanent completed flags,
+    // including tracks that were running before the login response arrived.
+    document.querySelectorAll(TRACK).forEach(track=>{
+      if(!registered.has(track))return;
+      const status=window.n64Score?.levelStatus?.(track.closest("section")?.id);
+      if(status==="earned")markAlreadyEarned(track);
+    });
+    scheduleCheck();
   }
 
   function init() {
@@ -192,6 +238,7 @@
     window.addEventListener("resize", scheduleCheck, { passive: true });
     window.addEventListener("pageshow", scheduleCheck);
     window.addEventListener("n64:score-updated", scheduleCheck);
+    window.addEventListener("n64:achievement-state-changed",onAchievementStateChanged);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") scheduleCheck();
     });

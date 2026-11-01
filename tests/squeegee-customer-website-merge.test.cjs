@@ -574,3 +574,73 @@ test("the same daily portal or free clean action isn't affected by level dedup",
   assert.equal(events.length,4);
   assert.equal(events.reduce((n,e)=>n+e.points,0),135);
 });
+
+
+test("a verified customer brings completed November levels to a different phone",()=>{
+  const at=Date.parse("2026-11-01T16:10:00.000Z");
+  const events=["what-we-do","the-process","bins-we-clean",
+    "why-clean-your-bin","why-ni-bin-guy","areas-we-cover",
+    "customer-portal","level-08-final"].map((id,i)=>({
+    key:"l:"+id+"@2026-11",
+    earnedAt:new Date(at-(8-i)*5000).toISOString(),
+  }));
+  const row={
+    claimed:["a:bin-checker"],
+    firstRecordedAt:"2026-10-20T15:00:00.000Z",
+    events:events.concat([
+      {key:"a:customer-portal@2026-11-01",earnedAt:new Date(at).toISOString()},
+      {key:"a:contact@2026-10-31",earnedAt:"2026-10-31T16:00:00.000Z"},
+    ])
+  };
+  const status=merge.achievementState(row,at);
+  assert.equal(status.month,"2026-11");
+  assert.equal(status.day,"2026-11-01");
+  assert.deepEqual(status.earnedKeys.filter(x=>x.startsWith("l:")),
+    events.map(x=>x.key).sort());
+  assert.ok(status.earnedKeys.includes("a:bin-checker"));
+  assert.ok(status.earnedKeys.includes("a:customer-portal@2026-11-01"));
+  assert.ok(!status.earnedKeys.includes("a:contact@2026-10-31"));
+  assert.ok(!JSON.stringify(status).includes("customerId"));
+  assert.ok(!JSON.stringify(status).includes("email"));
+});
+
+test("a recorded legacy monthly level is restored only during its recorded month",()=>{
+  const row={
+    claimed:["l:what-we-do","l:the-process","a:bin-checker"],
+    firstRecordedAt:"2026-10-23T10:00:00.000Z",
+  };
+  const oct=merge.achievementState(row,Date.parse("2026-10-25T10:00:00Z"));
+  const nov=merge.achievementState(row,Date.parse("2026-11-01T10:00:00Z"));
+  assert.ok(oct.earnedKeys.includes("l:what-we-do@2026-10"));
+  assert.ok(oct.earnedKeys.includes("l:the-process@2026-10"));
+  assert.ok(nov.earnedKeys.includes("a:bin-checker"));
+  assert.ok(!nov.earnedKeys.some(k=>k.startsWith("l:")));
+  assert.equal(nov.month,"2026-11");
+});
+
+test("a customer's credited levels become eligible again next UK calendar month",()=>{
+  const row={
+    claimed:[],
+    events:[
+      {key:"l:what-we-do@2026-11",earnedAt:"2026-11-01T12:00:00.000Z"},
+      {key:"l:the-process@2026-11",earnedAt:"2026-11-01T12:01:00.000Z"},
+      {key:"a:contact@2026-11-01",earnedAt:"2026-11-01T12:03:00.000Z"},
+    ]
+  };
+  const nov=merge.achievementState(row,Date.parse("2026-11-01T14:00:00Z"));
+  assert.ok(nov.earnedKeys.includes("l:what-we-do@2026-11"));
+  const dec=merge.achievementState(row,Date.parse("2026-12-01T13:00:00Z"));
+  assert.equal(dec.month,"2026-12");
+  assert.ok(!dec.earnedKeys.some(k=>k.startsWith("l:")));
+  assert.ok(!dec.earnedKeys.some(k=>k.startsWith("a:contact@")));
+});
+
+test("customer HQ returns private achievement state to the logged-in account only",()=>{
+  const src=require("node:fs").readFileSync(
+    require("node:path").join(__dirname,"../netlify/functions/customerHQ.mjs"),"utf8");
+  assert.match(src,/merge\.achievementState\(record\)/);
+  assert.match(src,/achievementState:rewards\.achievementState/);
+  assert.match(src,/lookupVerifiedSession\(request,ledger\)/);
+  assert.match(src,/readActivityRecord\(activityStore\(\),customerId\)/);
+  assert.ok(!src.includes("merge.readActivityRecord(activityStore(),customerId).catch(()=>null)"));
+});

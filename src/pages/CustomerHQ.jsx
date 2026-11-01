@@ -113,7 +113,8 @@ export default function CustomerHQ({embedded=false}){
         current.firstName||"");
       setChallenge(null);setCode("");
       window.dispatchEvent(new CustomEvent("n64:account-score",{
-        detail:{points:current.points,customerReference:current.customerReference},
+        detail:{points:current.points,customerReference:current.customerReference,
+          achievementState:current.achievementState},
       }));
     }else{
       verifiedSnapshotRef.current=null;

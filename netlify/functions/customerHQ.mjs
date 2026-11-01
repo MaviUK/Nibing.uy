@@ -80,7 +80,7 @@ async function linkedWebsiteXP(customerId) {
 async function customerWebsiteRewards(customerId){
   const [linked,record]=await Promise.all([
     linkedWebsiteXP(customerId),
-    merge.readActivityRecord(activityStore(),customerId).catch(()=>null),
+    merge.readActivityRecord(activityStore(),customerId),
   ]);
   const balance=merge.activityBalance(record);
   const websiteXp=merge.combinedWebsiteXP({
@@ -134,7 +134,7 @@ async function customerWebsiteRewards(customerId){
       ...recordedDateFields,points:remaining,
       note:"Exact booking-by-booking dates unavailable; using previous account record date"});
   }
-  return {websiteXp,history};
+  return {websiteXp,history,achievementState:merge.achievementState(record)};
 }
 function allRewardsHistory(cleaningHistory,websiteHistory){
   return merge.sortedRewardsHistory(cleaningHistory,websiteHistory);
@@ -211,6 +211,7 @@ export default async function handler(request,context) {
       const account=auth.publicAccount(session.account,rewards.websiteXp);
       return respond(200,{ready:true,authenticated:true,
         account:{...account,
+          achievementState:rewards.achievementState,
           rewardsHistory:allRewardsHistory(account.history,rewards.history)},
         leaderboard:{...visibility,
           noticeVersion:nameConsents.NOTICE_VERSION},
@@ -283,7 +284,8 @@ export default async function handler(request,context) {
       });
       const rewards=await customerWebsiteRewards(session.account.id);
       return respond(200,{saved:true,changed:saved.changed,
-        websiteXp:rewards.websiteXp});
+        websiteXp:rewards.websiteXp,
+        achievementState:rewards.achievementState});
     }
     if(action==="leaderboard-opt-in"||action==="leaderboard-withdraw"){
       const session=await lookupVerifiedSession(request,ledger);
