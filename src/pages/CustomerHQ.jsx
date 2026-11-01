@@ -141,7 +141,7 @@ export default function CustomerHQ(){
       {loading?<GamePanel><div className="hq-loading">LOADING CUSTOMER HQ…</div></GamePanel>:
       !ready?<GamePanel label="COMING ONLINE">
         <p>We're connecting your historical cleaning points to secure customer accounts. The Squeegee portal is still available below.</p>
-        <a className="hq-button hq-primary" href="/#customer-portal">OPEN SQUEEGEE PORTAL ↗</a>
+        <a className="hq-button hq-primary" href="/squeegee-portal?ntl-drawer-state=hidden">OPEN SQUEEGEE PORTAL ↗</a>
       </GamePanel>:
       !signedIn?
         <div className="hq-login-grid">
@@ -177,7 +177,7 @@ export default function CustomerHQ(){
           <GamePanel label="ALREADY USE SQUEEGEE?">
             <h2 className="hq-panel-heading">YOUR EXISTING PORTAL IS STILL HERE</h2>
             <p>Need your Squeegee account or service information instead? Open the original Squeegee login.</p>
-            <a className="hq-button hq-green" href="/#customer-portal">
+            <a className="hq-button hq-green" href="/squeegee-portal?ntl-drawer-state=hidden">
               OPEN SQUEEGEE PORTAL ↗
             </a>
             <p className="hq-small">Squeegee may ask you to sign in separately. We cannot share login sessions between the two systems.</p>
@@ -276,7 +276,7 @@ export default function CustomerHQ(){
               <h2>SQUEEGEE CUSTOMER PORTAL</h2>
             </div>
             <p>To see your existing services, account information, invoices or payment features offered by Squeegee, open its usual customer portal.</p>
-            <a className="hq-button hq-green" href="/#customer-portal">
+            <a className="hq-button hq-green" href="/squeegee-portal?ntl-drawer-state=hidden">
               GO TO MY SQUEEGEE PORTAL ↗
             </a>
             <p className="hq-small">This is a separate login provided by Squeegee. No payments or Squeegee records are changed from this rewards dashboard.</p>
