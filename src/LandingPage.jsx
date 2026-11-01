@@ -1858,7 +1858,7 @@ export default function NiBinGuyLandingPage() {
       {/* Snow overlay */}
       <SnowCanvas enabled={snowEnabled} />
 
-      <Hero onBook={openBooking} onContact={() => setShowContact(true)} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} onCoverage={() => setShowCoverageChecker(true)} />
+      <Hero onBook={openBooking} onContact={() => {window.n64Score?.awardAction("contact");setShowContact(true);}} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} onCoverage={() => setShowCoverageChecker(true)} />
 
       {/* Compact coverage control aligns with the existing fixed site menu. */}
       <button

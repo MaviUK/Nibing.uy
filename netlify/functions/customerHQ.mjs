@@ -42,41 +42,94 @@ async function currentlyActive(id,email){
   return auth.validateApiCustomer(row,{id,email});
 }
 async function linkedWebsiteXP(customerId) {
-  // Existing verified booking links may have an older contact email.
-  // Search those private links by immutable UUID; refuse collisions.
+  // Only a unique verified immutable UUID link can contribute booking XP.
+  // Two website players for one Squeegee customer are held for review.
+  const empty={points:0,progressXP:0,bookingAwards:[]};
   try {
     const {publicStore,privateStore,linkStore}=arcadeStores();
     const list=await linkStore.list({prefix:"player:"});
     const matches=[];const keys=Array.isArray(list?.blobs)?list.blobs:[];
-    if(keys.length>5000)return {points:0,progressXP:0};
+    if(keys.length>5000)return empty;
     for(const {key} of keys){
       if(!/^player:[a-f0-9]{64}$/.test(String(key||"")))continue;
       const link=await linkStore.get(key,{type:"json"});
       if(link?.verified===true&&link.squeegeeId===customerId){
         matches.push(key);
-        if(matches.length>1)return {points:0,progressXP:0};
+        if(matches.length>1)return empty;
       }
     }
-    if(matches.length!==1)return {points:0,progressXP:0};
+    if(matches.length!==1)return empty;
     const [player,privatePlayer]=await Promise.all([
       publicStore.get(matches[0],{type:"json"}),
       privateStore.get(matches[0],{type:"json"})
     ]);
-    return {points:Number.isSafeInteger(player?.points)?player.points:0,
+    return {
+      points:Number.isSafeInteger(player?.points)?Math.min(player.points,100000):0,
       progressXP:Number.isSafeInteger(privatePlayer?.progressXP)
-        ?privatePlayer.progressXP:0};
-  }catch{return {points:0,progressXP:0};}
+        ?privatePlayer.progressXP:0,
+      bookingAwards:Array.isArray(privatePlayer?.bookingAwards)?
+        privatePlayer.bookingAwards:[],
+    };
+  }catch{return empty;}
 }
-async function customerWebsiteXP(customerId){
-  const [linked,activity]=await Promise.all([
+async function customerWebsiteRewards(customerId){
+  const [linked,record]=await Promise.all([
     linkedWebsiteXP(customerId),
-    merge.readActivity(activityStore(),customerId).catch(()=>0),
+    merge.readActivityRecord(activityStore(),customerId).catch(()=>null),
   ]);
-  return merge.combinedWebsiteXP({
+  const balance=merge.activityBalance(record);
+  const websiteXp=merge.combinedWebsiteXP({
     linkedPoints:linked.points,linkedProgressXP:linked.progressXP,
-    portalActivityXP:activity
+    portalActivityXP:balance.legacyXP,portalPeriodicXP:balance.periodicXP,
+  });
+  const history=merge.activityHistory(record);
+  const earlierLevelPoints=Math.max(0,
+    Math.min(linked.points,linked.progressXP)-balance.legacyXP);
+  if(earlierLevelPoints){
+    history.push({source:"website",category:"website_activity",
+      label:"Earlier website achievements",date:null,earnedAt:null,
+      points:earlierLevelPoints,note:"Individual dates were not recorded"});
+  }
+  // Legacy player balance = confirmed bookings + already credited levels.
+  // New bookings have their own verified server-side history; older bookings
+  // without a date are presented as one clearly labelled carry-forward.
+  let remaining=Math.max(0,linked.points-
+    Math.min(linked.points,linked.progressXP));
+  for(const award of linked.bookingAwards){
+    if(!award || typeof award.id!=="string" ||
+       !Number.isSafeInteger(award.points)||award.points<=0||
+       award.points>remaining)continue;
+    remaining-=award.points;
+    const earnedAt=typeof award.at==="string"&&
+      Number.isFinite(Date.parse(award.at))?award.at:null;
+    const binCount=Number.isSafeInteger(award.binCount)&&
+      award.binCount>0?award.binCount:null;
+    history.push({source:"website",category:"website_booking",
+      label:"Confirmed website booking"+(binCount?
+        " · "+binCount+" bin"+(binCount===1?"":"s"):""),
+      date:earnedAt?merge.ukDay(Date.parse(earnedAt)):null,earnedAt,
+      points:award.points});
+  }
+  if(remaining>0){
+    history.push({source:"website",category:"website_booking",
+      label:"Earlier confirmed website bookings",
+      date:null,earnedAt:null,points:remaining,
+      note:"Booking-by-booking dates were not available for earlier rewards"});
+  }
+  return {websiteXp,history};
+}
+function allRewardsHistory(cleaningHistory,websiteHistory){
+  const clean=(Array.isArray(cleaningHistory)?cleaningHistory:[]).map(e=>({
+    ...e,source:"cleaning",category:"cleaning",
+  }));
+  const both=clean.concat(Array.isArray(websiteHistory)?websiteHistory:[]);
+  return both.sort((a,b)=>{
+    const aTime=a.earnedAt||a.date||"";
+    const bTime=b.earnedAt||b.date||"";
+    return bTime.localeCompare(aTime);
   });
 }
+
 async function attachMatchedWebsiteBooking(session){
   // The email-code login has already verified an ACTIVE Squeegee record.
   // Linking an old booking still requires its exact full name and property.
@@ -141,12 +194,14 @@ export default async function handler(request,context) {
       if(!session)return respond(200,{ready:true,authenticated:false,
         loginMethod:"email_code",sourceAsOf:snapshot.asOf});
       await attachMatchedWebsiteBooking(session);
-      const [websiteXp,visibility]=await Promise.all([
-        customerWebsiteXP(session.account.id),
+      const [rewards,visibility]=await Promise.all([
+        customerWebsiteRewards(session.account.id),
         consentChoice(session.account.id),
       ]);
+      const account=auth.publicAccount(session.account,rewards.websiteXp);
       return respond(200,{ready:true,authenticated:true,
-        account:auth.publicAccount(session.account,websiteXp),
+        account:{...account,
+          rewardsHistory:allRewardsHistory(account.history,rewards.history)},
         leaderboard:{...visibility,
           noticeVersion:nameConsents.NOTICE_VERSION},
       });
@@ -207,15 +262,18 @@ export default async function handler(request,context) {
     if(action==="sync-website-xp"){
       const session=await lookupVerifiedSession(request,ledger);
       if(!session)return respond(401,{error:"sign_in_required"});
-      if(!Array.isArray(body.claimed)||body.claimed.length>200)
+      if(!Array.isArray(body.claimed)||body.claimed.length>200 ||
+         (body.events!==undefined&&(!Array.isArray(body.events)||body.events.length>100)))
         return respond(400,{error:"invalid_website_activity"});
       await attachMatchedWebsiteBooking(session);
       const saved=await merge.syncActivity({
         customerId:session.account.id,claimed:body.claimed,
+        events:Array.isArray(body.events)?body.events:[],
         store:activityStore(),
       });
+      const rewards=await customerWebsiteRewards(session.account.id);
       return respond(200,{saved:true,changed:saved.changed,
-        websiteXp:await customerWebsiteXP(session.account.id)});
+        websiteXp:rewards.websiteXp});
     }
     if(action==="leaderboard-opt-in"||action==="leaderboard-withdraw"){
       const session=await lookupVerifiedSession(request,ledger);

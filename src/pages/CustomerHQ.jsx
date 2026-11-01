@@ -14,18 +14,44 @@ function earnedWebsiteKeys(){
     const pair=document.cookie.split("; ").find(x=>x.startsWith(SCORE_COOKIE+"="));
     if(!pair)return [];
     const value=JSON.parse(decodeURIComponent(pair.slice(SCORE_COOKIE.length+1)));
-    return value?.v===1 && Array.isArray(value.claimed)
+    return [1,2].includes(value?.v) && Array.isArray(value.claimed)
       ?value.claimed.filter(x=>typeof x==="string").slice(0,100):[];
+  }catch{return [];}
+}
+function earnedWebsiteEvents(){
+  try{
+    if(typeof window.n64Score?.activityEvents==="function"){
+      const rows=window.n64Score.activityEvents();
+      if(Array.isArray(rows))return rows.slice(-1500);
+    }
+    const saved=JSON.parse(localStorage.getItem("nbg_arcade_rewards_v2")||"null");
+    if(Array.isArray(saved))return saved.slice(-1500);
+    const pair=document.cookie.split("; ")
+      .find(x=>x.startsWith(SCORE_COOKIE+"="));
+    if(!pair)return [];
+    const row=JSON.parse(decodeURIComponent(pair.slice(SCORE_COOKIE.length+1)));
+    return Array.isArray(row?.periodic)?row.periodic:[];
   }catch{return [];}
 }
 async function syncWebsiteAchievements(){
   const claimed=earnedWebsiteKeys();
-  if(!claimed.length)return false;
-  const {response,data}=await action({action:"sync-website-xp",claimed});
-  if(!response.ok)return false;
-  if(data.changed===true)window.dispatchEvent(new Event("n64:leaderboard-updated"));
-  return data.changed===true;
+  const events=earnedWebsiteEvents();
+  if(!claimed.length&&!events.length)return false;
+  let changed=false;
+  // API requests are deliberately small and server-side writes are
+  // idempotent by action + UK day/month. No unverified booking claims.
+  for(let i=0;i<Math.max(events.length,1);i+=25){
+    const batch=events.slice(i,i+25).map(e=>({key:e.key,at:e.at}));
+    const {response,data}=await action({
+      action:"sync-website-xp",claimed:i===0?claimed:[],events:batch,
+    });
+    if(!response.ok)return changed;
+    changed=changed||data.changed===true;
+  }
+  if(changed)window.dispatchEvent(new Event("n64:leaderboard-updated"));
+  return changed;
 }
+
 function formatDate(value){
   const d=new Date(String(value||"")+"T12:00:00Z");
   return Number.isNaN(d.getTime())?String(value||""):
@@ -80,8 +106,14 @@ export default function CustomerHQ({embedded=false}){
       setPreferredFirstName(data.leaderboard?.displayedFirstName||
         data.account.firstName||"");
       setChallenge(null);setCode("");
+      window.dispatchEvent(new CustomEvent("n64:account-score",{
+        detail:{points:data.account.points},
+      }));
     }else{
       setAccount(null);setPermission(null);
+      window.dispatchEvent(new CustomEvent("n64:account-score",{
+        detail:{points:null},
+      }));
     }
     return data.authenticated===true && Boolean(data.account);
   }
@@ -120,8 +152,9 @@ export default function CustomerHQ({embedded=false}){
       window.removeEventListener("n64:score-updated",onScore);
     };
   },[signedIn]);
-  const recent=useMemo(()=>Array.isArray(account?.history)?
-    account.history.slice(0,showCount):[],[account,showCount]);
+  const allHistory=Array.isArray(account?.rewardsHistory)?
+    account.rewardsHistory:Array.isArray(account?.history)?account.history:[];
+  const recent=useMemo(()=>allHistory.slice(0,showCount),[allHistory,showCount]);
   async function sendCode(event){
     event.preventDefault();setBusy(true);setMessage("");setError("");
     try{
@@ -153,6 +186,9 @@ export default function CustomerHQ({embedded=false}){
     setBusy(true);setError("");
     try{await action({action:"logout"});setChallenge(null);setCode("");
       setAccount(null);setPermission(null);setMessage("Signed out successfully.");
+      window.dispatchEvent(new CustomEvent("n64:account-score",{
+        detail:{points:null},
+      }));
     }catch{setError("Could not sign out. Please close this tab.");}
     finally{setBusy(false);}
   }
@@ -283,34 +319,36 @@ export default function CustomerHQ({embedded=false}){
           </GamePanel>
           <div className="hq-account-tabs" role="group" aria-label="Customer account sections">
             <button className={tab==="history"?"hq-selected":""}
-              onClick={()=>setTab("history")}>CLEAN HISTORY</button>
+              onClick={()=>setTab("history")}>POINTS HISTORY</button>
             <button className={tab==="leaderboard"?"hq-selected":""}
               onClick={()=>setTab("leaderboard")}>LEADERBOARD PRIVACY</button>
           </div>
           {tab==="history"?
-            <GamePanel label="MY CLEANING POINTS / DATE BY DATE">
-              <div className="hq-history-head"><span>APPOINTMENT</span><span>POINTS</span></div>
+            <GamePanel label="MY TOTAL REWARDS / DATE BY DATE">
+              <div className="hq-history-head"><span>ACTIVITY</span><span>POINTS</span></div>
               {recent.length?recent.map((entry,i)=>
-                <div className="hq-history-row" key={entry.date+"-"+entry.event+"-"+i}>
+                <div className="hq-history-row" key={(entry.earnedAt||entry.date||"earlier")+"-"+entry.category+"-"+i}>
                   <div>
-                    <strong>{formatDate(entry.date)}</strong>
-                    <small>{entry.event==="paid_completed_clean"?
-                      "Completed and paid • streak "+entry.streak:
+                    <strong>{entry.date?formatDate(entry.date):"Earlier reward"}</strong>
+                    <small>{entry.source==="website"?
+                      "★ WEBSITE · "+entry.label+(entry.note?" · "+entry.note:""):
+                      entry.event==="paid_completed_clean"?
+                        "♻ CLEANING · Completed and paid • streak "+entry.streak:
                       entry.event==="recorded_skip"?
-                        "Recorded skipped visit • streak reset":
-                        "Completed • payment not yet verified"}</small>
+                        "♻ CLEANING · Recorded skipped visit • streak reset":
+                        "♻ CLEANING · Completed • payment not yet verified"}</small>
                   </div>
                   <strong className={entry.points?"hq-earned":"hq-zero"}>
                     {entry.points?"+"+number(entry.points):"0"} XP
                   </strong>
                 </div>
-              ):<p>No verified historic cleans on this account yet.</p>}
-              {account.history.length>showCount&&
+              ):<p>No earned points recorded on this account yet.</p>}
+              {allHistory.length>showCount&&
                 <button className="hq-button hq-secondary" type="button"
                   onClick={()=>setShowCount(n=>n+20)}>
                   SHOW MORE HISTORY ↓
                 </button>}
-              <p className="hq-small">This is an historical record, not a live invoice or payment statement. For current balances use Squeegee.</p>
+              <p className="hq-small">Website levels can earn XP once per calendar month. Free Bin Clean, Customer Portal and Contact Us can earn XP daily; bin-day checking only earns XP once. Every confirmed website booking can earn XP. Older website rewards without original dates are labelled accordingly. Squeegee cleaning history is based on the last verified import, not live invoices or payments.</p>
             </GamePanel>:
             <GamePanel label="CONTROL YOUR PUBLIC LEADERBOARD ENTRY">
               {permission?.ready?

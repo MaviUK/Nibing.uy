@@ -9,6 +9,7 @@
   if (window.n64Score) return;
 
   const COOKIE_NAME = "nbg_arcade_score_v1";
+  const EVENT_STORE = "nbg_arcade_rewards_v2";
   const PLAYER_COOKIE_NAME = "nbg_arcade_player_v1";
   const PLAYER_COOKIE_MAX_AGE = 90 * 24 * 60 * 60;
   const COOKIE_MAX_AGE = 180 * 24 * 60 * 60;
@@ -16,6 +17,9 @@
     level: 50,
     coverage: 25,
     binChecker: 35,
+    freeClean: 25,
+    customerPortal: 25,
+    contact: 25,
     oneOffPerBin: 60,
     fourWeeklyPerBin: 150,
   });
@@ -31,9 +35,36 @@
   });
   const MAX_HISTORY = 8;
   const MAX_BOOKING_KEYS = 45;
+  const MAX_LOCAL_EVENTS = 1500;
   const permanentKeys = new Set(
     Object.keys(LEVELS).map((id) => "l:" + id).concat(["a:coverage", "a:bin-checker"])
   );
+
+  const DATE_FORMAT = new Intl.DateTimeFormat("en-GB",{
+    timeZone:"Europe/London",year:"numeric",month:"2-digit",day:"2-digit",
+  });
+  function ukDate() {
+    const parts=Object.fromEntries(DATE_FORMAT.formatToParts(new Date())
+      .map(p=>[p.type,p.value]));
+    return parts.year+"-"+parts.month+"-"+parts.day;
+  }
+  function validPeriodEvent(item) {
+    return item && typeof item.key==="string" &&
+      /^(?:l:[a-z0-9-]+@\d{4}-\d{2}|a:(?:free-clean|contact|customer-portal)@\d{4}-\d{2}-\d{2})$/.test(item.key) &&
+      typeof item.at==="string" && Number.isFinite(Date.parse(item.at));
+  }
+  function readPeriodEvents(fallback) {
+    try {
+      const data=JSON.parse(localStorage.getItem(EVENT_STORE)||"null");
+      if(Array.isArray(data))return data.filter(validPeriodEvent).slice(-MAX_LOCAL_EVENTS);
+    }catch(_){}
+    return (Array.isArray(fallback)?fallback:[]).filter(validPeriodEvent).slice(-MAX_LOCAL_EVENTS);
+  }
+  function persistPeriodEvents() {
+    try {
+      localStorage.setItem(EVENT_STORE,JSON.stringify(periodEvents.slice(-MAX_LOCAL_EVENTS)));
+    }catch(_){}
+  }
 
   function readCookie() {
     try {
@@ -42,10 +73,11 @@
         .find((part) => part.startsWith(COOKIE_NAME + "="));
       if (!entry) return null;
       const value = JSON.parse(decodeURIComponent(entry.slice(COOKIE_NAME.length + 1)));
-      if (!value || value.v !== 1 || !Number.isSafeInteger(value.xp) || value.xp < 0) return null;
+      if (!value || ![1,2].includes(value.v) || !Number.isSafeInteger(value.xp) || value.xp < 0) return null;
       if (!Array.isArray(value.claimed)) return null;
       return {
         xp: Math.min(value.xp, 100000000),
+        periodic: Array.isArray(value.periodic)?value.periodic:[],
         claimed: value.claimed.filter((key) => typeof key === "string" && /^[a-z0-9:._-]{1,80}$/i.test(key)).slice(-100),
         history: Array.isArray(value.history)
           ? value.history.filter((item) => Array.isArray(item) && typeof item[0] === "string"
@@ -72,6 +104,11 @@
   let xp = stored ? stored.xp : 0;
   let claimed = new Set(stored ? stored.claimed : []);
   let history = stored ? stored.history : [];
+  let periodEvents = readPeriodEvents(stored?.periodic);
+  let accountTotal = null;
+  let accountRefreshPending = false;
+  let accountLastCheck = 0;
+  let accountSyncTimer = null;
   let root, scoreNode, recentNode, historyNode, savedNode, saveButton, resetButton;
   let refreshQueued = false;
   let playerToken = readPlayerCookie();
@@ -107,8 +144,9 @@
       const bookingKeys = [...claimed].filter((key) => key.startsWith("b:")).slice(-MAX_BOOKING_KEYS);
       const privateKeys = [...claimed].filter((key) => key.startsWith("o:")).slice(-MAX_BOOKING_KEYS);
       const value = encodeURIComponent(JSON.stringify({
-        v: 1,
+        v: 2,
         xp,
+        periodic:periodEvents.slice(-12),
         claimed: keep.concat(bookingKeys, privateKeys),
         history: history.slice(0, MAX_HISTORY),
       }));
@@ -121,7 +159,7 @@
 
   function paint() {
     if (!root) return;
-    scoreNode.textContent = xp.toLocaleString("en-GB");
+    scoreNode.textContent = (accountTotal === null ? xp : accountTotal).toLocaleString("en-GB");
     if (history.length) {
       recentNode.textContent = "+" + history[0][1] + " XP  " + history[0][0];
     } else {
@@ -138,11 +176,13 @@
       line.appendChild(value);
       historyNode.appendChild(line);
     }
-    savedNode.textContent = saved
-      ? "XP saved in a first-party cookie on this device."
-      : "XP lasts this visit. Choose Save XP to remember it on this device.";
-    saveButton.hidden = saved;
-    resetButton.hidden = !saved && !xp && !claimed.size;
+    savedNode.textContent = accountTotal !== null
+      ? "Verified account total: Squeegee cleaning XP + website rewards."
+      : saved
+        ? "Your local website XP is saved on this device. Sign in to combine it with cleaning rewards."
+        : "XP lasts this visit. Choose Save XP to remember it on this device.";
+    saveButton.hidden = saved || accountTotal !== null;
+    resetButton.hidden = accountTotal !== null || (!saved && !xp && !claimed.size);
   }
 
   function redraw() {
@@ -165,18 +205,41 @@
     redraw();
     window.dispatchEvent(new Event("n64:score-updated"));
     scheduleProgressSync();
+    scheduleAccountSync();
     return true;
   }
 
-  function awardLevel(sectionId) {
-    const level = LEVELS[String(sectionId || "")];
-    return level ? award("l:" + sectionId, POINTS.level, "Level " + String(level).padStart(2, "0") + " completed") : false;
+  function awardPeriod(key,points,label) {
+    if(periodEvents.some(x=>x.key===key))return false;
+    if(!Number.isSafeInteger(points)||points<=0||points>1000)return false;
+    saved=true;
+    periodEvents.push({key,at:new Date().toISOString()});
+    periodEvents=periodEvents.slice(-MAX_LOCAL_EVENTS);
+    persistPeriodEvents();
+    xp=Math.min(xp+points,100000000);
+    history=[[label,points],...history].slice(0,MAX_HISTORY);
+    writeCookie();
+    redraw();
+    window.dispatchEvent(new Event("n64:score-updated"));
+    scheduleAccountSync();
+    return true;
   }
-
+  function awardLevel(sectionId) {
+    const level=LEVELS[String(sectionId||"")];
+    return level ? awardPeriod("l:"+sectionId+"@"+ukDate().slice(0,7),
+      POINTS.level,"Level "+String(level).padStart(2,"0")+" completed") : false;
+  }
   function awardAction(name) {
-    if (name === "coverage") return award("a:coverage", POINTS.coverage, "Checked service area");
-    if (name === "bin-checker") return award("a:bin-checker", POINTS.binChecker, "Checked bin collection day");
-    return false;
+    if(name==="coverage")return award("a:coverage",POINTS.coverage,"Checked service area");
+    if(name==="bin-checker")return award("a:bin-checker",POINTS.binChecker,"Checked bin collection day");
+    const daily={
+      "free-clean":[POINTS.freeClean,"Played Free Bin Clean"],
+      "customer-portal":[POINTS.customerPortal,"Visited customer portal"],
+      "contact":[POINTS.contact,"Opened Contact Us"],
+    };
+    const selected=daily[name];
+    return selected ? awardPeriod("a:"+name+"@"+ukDate(),
+      selected[0],selected[1]) : false;
   }
 
   function awardBooking(submissionId, bins) {
@@ -205,6 +268,53 @@
     return earned;
   }
 
+
+  // The verified customer session is HttpOnly. The badge never guesses an
+  // account from a public leaderboard name or the unsigned website cookie.
+  async function refreshAccountTotal(force=false) {
+    if(accountRefreshPending || (!force && Date.now()-accountLastCheck<15000))return;
+    accountRefreshPending=true;
+    accountLastCheck=Date.now();
+    try {
+      const response=await fetch("/api/customer-hq",{
+        method:"GET",cache:"no-store",credentials:"same-origin",
+      });
+      if(!response.ok)throw Error("account_request_failed");
+      const data=await response.json();
+      accountTotal=data?.authenticated===true &&
+        Number.isSafeInteger(data.account?.points) &&
+        data.account.points>=0 ? data.account.points : null;
+      redraw();
+    }catch(_) {
+      // Avoid claiming someone else's account during a failed identity check.
+      accountTotal=null;
+      redraw();
+    }finally{accountRefreshPending=false;}
+  }
+  function scheduleAccountSync() {
+    if(accountTotal===null)return;
+    if(accountSyncTimer)window.clearTimeout(accountSyncTimer);
+    accountSyncTimer=window.setTimeout(async()=>{
+      accountSyncTimer=null;
+      try {
+        // Booking points are NOT accepted here. Those still require the
+        // original signed, successful booking and immutable UUID link.
+        const latest=periodEvents.slice(-25);
+        const response=await fetch("/api/customer-hq",{
+          method:"POST",cache:"no-store",credentials:"same-origin",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({action:"sync-website-xp",
+            claimed:[...claimed].filter(k=>permanentKeys.has(k)),events:latest}),
+        });
+        if(response.ok) {
+          await refreshAccountTotal(true);
+          window.dispatchEvent(new Event("n64:leaderboard-updated"));
+        } else if(response.status===401) {
+          accountTotal=null;redraw();
+        }
+      }catch(_) { /* Local awards remain available for the next sign-in. */ }
+    },1450);
+  }
 
   // Debounced: several points earned together trigger one server update.
   // The signed token never exposes name, email, address or phone.
@@ -414,12 +524,12 @@
       '<div class="n64-score-heading"><strong id="n64-score-heading-label">★ PLAYER SCORE</strong><button type="button" class="n64-score-close" aria-label="Close scoreboard">×</button></div>',
       '<div class="n64-score-earned" aria-live="polite"></div>',
       '<section class="n64-board"><strong>🏆 GLOBAL LEADERBOARD</strong><ol class="n64-board-list"><li>Loading scores…</li></ol><p class="n64-board-note"></p></section>',
-      '<p class="n64-score-hint">Level +50 • Area +25 • Bin day +35</p>',
-      '<p class="n64-score-hint">One-off +60/bin • 4-weekly +150/bin</p>',
+      '<p class="n64-score-hint">Levels +50 each/month • Free Clean / Portal / Contact +25 daily</p>',
+      '<p class="n64-score-hint">Bin day +35 once • One-off +60/bin • 4-weekly +150/bin</p>',
       '<ol class="n64-score-history"></ol>',
       '<p class="n64-score-persistence"></p>',
       '<div class="n64-score-controls"><button type="button" class="n64-score-save">Save XP (cookie)</button><button type="button" class="n64-score-reset">Reset score</button></div>',
-      '<p class="n64-score-legal">After a confirmed booking, your pseudonymous customer reference, town and XP appear on the global board. Your name and contact details remain private. XP is saved with a first-party cookie.</p>',
+      '<p class="n64-score-legal">Device XP is saved locally. After secure customer sign-in, this star shows cleaning + website XP from your verified account. Your private cleaning history is never shown publicly.</p>',
       '</div>',
     ].join("");
 
@@ -475,6 +585,8 @@
       xp = 0;
       claimed = new Set();
       history = [];
+      periodEvents=[];
+      try{localStorage.removeItem(EVENT_STORE);}catch(_){}
       paint();
       window.dispatchEvent(new Event("n64:score-updated"));
     });
@@ -482,10 +594,23 @@
     paint();
     window.dispatchEvent(new Event("n64:score-updated"));
     refreshLeaderboard();
+    void refreshAccountTotal(true);
+    window.addEventListener("n64:account-score",(event)=>{
+      const total=event?.detail?.points;
+      accountTotal=Number.isSafeInteger(total)&&total>=0?total:null;
+      accountLastCheck=Date.now();
+      redraw();
+    });
     window.addEventListener("online", scheduleProgressSync);
-    window.addEventListener("pageshow", scheduleProgressSync);
+    window.addEventListener("pageshow",()=>{
+      scheduleProgressSync();
+      void refreshAccountTotal();
+    });
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") scheduleProgressSync();
+      if (document.visibilityState === "visible") {
+        scheduleProgressSync();
+        void refreshAccountTotal();
+      }
     });
     window.setInterval(() => {
       if (!panel.hidden && document.visibilityState === "visible") void refreshLeaderboard();
@@ -504,7 +629,8 @@
     onBookingConfirmed,
     keepBookingPrivate,
     activityKeys: () => [...claimed].filter(key => permanentKeys.has(key)),
-    points: () => xp,
+    activityEvents: () => periodEvents.map(e=>({key:e.key,at:e.at})),
+    points: () => accountTotal === null ? xp : accountTotal,
     isRegistered: () => Boolean(playerToken),
     rules: POINTS,
   });

@@ -52,7 +52,7 @@ async function getStaticPreviewBoard(stores, now=Date.now(), full=false) {
         const ref=active.canonicalLegacyRef(key.slice("customer:".length));
         if(!refs.has(ref))continue;
         const entry=await stores.activity.get(key,{type:"json",consistency:"strong"});
-        portalActivity.set(ref,merge.activityXP(entry?.claimed));
+        portalActivity.set(ref,merge.activityBalance(entry));
       }
     }catch{ /* A blob outage never removes historical cleaning XP. */ }
   }
@@ -61,7 +61,8 @@ async function getStaticPreviewBoard(stores, now=Date.now(), full=false) {
       merge.combinedWebsiteXP({
         linkedPoints:scores.get(customerRef)?.points||0,
         linkedProgressXP:scores.get(customerRef)?.progressXP||0,
-        portalActivityXP:portalActivity.get(customerRef)||0
+        portalActivityXP:portalActivity.get(customerRef)?.legacyXP||0,
+        portalPeriodicXP:portalActivity.get(customerRef)?.periodicXP||0
       }))
   }));
   entries.sort((a,b)=>b.points-a.points||a.customerRef.localeCompare(b.customerRef));

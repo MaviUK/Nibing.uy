@@ -311,7 +311,7 @@ async function registerBooking(body, stores, internalAuto = false) {
   const nextActivity = Math.max(currentActivity, previousActivity);
   const bookingIds = new Set(
     (Array.isArray(oldPrivate?.bookingIds) ? oldPrivate.bookingIds : [])
-      .filter((id) => typeof id === "string").slice(-100)
+      .filter((id) => typeof id === "string").slice(-2000)
   );
   if (typeof oldPrivate?.bookingId === "string") bookingIds.add(oldPrivate.bookingId);
   const newBooking = !bookingIds.has(booking.id);
@@ -325,6 +325,17 @@ async function registerBooking(body, stores, internalAuto = false) {
   const timestamp = new Date().toISOString();
   const changed = !oldPublic || newBooking || activityIncrease > 0;
   if (newBooking) bookingIds.add(booking.id);
+  // Preserve a separate dated record for every confirmed website booking.
+  const existingAwards = Array.isArray(oldPrivate?.bookingAwards)
+    ? oldPrivate.bookingAwards.filter(a => a && typeof a.id === "string" &&
+      Number.isSafeInteger(a.points) && a.points > 0).slice(-1999) : [];
+  const newAward = newBooking && bookingIncrease > 0 ? {
+    id: String(booking.id),points:bookingIncrease,at:timestamp,
+    binCount:Math.min(10000,(Array.isArray(booking.bins)?booking.bins:[])
+      .reduce((sum,bin)=>sum+limitInt(bin?.count,100),0)),
+  } : null;
+  const bookingAwards = newAward
+    ? existingAwards.concat(newAward) : existingAwards;
 
   if (changed) {
     await stores.private.setJSON(recordKey, {
@@ -333,7 +344,8 @@ async function registerBooking(body, stores, internalAuto = false) {
       phone: String(booking.phone || ""),
       address: String(booking.address || ""),
       bookingId: String(booking.id),
-      bookingIds: [...bookingIds].slice(-100),
+      bookingIds: [...bookingIds].slice(-2000),
+      bookingAwards,
       progressXP: nextActivity,
       points,
       ...(internalAuto ? {} : { consentedAt: oldPrivate?.consentedAt || timestamp }),

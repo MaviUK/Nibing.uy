@@ -24,6 +24,21 @@ export default function CustomerPortalLoader({ standalone = false }) {
     return () => window.cancelAnimationFrame(frame)
   }, [])
 
+  // Visiting the existing portal section earns a DAILY reward; merely
+  // re-rendering the page or loading the external Squeegee widget does not.
+  useEffect(() => {
+    if (standalone) return
+    const target=document.getElementById("customer-portal")
+    if(!target || typeof IntersectionObserver!=="function")return
+    const observer=new IntersectionObserver((entries)=>{
+      if(entries.some(e=>e.isIntersecting && e.intersectionRatio>=0.2)){
+        window.n64Score?.awardAction("customer-portal")
+      }
+    },{threshold:[0.2,0.4]})
+    observer.observe(target)
+    return ()=>observer.disconnect()
+  }, [standalone])
+
   return (
     <section
       id="customer-portal"

@@ -170,6 +170,9 @@ export default function TenSecondChallenge({ debug = false, autoWin = false }) {
         localStorage.setItem(`tensec_try_${todayKey}`, "1");
       }
       setHasTriedToday(true);
+      // Daily participation XP is separate from the actual free-clean prize.
+      // The test-only autoWin route must never manufacture reward points.
+      if (!autoWin) window.n64Score?.awardAction("free-clean");
 
       if (finalCs === 1000) {
         // WIN: record a win (skip in autoWin test mode)

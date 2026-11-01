@@ -156,3 +156,113 @@ test("public Preview 1 board merges private login activity and verified bookings
     active.canonicalLegacyRef=original;
   }
 });
+
+
+test("UK calendar monthly levels reset in a new month, never multiple times in one month",async()=>{
+  const db=store(),id=UUID;
+  const oct=Date.parse("2026-10-31T17:00:00Z");
+  const nov=Date.parse("2026-11-01T11:00:00Z");
+  const oldEvent={key:"l:the-process@2026-10",at:new Date(oct).toISOString()};
+  const newEvent={key:"l:the-process@2026-11",at:new Date(nov).toISOString()};
+  const first=await merge.syncActivity({store:db,customerId:id,events:[oldEvent],now:oct});
+  assert.deepEqual({changed:first.changed,points:first.points},{changed:true,points:50});
+  const repeat=await merge.syncActivity({store:db,customerId:id,events:[oldEvent],now:oct+1000});
+  assert.deepEqual({changed:repeat.changed,points:repeat.points},{changed:false,points:50});
+  const next=await merge.syncActivity({store:db,customerId:id,events:[newEvent],now:nov});
+  assert.deepEqual({changed:next.changed,points:next.points},{changed:true,points:100});
+  const balance=merge.activityBalance(db.rows.get(merge.activityKey(id)));
+  assert.equal(balance.legacyXP,0);
+  assert.equal(balance.periodicXP,100);
+  assert.equal(merge.activityHistory(db.rows.get(merge.activityKey(id))).length,2);
+});
+test("daily actions reset at UK midnight, not at UTC midnight",async()=>{
+  const db=store();
+  const a=Date.parse("2026-07-01T22:40:00Z"); // 23:40 UK
+  const b=Date.parse("2026-07-01T23:20:00Z"); // 00:20 next UK day
+  assert.equal(merge.ukDay(a),"2026-07-01");
+  assert.equal(merge.ukDay(b),"2026-07-02");
+  const first=await merge.syncActivity({
+    store:db,customerId:UUID,now:a,
+    events:[{key:"a:free-clean@2026-07-01",at:new Date(a).toISOString()}],
+  });
+  assert.equal(first.points,25);
+  assert.equal((await merge.syncActivity({
+    store:db,customerId:UUID,now:a+2000,
+    events:[{key:"a:free-clean@2026-07-01",at:new Date(a).toISOString()}]
+  })).points,25);
+  const next=await merge.syncActivity({
+    store:db,customerId:UUID,now:b,
+    events:[{key:"a:free-clean@2026-07-02",at:new Date(b).toISOString()}],
+  });
+  assert.equal(next.points,50);
+});
+test("daily portal/contact award separately; bin lookup stays once for life",async()=>{
+  const db=store(),now=Date.parse("2026-11-01T13:00:00Z");
+  const rows=["a:contact","a:customer-portal"].map(rule=>({
+    key:rule+"@2026-11-01",at:new Date(now).toISOString(),
+    points:9999999 // ignored: server computes fixed values
+  }));
+  let r=await merge.syncActivity({store:db,customerId:UUID,
+    claimed:["a:bin-checker"],events:rows,now});
+  assert.equal(r.points,85);
+  r=await merge.syncActivity({store:db,customerId:UUID,
+    claimed:["a:bin-checker"],events:rows,now});
+  assert.equal(r.changed,false);
+  assert.equal(r.points,85);
+  const next=Date.parse("2026-11-02T13:00:00Z");
+  r=await merge.syncActivity({store:db,customerId:UUID,now:next,
+    events:rows.map(e=>({key:e.key.replace("11-01","11-02"),at:new Date(next).toISOString()}))});
+  assert.equal(r.points,135);
+  assert.equal(merge.activityHistory(db.rows.get(merge.activityKey(UUID))).length,5);
+});
+test("unknown action, fake booking, forged future keys and malformed calendar dates earn nothing",async()=>{
+  const now=Date.parse("2026-11-01T13:00:00Z"),at=new Date(now).toISOString();
+  for(const key of ["a:free-clean@2026-11-02","a:free-clean@2026-02-30",
+    "l:what-we-do@2026-12","b:fake-booking@2026-11-01",
+    "a:contact@2026-13-01"]){
+    assert.equal(merge.normalisePeriodEvent({key,at},now),null,key);
+  }
+  const db=store();
+  const result=await merge.syncActivity({store:db,customerId:UUID,
+    events:[{key:"b:fake-booking@2026-11-01",at}],now});
+  assert.equal(result.points,0);
+  assert.equal(db.rows.size,0);
+});
+test("old website activity and new dated rewards do not duplicate when linked",async()=>{
+  const db=store(),now=Date.parse("2026-11-01T12:00:00Z");
+  await merge.syncActivity({store:db,customerId:UUID,
+    claimed:["l:what-we-do"],now});
+  await merge.syncActivity({store:db,customerId:UUID,now,
+    events:[{key:"l:what-we-do@2026-11",at:new Date(now).toISOString()}]});
+  const parts=merge.activityBalance(db.rows.get(merge.activityKey(UUID)));
+  assert.equal(parts.legacyXP,50);
+  assert.equal(parts.periodicXP,50);
+  assert.equal(merge.combinedWebsiteXP({
+    linkedPoints:550,linkedProgressXP:50,portalActivityXP:parts.legacyXP,
+    portalPeriodicXP:parts.periodicXP,
+  }),600);
+});
+test("website history and the badge use private verified account data only",()=>{
+  const fs=require("node:fs"),path=require("node:path");
+  const root=path.resolve(__dirname,"..");
+  const read=f=>fs.readFileSync(path.join(root,f),"utf8");
+  const hud=read("public/n64-scoreboard.js");
+  const portal=read("src/pages/CustomerHQ.jsx");
+  const api=read("netlify/functions/customerHQ.mjs");
+  const scores=read("netlify/functions/arcadeLeaderboard.js");
+  const hqPortal=read("src/components/CustomerPortalLoader.jsx");
+  const challenge=read("src/TenSecondChallenge.jsx");
+  const landing=read("src/LandingPage.jsx");
+  assert.match(hud,/accountTotal === null \? xp : accountTotal/);
+  assert.match(hud,/\/api\/customer-hq/);
+  assert.match(hud,/activityEvents:/);
+  assert.match(portal,/n64:account-score/);
+  assert.match(portal,/account\.rewardsHistory/);
+  assert.match(portal,/MY TOTAL REWARDS/);
+  assert.match(api,/rewardsHistory:allRewardsHistory/);
+  assert.match(api,/events:Array\.isArray\(body\.events\)/);
+  assert.match(scores,/bookingAwards,/);
+  assert.match(hqPortal,/awardAction\("customer-portal"\)/);
+  assert.match(challenge,/awardAction\("free-clean"\)/);
+  assert.match(landing,/awardAction\("contact"\)/);
+});
