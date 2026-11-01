@@ -158,6 +158,7 @@ function eligibleRankedEmailAccounts(snapshot){
   // The private customer UUIDs and email addresses never leave this helper.
   return {aliases,count:aliases.size,historicalPoints,
     verifiedAliases:aliases,verifiedCount:aliases.size,
+    verifiedImportedActiveAccounts:seen.size,
     verifiedActiveEmailAccounts,
     verificationStatus:"verified_from_squeegee_backup",
     verificationAsOf:snapshot.asOf};
