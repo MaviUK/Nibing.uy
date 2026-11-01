@@ -27,6 +27,7 @@ export default function ArcadeLeaderboard() {
   const [eligibleCleaningXp, setEligibleCleaningXp] = useState(null);
   const [activePanel, setActivePanel] = useState("leaderboard");
   const [rankingMode,setRankingMode]=useState("public");
+  const [ownerPresentation,setOwnerPresentation]=useState("simulation");
   const [ownerState,setOwnerState]=useState("idle");
   const [ownerRows,setOwnerRows]=useState([]);
   const [ownerInfo,setOwnerInfo]=useState(null);
@@ -53,6 +54,7 @@ export default function ArcadeLeaderboard() {
   }
   async function showOwnerRankings(){
     setRankingMode("owner");
+    setOwnerPresentation("simulation");
     setOwnerRows([]);
     setOwnerInfo(null);
     setOwnerState("loading");
@@ -100,6 +102,10 @@ export default function ArcadeLeaderboard() {
     return !query || (row.firstName||"").toLowerCase().includes(query) ||
       row.town.toLowerCase().includes(query);
   });
+  // Simulated permission is VIEW-ONLY. Never alter Netlify consent records;
+  // do not imply an actual customer has agreed. Explicit withdrawals remain
+  // excluded from the simulated public view.
+  const simulatedOwnerRows=ownerRows.filter(row=>row.permission!=="withdrawn");
 
 
   useEffect(() => {
@@ -235,7 +241,7 @@ export default function ArcadeLeaderboard() {
           </button>
           <button type="button" className={rankingMode==="owner"?"n64-rank-visibility--active":""}
             aria-pressed={rankingMode==="owner"} onClick={showOwnerRankings}>
-            OWNER: ALL VERIFIED
+            TEST: ALL FIRST NAMES
           </button>
         </div>}
         <div hidden={rankingMode!=="public"} className="n64-rank-public">
@@ -328,10 +334,11 @@ export default function ArcadeLeaderboard() {
         </small>
         </div>
         <div className="n64-owner-ranking" hidden={rankingMode!=="owner"}>
-          <p className="n64-owner-private-notice">
-            <strong>OWNER-ONLY REVIEW</strong> · These are the verified email-eligible
-            customers from the Squeegee backup. Names here are private and
-            have <strong>not</strong> all given permission for public display.
+          <p className="n64-owner-private-notice" role="status">
+            <strong>OWNER TEST MODE — NOT THE PUBLIC WEBSITE.</strong> This is an
+            exact-layout preview using imported first names, towns and cleaning XP.
+            Participation is simulated for testing only. Customer consent records
+            are unchanged and the real public leaderboard still respects them.
           </p>
           {ownerState==="loading" && <p role="status">Checking your owner session and loading verified scores…</p>}
           {ownerState==="owner-login-required" && <div className="n64-owner-login">
@@ -353,44 +360,90 @@ export default function ArcadeLeaderboard() {
           </div>}
           {ownerState==="ready" && ownerInfo && <>
             <div className="n64-owner-summary">
-              <div><strong>{ownerInfo.verifiedPlayers.toLocaleString("en-GB")}</strong>
-                <span>VERIFIED CUSTOMERS</span></div>
+              <div><strong>{simulatedOwnerRows.length.toLocaleString("en-GB")}</strong>
+                <span>SIMULATED PLAYERS</span></div>
               <div><strong>{Number(ownerInfo.historicalCleaningXp||0).toLocaleString("en-GB")}</strong>
                 <span>HISTORICAL CLEANING XP</span></div>
               <div><strong>{Number(ownerInfo.publicApprovedCount||0).toLocaleString("en-GB")}</strong>
-                <span>PUBLICLY OPTED IN</span></div>
+                <span>ACTUAL PUBLIC PERMISSIONS</span></div>
+            </div>
+            <div className="n64-owner-mode-select" role="group" aria-label="Owner preview display">
+              <button type="button" aria-pressed={ownerPresentation==="simulation"}
+                className={ownerPresentation==="simulation"?"n64-owner-mode-active":""}
+                onClick={()=>{setOwnerPresentation("simulation");setOwnerShowCount(20);}}>
+                ★ TEST: SHOW ALL FIRST NAMES
+              </button>
+              <button type="button" aria-pressed={ownerPresentation==="review"}
+                className={ownerPresentation==="review"?"n64-owner-mode-active":""}
+                onClick={()=>{setOwnerPresentation("review");setOwnerShowCount(20);}}>
+                VIEW REAL PERMISSION STATUS
+              </button>
             </div>
             <p className="n64-owner-source">
-              Private owner view · Squeegee backup {ownerInfo.sourceAsOf||"date unavailable"}.
-              Customers without a valid email are excluded. Public ranking consent
-              is tracked separately.
+              Owner-only preview · Squeegee backup {ownerInfo.sourceAsOf||"date unavailable"}.
+              Only verified email-eligible customers count. No permission statuses
+              have been altered. Accounts with recorded withdrawals remain excluded
+              from the simulated display.
             </p>
-            <label className="n64-owner-search">
-              <span>SEARCH VERIFIED CUSTOMERS BY FIRST NAME OR TOWN</span>
-              <input type="search" value={ownerSearch}
-                onChange={e=>{setOwnerSearch(e.target.value);setOwnerShowCount(20);}}
-                placeholder="Search first name or town…" maxLength={70}/>
-            </label>
-            <ol aria-label="Private owner-only verified customer rankings">
-              {filteredOwnerRows.slice(0,ownerShowCount).map(row=>
-                <li key={row.rank} className="n64-owner-score-row">
-                  <div>
-                    <strong>{String(row.rank).padStart(2,"0")} · {row.firstName||"Name needs checking"} · {row.town}</strong>
-                    <small>{row.permission==="approved"?"PUBLIC PERMISSION RECORDED":
-                      row.permission==="withdrawn"?"PUBLIC PERMISSION WITHDRAWN":
-                      "PUBLIC PERMISSION NOT RECORDED"}</small>
-                  </div>
-                  <strong className="n64-owner-points">{row.points.toLocaleString("en-GB")} XP</strong>
-                </li>
-              )}
-            </ol>
-            <div className="n64-owner-list-footer">
-              {filteredOwnerRows.length.toLocaleString("en-GB")} matching verified customers
-              {filteredOwnerRows.length>ownerShowCount &&
-                <button type="button" onClick={()=>setOwnerShowCount(n=>n+25)}>
-                  SHOW 25 MORE ↓
-                </button>}
-            </div>
+            {ownerPresentation==="simulation" ? <>
+              <p className="n64-owner-simulation-label">
+                <strong>SIMULATED CONSENT — YOUR VIEW ONLY</strong> ·
+                This is how the public leaderboard will look when customers
+                have agreed to show first name, town and XP.
+              </p>
+              <ol className="n64-simulated-scoreboard"
+                aria-label="Simulated public leaderboard first name town and points">
+                {simulatedOwnerRows.slice(0,ownerShowCount).map((row,i)=>
+                  <li key={row.rank} className="n64-board-row">
+                    <button type="button" className="n64-board-player-button"
+                      onClick={openHQ}
+                      title="Open your own Customer HQ. A public rank cannot open someone else's account.">
+                      <strong>{String(i+1).padStart(2,"0")}</strong>{" "}
+                      {row.firstName||"Name needs checking"}
+                      <span className="n64-board-town"> · {row.town}</span>
+                    </button>
+                    <span className="n64-board-score">
+                      <strong>{row.points.toLocaleString("en-GB")} XP</strong>
+                    </span>
+                  </li>
+                )}
+              </ol>
+              <div className="n64-owner-list-footer">
+                Showing {Math.min(ownerShowCount,simulatedOwnerRows.length)} of
+                {" "}{simulatedOwnerRows.length.toLocaleString("en-GB")} simulated players
+                {simulatedOwnerRows.length>ownerShowCount &&
+                  <button type="button" onClick={()=>setOwnerShowCount(n=>n+25)}>
+                    SHOW 25 MORE ↓
+                  </button>}
+              </div>
+            </> : <>
+              <label className="n64-owner-search">
+                <span>SEARCH VERIFIED CUSTOMERS BY FIRST NAME OR TOWN</span>
+                <input type="search" value={ownerSearch}
+                  onChange={e=>{setOwnerSearch(e.target.value);setOwnerShowCount(20);}}
+                  placeholder="Search first name or town…" maxLength={70}/>
+              </label>
+              <ol aria-label="Private owner-only verified customer rankings">
+                {filteredOwnerRows.slice(0,ownerShowCount).map(row=>
+                  <li key={row.rank} className="n64-owner-score-row">
+                    <div>
+                      <strong>{String(row.rank).padStart(2,"0")} · {row.firstName||"Name needs checking"} · {row.town}</strong>
+                      <small>{row.permission==="approved"?"PUBLIC PERMISSION RECORDED":
+                        row.permission==="withdrawn"?"PUBLIC PERMISSION WITHDRAWN":
+                        "PUBLIC PERMISSION NOT RECORDED"}</small>
+                    </div>
+                    <strong className="n64-owner-points">{row.points.toLocaleString("en-GB")} XP</strong>
+                  </li>
+                )}
+              </ol>
+              <div className="n64-owner-list-footer">
+                {filteredOwnerRows.length.toLocaleString("en-GB")} matching verified customers
+                {filteredOwnerRows.length>ownerShowCount &&
+                  <button type="button" onClick={()=>setOwnerShowCount(n=>n+25)}>
+                    SHOW 25 MORE ↓
+                  </button>}
+              </div>
+            </>}
           </>}
         </div>
         </div>
