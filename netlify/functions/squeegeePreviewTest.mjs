@@ -132,7 +132,8 @@ export function safeOwnerReturnPath(value) {
      value==="/api/squeegee-preview-partial-green-reconciliation" ||
      value==="/api/squeegee-preview-auto-status" ||
      value==="/api/squeegee-preview-leaderboard-history" ||
-     value==="/api/squeegee-preview-leaderboard-names")
+     value==="/api/squeegee-preview-leaderboard-names" ||
+     value==="/api/squeegee-preview-hq-import")
     return value;
   const reactivation=/^\/api\/squeegee-preview-owner-reactivation\?bookingId=(NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12}))&day=(\d{4}-\d{2}-\d{2})$/i.exec(value);
   if(reactivation)
