@@ -126,6 +126,40 @@ test("annual board gives correct ranking per year; Overall is not fabricated fro
   }
 });
 
+test("Overall is the sum of verified dated years; 60 old undated XP is excluded for every player",async()=>{
+  const stores=fixtures();
+  const key="customer:"+IDS[0];
+  const old=stores.activity.rows.get(key);
+  stores.activity.rows.set(key,{
+    ...old,claimed:old.claimed.concat(["a:coverage","a:bin-checker"])
+  }); // 25 + 35 = 60 of additional undated legacy XP.
+  const {overallBoard,yearlyBoards}=await annual.getDatedScoreBoards(
+    stores,sample,eligible,NOW);
+  assert.equal(overallBoard.status,"squeegee_active_only");
+  assert.deepEqual(overallBoard.entries.map(row=>({
+    ref:row.customerRef,points:row.points
+  })),[
+    {ref:aliases[0],points:377},
+    {ref:aliases[1],points:89}
+  ]);
+  assert.deepEqual(yearlyBoards.map(b=>b.year),[2024,2025,2026]);
+  for(const row of overallBoard.entries){
+    const dated=yearlyBoards.reduce((sum,b)=>
+      sum+(b.entries.find(e=>e.customerRef===row.customerRef)?.points||0),0);
+    assert.equal(row.points,dated,"unknown reward must not inflate Overall");
+  }
+});
+test("a genuine dated 2023 clean is kept, but public year tabs still begin in 2024",async()=>{
+  const older={...sample,accounts:sample.accounts.map((a,i)=>i===0?{
+    ...a,events:[CLEAN("2023-09-01",18),...a.events]
+  }:a)};
+  const {overallBoard,yearlyBoards}=await annual.getDatedScoreBoards(
+    fixtures(),older,eligible,NOW);
+  assert.equal(overallBoard.entries.find(r=>r.customerRef===aliases[0]).points,395);
+  assert.equal(yearlyBoards.find(b=>b.year===2023).entries[0].points,18);
+  assert.deepEqual(annual.availableYears(NOW),[2024,2025,2026]);
+  assert.equal(annual.validYear(2023,NOW),false);
+});
 test("another verified website player linked to one Squeegee UUID suppresses ambiguous booking XP",async()=>{
   const yearly=await annual.datedWebsiteXP(fixtures({colliding:true}),eligible,NOW);
   assert.equal(yearly.get(aliases[0]).get(2026),75,
@@ -133,7 +167,7 @@ test("another verified website player linked to one Squeegee UUID suppresses amb
   assert.equal(yearly.get(aliases[0]).get(2025)||0,0);
 });
 
-test("undated historical website XP stays Overall, not automatically added to 2026",async()=>{
+test("undated historical website XP is excluded from annual scoring",async()=>{
   const stores=fixtures();
   stores.activity.rows.set("customer:"+IDS[1],{
     claimed:["l:what-we-do","a:coverage","a:bin-checker"],
@@ -206,6 +240,8 @@ test("API accepts annual filters on Preview 77 only and rejects unsupported or m
       "../netlify/functions/arcadeLeaderboard.js"),"utf8");
     assert.match(source,/if\(isExactN64PreviewRequest\(event\)\)/);
     assert.match(source,/yearlyPreview\.getAnnualPreviewBoard\(/);
+    assert.match(source,/yearlyPreview\.getDatedScoreBoards\(/);
+    assert.doesNotMatch(source,/await historicalPreview\.getStaticPreviewBoard\(stores,now,true\)/);
     assert.match(source,/nameConsents\.previewFirstNameScoreboard\(/);
     assert.ok(source.indexOf('const activeBoard=await getActiveHistoricalBoard(stores);')>
       source.indexOf('yearlyPreview.getAnnualPreviewBoard('),
