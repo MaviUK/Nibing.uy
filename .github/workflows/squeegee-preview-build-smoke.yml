@@ -54,6 +54,8 @@ on:
       - public/_redirects
       - tests/squeegee-customer-hq-routing.test.cjs
       - tests/squeegee-leaderboard-inline-hq.test.cjs
+      - netlify/functions/squeegeePreviewVerifiedLeaderboard.mjs
+      - tests/squeegee-verified-owner-board.test.cjs
       - netlify/functions/lib/squeegeeOwnerLeaderboardPreview.js
       - src/n64-finale.css
       - src/pages/SqueegeePortalPage.jsx
