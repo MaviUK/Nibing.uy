@@ -193,6 +193,66 @@ function consentStats(snapshot) {
     requiresNameReview:rows.filter(r=>r.quality!=="ready_for_consent").length,
   };
 }
+
+/**
+ * Public scoreboard is viewable WITHOUT a customer login.
+ *
+ * Publishing a customer's real first name and town still requires their
+ * individual, evidenced consent. All other eligible customers appear as
+ * ANONYMOUS rank + score only. Withdrawal removes the entry entirely,
+ * while the customer's private cleaning points remain intact.
+ *
+ * Pending accounts get a secret-keyed pseudonymous row id to avoid exposing
+ * their immutable Squeegee UUID or the unkeyed snapshot alias.
+ */
+function publicEligibleScoreboard(snapshot,fullBoard,eligibleAliases,secretKey){
+  if(!(eligibleAliases instanceof Set) || !Buffer.isBuffer(secretKey) ||
+     secretKey.length<16)return null;
+  if(fullBoard?.status==="active_status_refresh_required")
+    return {entries:[],totalPlayers:0,status:fullBoard.status,
+      sourceAsOf:fullBoard.sourceAsOf||staticHistory.AS_OF};
+  if(!Array.isArray(fullBoard?.entries))return null;
+  const allowConsent=snapshot?.version===1 &&
+    snapshot?.sourceAsOf===staticHistory.AS_OF &&
+    Array.isArray(snapshot.records);
+  const permissions=new Map(allowConsent
+    ?snapshot.records.map(r=>[r.alias,r]):[]);
+  const publicRows=[];
+  for(const row of fullBoard.entries){
+    if(!eligibleAliases.has(row.customerRef))continue;
+    const permission=permissions.get(row.customerRef);
+    // A customer's removal request is authoritative: never expose even
+    // an anonymous score after an explicit withdrawal/objection.
+    if(permission?.consent==="withdrawn" || permission?.withdrawnAt)
+      continue;
+    const consented=permission?.consent==="granted" &&
+      permission.noticeVersion===NOTICE_VERSION &&
+      permission.consentAt && permission.method && permission.evidenceRef &&
+      safeFirstName(permission.firstName) &&
+      permission.town===row.town &&
+      safePublicTown(row.town)===row.town;
+    const anonRef="NBG-"+crypto.createHmac("sha256",secretKey)
+      .update("public-pending-leaderboard-v1:"+row.customerRef)
+      .digest("hex").slice(0,10).toUpperCase();
+    publicRows.push({
+      customerRef:anonRef,
+      town:consented?row.town:"Town unavailable",
+      points:row.points,
+      ...(consented?{displayName:permission.firstName}:{anonymous:true}),
+    });
+  }
+  publicRows.sort((a,b)=>b.points-a.points ||
+    a.customerRef.localeCompare(b.customerRef));
+  return {
+    entries:publicRows.map((r,i)=>({...r,rank:i+1})),
+    totalPlayers:publicRows.length,
+    approvedCount:publicRows.filter(r=>r.anonymous!==true).length,
+    sourceAsOf:fullBoard.sourceAsOf||staticHistory.AS_OF,
+    lastUpdatedAt:fullBoard.lastUpdatedAt||null,
+    status:"public_eligible_scores",
+  };
+}
+
 function publicConsentBoard(snapshot,fullBoard,emailEligibleAliases){
   // Without the PRIVATE Customer HQ email eligibility set, nothing is public.
   // A valid consent alone can never re-add an account with no email.
@@ -225,4 +285,5 @@ module.exports={
   STORE_NAME,KEY,NOTICE_VERSION,EXPECTED,MAX_BYTES,
   safeFirstName,parseSimpleCsv,preparePrivateConsentImport,
   changeConsent,initialiseFromPrivateCustomerHQ,consentStats,publicConsentBoard,
+  publicEligibleScoreboard,
 };
