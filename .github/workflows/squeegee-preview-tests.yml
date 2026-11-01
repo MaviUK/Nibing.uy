@@ -91,6 +91,9 @@ on:
       - netlify/functions/squeegeePreviewCustomerHQImport.mjs
       - public/_redirects
       - tests/squeegee-customer-hq-routing.test.cjs
+      - tests/squeegee-leaderboard-inline-hq.test.cjs
+      - netlify/functions/lib/squeegeeOwnerLeaderboardPreview.js
+      - src/n64-finale.css
       - src/pages/SqueegeePortalPage.jsx
       - src/components/CustomerPortalLoader.jsx
       - src/App.jsx
