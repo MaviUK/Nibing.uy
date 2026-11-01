@@ -137,10 +137,18 @@ export default async function handler(request,context) {
       // challenge is indistinguishable from a fake challenge to the browser.
       let challengeId=null;
       const account=auth.accountForEmail(snapshot,email);
-      if(account&&await currentlyActive(account.id,email)){
-        const sent=await auth.issueCode({env:process.env,authStore:ledger,
-          account,send:sendLoginCode});
-        if(sent.sent)challengeId=sent.challengeId;
+      // Account existence, current status, and mail-delivery failures all
+      // return the SAME public response. Never disclose who is a customer.
+      if(account){
+        try{
+          if(await currentlyActive(account.id,email)){
+            const sent=await auth.issueCode({env:process.env,authStore:ledger,
+              account,send:sendLoginCode});
+            if(sent.sent)challengeId=sent.challengeId;
+          }
+        }catch{
+          // Fail closed, but do not reveal the presence of the account.
+        }
       }
       return respond(200,{accepted:true,
         challengeId:challengeId||crypto.randomBytes(16).toString("hex"),
