@@ -91,6 +91,10 @@ on:
       - netlify/functions/squeegeePreviewCustomerHQImport.mjs
       - public/_redirects
       - tests/squeegee-customer-hq-routing.test.cjs
+      - src/pages/SqueegeePortalPage.jsx
+      - src/components/CustomerPortalLoader.jsx
+      - src/App.jsx
+      - netlify.toml
       - netlify/functions/lib/squeegeePreviewHQImportCsrf.js
       - tests/squeegee-preview-hq-upload-csrf.test.cjs
       - src/pages/CustomerHQ.jsx
