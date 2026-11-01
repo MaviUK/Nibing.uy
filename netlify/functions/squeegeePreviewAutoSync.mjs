@@ -13,6 +13,7 @@ import {Resend} from "resend";
 import ownerAlerts from "./lib/squeegeeSyncOwnerAlert.js";
 import ownerCertificate from "./lib/squeegeeOwnerCertificate.js";
 import ownerTerms from "./lib/ownerBookingTermsSummary.js";
+import arcadeLink from "./lib/arcadeSqueegeeLink.js";
 // Do NOT import termsPdf at startup: Netlify's ESM build externalises its
 // CommonJS require("pdf-lib"), and a missing runtime dependency causes
 // the ENTIRE internal booking handoff to return HTTP 502 before validation.
@@ -202,6 +203,12 @@ export default async function handler(request,context) {
         ownerAlerts.notifyOwnerOfDuplicateSignals(id,flags,alertOptions),
       quantityAlert:(id,details)=>
         ownerAlerts.notifyOwnerOfQuantityBooking(id,details,alertOptions),
+      onSucceededCustomer:({squeegeeId,booking})=>
+        arcadeLink.linkAcceptedSqueegeeBooking({squeegeeId,booking},{
+          publicStore:getStore({name:"n64-preview-arcade-public",consistency:"strong"}),
+          privateStore:getStore({name:"n64-preview-arcade-private",consistency:"strong"}),
+          linkStore:getStore({name:arcadeLink.STORE,consistency:"strong"}),
+        }),
     },
   }).then(async result=>{
     if(!ownerReceipt||ownerNoticeAttempted)return;
