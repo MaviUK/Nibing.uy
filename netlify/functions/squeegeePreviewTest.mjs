@@ -120,11 +120,17 @@ async function getDiagnostic(bookingId) {
   return {status,stored:savedStatus,shadow:shadowStatus,claim:claimStatus,
     firstClean,round};
 }
-// Only two same-site READ-ONLY destinations are permitted. Strict path and
-// booking-reference validation excludes absolute/external URLs, fragments,
-// duplicate parameters, script schemes and all Squeegee write endpoints.
+// Only exact same-origin READ-ONLY return targets are permitted. The
+// fixed homepage leaderboard preview target includes an internal fragment,
+// but arbitrary fragments, external URLs, duplicate parameters, script schemes,
+// and Squeegee write endpoints remain blocked.
 export function safeOwnerReturnPath(value) {
   if(typeof value!=="string"||value.length>160)return null;
+  // Only this literal homepage destination may carry a fragment. An owner
+  // OTP login returns here so the N64 first-name test automatically opens,
+  // while the original permission ledger is never modified.
+  if(value==="/?ntl-drawer-state=hidden&owner-board=1&owner-auth-complete=1#live-leaderboard")
+    return value;
   if(value==="/api/squeegee-preview-auto-recover" ||
      value==="/api/squeegee-preview-owner-recovery" ||
      value==="/api/squeegee-preview-owner-recovery-v2" ||
