@@ -6,6 +6,7 @@ import LevelWasher from "./components/LevelWasher.jsx";
 import { CustomerReviews, CustomerQuestions } from "./components/CustomerTrustSections.jsx";
 import BookingAddressAutocomplete, { findNiPostcode } from "./components/BookingAddressAutocomplete.jsx";
 import { createFriendlyBookingReference } from "./bookingReference.mjs";
+import { useArcadeWeather, ArcadeWeatherScene, ArcadeWeatherBadge } from "./components/ArcadeWeather.jsx";
 
 const TenSecondChallenge = lazy(() => import("./TenSecondChallenge.jsx"));
 const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
@@ -22,11 +23,6 @@ const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
  * - Discount validation (client-side)
  * - Discounted prices shown in dropdown
  * - Total + breakdown included in WhatsApp + Email payload/message
- *
- * UPDATED (Snow):
- * - Canvas snowfall (constant, natural)
- * - Snow accumulates at the bottom
- * - On/Off toggle + persisted in localStorage
  *
  * UPDATED (reCAPTCHA v3):
  * - Dynamically inject reCAPTCHA v3 script on this page
@@ -280,245 +276,6 @@ function validateCodeAgainstSelection(bins, code) {
   }
 
   return { state: "valid", message: "Discount code applied ✅" };
-}
-
-/* ────────────────────────────────────────────────────────────────────────────
-   Snow (Canvas) + Toggle
-   ──────────────────────────────────────────────────────────────────────────── */
-const SNOW_STORAGE_KEY = "nbg_snow_enabled";
-
-function SnowCanvas({ enabled = true }) {
-  const canvasRef = useRef(null);
-  const rafRef = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    // Respect reduced motion
-    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-    if (reduceMotion) return;
-
-    const ctx = canvas.getContext("2d", { alpha: true });
-    let running = true;
-
-    const DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-
-    let W = 0;
-    let H = 0;
-
-    // Flakes
-    let flakes = [];
-    let targetFlakeCount = 0;
-
-    // Bank (accumulation)
-    let bank = [];
-    let bankStep = 3;
-    let maxBankRise = 150; // how high the buildup can get
-    let baseBank = 18; // starting drift height
-
-    // Wind
-    let wind = 0;
-    let windTarget = 0;
-
-    const rand = (min, max) => min + Math.random() * (max - min);
-
-    function resize() {
-      const parent = canvas.parentElement;
-      W = Math.floor(parent?.clientWidth || window.innerWidth);
-      H = Math.floor(parent?.clientHeight || window.innerHeight);
-
-      canvas.width = Math.floor(W * DPR);
-      canvas.height = Math.floor(H * DPR);
-      canvas.style.width = `${W}px`;
-      canvas.style.height = `${H}px`;
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-
-      bankStep = Math.max(2, Math.floor(W / 520));
-      const cols = Math.ceil(W / bankStep) + 3;
-      bank = new Array(cols).fill(baseBank);
-
-      const area = W * H;
-      targetFlakeCount = Math.round(Math.min(1500, Math.max(450, area / 1900)));
-      flakes = makeFlakes(targetFlakeCount);
-    }
-
-    function newFlake(spawnAnywhere = false) {
-      const r = Math.pow(Math.random(), 2) * 2.4 + 0.55; // 0.55..~3
-      const vy = 26 + r * 42 + rand(0, 28);
-      return {
-        x: rand(0, W),
-        y: spawnAnywhere ? rand(0, H) : rand(-H * 0.25, -10),
-        r,
-        vy,
-        vx: rand(-10, 10),
-        drift: rand(0.6, 1.65),
-        wobble: rand(0, Math.PI * 2),
-        wobbleSpeed: rand(0.9, 2.0),
-        alpha: Math.min(1, 0.25 + r / 2.9),
-      };
-    }
-
-    function makeFlakes(n) {
-      const arr = [];
-      for (let i = 0; i < n; i++) arr.push(newFlake(true));
-      return arr;
-    }
-
-    function bankHeightAt(x) {
-      const i = Math.max(0, Math.min(bank.length - 2, Math.floor(x / bankStep)));
-      const t = x / bankStep - i;
-      const a = bank[i] ?? baseBank;
-      const b = bank[i + 1] ?? baseBank;
-      return a + (b - a) * t;
-    }
-
-    function depositAt(x, amount) {
-      const i = Math.max(0, Math.min(bank.length - 1, Math.floor(x / bankStep)));
-      const cap = baseBank + maxBankRise;
-
-      const addTo = (idx, v) => {
-        if (idx < 0 || idx >= bank.length) return;
-        bank[idx] = Math.min(cap, bank[idx] + v);
-      };
-
-      addTo(i, amount * 0.6);
-      addTo(i - 1, amount * 0.26);
-      addTo(i + 1, amount * 0.26);
-      addTo(i - 2, amount * 0.12);
-      addTo(i + 2, amount * 0.12);
-    }
-
-    function smoothBank() {
-      const next = bank.slice();
-      for (let i = 1; i < bank.length - 1; i++) {
-        next[i] = (bank[i - 1] + bank[i] * 2 + bank[i + 1]) / 4;
-      }
-      bank = next;
-    }
-
-    function drawBank() {
-      ctx.save();
-
-      // Powdery fill
-      ctx.fillStyle = "rgba(255,255,255,0.82)";
-      ctx.shadowColor = "rgba(255,255,255,0.28)";
-      ctx.shadowBlur = 14;
-
-      ctx.beginPath();
-      ctx.moveTo(0, H);
-      for (let i = 0; i < bank.length; i++) {
-        const x = i * bankStep;
-        const y = H - bank[i];
-        ctx.lineTo(x, y);
-      }
-      ctx.lineTo(W, H);
-      ctx.closePath();
-      ctx.fill();
-
-      // Soft top edge highlight
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = "rgba(255,255,255,0.28)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let i = 0; i < bank.length; i++) {
-        const x = i * bankStep;
-        const y = H - bank[i];
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
-      ctx.restore();
-    }
-
-    let last = performance.now();
-
-    function tick(now) {
-      if (!running) return;
-      const dt = Math.min(0.033, (now - last) / 1000);
-      last = now;
-
-      ctx.clearRect(0, 0, W, H);
-
-      // Wind slowly meanders
-      windTarget += rand(-0.14, 0.14);
-      windTarget = Math.max(-22, Math.min(22, windTarget));
-      wind += (windTarget - wind) * 0.012;
-
-      // Keep density stable
-      if (flakes.length < targetFlakeCount) flakes.push(newFlake(false));
-      if (flakes.length > targetFlakeCount) flakes.pop();
-
-      // Draw flakes (behind accumulation)
-      for (let i = 0; i < flakes.length; i++) {
-        const f = flakes[i];
-
-        f.wobble += f.wobbleSpeed * dt;
-        const wob = Math.sin(f.wobble) * (0.7 + f.r * 0.7);
-
-        const vx = (f.vx + wind) * f.drift;
-        f.x += (vx + wob) * dt;
-        f.y += f.vy * dt;
-
-        // Wrap x
-        if (f.x < -30) f.x = W + 30;
-        if (f.x > W + 30) f.x = -30;
-
-        // Collision with snow bank
-        const bankH = bankHeightAt(f.x);
-        const floorY = H - bankH;
-
-        if (f.y + f.r >= floorY) {
-          // Deposit: larger flakes add slightly more
-          const deposit = Math.min(1.55, 0.4 + f.r * 0.42);
-          depositAt(f.x, deposit);
-          flakes[i] = newFlake(false);
-          continue;
-        }
-
-        // Flake draw
-        ctx.beginPath();
-        ctx.fillStyle = `rgba(255,255,255,${f.alpha})`;
-        ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Smooth & draw bank so it looks like “landing”
-      smoothBank();
-      drawBank();
-
-      rafRef.current = requestAnimationFrame(tick);
-    }
-
-    const onResize = () => resize();
-
-    resize();
-    window.addEventListener("resize", onResize);
-
-    if (enabled) {
-      cancelAnimationFrame(rafRef.current);
-      last = performance.now();
-      rafRef.current = requestAnimationFrame(tick);
-    } else {
-      cancelAnimationFrame(rafRef.current);
-      ctx.clearRect(0, 0, W, H);
-    }
-
-    return () => {
-      running = false;
-      cancelAnimationFrame(rafRef.current);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [enabled]);
-
-  if (!enabled) return null;
-
-  return (
-    <div className="pointer-events-none fixed inset-0 z-[5]" aria-hidden="true">
-      <canvas ref={canvasRef} className="absolute inset-0" />
-    </div>
-  );
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -1542,7 +1299,7 @@ function ChallengeModal({ open, onClose }) {
 /* ────────────────────────────────────────────────────────────────────────────
    Page Sections
    ──────────────────────────────────────────────────────────────────────────── */
-function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
+function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage, weather }) {
   const { totalBinsCleaned, todaysArea, totalMonthlyCustomers } = useLiveCounters();
 
   // Soft-live counter (display only)
@@ -1585,6 +1342,7 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
       <div className="n64-cloud n64-cloud--one" aria-hidden="true" />
       <div className="n64-cloud n64-cloud--two" aria-hidden="true" />
       <div className="n64-cloud n64-cloud--three" aria-hidden="true" />
+      <ArcadeWeatherScene mode={weather.mode} isNight={weather.isNight} />
 
       <div className="n64-hero-inner">
         <div className="n64-hero-copy">
@@ -1603,6 +1361,7 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
             </div>
           </div>
 
+          <ArcadeWeatherBadge weather={weather} />
           <div className="n64-kicker">★ THE 4-WEEKLY CLEANING ADVENTURE ★</div>
           <h1 id="n64-hero-title" className="n64-headline">
             BIN CLEANING<br />
@@ -1832,33 +1591,11 @@ export default function NiBinGuyLandingPage() {
     });
   };
 
-  // Snow toggle (persisted)
-  const [snowEnabled, setSnowEnabled] = useState(false);
+  const weather = useArcadeWeather();
 
-  useEffect(() => {
-    try {
-      // Always force snow off (ignores saved setting)
-      localStorage.setItem(SNOW_STORAGE_KEY, "0");
-      setSnowEnabled(false);
-    } catch {}
-  }, []);
-
-  const toggleSnow = () => {
-    setSnowEnabled((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(SNOW_STORAGE_KEY, next ? "1" : "0");
-      } catch {}
-      return next;
-    });
-  };
-
- return (
-  <main id="main-content" tabIndex="-1" className="n64-world min-h-screen bg-black text-white font-sans relative">
-      {/* Snow overlay */}
-      <SnowCanvas enabled={snowEnabled} />
-
-      <Hero onBook={openBooking} onContact={() => {window.n64Score?.awardAction("contact");setShowContact(true);}} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} onCoverage={() => setShowCoverageChecker(true)} />
+  return (
+  <main id="main-content" tabIndex="-1" data-weather={weather.mode} data-night={weather.isNight ? "true" : "false"} className="n64-world min-h-screen bg-black text-white font-sans relative">
+      <Hero weather={weather} onBook={openBooking} onContact={() => {window.n64Score?.awardAction("contact");setShowContact(true);}} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} onCoverage={() => setShowCoverageChecker(true)} />
 
       {/* Compact coverage control aligns with the existing fixed site menu. */}
       <button

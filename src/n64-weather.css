@@ -1,0 +1,172 @@
+/* NI BIN GUY — weather-responsive N64 scenery. Preview 1 only. */
+/* Badge sits in the hero column, never over navigation or forms. */
+#main-content.n64-world .n64-weather-badge{
+  display:inline-flex;gap:9px;align-items:center;max-width:100%;margin-top:16px;
+  border:3px solid #20345c!important;background:#fff9e8;color:#23365e;
+  padding:7px 11px;box-shadow:4px 5px 0 #4d7f9d;
+  font:800 .67rem/1.35 Verdana,sans-serif;text-align:left;position:relative;z-index:4;
+}
+#main-content.n64-world .n64-weather-badge-icon{
+  display:grid;place-items:center;flex-shrink:0;width:30px;height:30px;
+  background:#ffe078;border:2px solid #20345c;font-size:1.15rem;
+}
+#main-content.n64-world .n64-weather-badge small{
+  display:block;font-size:.55rem;line-height:1.45;font-weight:650;color:#4e5870;
+}
+#main-content.n64-world .n64-weather-badge a{color:inherit;text-decoration:underline;}
+#main-content.n64-world .n64-weather-badge+.n64-kicker{margin-top:23px;}
+#main-content.n64-world .n64-weather-scene{
+  position:absolute;inset:0;overflow:hidden;z-index:1;pointer-events:none;
+}
+#main-content.n64-world .n64-weather-scene *{pointer-events:none;}
+#main-content.n64-world .n64-weather-rays{
+  position:absolute;top:2%;right:6%;width:190px;height:190px;opacity:.24;
+  background:repeating-conic-gradient(#fff5a8 0deg 9deg,transparent 9deg 30deg);
+  clip-path:polygon(47% 0,53% 0,59% 40%,100% 47%,100% 53%,58% 59%,53% 100%,46% 100%,41% 58%,0 53%,0 46%,41% 40%);
+  animation:n64-weather-rays 10s linear infinite;
+}
+@keyframes n64-weather-rays{to{transform:rotate(360deg)}}
+
+/* Sky palettes. The normal sunny world is unchanged. */
+#main-content.n64-world[data-weather="cloudy"] .n64-hero{
+  background:linear-gradient(180deg,#a2bed4 0%,#cfdee8 61%,#bed3c2 81%,#84ae82 100%)!important;
+}
+#main-content.n64-world[data-weather="rain"] .n64-hero{
+  background:linear-gradient(180deg,#647d9f 0%,#98b2c7 59%,#b6cdd0 79%,#71a388 100%)!important;
+}
+#main-content.n64-world[data-weather="storm"] .n64-hero{
+  background:linear-gradient(180deg,#354a73 0%,#637693 55%,#9cabb9 80%,#597c77 100%)!important;
+}
+#main-content.n64-world[data-weather="snow"] .n64-hero{
+  background:radial-gradient(circle at 84% 13%,#fffefa 0 42px,#dff4fc 44px 63px,transparent 65px),
+    linear-gradient(180deg,#8fbedf 0%,#e2f4fa 64%,#fffdf2 85%,#c9e4d8 100%)!important;
+}
+#main-content.n64-world[data-weather="fog"] .n64-hero{
+  background:linear-gradient(180deg,#a4b6c3 0%,#d1dbdf 58%,#dfe3d7 81%,#9bb4a4 100%)!important;
+}
+#main-content.n64-world[data-night="true"] .n64-hero{
+  background:radial-gradient(circle at 84% 13%,#fff7cf 0 34px,#b4c6ec 35px 44px,transparent 46px),
+    linear-gradient(180deg,#172b57 0%,#34476f 58%,#7486a0 78%,#476f70 100%)!important;
+}
+#main-content.n64-world[data-night="true"][data-weather="storm"] .n64-hero{
+  background:linear-gradient(180deg,#122044 0%,#283656 54%,#586983 79%,#455e68 100%)!important;
+}
+
+/* Keep the low-poly mountain silhouette and hard-edged clouds. */
+#main-content.n64-world[data-weather="cloudy"] .n64-hero::before{background:#7fac83;}
+#main-content.n64-world[data-weather="rain"] .n64-hero::before,
+#main-content.n64-world[data-weather="storm"] .n64-hero::before{background:#527c72;}
+#main-content.n64-world[data-weather="snow"] .n64-hero::before{background:#e5f4ef;}
+#main-content.n64-world[data-weather="fog"] .n64-hero::before{background:#9db5aa;}
+#main-content.n64-world[data-night="true"] .n64-hero::before{background:#355e65;}
+#main-content.n64-world[data-night="true"][data-weather="snow"] .n64-hero::before{background:#d2e5e7;}
+#main-content.n64-world[data-weather="cloudy"] .n64-cloud{background:#e8eff3!important;}
+#main-content.n64-world[data-weather="rain"] .n64-cloud{background:#bac9d6!important;}
+#main-content.n64-world[data-weather="storm"] .n64-cloud{background:#8997ad!important;}
+#main-content.n64-world[data-weather="snow"] .n64-cloud{background:#fff!important;}
+#main-content.n64-world[data-weather="fog"] .n64-cloud{background:#e7ecea!important;}
+#main-content.n64-world[data-night="true"] .n64-cloud{background:#b3bfd5!important;}
+
+/* Extra pixel clouds drift slowly in cloudy, rainy and snowy worlds. */
+#main-content.n64-world .n64-weather-extra-clouds i{
+  display:block;position:absolute;width:175px;height:78px;background:#eef2f4;opacity:.75;
+  clip-path:polygon(0 52%,13% 52%,13% 27%,30% 27%,30% 0,64% 0,64% 24%,82% 24%,82% 49%,100% 49%,100% 76%,83% 76%,83% 89%,12% 89%,12% 75%,0 75%);
+  animation:n64-weather-clouds 10s ease-in-out infinite alternate;
+}
+#main-content.n64-world .n64-weather-extra-clouds i:first-child{top:11%;left:42%;transform:scale(.8);}
+#main-content.n64-world .n64-weather-extra-clouds i:last-child{top:40%;right:-3%;transform:scale(1.1);animation-delay:-4s;}
+#main-content.n64-world[data-weather="rain"] .n64-weather-extra-clouds i{background:#a1b7c7;}
+#main-content.n64-world[data-weather="storm"] .n64-weather-extra-clouds i{background:#7786a0;}
+#main-content.n64-world[data-weather="snow"] .n64-weather-extra-clouds i{background:#fff;}
+#main-content.n64-world[data-night="true"] .n64-weather-extra-clouds i{background:#8798b3;}
+@keyframes n64-weather-clouds{from{margin-left:-10px}to{margin-left:18px}}
+
+#main-content.n64-world .n64-weather-rain,
+#main-content.n64-world .n64-weather-snow,
+#main-content.n64-world .n64-weather-stars{position:absolute;inset:0;overflow:hidden;}
+#main-content.n64-world .n64-weather-rain i{
+  position:absolute;top:-24px;width:3px;height:23px;background:#e1f0ff;opacity:.72;
+  box-shadow:5px -9px 0 rgba(212,236,255,.25);
+  animation:n64-weather-rain 1s linear infinite;
+}
+#main-content.n64-world[data-weather="storm"] .n64-weather-rain i{opacity:.91;height:30px;}
+@keyframes n64-weather-rain{
+  from{transform:translate3d(33px,-110px,0) skewX(-15deg)}
+  to{transform:translate3d(-75px,1100px,0) skewX(-15deg)}
+}
+#main-content.n64-world .n64-weather-snow i{
+  position:absolute;top:-12px;width:7px;height:7px;background:#fff;
+  border:1px solid #c9e0ec;opacity:.9;
+  animation:n64-weather-snow 6s linear infinite;
+}
+#main-content.n64-world .n64-weather-snow i:nth-child(3n){width:4px;height:4px;}
+#main-content.n64-world .n64-weather-snow i:nth-child(5n){width:10px;height:10px;}
+@keyframes n64-weather-snow{
+  from{transform:translate3d(-18px,-100px,0)}
+  to{transform:translate3d(60px,1100px,0)}
+}
+#main-content.n64-world .n64-weather-stars i{
+  position:absolute;width:5px;height:5px;background:#fff0bd;opacity:.92;
+  box-shadow:8px 0 0 -1px #fcf1d8,0 8px 0 -1px #fcf1d8;
+}
+#main-content.n64-world .n64-weather-lightning{
+  position:absolute;top:8%;right:18%;width:80px;height:155px;
+  background:#fff7c9;opacity:.55;
+  clip-path:polygon(54% 0,13% 53%,44% 53%,25% 100%,87% 39%,55% 39%,80% 0);
+}
+#main-content.n64-world .n64-weather-mist{
+  position:absolute;inset:25% 0 10%;
+  background:repeating-linear-gradient(180deg,transparent 0 55px,rgba(248,250,243,.32) 56px 96px,transparent 97px 145px);
+  animation:n64-weather-mist 9s ease-in-out infinite alternate;
+}
+@keyframes n64-weather-mist{to{transform:translateX(24px)}}
+
+/* Other levels keep their bright cards and four-row checked finish lines. */
+#main-content.n64-world[data-weather="rain"]>section:nth-of-type(2),
+#main-content.n64-world[data-weather="storm"]>section:nth-of-type(2){background:#e4edf5!important;}
+#main-content.n64-world[data-weather="cloudy"]>section:nth-of-type(2){background:#eff2ec!important;}
+#main-content.n64-world[data-weather="snow"]>section:nth-of-type(2){background:#f5f9fd!important;}
+#main-content.n64-world[data-weather="fog"]>section:nth-of-type(2){background:#e8efee!important;}
+#main-content.n64-world[data-weather="rain"]>section:nth-of-type(3),
+#main-content.n64-world[data-weather="storm"]>section:nth-of-type(3){background:#d4e8ec!important;}
+#main-content.n64-world[data-weather="snow"]>section:nth-of-type(3){background:#e4f3f8!important;}
+html[data-arcade-weather="rain"] #areas-we-cover,
+html[data-arcade-weather="storm"] #areas-we-cover{
+  background:linear-gradient(180deg,#93b9d2 0%,#c7dce4 62%,#95c7ae 100%)!important;
+}
+html[data-arcade-weather="snow"] #areas-we-cover{
+  background:linear-gradient(180deg,#c5e0f2 0%,#eaf6fa 66%,#d3e8dd 100%)!important;
+}
+html[data-arcade-weather="cloudy"] #areas-we-cover,
+html[data-arcade-weather="fog"] #areas-we-cover{
+  background:linear-gradient(180deg,#b9ccd8 0%,#e2ebe9 62%,#b9d6c4 100%)!important;
+}
+html[data-arcade-weather="rain"] #level-08-final,
+html[data-arcade-weather="storm"] #level-08-final{
+  background:linear-gradient(160deg,#a1c6da 0%,#d4e6e5 67%,#a5d3bb 100%)!important;
+}
+html[data-arcade-weather="snow"] #level-08-final{
+  background:linear-gradient(160deg,#c4e2f5 0%,#f2f9fb 68%,#d3e8db 100%)!important;
+}
+
+@media(max-width:950px){
+  #main-content.n64-world .n64-weather-badge{margin-left:auto;margin-right:auto;}
+}
+@media(max-width:600px){
+  #main-content.n64-world .n64-weather-badge{
+    gap:7px;margin-top:13px;padding:6px 8px;max-width:100%;
+    font-size:.59rem;box-shadow:3px 4px 0 #4d7f9d;
+  }
+  #main-content.n64-world .n64-weather-badge-icon{width:26px;height:26px;font-size:1rem;}
+  #main-content.n64-world .n64-weather-badge small{font-size:.49rem;}
+  #main-content.n64-world .n64-weather-badge+.n64-kicker{margin-top:18px;}
+  #main-content.n64-world .n64-weather-rays{width:120px;height:120px;}
+  #main-content.n64-world .n64-weather-lightning{right:10%;width:50px;height:95px;}
+}
+@media(prefers-reduced-motion:reduce){
+  #main-content.n64-world .n64-weather-scene *,
+  #main-content.n64-world .n64-weather-scene *::before,
+  #main-content.n64-world .n64-weather-scene *::after{animation:none!important;transition:none!important;}
+  #main-content.n64-world .n64-weather-rain i{top:18%;opacity:.3;}
+  #main-content.n64-world .n64-weather-snow i{top:18%;opacity:.5;}
+}
