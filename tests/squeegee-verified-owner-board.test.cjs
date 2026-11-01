@@ -104,7 +104,7 @@ test("existing signed-in owner can return directly to full leaderboard",()=>{
   assert.match(manager,/owner\.verifyTestSessionCookie\(/);
   const publicApi=read("netlify/functions/arcadeLeaderboard.js");
   assert.doesNotMatch(publicApi,/squeegeePreviewVerifiedLeaderboard/);
-  assert.match(publicApi,/publicEligibleScoreboard\(/);
+  assert.match(publicApi,/previewFirstNameScoreboard\(/);
   assert.match(publicApi,/customerHQ\.eligibleRankedEmailAccounts/);
 });
 
@@ -136,7 +136,7 @@ test("simulated all-customer permissions are only client-side owner display, nev
   assert.match(ownerApi,/return json\(401,\{error:"owner_sign_in_required"\}\)/);
   assert.doesNotMatch(ownerApi,/\bsetJSON\(/);
   assert.doesNotMatch(publicApi,/ownerPrivateLeaderboardPreview/);
-  assert.match(publicApi,/nameConsents\.publicEligibleScoreboard/);
+  assert.match(publicApi,/nameConsents\.previewFirstNameScoreboard/);
   assert.match(secureAudit,/permission\?\.consent==="granted"/);
   assert.doesNotMatch(client,/localStorage\.setItem\(/);
   assert.doesNotMatch(client,/sessionStorage\.setItem\(/);
