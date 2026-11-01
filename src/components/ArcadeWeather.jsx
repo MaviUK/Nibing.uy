@@ -167,6 +167,7 @@ export function ArcadeWeatherScene({ mode, isNight }) {
         }} />
       )}</div>}
       {mode === "storm" && <span className="n64-weather-lightning" />}
+      {mode === "storm" && <span className="n64-weather-lightning-fork" />}
       {mode === "fog" && <span className="n64-weather-mist" />}
     </div>
   );

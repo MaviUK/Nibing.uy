@@ -303,3 +303,44 @@ html[data-arcade-weather="snow"] #level-08-final{
     opacity:.36!important;
   }
 }
+
+
+/* Small fork branching out of the right side of the main low-poly lightning
+   bolt. A sibling rather than a pseudo-element so the parent bolt's clip-path
+   never cuts off the side branch. Both share the same 10-second pulse clock. */
+#main-content.n64-world[data-weather="storm"] .n64-weather-lightning-fork {
+  position:absolute;
+  z-index:2;
+  top:calc(8% + 61px);
+  right:calc(18% - 22px);
+  width:58px;
+  height:60px;
+  background:#fff7c9;
+  opacity:.06;
+  pointer-events:none;
+  clip-path:polygon(
+    0 0, 13% 0,
+    40% 25%, 63% 25%,
+    59% 44%, 100% 66%,
+    72% 66%, 88% 100%,
+    45% 57%, 48% 41%,
+    27% 41%
+  );
+  animation:n64-storm-bolt-flash 10s linear infinite;
+}
+@media(max-width:600px) {
+  /* Scaled to the existing 50x95px phone-sized main bolt. */
+  #main-content.n64-world[data-weather="storm"] .n64-weather-lightning-fork {
+    top:calc(8% + 38px);
+    right:calc(10% - 14px);
+    width:36px;
+    height:38px;
+  }
+}
+@media(prefers-reduced-motion:reduce) {
+  /* Visitors who limit motion see a static little fork, not flashes. */
+  #main-content.n64-world[data-weather="storm"] .n64-weather-lightning-fork {
+    animation:none!important;
+    opacity:.36!important;
+  }
+}

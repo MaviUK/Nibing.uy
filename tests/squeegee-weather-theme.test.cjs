@@ -90,3 +90,18 @@ test("storm mode shows two subtle lightning flashes every ten seconds, with redu
   assert.match(css, /94\.8% \{opacity:\.43;\}/);
   assert.match(css, /prefers-reduced-motion:reduce\)\s*\{[\s\S]*?n64-weather-scene::after\s*\{[\s\S]*?animation:none!important/);
 });
+
+
+test("storm lightning has a visible side fork pulsing with the main bolt every ten seconds", () => {
+  const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
+  const scene = read("src/components/ArcadeWeather.jsx");
+  const css = read("src/n64-weather.css");
+  assert.match(scene, /mode === "storm" && <span className="n64-weather-lightning" \/>/);
+  assert.match(scene, /mode === "storm" && <span className="n64-weather-lightning-fork" \/>/);
+  assert.match(css, /data-weather="storm"\] \.n64-weather-lightning-fork\s*\{/);
+  assert.match(css, /animation:n64-storm-bolt-flash 10s linear infinite/);
+  assert.match(css, /right:calc\(18% - 22px\)/);
+  assert.match(css, /right:calc\(10% - 14px\)/);
+  assert.match(css, /fork \{[\s\S]*?animation:none!important;[\s\S]*?opacity:\.36!important;/);
+  assert.match(css, /@keyframes n64-storm-bolt-flash/);
+});
