@@ -15,9 +15,9 @@ export default function CustomerPortalLoader({ standalone = false }) {
   // A direct link from /customer-hq loads the homepage before React mounts
   // the anchor, so explicitly honour the hash once this section is present.
   useEffect(() => {
-    if (window.location.hash !== "#customer-portal") return
+    if (!["#customer-portal", "#customer-portal-login"].includes(window.location.hash)) return
     const frame = window.requestAnimationFrame(() => {
-      document.getElementById("customer-portal")?.scrollIntoView({
+      document.getElementById("customer-portal-login")?.scrollIntoView({
         behavior: "auto", block: "start",
       })
     })
@@ -39,6 +39,7 @@ export default function CustomerPortalLoader({ standalone = false }) {
       <div style={{ width: "100%", maxWidth: "1152px", margin: "0 auto" }}>
         <div className="n64-portal-eyebrow" aria-hidden="true">{standalone ? "SQUEEGEE · OFFICIAL CUSTOMER ACCESS" : "LEVEL 07 · CUSTOMER HQ"}</div>
         <h2
+          id="customer-portal-login"
           style={{
             fontSize: "1.875rem",
             fontWeight: "bold",

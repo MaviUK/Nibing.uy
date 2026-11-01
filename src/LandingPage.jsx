@@ -1647,7 +1647,7 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
           <span aria-hidden="true">★</span> Free Bin Clean
         </button>
         <button type="button" className="n64-text-link n64-link--contact" onClick={onContact}>Contact Us</button>
-        <a className="n64-text-link n64-link--portal" href="#customer-portal">Customer Portal</a>
+        <a className="n64-text-link n64-link--portal" href="#customer-portal-login">Customer Portal</a>
         <button type="button" className="n64-text-link n64-link--bin-day" onClick={onBinChecker}>Bin Day Checker</button>
       </nav>
 
