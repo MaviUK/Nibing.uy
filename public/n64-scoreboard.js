@@ -263,7 +263,11 @@
       boardNode.replaceChildren();
       if (!top.length) {
         const li = document.createElement("li");
-        li.textContent = "No players yet — be the first!";
+        li.textContent = data.status === "eligibility_pending"
+          ? "Verified email accounts being prepared…"
+          : data.status === "consent_pending"
+          ? "Customer permissions pending…"
+          : "No players yet — be the first!";
         boardNode.appendChild(li);
       }
       top.forEach((item) => {
@@ -279,8 +283,10 @@
         li.append(name,score);
         boardNode.appendChild(li);
       });
-      boardNote.textContent = data.status === "consent_only" || data.status === "consent_pending"
-        ? "Only customers who agreed to publication appear by first name and town. Squeegee references and contact details remain private."
+      boardNote.textContent = data.status === "eligibility_pending"
+        ? "A verified registered email is required to join. Customer history is being imported privately; no personal details are public."
+        : data.status === "consent_only" || data.status === "consent_pending"
+        ? "Only customers with a registered email and recorded publication permission appear by first name and town. Squeegee references and contact details remain private."
         : data.sourceAsOf
         ? "Squeegee active-account snapshot: " + data.sourceAsOf + ". Streak: 20 points first paid clean, +2 each consecutive visit; a recorded skip resets the next bonus. Website XP joins after account verification. No names or addresses."
         : "Public: customer reference, town and XP only. No names or addresses.";
