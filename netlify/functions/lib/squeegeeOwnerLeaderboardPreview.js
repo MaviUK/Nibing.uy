@@ -21,10 +21,12 @@ function ownerPrivateLeaderboardPreview(privateSnapshot,consentSnapshot,eligible
       const permission=status.get(alias);
       const approved=permission?.consent==="granted" &&
         !permission.withdrawnAt &&
-        permission.noticeVersion==="nibinguy-leaderboard-firstname-town-xp-v1";
+        permission.noticeVersion==="nibinguy-leaderboard-firstname-town-xp-v1" &&
+        permission.consentAt && permission.method && permission.evidenceRef &&
+        permission.town===r.town && safeFirstName(permission.firstName);
       return {
         customerReference:String(r.ref||""),
-        firstName:safeFirstName(r.firstName)||null,
+        firstName:approved?permission.firstName:(safeFirstName(r.firstName)||null),
         town:String(r.town||"Town unavailable"),
         points:r.points,
         permission:approved?"approved":permission?.consent==="withdrawn"?"withdrawn":"pending",
