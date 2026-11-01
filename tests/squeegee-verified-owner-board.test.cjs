@@ -82,7 +82,9 @@ test("N64 home page offers public and private owner views with no private client
   assert.match(client,/owner-board/);
   assert.match(client,/credentials:"same-origin",cache:"no-store"/);
   assert.match(client,/owner-login-required/);
-  assert.match(client,/\/api\/squeegee-preview-leaderboard-names/);
+  assert.match(client,/\/api\/squeegee-preview-test\?returnTo/);
+  assert.match(client,/owner-auth-complete/);
+  assert.match(client,/window\.location\.assign\(OWNER_LOGIN_URL\)/);
   assert.match(client,/SEARCH VERIFIED CUSTOMERS BY FIRST NAME OR TOWN/);
   assert.match(client,/SHOW 25 MORE/);
   assert.match(client,/PUBLIC PERMISSION NOT RECORDED/);
@@ -97,7 +99,7 @@ test("N64 home page offers public and private owner views with no private client
 
 test("existing signed-in owner can return directly to full leaderboard",()=>{
   const manager=read("netlify/functions/squeegeePreviewLeaderboardNames.mjs");
-  assert.match(manager,/owner-board=1#live-leaderboard/);
+  assert.match(manager,/%26owner-board%3D1%26owner-auth-complete%3D1%23live-leaderboard/);
   assert.match(manager,/VIEW ALL VERIFIED CUSTOMERS IN THE N64 LEADERBOARD/);
   assert.match(manager,/owner\.verifyTestSessionCookie\(/);
   const publicApi=read("netlify/functions/arcadeLeaderboard.js");
@@ -138,4 +140,24 @@ test("simulated all-customer permissions are only client-side owner display, nev
   assert.match(secureAudit,/permission\?\.consent==="granted"/);
   assert.doesNotMatch(client,/localStorage\.setItem\(/);
   assert.doesNotMatch(client,/sessionStorage\.setItem\(/);
+});
+
+
+test("expired owner session returns directly to owner-only name test after emailed code",()=>{
+  const client=read("src/components/ArcadeLeaderboard.jsx");
+  const ownerLogin=read("netlify/functions/squeegeePreviewTest.mjs");
+  const manager=read("netlify/functions/squeegeePreviewLeaderboardNames.mjs");
+  assert.match(client,/get\("owner-board"\)==="1"\s*\?\s*"owner"\s*:\s*"public"/);
+  assert.match(client,/get\("owner-auth-complete"\)!=="1"/);
+  assert.match(client,/ownerRedirectRequested\.current=true/);
+  assert.match(client,/window\.location\.assign\(OWNER_LOGIN_URL\)/);
+  assert.match(client,/SIGN IN AS OWNER TO SEE FIRST NAMES/);
+  assert.match(ownerLogin,/owner-auth-complete=1#live-leaderboard/);
+  assert.match(manager,/href="\/api\/squeegee-preview-test\?returnTo=/);
+  assert.doesNotMatch(client,/localStorage\.setItem\(/);
+  assert.doesNotMatch(client,/sessionStorage\.setItem\(/);
+  // Real names remain available ONLY from an authenticated owner endpoint.
+  const endpoint=read("netlify/functions/squeegeePreviewVerifiedLeaderboard.mjs");
+  assert.match(endpoint,/owner\.verifyTestSessionCookie\(/);
+  assert.doesNotMatch(endpoint,/setJSON\(/);
 });
