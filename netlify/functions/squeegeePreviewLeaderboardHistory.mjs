@@ -10,19 +10,28 @@ import active from "./lib/squeegeeActiveLeaderboardImport.js";
 const PATH = "/api/squeegee-preview-leaderboard-history";
 const ACTIVE_STATUS="n64-preview1-squeegee-active-only";
 const activeStore=()=>getStore({name:ACTIVE_STATUS,consistency:"strong"});
-async function currentActiveSnapshot() {
-  return activeStore().get(active.SNAPSHOT_KEY,{type:"json",consistency:"strong"});
+async function currentActiveSnapshots() {
+  const store=activeStore();
+  const [staged,published]=await Promise.all([
+    store.get(active.SNAPSHOT_KEY,{type:"json",consistency:"strong"}),
+    store.get(active.PUBLISHED_KEY,{type:"json",consistency:"strong"}),
+  ]);
+  return {staged,published};
 }
-function activeSection(snapshot) {
+function activeSection({staged,published}={}) {
+  const snapshot=staged||published||null;
   const list=snapshot?active.combinedPublicBoard(snapshot):null;
   const summary=snapshot?.summary;
-  const state=snapshot?.published?"PUBLISHED ON PREVIEW 1":"STAGED FOR OWNER REVIEW";
+  const identical=Boolean(staged && published && staged.sourceHash===published.sourceHash);
+  const state=published
+    ? (identical?"PUBLISHED ON PREVIEW 1":"NEW IMPORT STAGED — PREVIOUS APPROVED SNAPSHOT STILL LIVE")
+    : (staged?"STAGED FOR OWNER REVIEW":"NOT IMPORTED");
   const table=list?.entries?.map(e=>
     "<li><strong>"+safe(e.customerRef)+"</strong> · "+safe(e.town)+
     " · "+String(e.points)+" XP</li>").join("")||"";
-  const approved=snapshot?.published && active.snapshotIsFresh(snapshot);
+  const approved=published && active.snapshotIsFresh(published);
   return '<section><h2>Active-only Squeegee leaderboard</h2>'+
-    '<p><strong>'+(snapshot?state:"NOT IMPORTED")+'</strong></p>'+
+    '<p><strong>'+state+'</strong></p>'+
     (summary?'<p>Active accounts: '+summary.activeAccounts+
       ' · Ranked: '+summary.publishedCandidates+
       ' · Paid-clean points: '+summary.historicalPaidPoints+
@@ -39,12 +48,13 @@ function activeSection(snapshot) {
     '<label for="asOf">Squeegee backup date</label>'+
     '<input id="asOf" name="asOf" type="date" value="2026-10-31" required>'+
     '<button type="submit">IMPORT ACTIVE CUSTOMERS - PRIVATE REVIEW</button></form>'+
-    (snapshot?
+    (staged?
       '<form method="post" action="'+PATH+'">'+
       '<input type="hidden" name="action" value="publish-active">'+
       '<label><input type="checkbox" name="privacyConfirmed" value="yes" required> '+
       'I confirm suitable customer privacy information and participation controls are in place, and I have reviewed this active-only snapshot.</label>'+
-      '<button type="submit">PUBLISH ON N64 PREVIEW ONLY</button></form>'+
+      '<button type="submit">PUBLISH ON N64 PREVIEW ONLY</button></form>':'')+
+    (published?
       '<form method="post" action="'+PATH+'">'+
       '<input type="hidden" name="action" value="unpublish-active">'+
       '<button type="submit">HIDE HISTORICAL LEADERBOARD</button></form>':'')+
@@ -72,6 +82,7 @@ const page = (content, status = 200) => new Response(
   'button,input{display:block;box-sizing:border-box;width:100%;padding:12px;font:inherit;margin:12px 0}' +
   'button{background:#f3d750;border:2px solid #111;font-weight:800;color:#151515}' +
   'input{background:white;color:#111;border:2px solid #f3d750}' +
+  'input[type=checkbox]{display:inline-block;width:20px;height:20px;vertical-align:middle;margin:0 6px 0 0}' +
   'small{color:#c7cddd}code{overflow-wrap:anywhere}</style></head><body><main>' +
   '<h1>NI Bin Guy - Historical leaderboard</h1>' + content +
   '<p><small>Owner-only Preview 1 tool. Squeegee records remain untouched. Historical leaderboard visibility requires a separate explicit publish action.</small></p>' +
@@ -135,6 +146,15 @@ export default async function handler(request, context) {
             '<p>No score was added to the public board. No customer details were logged or sent to GitHub.</p>'+
             '</section><p><a href="'+PATH+'">Review top scores and publication control</a></p>');
         }
+        if(action==="unpublish-active"){
+          // The active-only safety latch remains in place. The public GET
+          // cannot fall back to unverified website-only player accounts.
+          await store.setJSON(active.MODE_KEY,{activeOnly:true,updatedAt:new Date().toISOString()});
+          await store.delete(active.PUBLISHED_KEY);
+          return page('<section><strong>HISTORICAL LEADERBOARD HIDDEN</strong>'+
+            '<p>Private points are retained. No customer data was deleted.</p></section>'+
+            '<p><a href="'+PATH+'">Return to owner leaderboard</a></p>');
+        }
         const state=await store.getWithMetadata(active.SNAPSHOT_KEY,{type:"json",consistency:"strong"});
         const current=state?.data;
         if(!current || state?.etag===undefined)
@@ -145,15 +165,21 @@ export default async function handler(request, context) {
           return page("<section>Privacy confirmation and a recent account-status backup are required before publishing.</section>",409);
         if(action==="publish-active" && active.eligibleHistoricalEntries(current).length===0)
           return page("<section>There are no eligible active customers.</section>",409);
-        const next={...current,
-          published:action==="publish-active",
-          publishedAt:action==="publish-active"?new Date().toISOString():null};
-        const saved=await store.setJSON(active.SNAPSHOT_KEY,next,{onlyIfMatch:state.etag});
+        const latest=await store.getMetadata(active.SNAPSHOT_KEY,{consistency:"strong"});
+        if(!latest || latest.etag!==state.etag)
+          return page("<section>Import changed during review. Refresh before publishing.</section>",409);
+        const next={...current,published:true,publishedAt:new Date().toISOString()};
+        // Never briefly fall back to unverified player accounts while an
+        // active-only snapshot is being swapped or un-published.
+        await store.setJSON(active.MODE_KEY,{
+          activeOnly:true,updatedAt:new Date().toISOString()
+        });
+        const saved=await store.setJSON(active.PUBLISHED_KEY,next);
         if(saved?.modified!==true)
-          return page("<section>Leaderboard was updated elsewhere; refresh before trying again.</section>",409);
-        return page('<section><strong>'+(
-          next.published?"PUBLISHED TO PREVIEW 1":"HISTORICAL LEADERBOARD HIDDEN")+
-          '</strong><p>Customer names, contact details, Squeegee IDs and payment status are never public.</p></section>'+
+          return page("<section>Publish was not saved. Private data is intact.</section>",503);
+        return page('<section><strong>PUBLISHED TO PREVIEW 1</strong>'+
+          '<p>Only active, non-deleted accounts with verified towns are ranked. '+
+          'No customer names, UUIDs, invoices or payment details are public.</p></section>'+
           '<p><a href="'+PATH+'">Return to owner leaderboard</a></p>');
       }
       const file = form.get("history");
@@ -202,7 +228,7 @@ export default async function handler(request, context) {
     }
   }
   let activePreview="";
-  try { activePreview=activeSection(await currentActiveSnapshot()); }
+  try { activePreview=activeSection(await currentActiveSnapshots()); }
   catch { activePreview="<section>Active leaderboard storage is temporarily unavailable.</section>"; }
   return page(activePreview + '<section><strong>Historical score calculator (dry run)</strong>' +
     '<p>1 point per completed, fully paid bin clean. After a 28-day grace period, ' +
