@@ -572,7 +572,8 @@ exports.handler = async (event) => {
         arcadeBookingProof: signBooking(payload),
         arcadeRegistered: Boolean(arcadeEntry?.registered),
         arcadePlayerToken: arcadeEntry?.playerToken || null,
-        arcadeDisplayName: arcadeEntry?.displayName || null,
+        arcadeCustomerRef: arcadeEntry?.customerRef || null,
+        arcadeTown: arcadeEntry?.town || null,
         // Populated for all Preview 1 website bookings only.
         // Queued means internal receipt, NOT confirmed Squeegee creation.
         squeegeePilot,
