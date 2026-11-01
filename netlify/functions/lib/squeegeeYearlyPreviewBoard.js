@@ -138,14 +138,15 @@ async function datedWebsiteXP(stores,eligibleAliases,now=Date.now()){
   });
   return credited;
 }
-async function getAnnualPreviewBoard(stores,privateCustomers,eligibleAliases,year,now=Date.now()){
+async function getAnnualPreviewBoard(stores,privateCustomers,eligibleAliases,year,now=Date.now(),precomputedWeb=null){
   if(!validYear(year,now) ||
      privateCustomers?.version!==1 ||
      privateCustomers?.asOf!==snapshot.AS_OF ||
      !Array.isArray(privateCustomers.accounts) ||
      !(eligibleAliases instanceof Set))
     throw new Error("invalid_yearly_leaderboard_input");
-  const annualWeb=await datedWebsiteXP(stores,eligibleAliases,now);
+  const annualWeb=precomputedWeb instanceof Map?precomputedWeb:
+    await datedWebsiteXP(stores,eligibleAliases,now);
   const rows=[];
   for(const account of privateCustomers.accounts){
     if(!UUID.test(String(account?.id||"").toLowerCase()))continue;
