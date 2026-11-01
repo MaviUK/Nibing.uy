@@ -383,38 +383,6 @@
   outline:3px solid #1a7259;
   outline-offset:3px;
 }
-/* Lifetime rewards from older imports must not be falsely dated. Display
-   the unassigned balance as an additive, non-ranked part of Overall. */
-.n64-public-leaderboard .n64-personal-score > .n64-personal-reconciliation {
-  display:block;
-  border-top:2px solid #d6c88a;
-  margin-top:15px;
-  padding-top:12px;
-  font-size:.87rem;
-}
-.n64-public-leaderboard .n64-personal-reconciliation .n64-personal-unassigned {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  flex-wrap:wrap;
-  gap:4px 12px;
-  font-weight:900;
-  line-height:1.35;
-}
-.n64-public-leaderboard .n64-personal-reconciliation .n64-personal-unassigned span {
-  font:1000 1rem/1.3 "Arial Black","Trebuchet MS",sans-serif;
-  color:#15574c;
-  white-space:nowrap;
-  font-variant-numeric:tabular-nums;
-}
-.n64-public-leaderboard .n64-personal-reconciliation small {
-  display:block;
-  margin-top:8px;
-  color:#4d5c75;
-  font-weight:500;
-}
-
-
 /* ── SECURE POST-BOOKING SCORE CLAIM ──────────────────────────────────────
  * Customers can claim a confirmed booking without submitting a second clean.
  * The public leaderboard remains name/XP only; private contact is opt-in.
