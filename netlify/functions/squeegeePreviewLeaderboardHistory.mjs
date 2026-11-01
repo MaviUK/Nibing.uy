@@ -6,6 +6,7 @@ import score from "./lib/squeegeeHistoricalLeaderboard.js";
 import { gunzipSync } from "node:zlib";
 import { getStore } from "@netlify/blobs";
 import active from "./lib/squeegeeActiveLeaderboardImport.js";
+import publicSeed from "./lib/squeegeeActivePreviewSnapshot.js";
 
 const PATH = "/api/squeegee-preview-leaderboard-history";
 const ACTIVE_STATUS="n64-preview1-squeegee-active-only";
@@ -20,6 +21,8 @@ async function currentActiveSnapshots() {
 }
 function activeSection({staged,published}={}) {
   const snapshot=staged||published||null;
+  const publicPreview=publicSeed.getHistoricalSnapshot();
+  const preloaded=publicPreview.totalPlayers>0;
   const list=snapshot?active.combinedPublicBoard(snapshot):null;
   const summary=snapshot?.summary;
   const identical=Boolean(staged && published && staged.sourceHash===published.sourceHash);
@@ -31,7 +34,12 @@ function activeSection({staged,published}={}) {
     " · "+String(e.points)+" XP</li>").join("")||"";
   const approved=published && active.snapshotIsFresh(published);
   return '<section><h2>Active-only Squeegee leaderboard</h2>'+
-    '<p><strong>'+state+'</strong></p>'+
+    '<p><strong>'+(!snapshot&&preloaded?"PRELOADED PUBLIC PREVIEW (active-only)":state)+'</strong></p>'+
+    (!snapshot && preloaded?
+      '<p>Preloaded reference/town/paid-clean snapshot: <strong>'+publicPreview.totalPlayers+
+      ' active customers</strong>, dated '+safe(publicSeed.AS_OF)+
+      '. No private Squeegee account IDs are stored in the preview source.'+
+      ' Customer names, contact details and overdue-payment flags are excluded.</p>':'')+
     (summary?'<p>Active accounts: '+summary.activeAccounts+
       ' · Ranked: '+summary.publishedCandidates+
       ' · Paid-clean points: '+summary.historicalPaidPoints+
@@ -54,11 +62,11 @@ function activeSection({staged,published}={}) {
       '<label><input type="checkbox" name="privacyConfirmed" value="yes" required> '+
       'I confirm suitable customer privacy information and participation controls are in place, and I have reviewed this active-only snapshot.</label>'+
       '<button type="submit">PUBLISH ON N64 PREVIEW ONLY</button></form>':'')+
-    (published?
+    ((published||preloaded)?
       '<form method="post" action="'+PATH+'">'+
       '<input type="hidden" name="action" value="unpublish-active">'+
       '<button type="submit">HIDE HISTORICAL LEADERBOARD</button></form>':'')+
-    '<p><small>Preview 1 only. Changing the source backup replaces the full active set; inactive accounts are not carried forward. Publication is never automatic. Historical overdue deductions are excluded.</small></p></section>';
+    '<p><small>Preview 1 only. A later owner-uploaded private CSV is always staged for review before it replaces this preloaded public preview. Historical overdue deductions are excluded. Use HIDE to remove the dated public ranking immediately.</small></p></section>';
 }
 const HEADERS = {
   "Content-Type": "text/html; charset=utf-8",
