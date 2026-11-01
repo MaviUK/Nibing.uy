@@ -159,9 +159,10 @@ test("legacy public names and v2 snapshots cannot leak through either new GET or
     const ref=historic.canonicalLegacyRef(uuid);
     const sourceAsOf=new Date().toISOString().slice(0,10);
     const statusSnapshot={
-      version:1,asOf:sourceAsOf,importedAt:new Date().toISOString(),
+      version:2,scoringVersion:"2026-11-streak-20-plus-2-squeegee-skip-reset-v1",
+      asOf:sourceAsOf,importedAt:new Date().toISOString(),
       published:false,
-      accounts:[{id:uuid,ref,town:"Bangor",paidCleans:20,active:true}]
+      accounts:[{id:uuid,ref,town:"Bangor",paidCleans:1,historicalPoints:20,active:true}]
     };
     historyData.set(historic.SNAPSHOT_KEY,statusSnapshot);
     assert.equal(JSON.parse((await get()).body).entries[0].points,725);
