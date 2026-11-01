@@ -59,12 +59,15 @@ export default async function handler(request,ctx){
     try{existing=await store.get(hq.DATA_KEY,{type:"json",consistency:"strong"});}
     catch{return page("<section>Private storage temporarily unavailable. No changes made.</section>",503);}
     const summary=existing?.summary;
+    const eligible=hq.eligibleRankedEmailAccounts(existing);
     return page('<section><strong>'+(summary?"PRIVATE HISTORY IMPORTED":"NOT IMPORTED")+
       '</strong><p>'+(summary?
         'Active customer records: '+summary.activeAccounts+
-        ' · Ranked customers: '+summary.rankedCustomers+
+        ' · Ranked customers with an email: '+(eligible?.count??'Unverified')+
+        ' · Email-eligible cleaning XP: '+(eligible?.historicalPoints??'Unverified')+
+        ' · Unranked due to no email: '+(eligible?summary.rankedCustomers-eligible.count:'Unverified')+
         ' · Cleaning history events: '+summary.historyEvents+
-        ' · Customers with registered email: '+summary.emailAvailable+
+        ' · Active accounts with registered email: '+summary.emailAvailable+
         ' · Shared-email conflicts held for review: '+summary.duplicateEmailCount+
         ' · Source: '+escape(existing.asOf):
         'Upload the private Customer HQ JSON built from your 31 October Squeegee backup. No customer can sign in to see their points until that private file is imported.')+
@@ -115,9 +118,12 @@ export default async function handler(request,ctx){
     return page('<section><strong>PRIVATE CUSTOMER HQ HISTORY READY</strong>'+
       '<p>Validated '+validated.summary.activeAccounts+' active customers and '+
       validated.summary.historyEvents+' clean history entries. '+
+      validated.summary.rankedWithEmail+' ranking-eligible customers have an email, '+
+      'representing '+validated.summary.rankedWithEmailPoints+' cleaning XP. '+
       'No Squeegee customer/job/payment was changed.</p>'+
       '<p>Customer sign-ins can now be tested on the N64 preview. '+
-      'Accounts without an email address, and shared-email records, remain held for owner review.</p></section>'+
+      'No-email accounts are excluded from the public leaderboard but their historical XP is retained. '+
+      'Four customers with shared emails require manual identity verification for portal sign-in.</p></section>'+
       '<p><a href="/customer-hq">Open Customer HQ</a></p>');
   }catch{
     return page("<section>Private history validation failed. No records were imported. Check that you selected the correct NI Bin Guy Customer HQ JSON.</section>",422);
