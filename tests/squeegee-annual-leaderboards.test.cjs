@@ -229,7 +229,7 @@ test("mobile year selector has Overall, years, selection state and resets row pa
   assert.match(ui,/ENDPOINT\+"\?year="\+encodeURIComponent\(selectedYear\)/);
   assert.match(ui,/data\.period!==selectedYear/);
   assert.match(ui,/selectedYear==="overall"\?"Global Leaderboard":selectedYear\+" Leaderboard"/);
-  assert.match(ui,/Older undated website XP stays in Overall/);
+  assert.doesNotMatch(ui,/Only verified cleaning XP and individually dated website rewards|Older undated website XP stays in Overall/);
   assert.match(css,/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(css,/\.n64-leaderboard-years \.n64-year-selected/);
 });
