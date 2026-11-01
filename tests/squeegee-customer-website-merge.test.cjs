@@ -241,11 +241,13 @@ test("old website activity and new dated rewards do not duplicate when linked",a
     events:[{key:"l:what-we-do@2026-11",at:new Date(now).toISOString()}]});
   const parts=merge.activityBalance(db.rows.get(merge.activityKey(UUID)));
   assert.equal(parts.legacyXP,50);
-  assert.equal(parts.periodicXP,50);
+  assert.equal(parts.periodicXP,0);
+  assert.equal(parts.duplicateXP,50);
+  assert.equal(parts.total,50);
   assert.equal(merge.combinedWebsiteXP({
     linkedPoints:550,linkedProgressXP:50,portalActivityXP:parts.legacyXP,
     portalPeriodicXP:parts.periodicXP,
-  }),600);
+  }),550);
 });
 test("website history and the badge use private verified account data only",()=>{
   const fs=require("node:fs"),path=require("node:path");
@@ -405,4 +407,115 @@ test("already recorded legacy out-of-order rewards retain their awarded XP",asyn
   assert.equal(response.points,50);
   assert.equal(response.changed,false);
   assert.equal(merge.activityBalance(db.rows.get(merge.activityKey(UUID))).total,50);
+});
+
+
+test("1 November screenshot regression: legacy + dated entries for the same levels count and display once",()=>{
+  const now=Date.parse("2026-11-01T15:55:00.000Z");
+  const ids=["what-we-do","the-process","bins-we-clean"];
+  const row={
+    version:2,firstRecordedAt:"2026-11-01T15:00:00.000Z",
+    updatedAt:"2026-11-01T15:45:00.000Z",
+    claimed:ids.map(id=>"l:"+id),
+    events:ids.map((id,i)=>({
+      key:"l:"+id+"@2026-11",
+      rule:"l:"+id,period:"2026-11",points:50,
+      earnedAt:new Date(now+i*1000).toISOString(),
+      category:"website_level",
+      label:"Website level "+String(i+1).padStart(2,"0")+" completed",
+    })),
+  };
+  const before=JSON.stringify(row);
+  const balance=merge.activityBalance(row);
+  assert.equal(balance.legacyXP,150,"original awards remain preserved");
+  assert.equal(balance.periodicXP,0,"the same month's dated awards are not added twice");
+  assert.equal(balance.duplicateXP,150);
+  assert.equal(balance.total,150);
+  const rows=merge.activityHistory(row);
+  assert.equal(rows.length,3);
+  assert.deepEqual(rows.map(e=>e.label),[
+    "Website level 01 completed",
+    "Website level 02 completed",
+    "Website level 03 completed",
+  ]);
+  assert.ok(rows.every(e=>e.date==="2026-11-01"&&e.earnedAt&&e.dateKind!=="recorded"));
+  assert.equal(rows.reduce((n,e)=>n+e.points,0),150);
+  assert.equal(merge.combinedWebsiteXP({
+    linkedPoints:0,linkedProgressXP:0,
+    portalActivityXP:balance.legacyXP,
+    portalPeriodicXP:balance.periodicXP,
+  }),150);
+  assert.equal(JSON.stringify(row),before,"computing totals must not edit saved records");
+});
+
+test("a genuine new month's level credit remains alongside the earlier legacy reward",()=>{
+  const row={
+    claimed:["l:what-we-do","a:bin-checker"],
+    firstRecordedAt:"2026-10-20T12:00:00.000Z",
+    updatedAt:"2026-11-01T15:45:00.000Z",
+    events:[{
+      key:"l:what-we-do@2026-11",
+      earnedAt:"2026-11-01T15:20:00.000Z"
+    }]
+  };
+  const result=merge.activityBalance(row);
+  assert.equal(result.legacyXP,85);
+  assert.equal(result.periodicXP,50);
+  assert.equal(result.duplicateXP,0);
+  assert.equal(result.total,135);
+  const rows=merge.activityHistory(row);
+  assert.equal(rows.length,3);
+  assert.equal(rows.filter(e=>e.label==="Website level 01 completed").length,2);
+  assert.equal(rows.find(e=>e.dateKind==="recorded"&&e.category==="website_level").date,"2026-10-20");
+  assert.equal(rows.find(e=>e.earnedAt).date,"2026-11-01");
+  assert.equal(rows.reduce((n,e)=>n+e.points,0),135);
+});
+
+test("deduplication is consistent for public board and private customer totals",async()=>{
+  const firstRef=history.ENTRIES[0][0];
+  const original=active.canonicalLegacyRef;
+  active.canonicalLegacyRef=id=>id===UUID?firstRef:original(id);
+  try{
+    const row={
+      claimed:["l:what-we-do","l:the-process"],
+      firstRecordedAt:"2026-11-01T10:00:00.000Z",
+      events:[
+        {key:"l:what-we-do@2026-11",earnedAt:"2026-11-01T11:00:00.000Z"},
+        {key:"l:the-process@2026-11",earnedAt:"2026-11-01T11:01:00.000Z"}
+      ]
+    };
+    const db=store([[merge.activityKey(UUID),row]]);
+    const snapshot=await board.getStaticPreviewBoard({
+      links:store(),public:store(),private:store(),activity:db
+    },Date.parse("2026-11-01T16:00:00Z"),true);
+    const entry=snapshot.entries.find(x=>x.customerRef===firstRef);
+    assert.ok(entry);
+    assert.equal(entry.points,history.ENTRIES[0][2]+100);
+    const privateRewards=merge.activityBalance(row);
+    assert.equal(privateRewards.total,100);
+    assert.equal(merge.activityHistory(row).length,2);
+    assert.equal(merge.activityHistory(row).reduce((n,e)=>n+e.points,0),100);
+  }finally{
+    active.canonicalLegacyRef=original;
+  }
+});
+
+test("the same daily portal or free clean action isn't affected by level dedup",()=>{
+  const row={
+    claimed:["l:what-we-do","a:bin-checker"],
+    firstRecordedAt:"2026-11-01T09:00:00.000Z",
+    events:[
+      {key:"l:what-we-do@2026-11",earnedAt:"2026-11-01T10:00:00.000Z"},
+      {key:"a:customer-portal@2026-11-01",earnedAt:"2026-11-01T11:00:00.000Z"},
+      {key:"a:free-clean@2026-11-01",earnedAt:"2026-11-01T12:00:00.000Z"}
+    ]
+  };
+  const result=merge.activityBalance(row);
+  assert.equal(result.legacyXP,85);
+  assert.equal(result.periodicXP,50);
+  assert.equal(result.duplicateXP,50);
+  assert.equal(result.total,135);
+  const events=merge.activityHistory(row);
+  assert.equal(events.length,4);
+  assert.equal(events.reduce((n,e)=>n+e.points,0),135);
 });

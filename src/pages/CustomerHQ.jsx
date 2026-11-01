@@ -102,13 +102,10 @@ export default function CustomerHQ({embedded=false}){
     if(!response.ok)throw new Error("Couldn't retrieve Customer HQ right now.");
     setReady(data.ready===true);
     if(data.authenticated&&data.account){
-      const prior=verifiedSnapshotRef.current;
-      const current=prior &&
-        prior.customerReference===data.account.customerReference &&
-        Number.isSafeInteger(prior.points) &&
-        prior.points>data.account.points ? prior : data.account;
-      // An in-flight older GET must not roll the profile back when the
-      // verified star has already received newer XP.
+      // The authenticated API is the source of truth. A retroactive
+      // duplicate-award correction may legitimately lower XP; don't keep
+      // an inflated earlier snapshot just because it was higher.
+      const current=data.account;
       verifiedSnapshotRef.current=current;
       setAccount(current);
       setPermission(data.leaderboard||null);
@@ -162,9 +159,8 @@ export default function CustomerHQ({embedded=false}){
       window.removeEventListener("n64:score-updated",onScore);
     };
   },[signedIn]);
-  // HUD and profile share the SAME verified server score. If the HUD
-  // finishes a more recent verified fetch, update this profile immediately
-  // and reload its dated history in the background.
+  // HUD and profile share the SAME verified server score. Reconcile
+  // corrections in either direction and reload the dated history.
   useEffect(()=>{
     if(!signedIn)return;
     let timer=null;
@@ -174,7 +170,7 @@ export default function CustomerHQ({embedded=false}){
       if(!current || !detail ||
          detail.customerReference!==current.customerReference ||
          !Number.isSafeInteger(detail.points) ||
-         detail.points<=current.points)return;
+         detail.points===current.points)return;
       const next={...current,points:detail.points,
         websiteXp:Math.max(0,detail.points-current.cleaningPoints)};
       verifiedSnapshotRef.current=next;

@@ -101,19 +101,52 @@ function normalisePeriodEvent(item,now=Date.now()){
     date:ukDay(at),
   };
 }
-function activityBalance(row){
-  const legacyXP=activityXP(row?.claimed);
-  const events=Array.isArray(row?.events)?row.events:[];
+/**
+ * Original site progress was saved as a lifetime "l:level-id" claim,
+ * while the new system saves a dated "l:level-id@YYYY-MM" claim.
+ * A migration can therefore preserve TWO records for ONE real award.
+ *
+ * If an old claim's FIRST KNOWN recorded month matches the dated claim's
+ * month, show the dated award and count the overlapping 50 XP only once.
+ * If the dated claim is in a DIFFERENT month, both can be genuine monthly
+ * rewards; never erase them or rewrite a customer's stored blob.
+ *
+ * Both the authenticated Customer HQ and the public preview board use this
+ * single reconciliation so history and score cannot diverge.
+ */
+function reconcileActivity(row,now=Date.now()){
+  const claimed=activityKeys(row?.claimed);
+  const claimSet=new Set(claimed);
+  const dated=[];
   const seen=new Set();
-  let periodicXP=0;
-  for(const event of events){
+  for(const event of Array.isArray(row?.events)?row.events:[]){
     if(!event||typeof event.key!=="string"||seen.has(event.key))continue;
-    const e=normalisePeriodEvent(event,Date.parse(event.earnedAt)||Date.now());
-    if(!e)continue;
-    seen.add(event.key);
-    periodicXP+=e.points;
+    const valid=normalisePeriodEvent(event,
+      Date.parse(event.earnedAt)||now);
+    if(!valid)continue;
+    seen.add(valid.key);
+    dated.push(valid);
   }
-  return {legacyXP,periodicXP,total:legacyXP+periodicXP};
+  const recordedAt=recordedAtFrom(row,now);
+  const recordMonth=ukDay(Date.parse(recordedAt)).slice(0,7);
+  const matchedLegacy=new Set();
+  for(const entry of dated){
+    if(entry.category==="website_level"&&
+       entry.period===recordMonth&&claimSet.has(entry.rule)){
+      matchedLegacy.add(entry.rule);
+    }
+  }
+  const legacyXP=activityXP(claimed);
+  const rawPeriodicXP=dated.reduce((sum,event)=>sum+event.points,0);
+  const duplicateXP=[...matchedLegacy].reduce((sum,key)=>
+    sum+ACTIVITY_POINTS[key],0);
+  return {claimed,dated,recordedAt,matchedLegacy,legacyXP,
+    periodicXP:rawPeriodicXP-duplicateXP,duplicateXP,
+    total:legacyXP+rawPeriodicXP-duplicateXP};
+}
+function activityBalance(row){
+  const {legacyXP,periodicXP,duplicateXP,total}=reconcileActivity(row);
+  return {legacyXP,periodicXP,duplicateXP,total};
 }
 function sortedRewardsHistory(cleaningHistory,websiteHistory){
   const clean=(Array.isArray(cleaningHistory)?cleaningHistory:[]).map(entry=>({
@@ -185,29 +218,22 @@ function recordedAtFrom(row,now=Date.now()){
   return new Date(now).toISOString();
 }
 function activityHistory(row,now=Date.now()){
-  const recordedAt=recordedAtFrom(row,now);
-  const legacy=activityKeys(row?.claimed).map(key=>({
+  const {claimed,dated,recordedAt,matchedLegacy}=
+    reconcileActivity(row,now);
+  // Prefer the actual dated event. Do not create a second "Recorded on"
+  // row for the very same monthly level that has already been earned.
+  const legacy=claimed.filter(key=>!matchedLegacy.has(key)).map(key=>({
     source:"website",category:key.startsWith("l:")?"website_level":"website_action",
     label:ACTIVITY_LABELS[key],
     date:ukDay(Date.parse(recordedAt)),dateKind:"recorded",
     recordedAt,earnedAt:null,points:ACTIVITY_POINTS[key],
     note:"Exact earning date not saved; this is the account record date",
   }));
-  const dated=Array.isArray(row?.events)?row.events:[];
-  const seen=new Set();
-  const periodEvents=[];
-  for(const event of dated){
-    if(!event||seen.has(event.key))continue;
-    const valid=normalisePeriodEvent(event,Date.parse(event.earnedAt)||Date.now());
-    if(!valid)continue;
-    seen.add(valid.key);
-    periodEvents.push({
-      source:"website",category:valid.category,
-      label:valid.label,date:valid.date,earnedAt:valid.earnedAt,
-      points:valid.points,
-    });
-  }
-  return dated.length?periodEvents.concat(legacy):legacy;
+  const events=dated.map(item=>({
+    source:"website",category:item.category,label:item.label,
+    date:item.date,earnedAt:item.earnedAt,points:item.points,
+  }));
+  return events.concat(legacy);
 }
 /**
  * Email-code-authenticated users can import old one-time achievements and
@@ -339,6 +365,6 @@ async function linkVerifiedPortalAccount({account,liveCustomer,
     {linked:false,reason:"link_race_requires_review"};
 }
 module.exports={STORE,ACTIVITY_POINTS,DAILY_POINTS,ACTIVITY_LABELS,
-  activityKeys,activityXP,ukDay,normalisePeriodEvent,activityBalance,
+  activityKeys,activityXP,ukDay,normalisePeriodEvent,reconcileActivity,activityBalance,
   activityHistory,levelOrdinal,sortedRewardsHistory,recordedAtFrom,readActivityRecord,combinedWebsiteXP,
   activityKey,readActivity,syncActivity,linkVerifiedPortalAccount};

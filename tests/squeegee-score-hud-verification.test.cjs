@@ -132,7 +132,7 @@ test("temporary customer API failures do not erase the last verified total",asyn
 test("script URL is cache-busted and overrides generic Netlify JS caching",()=>{
   const html=fs.readFileSync(path.join(ROOT,"index.html"),"utf8");
   const toml=fs.readFileSync(path.join(ROOT,"netlify.toml"),"utf8");
-  assert.match(html,/n64-scoreboard\.js\?v=20261101-verified-level-sequence-3/);
+  assert.match(html,/n64-scoreboard\.js\?v=20261101-dedupe-history-4/);
   assert.match(toml,/for = "\/n64-scoreboard\.js"\s+\[headers\.values\]\s+Cache-Control = "no-store, no-cache, max-age=0, must-revalidate"/);
   const hq=fs.readFileSync(path.join(ROOT,"src/pages/CustomerHQ.jsx"),"utf8");
   assert.match(hq,/new CustomEvent\("n64:account-score"/);
@@ -141,7 +141,7 @@ test("script URL is cache-busted and overrides generic Netlify JS caching",()=>{
 });
 
 
-test("a newer verified 907 XP total is shared with the Customer HQ profile",async()=>{
+test("a corrected lower XP total replaces duplicate-inflated points on the badge",async()=>{
   const h=scoreboardInBrowser({
     getCustomerHQ:async()=>({ok:true,json:async()=>({
       authenticated:true,account:{points:857,customerReference:"CUS123"}
@@ -153,12 +153,12 @@ test("a newer verified 907 XP total is shared with the Customer HQ profile",asyn
   assert.equal(h.score(),"857");
   h.announce(907,"CUS123");
   assert.equal(h.score(),"907");
+  // The backend has now reconciled the two November Level 01 records.
+  // Its corrected verified 857 XP MUST replace the inflated 907.
   h.announce(857,"CUS123");
-  assert.equal(h.score(),"907","an outdated Customer HQ total cannot demote the badge");
-  assert.equal(events.at(-1).points,907);
-  assert.equal(events.at(-1).customerReference,"CUS123");
+  assert.equal(h.score(),"857","a verified correction may decrease XP");
   h.window.dispatchEvent({type:"n64:request-verified-total"});
-  assert.equal(events.at(-1).points,907);
+  assert.equal(events.at(-1).points,857);
   assert.equal(events.at(-1).customerReference,"CUS123");
 });
 
@@ -171,14 +171,14 @@ test("a different verified customer replaces the previous account score",async()
   await tick();
   assert.equal(h.score(),"907");
   h.announce(857,"CUS1");
-  assert.equal(h.score(),"907");
+  assert.equal(h.score(),"857");
   h.announce(22,"CUS2");
   assert.equal(h.score(),"22","another account may start with a lower score");
   h.announce(null);
   assert.equal(h.score(),"400","logout returns to local XP");
 });
 
-test("the profile subscribes to newer verified totals and refreshes dated history",()=>{
+test("the profile accepts corrected totals in both directions and refreshes dated history",()=>{
   const source=fs.readFileSync(path.join(ROOT,"src/pages/CustomerHQ.jsx"),"utf8");
   assert.match(source,/n64:verified-total/);
   assert.match(source,/n64:request-verified-total/);
@@ -222,4 +222,17 @@ test("completed visual level can be revisited when earlier checkpoints unlock it
   assert.match(levelRun,/addEventListener\("n64:score-updated", scheduleCheck\)/);
   const html=fs.readFileSync(path.join(ROOT,"index.html"),"utf8");
   assert.match(html,/n64-level-run\.js\?v=8-ordered-rewards/);
+});
+
+
+test("the profile must not reject valid lower totals after legacy XP is deduplicated",()=>{
+  const hq=fs.readFileSync(path.join(ROOT,"src/pages/CustomerHQ.jsx"),"utf8");
+  const hud=fs.readFileSync(path.join(ROOT,"public/n64-scoreboard.js"),"utf8");
+  assert.match(hq,/const current=data\.account/);
+  assert.match(hq,/detail\.points===current\.points/);
+  assert.ok(!hq.includes("prior.points>data.account.points"));
+  assert.ok(!hud.includes("fresh.points>=accountTotal"));
+  assert.ok(!hud.includes("total>=accountTotal"));
+  assert.match(hud,/accountTotal=fresh\.points/);
+  assert.match(hud,/accountTotal=total/);
 });

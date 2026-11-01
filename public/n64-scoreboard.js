@@ -322,17 +322,14 @@
       }
       const ref=typeof fresh.customerReference==="string"?
         fresh.customerReference:null;
-      // XP increases during an ordinary session. A slower, older lookup
-      // must not overwrite a newer verified total. A different verified
-      // customer starts a new account score rather than inheriting it.
-      const same=accountCustomerRef===ref;
-      if(!same || accountTotal===null || fresh.points>=accountTotal){
-        const changed=accountTotal!==fresh.points || !same;
-        accountTotal=fresh.points;
-        accountCustomerRef=ref;
-        redraw();
-        if(changed)publishVerifiedTotal();
-      }
+      // The server is authoritative, including when a duplicate award is
+      // removed and the correct XP balance DECREASES. The request revision
+      // above protects against responses from a previous login.
+      const changed=accountTotal!==fresh.points || accountCustomerRef!==ref;
+      accountTotal=fresh.points;
+      accountCustomerRef=ref;
+      redraw();
+      if(changed)publishVerifiedTotal();
     } catch (_) {
       // Network failures leave a previously verified total intact.
       if(accountTotal===null)redraw();
@@ -659,14 +656,11 @@
       if(!Number.isSafeInteger(total)||total<0){
         accountTotal=null;
         accountCustomerRef=null;
-      }else if(accountTotal===null || accountCustomerRef!==ref ||
-               total>=accountTotal){
+      }else{
+        // Verified Customer HQ can also report a corrected LOWER total.
+        // Do not retain stale, inflated XP after the server deduplicates it.
         accountTotal=total;
         accountCustomerRef=ref;
-      }else{
-        // Customer HQ received an older snapshot. Re-publish the fresher
-        // verified result so the profile and the badge converge immediately.
-        publishVerifiedTotal();
       }
       accountLastCheck=Date.now();
       redraw();
