@@ -3,6 +3,8 @@ import React, { useEffect, useRef, useState } from "react";
 const REFRESH_MS = 10000;
 const ENDPOINT = "/.netlify/functions/arcadeLeaderboard";
 const OWNER_ENDPOINT="/api/squeegee-preview-verified-leaderboard";
+const OWNER_LOGIN_RETURN="/?ntl-drawer-state=hidden&owner-board=1&owner-auth-complete=1#live-leaderboard";
+const OWNER_LOGIN_URL="/api/squeegee-preview-test?returnTo="+encodeURIComponent(OWNER_LOGIN_RETURN);
 const CustomerHQ=React.lazy(()=>import("../pages/CustomerHQ"));
 
 export default function ArcadeLeaderboard() {
@@ -26,9 +28,15 @@ export default function ArcadeLeaderboard() {
   const [verifiedAsOf, setVerifiedAsOf] = useState(null);
   const [eligibleCleaningXp, setEligibleCleaningXp] = useState(null);
   const [activePanel, setActivePanel] = useState("leaderboard");
-  const [rankingMode,setRankingMode]=useState("public");
+  // A requested owner test starts on the private test panel, not the public
+  // anonymous leaderboard while the owner session is being checked.
+  const [rankingMode,setRankingMode]=useState(()=>
+    new URLSearchParams(window.location.search).get("owner-board")==="1"
+      ? "owner" : "public"
+  );
   const [ownerPresentation,setOwnerPresentation]=useState("simulation");
   const [ownerState,setOwnerState]=useState("idle");
+  const ownerRedirectRequested=useRef(false);
   const [ownerRows,setOwnerRows]=useState([]);
   const [ownerInfo,setOwnerInfo]=useState(null);
   const [ownerSearch,setOwnerSearch]=useState("");
@@ -66,6 +74,17 @@ export default function ArcadeLeaderboard() {
       });
       if(response.status===401){
         setOwnerState("owner-login-required");
+        // The screenshot's 401 was caused by the 20-minute owner code
+        // expiring. On a deep-linked test, send the owner straight to
+        // their existing email-code sign-in, then safely return here.
+        // The one-time return marker stops a redirect loop if cookies fail.
+        const query=new URLSearchParams(window.location.search);
+        if(query.get("owner-board")==="1" &&
+           query.get("owner-auth-complete")!=="1" &&
+           !ownerRedirectRequested.current){
+          ownerRedirectRequested.current=true;
+          window.location.assign(OWNER_LOGIN_URL);
+        }
         return;
       }
       if(!response.ok)throw new Error("owner_board_unavailable");
@@ -343,11 +362,12 @@ export default function ArcadeLeaderboard() {
           {ownerState==="loading" && <p role="status">Checking your owner session and loading verified scores…</p>}
           {ownerState==="owner-login-required" && <div className="n64-owner-login">
             <strong>OWNER CODE REQUIRED</strong>
-            <p>Sign in using your existing NI Bin Guy owner code to view all
-              verified first names, towns and points. This does not change
-              anyone's leaderboard permission.</p>
-            <a href="/api/squeegee-preview-leaderboard-names">
-              OPEN SECURE OWNER SIGN-IN →
+            <p>Your owner session has expired or hasn't been verified in this
+              browser. Use your existing NI Bin Guy owner email code to see the
+              first-name leaderboard test. You'll return directly here after
+              signing in. This does not change customer permissions.</p>
+            <a href={OWNER_LOGIN_URL}>
+              SIGN IN AS OWNER TO SEE FIRST NAMES →
             </a>
             <button type="button" onClick={showOwnerRankings}>
               I'VE SIGNED IN — LOAD ALL RANKINGS
