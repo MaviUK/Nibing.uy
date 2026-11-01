@@ -14,10 +14,14 @@ const ids=[
   "33333333-3333-4333-8333-333333333333"
 ];
 const aliases=ids.map(historic.canonicalLegacyRef);
+const CLEAN=(date,points)=>({event:"paid_completed_clean",date,points});
 const accounts=[
-  {id:ids[0],email:"alpha@example.co.uk",firstName:"Alice",town:"Bangor"},
-  {id:ids[1],email:"bravo@example.co.uk",firstName:"Bob",town:"Comber"},
-  {id:ids[2],email:"charlie@example.co.uk",firstName:"Carol",town:"Newtownards"}
+  {id:ids[0],email:"alpha@example.co.uk",firstName:"Alice",town:"Bangor",
+    events:[CLEAN("2025-04-01",22)]},
+  {id:ids[1],email:"bravo@example.co.uk",firstName:"Bob",town:"Comber",
+    events:[CLEAN("2026-02-01",30)]},
+  {id:ids[2],email:"charlie@example.co.uk",firstName:"Carol",town:"Newtownards",
+    events:[]}
 ];
 const privateCustomers={version:1,asOf:history.AS_OF,accounts};
 const eligibleAliases=new Set(aliases);
@@ -34,105 +38,79 @@ function board(points,year=null){
       town:accounts[i].town,points:score}))
   };
 }
-function get({customerId=ids[0],points=600,consent=consentSnapshot,
-              years=[board([[0,120],[2,80]],2024),
-                     board([[1,240],[0,90]],2026)],
-              overall=board([[1,750],[0,600],[2,500]])}={}){
+function get({customerId=ids[0],consent=consentSnapshot,
+              years=[board([[0,22],[1,10]],2025),
+                     board([[1,470],[0,425]],2026)],
+              overall=board([[1,480],[0,447],[2,100]])}={}){
   return personal.fromBoards({
-    customerId,points,privateCustomers,eligibleAliases,
+    customerId,privateCustomers,eligibleAliases,
     consentSnapshot:consent,secretKey,
     overallBoard:overall,yearlyBoards:years
   });
 }
-test("verified customer gets total XP and exact public rank, plus years with earned XP only",()=>{
+test("known 2025/26 XP sums to 447, and 60 legacy XP never enters any total",()=>{
   const summary=get();
   assert.deepEqual(summary,{
-    points:600,rank:2,rankingAvailable:true,
-    yearly:{"2024":{points:120,rank:1},"2026":{points:90,rank:2}},
-    yearlyXpTotal:210,unassignedXp:390,yearBreakdownStatus:"reconciled"
+    points:447,cleaningPoints:22,websiteXp:425,
+    rank:2,rankingAvailable:true,
+    yearly:{"2025":{points:22,rank:1},"2026":{points:425,rank:2}},
+    yearlyXpTotal:447
   });
-  // Annual XP cannot be reverse-calculated from lifetime XP. Older undated
-  // earnings remain in Overall, never misattributed to 2026.
-  assert.equal(summary.points,600);
-  assert.equal(summary.yearly["2025"],undefined);
+  assert.equal(summary.yearly["2024"],undefined);
+  assert.equal(summary.yearlyXpTotal,summary.points);
+  assert.equal(Object.hasOwn(summary,"unassignedXp"),false);
   const publicOverall=names.previewFirstNameScoreboard(
-    privateCustomers,board([[1,750],[0,600],[2,500]]),
+    privateCustomers,board([[1,480],[0,447],[2,100]]),
     eligibleAliases,consentSnapshot,secretKey);
   assert.equal(publicOverall.entries[1].rank,summary.rank);
-  assert.equal(publicOverall.entries[1].customerRef,personal.publicRef(aliases[0],secretKey));
+  assert.equal(publicOverall.entries[1].customerRef,
+    personal.publicRef(aliases[0],secretKey));
 });
-test("a real-world-style 2025/2026 gap is visibly accounted for without assigning made-up dates",()=>{
-  const summary=get({
-    points:507,
-    years:[
-      board([[0,22],[1,10]],2025),
-      board([[1,470],[0,425]],2026)
-    ],
-    overall:board([[1,700],[0,507],[2,100]])
-  });
-  assert.equal(summary.yearly["2025"].points,22);
-  assert.equal(summary.yearly["2026"].points,425);
-  assert.equal(summary.yearlyXpTotal,447);
-  assert.equal(summary.unassignedXp,60);
-  assert.equal(summary.points,
-    summary.yearlyXpTotal+summary.unassignedXp);
-  assert.equal(summary.yearly["2024"],undefined);
-  assert.equal(summary.rank,2);
+test("a stale Overall still showing 507 is rejected, not silently credited",()=>{
+  assert.throws(()=>get({overall:board([[1,700],[0,507],[2,100]])}),
+    /personal_dated_total_mismatch/);
 });
-test("fully dated XP needs no unassigned part, and overcounts require review",()=>{
-  const annualBoards=[board([[0,22]],2025),board([[0,425]],2026)];
-  const allDated=get({points:447,years:annualBoards});
-  assert.equal(allDated.unassignedXp,0);
-  assert.equal(allDated.yearBreakdownStatus,"reconciled");
-  const mismatch=get({points:440,years:annualBoards});
-  assert.equal(mismatch.unassignedXp,null);
-  assert.equal(mismatch.yearlyXpTotal,null);
-  assert.equal(mismatch.yearBreakdownStatus,"needs-review");
-  assert.equal(mismatch.points,440,"never rewrite verified lifetime XP");
-});
-test("customer with a public withdrawal keeps private points but has no public position",()=>{
+test("signed-in withdrawal retains known XP but disables public rank",()=>{
   const withdrawn={
     ...consentSnapshot,
     records:consentSnapshot.records.map((item,i)=>i===0
       ?{...item,consent:"withdrawn",withdrawnAt:"2026-11-01T12:00:00Z"}:item)
   };
   const summary=get({consent:withdrawn});
-  assert.equal(summary.points,600);
+  assert.equal(summary.points,447);
   assert.equal(summary.rank,null);
-  assert.equal(summary.yearly["2024"].points,120);
-  assert.equal(summary.yearly["2024"].rank,null);
+  assert.equal(summary.yearly["2025"].points,22);
+  assert.equal(summary.yearly["2025"].rank,null);
   assert.equal(summary.yearly["2026"].rank,null);
 });
-test("no verified customer identity never yields another customer's public rank",()=>{
-  const other=get({customerId:"44444444-4444-4444-8444-444444444444"});
-  assert.equal(other.points,600);
-  assert.equal(other.rank,null);
-  assert.deepEqual(other.yearly,{});
-  assert.equal(other.rankingAvailable,false);
+test("other customer identity cannot display this person's private XP or rank",()=>{
+  assert.throws(()=>get({
+    customerId:"44444444-4444-4444-8444-444444444444"
+  }),/personal_customer_not_in_backup/);
   assert.equal(personal.publicRef(ids[0],secretKey),null);
 });
-test("homepage only requests rank summary through verified session and not browser XP",()=>{
+test("homepage and Customer HQ use the same verified totals and never show unknown XP",()=>{
   const root=path.resolve(__dirname,"..");
   const server=fs.readFileSync(path.join(root,"netlify/functions/customerHQ.mjs"),"utf8");
+  const api=fs.readFileSync(path.join(root,"netlify/functions/arcadeLeaderboard.js"),"utf8");
   const ui=fs.readFileSync(path.join(root,"src/components/ArcadeLeaderboard.jsx"),"utf8");
   const style=fs.readFileSync(path.join(root,"src/n64-finale.css"),"utf8");
   const gate=server.indexOf("const session=await lookupVerifiedSession(request,ledger);");
   const summary=server.indexOf('get("view")==="rank-summary"');
-  assert.ok(gate>=0 && summary>gate,"customer identity must be verified first");
-  assert.match(server,/summary=await personalRanks\.getPersonalSummary/);
-  assert.match(server,/return respond\(200,\{ready:true,authenticated:true,summary\}\)/);
+  assert.ok(gate>=0&&summary>gate,"email-code session must be checked first");
+  assert.match(server,/const summary=await verifiedPersonalSummary\(session,snapshot\)/);
+  assert.match(server,/points:summary\.points,cleaningPoints:summary\.cleaningPoints/);
+  assert.match(api,/yearlyPreview\.getDatedScoreBoards\(/);
+  assert.doesNotMatch(api,/await historicalPreview\.getStaticPreviewBoard\(stores,now,true\)/);
   assert.match(ui,/CUSTOMER_SUMMARY_ENDPOINT="\/api\/customer-hq\?view=rank-summary"/);
   assert.match(ui,/credentials:"same-origin"/);
+  assert.match(ui,/verifiedYearTotal!==sum\.points/);
   assert.match(ui,/★ \{shownCustomerPeriod==="overall"\?"TOTAL XP"/);
   assert.match(ui,/LEADERBOARD POSITION/);
   assert.match(ui,/customerPeriods=\["overall",\.\.\.Object\.keys\(customerSummary\?\.yearly\|\|\{\}\)/);
   assert.match(ui,/onClick=\{\(\)=>setCustomerPeriod\(period\)\}/);
-  assert.doesNotMatch(ui,/ARCADE XP ON THIS PHONE|localScore\.points/);
+  assert.doesNotMatch(ui,/ARCADE XP ON THIS PHONE|localScore\.points|unassignedXp|YEAR UNKNOWN XP/);
   assert.match(ui,/Sign in to see your total XP, leaderboard position and years with points/);
   assert.match(style,/n64-personal-year-active/);
-  assert.match(ui,/hasVerifiedBreakdown/);
-  assert.match(ui,/customerSummary\.unassignedXp>0/);
-  assert.match(ui,/OLDER \/ YEAR UNKNOWN XP/);
-  assert.match(ui,/without a verified year/);
-  assert.match(style,/n64-personal-reconciliation/);
+  assert.doesNotMatch(style,/n64-personal-reconciliation/);
 });
