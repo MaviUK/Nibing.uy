@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 
 const REFRESH_MS = 10000;
 const ENDPOINT = "/.netlify/functions/arcadeLeaderboard";
+const CustomerHQ=React.lazy(()=>import("../pages/CustomerHQ"));
 
 export default function ArcadeLeaderboard() {
   const [players, setPlayers] = useState([]);
@@ -13,6 +14,15 @@ export default function ArcadeLeaderboard() {
   const [nameConsentMode, setNameConsentMode] = useState(false);
   const [eligibilityPending, setEligibilityPending] = useState(false);
   const [eligiblePlayers, setEligiblePlayers] = useState(null);
+  const [eligibleCleaningXp, setEligibleCleaningXp] = useState(null);
+  const [activePanel, setActivePanel] = useState("leaderboard");
+  // Retain the code-challenge state when switching between the two panels.
+  const [hqOpened, setHqOpened] = useState(false);
+  const openHQ = () => {setHqOpened(true);setActivePanel("hq");};
+  const openBoard = () => {
+    setActivePanel("leaderboard");
+    window.dispatchEvent(new Event("n64:leaderboard-updated"));
+  };
   const [changes, setChanges] = useState({});
   const previousPlayers = useRef(null);
   const [localScore, setLocalScore] = useState({ points: 0, registered: false });
@@ -76,6 +86,8 @@ export default function ArcadeLeaderboard() {
         setNameConsentMode(data.status === "consent_only" || data.status === "consent_pending");
         setEligibilityPending(data.status === "eligibility_pending");
         setEligiblePlayers(Number.isInteger(data.eligiblePlayers) ? data.eligiblePlayers : null);
+        setEligibleCleaningXp(Number.isSafeInteger(data.eligibleCleaningXp)
+          ? Math.max(0,data.eligibleCleaningXp) : null);
         setConnection("live");
       } catch (_) {
         if (mounted) setConnection("reconnecting");
@@ -115,7 +127,14 @@ export default function ArcadeLeaderboard() {
 
   return (
     <section id="live-leaderboard" className="n64-public-leaderboard" aria-labelledby="n64-board-title">
-      <div className="n64-public-board-inner">
+      <div className={"n64-public-board-inner"+(activePanel==="hq"?" n64-public-board-inner--hq":"")}>
+        <div className="n64-board-tabs" role="group" aria-label="Leaderboard and Customer HQ">
+          <button type="button" className={activePanel==="leaderboard"?"n64-board-tab n64-board-tab--selected":"n64-board-tab"}
+            aria-pressed={activePanel==="leaderboard"} onClick={openBoard}>★ LEADERBOARD</button>
+          <button type="button" className={activePanel==="hq"?"n64-board-tab n64-board-tab--selected":"n64-board-tab"}
+            aria-pressed={activePanel==="hq"} onClick={openHQ}>★ MY CUSTOMER HQ</button>
+        </div>
+        <div className="n64-board-tab-content" hidden={activePanel!=="leaderboard"}>
         <div className="n64-live-board-head">
           <span className="n64-board-eyebrow">★ HIGH SCORES ★</span>
           <span className={"n64-live-indicator" + (connection !== "live" ? " n64-live-indicator--offline" : "")}
@@ -134,10 +153,10 @@ export default function ArcadeLeaderboard() {
           : "High scores update automatically. Only customer references, towns and XP are displayed."}</p>
 
         <div className="n64-your-score" aria-label="Your device score">
-          <div><strong>★ YOUR SCORE</strong><span>{localScore.points.toLocaleString("en-GB")} XP</span></div>
+          <div><strong>★ ARCADE XP ON THIS PHONE</strong><span>{localScore.points.toLocaleString("en-GB")} XP</span></div>
           <small>{localScore.registered
             ? (sourceAsOf ? "Your website XP is saved. It joins the active-only board after your Squeegee account is verified." : "Your booking is registered. New level points sync to the global leaderboard.")
-            : "Your XP stays on this device until a verified booking is linked. A registered email and your separate permission are required before you appear publicly."}</small>
+            : "This is your arcade score on this phone, not your full cleaning rewards. Open My Customer HQ to see your verified Squeegee cleaning points."}</small>
         </div>
 
 
@@ -148,20 +167,33 @@ export default function ArcadeLeaderboard() {
             : "Checking scores…"}
           </span>
         </div>
-        <p style={{textAlign:"center",margin:"12px 0"}}><a href="/customer-hq?ntl-drawer-state=hidden" style={{color:"#fce164",fontWeight:900}}>SIGN IN TO VIEW MY CLEANING POINTS →</a></p>
-        <ol aria-label="Live top ten players">
+        <div className="n64-board-join-cta">
+          <button type="button" onClick={openHQ}>★ SIGN IN / VIEW MY CLEANING POINTS →</button>
+        </div>
+        <ol aria-label="Live top ten opted-in players">
           {!players.length ? (
-            <li><span>{connection !== "live" ? "Waiting for live scores…" : eligibilityPending
-              ? "Checking which customers have a registered email — no public scores yet."
-              : nameConsentMode
-              ? "Customer permissions are being collected — no public names yet."
-              : "No registered players yet — be the first!"}</span></li>
+            <li className="n64-board-empty">
+              <span>{connection !== "live" ? "Connecting to the leaderboard…" : eligibilityPending
+                ? "Verifying customers with registered emails."
+                : nameConsentMode
+                ? "HIGH SCORES UNLOCK WHEN CUSTOMERS OPT IN"
+                : "No registered public players yet."}</span>
+              {nameConsentMode && <small>
+                {eligiblePlayers!==null ? eligiblePlayers.toLocaleString("en-GB")+" customers are eligible. " : ""}
+                {eligibleCleaningXp!==null ? eligibleCleaningXp.toLocaleString("en-GB")+" cleaning XP are safely recorded. " : ""}
+                Each customer can choose to show their first name, town and points in My Customer HQ.
+              </small>}
+            </li>
           ) : players.map((player, i) => {
             const change = changes[player.customerRef];
             return (
               <li key={player.customerRef}
                 className={change ? "n64-board-row n64-board-row--" + change : "n64-board-row"}>
-                <a href="/customer-hq?ntl-drawer-state=hidden" title="Sign in to see your own points — this public entry does not grant account access" style={{color:"inherit",textDecoration:"none"}}><strong>{String(i + 1).padStart(2, "0")}</strong> {player.displayName || player.customerRef}<span className="n64-board-town"> · {player.town}</span></a>
+                <button type="button" className="n64-board-player-button" onClick={openHQ}
+                  title="Open your own secure points dashboard — this public entry does not grant access to another customer's account">
+                  <strong>{String(i + 1).padStart(2, "0")}</strong> {nameConsentMode ? (player.displayName||"Player") : (player.displayName||player.customerRef)}
+                  <span className="n64-board-town"> · {player.town}</span>
+                </button>
                 <span className="n64-board-score">
                   {change && <em className="n64-rank-change" aria-label={
                     change === "new" ? "New player" :
@@ -181,9 +213,15 @@ export default function ArcadeLeaderboard() {
         )}
         <small>
           {historyStatus ? "Active account-status verification is out of date; historical scores are temporarily hidden. " : ""}
-          Tap any leaderboard name to open secure Customer HQ sign-in. You can only see the account verified by your own email code. The display refreshes every 10 seconds. Historical Squeegee scores only change after a verified data update.
+          Tap a player or choose My Customer HQ above to open the email-code sign-in in this section. You can only see the account verified by your own email code. Public rankings refresh every 10 seconds; historical Squeegee scores change after a verified import.
           {nameConsentMode || eligibilityPending ? "Public entries require a registered email and recorded permission, and show first name, town and XP only. Squeegee references and contact details remain private." : "Public entries show a pseudonymous customer reference, town and XP, never names or full addresses. Contact details remain private."}
         </small>
+        </div>
+        <div className="n64-board-tab-content n64-board-hq-tab" hidden={activePanel!=="hq"}>
+          {hqOpened && <React.Suspense fallback={<p role="status">Loading your secure Customer HQ…</p>}>
+            <CustomerHQ embedded/>
+          </React.Suspense>}
+        </div>
       </div>
     </section>
   );
