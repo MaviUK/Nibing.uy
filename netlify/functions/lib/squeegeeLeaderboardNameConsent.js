@@ -127,7 +127,7 @@ function changeConsent(snapshot,{
   const old=snapshot.records[index];
   const revised={...old};
   if(action==="grant"){
-    if(confirm!=="yes"||!["signed_form","email_reply","recorded_call"].includes(method)||
+    if(confirm!=="yes"||!["signed_form","email_reply","recorded_call","portal_email_code"].includes(method)||
        typeof evidenceRef!=="string"||evidenceRef.trim().length<3||
        evidenceRef.length>120)throw new Error("consent_proof_required");
     const firstName=correctedFirstName
@@ -143,6 +143,44 @@ function changeConsent(snapshot,{
   const next=[...snapshot.records];next[index]=revised;
   return {...snapshot,updatedAt:new Date(now).toISOString(),records:next};
 }
+
+function initialiseFromPrivateCustomerHQ(snapshot,previous=null,now=Date.now()){
+  if(!snapshot || !Array.isArray(snapshot.accounts) ||
+     snapshot.asOf!==staticHistory.AS_OF)
+    throw new Error("invalid_portal_consents_source");
+  const rank=new Map(staticHistory.ENTRIES.map(([alias,town,points])=>
+    [alias,{town,points}]));
+  const existing=new Map((Array.isArray(previous?.records)?previous.records:[])
+    .map(r=>[r.alias,r]));
+  const records=[];
+  for(const account of snapshot.accounts){
+    const alias=canonicalLegacyRef(account.id);
+    const seeded=rank.get(alias);
+    if(!seeded)continue;
+    if(seeded.town!==account.town || seeded.points!==account.points)
+      throw new Error("mismatched_portal_consents_source");
+    const firstName=safeFirstName(account.firstName);
+    const prev=existing.get(alias);
+    const same=prev && prev.ref===account.ref &&
+      prev.firstName===(firstName||null) && prev.town===account.town;
+    records.push({
+      alias,ref:account.ref,firstName:firstName||null,town:account.town,
+      quality:firstName?"ready_for_consent":"needs_review_missing_name",
+      consent:same && ["granted","withdrawn"].includes(prev.consent)
+        ?prev.consent:"pending",
+      consentAt:same?prev.consentAt||null:null,
+      withdrawnAt:same?prev.withdrawnAt||null:null,
+      method:same?prev.method||null:null,
+      evidenceRef:same?prev.evidenceRef||null:null,
+      noticeVersion:same?prev.noticeVersion||null:null,
+    });
+  }
+  if(records.length!==EXPECTED)throw new Error("incomplete_portal_consents_source");
+  records.sort((a,b)=>a.alias.localeCompare(b.alias));
+  return {version:1,sourceAsOf:staticHistory.AS_OF,
+    importedAt:new Date(now).toISOString(),records};
+}
+
 function consentStats(snapshot) {
   const rows=Array.isArray(snapshot?.records)?snapshot.records:[];
   return {
@@ -181,5 +219,5 @@ function publicConsentBoard(snapshot,fullBoard){
 module.exports={
   STORE_NAME,KEY,NOTICE_VERSION,EXPECTED,MAX_BYTES,
   safeFirstName,parseSimpleCsv,preparePrivateConsentImport,
-  changeConsent,consentStats,publicConsentBoard,
+  changeConsent,initialiseFromPrivateCustomerHQ,consentStats,publicConsentBoard,
 };
