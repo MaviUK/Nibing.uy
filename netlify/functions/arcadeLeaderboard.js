@@ -1,5 +1,6 @@
 const crypto = require("node:crypto");
 const { getStore } = require("@netlify/blobs");
+const historical = require("./lib/squeegeeActiveLeaderboardImport");
 const { publicCustomerReference, townFromAddress, safePublicTown, safePublicReference } =
   require("./lib/arcadePublicIdentity");
 const {
@@ -40,6 +41,8 @@ function storePair() {
   return {
     public: open("n64-preview-arcade-public"),
     private: open("n64-preview-arcade-private"),
+    history: open(historical.BLOB_STORE),
+    links: open("n64-preview1-squeegee-player-links"),
   };
 }
 
@@ -128,6 +131,38 @@ async function getSnapshot(stores) {
   return rebuildSnapshot(stores);
 }
 
+async function getActiveHistoricalBoard(stores) {
+  const snapshot=await stores.history.get(historical.SNAPSHOT_KEY,{type:"json",consistency:"strong"});
+  if(!snapshot || snapshot.published!==true)return null;
+  if(!historical.snapshotIsFresh(snapshot)) {
+    return {entries:[],totalPlayers:0,sourceAsOf:snapshot.asOf,
+      lastUpdatedAt:snapshot.importedAt,status:"active_status_refresh_required"};
+  }
+  const scores=new Map();
+  const collisions=new Set();
+  // Only a VERIFIED Squeegee UUID link may combine existing website XP.
+  // Never join on email, name, town or a reusable customer reference alone.
+  const activeIds=new Set(historical.eligibleHistoricalEntries(snapshot).map(e=>e.squeegeeId));
+  const listed=await stores.links.list({prefix:"player:"});
+  for(const {key} of (listed?.blobs||[]).slice(0,5000)) {
+    if(!/^player:[a-f0-9]{64}$/.test(key))continue;
+    try {
+      const link=await stores.links.get(key,{type:"json"});
+      const uuid=String(link?.squeegeeId||"").toLowerCase();
+      if(!activeIds.has(uuid) || link?.verified!==true)continue;
+      if(scores.has(uuid)) {collisions.add(uuid);continue;}
+      const player=await stores.public.get(key,{type:"json"});
+      const points=limitInt(player?.points,100000);
+      scores.set(uuid,points);
+    } catch (_) {}
+  }
+  // One shared Squeegee account cannot accumulate XP from two email players
+  // without an owner-reviewed identity resolution.
+  for(const uuid of collisions)scores.delete(uuid);
+  const board=historical.combinedPublicBoard(snapshot,scores);
+  return {...board,status:"squeegee_active_only"};
+}
+
 function publicLeaderboard(snapshot) {
   // Strict allowlist: no cached name, contact, address or invoice fields.
   return {
@@ -140,6 +175,8 @@ function publicLeaderboard(snapshot) {
     totalPlayers: limitInt(snapshot?.totalPlayers, 1000000),
     lastUpdatedAt: typeof snapshot?.lastUpdatedAt === "string"
       ? snapshot.lastUpdatedAt : null,
+    ...(typeof snapshot?.sourceAsOf === "string"?{sourceAsOf:snapshot.sourceAsOf}:{}),
+    ...(snapshot?.status === "active_status_refresh_required"?{status:snapshot.status}:{}),
   };
 }
 async function refreshSnapshotAfterWrite(stores) {
@@ -323,7 +360,8 @@ exports.handler = async (event) => {
   try {
     const stores = storePair();
     if (event.httpMethod === "GET") {
-      return out(200, publicLeaderboard(await getSnapshot(stores)));
+      const activeBoard=await getActiveHistoricalBoard(stores);
+      return out(200,publicLeaderboard(activeBoard||await getSnapshot(stores)));
     }
     if (typeof event.body !== "string" || event.body.length > 16000) {
       return out(400, { error: "Invalid leaderboard request" });
