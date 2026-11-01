@@ -266,3 +266,77 @@ test("website history and the badge use private verified account data only",()=>
   assert.match(challenge,/awardAction\("free-clean"\)/);
   assert.match(landing,/awardAction\("contact"\)/);
 });
+
+
+test("previously earned level and bin-day XP show the saved account date, not an invented earning date",()=>{
+  const stored={version:1,claimed:["l:what-we-do","a:bin-checker"],
+    updatedAt:"2026-10-30T12:45:00.000Z",events:[]};
+  const items=merge.activityHistory(stored,Date.parse("2026-11-01T15:00:00Z"));
+  assert.equal(items.length,2);
+  assert.equal(items.reduce((sum,e)=>sum+e.points,0),85);
+  for(const entry of items){
+    assert.equal(entry.date,"2026-10-30");
+    assert.equal(entry.dateKind,"recorded");
+    assert.equal(entry.earnedAt,null);
+    assert.equal(entry.recordedAt,"2026-10-30T12:45:00.000Z");
+    assert.match(entry.note,/Exact earning date not saved/);
+  }
+});
+
+test("initial import records a date, and later activities never overwrite the older recorded-on date",async()=>{
+  const initial=Date.parse("2026-11-01T15:00:00Z");
+  const next=Date.parse("2026-11-02T12:00:00Z");
+  const db=store();
+  await merge.syncActivity({
+    store:db,customerId:UUID,claimed:["l:the-process"],now:initial
+  });
+  let saved=db.rows.get(merge.activityKey(UUID));
+  assert.equal(saved.firstRecordedAt,new Date(initial).toISOString());
+  await merge.syncActivity({
+    store:db,customerId:UUID,now:next,
+    events:[{key:"a:contact@2026-11-02",at:new Date(next).toISOString()}]
+  });
+  saved=db.rows.get(merge.activityKey(UUID));
+  assert.equal(saved.firstRecordedAt,new Date(initial).toISOString());
+  const history=merge.activityHistory(saved,next+1000);
+  const legacy=history.find(e=>e.category==="website_level");
+  const fresh=history.find(e=>e.label==="Opened Contact Us");
+  assert.equal(legacy.dateKind,"recorded");
+  assert.equal(legacy.date,"2026-11-01");
+  assert.equal(fresh.date,"2026-11-02");
+  assert.equal(fresh.earnedAt,new Date(next).toISOString());
+  assert.equal(legacy.points+fresh.points,75);
+});
+
+test("existing legacy records inherit the older saved timestamp, never reset to today's date",async()=>{
+  const past="2026-10-22T10:22:00.000Z",now=Date.parse("2026-11-01T12:00:00Z");
+  const db=store([[merge.activityKey(UUID),{
+    claimed:["a:coverage"],updatedAt:past,version:1
+  }]]);
+  const result=await merge.syncActivity({
+    store:db,customerId:UUID,now,
+    events:[{key:"a:contact@2026-11-01",at:new Date(now).toISOString()}]
+  });
+  assert.equal(result.points,50);
+  assert.equal(db.rows.get(merge.activityKey(UUID)).firstRecordedAt,past);
+  const rows=merge.activityHistory(db.rows.get(merge.activityKey(UUID)),now);
+  assert.equal(rows.find(e=>e.label==="Checked service area").date,"2026-10-22");
+  assert.equal(rows.find(e=>e.label==="Opened Contact Us").date,"2026-11-01");
+});
+
+test("earlier linked bookings use an account record date, but verified booking awards keep the actual date",()=>{
+  assert.equal(merge.recordedAtFrom({
+    lastUpdatedAt:"2026-10-29T13:00:00.000Z",
+    enrolledAt:"2026-08-01T12:00:00.000Z"
+  },Date.parse("2026-11-01T15:00:00Z")),"2026-10-29T13:00:00.000Z");
+  const fs=require("node:fs"),path=require("node:path");
+  const root=path.resolve(__dirname,"..");
+  const api=fs.readFileSync(path.join(root,"netlify/functions/customerHQ.mjs"),"utf8");
+  const ui=fs.readFileSync(path.join(root,"src/pages/CustomerHQ.jsx"),"utf8");
+  assert.match(api,/const recordedAt=merge\.recordedAtFrom\(linked\)/);
+  assert.match(api,/label:"Earlier confirmed website bookings"/);
+  assert.match(api,/dateKind:"earned"/);
+  assert.match(api,/dateKind:"recorded"/);
+  assert.match(ui,/entry\.dateKind==="recorded"\?"Recorded on "/);
+  assert.match(ui,/entry\.source==="website"\?"Earned on "/);
+});

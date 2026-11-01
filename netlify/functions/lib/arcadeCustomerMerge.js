@@ -133,12 +133,35 @@ async function readActivityRecord(store,customerId){
 async function readActivity(store,customerId){
   return activityBalance(await readActivityRecord(store,customerId)).total;
 }
-function activityHistory(row){
+/**
+ * Historic achievements were saved as keys/XP without per-award timestamps.
+ * Use the first known time they were persisted, not an invented earning date.
+ * A previously imported record can only supply its last saved time; keep
+ * calling this "recorded on" in the UI, never "earned on".
+ */
+function recordedAtFrom(row,now=Date.now()){
+  const candidates=["firstRecordedAt","recordedAt","updatedAt",
+    "lastUpdatedAt","enrolledAt","createdAt"];
+  for(const key of candidates){
+    const stamp=row?.[key];
+    if(typeof stamp!=="string"&&!Number.isFinite(stamp))continue;
+    const ms=typeof stamp==="number"?stamp:Date.parse(stamp);
+    if(Number.isFinite(ms)&&ms>946684800000&&ms<=now+60000){
+      return new Date(ms).toISOString();
+    }
+  }
+  // When no original timestamp exists, this is the first date this reward
+  // was observed by the verified rewards account, NOT an earning date.
+  return new Date(now).toISOString();
+}
+function activityHistory(row,now=Date.now()){
+  const recordedAt=recordedAtFrom(row,now);
   const legacy=activityKeys(row?.claimed).map(key=>({
     source:"website",category:key.startsWith("l:")?"website_level":"website_action",
-    label:ACTIVITY_LABELS[key]+" (previously earned)",
-    date:null,earnedAt:null,points:ACTIVITY_POINTS[key],
-    note:"Earned before detailed website tracking was enabled",
+    label:ACTIVITY_LABELS[key],
+    date:ukDay(Date.parse(recordedAt)),dateKind:"recorded",
+    recordedAt,earnedAt:null,points:ACTIVITY_POINTS[key],
+    note:"Exact earning date not saved; this is the account record date",
   }));
   const dated=Array.isArray(row?.events)?row.events:[];
   const seen=new Set();
@@ -185,6 +208,8 @@ async function syncActivity({customerId,claimed=[],events=[],store,now=Date.now(
     if(prior.length+additional.length>MAX_EVENTS)
       throw new Error("activity_ledger_capacity_review");
     const next={version:2,claimed:merged,
+      // Preserve the first known date for previously undated rewards.
+      firstRecordedAt:recordedAtFrom(snap?.data,now),
       events:prior.concat(additional),updatedAt:new Date(now).toISOString()};
     const saved=await store.setJSON(key,next,
       snap?.etag?{onlyIfMatch:snap.etag}:{onlyIfNew:true});
@@ -266,5 +291,5 @@ async function linkVerifiedPortalAccount({account,liveCustomer,
 }
 module.exports={STORE,ACTIVITY_POINTS,DAILY_POINTS,ACTIVITY_LABELS,
   activityKeys,activityXP,ukDay,normalisePeriodEvent,activityBalance,
-  activityHistory,readActivityRecord,combinedWebsiteXP,
+  activityHistory,recordedAtFrom,readActivityRecord,combinedWebsiteXP,
   activityKey,readActivity,syncActivity,linkVerifiedPortalAccount};

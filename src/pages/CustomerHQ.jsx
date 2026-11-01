@@ -329,7 +329,10 @@ export default function CustomerHQ({embedded=false}){
               {recent.length?recent.map((entry,i)=>
                 <div className="hq-history-row" key={(entry.earnedAt||entry.date||"earlier")+"-"+entry.category+"-"+i}>
                   <div>
-                    <strong>{entry.date?formatDate(entry.date):"Earlier reward"}</strong>
+                    <strong>{entry.date?
+                      (entry.dateKind==="recorded"?"Recorded on ":
+                        entry.source==="website"?"Earned on ":"Cleaning on ")+
+                      formatDate(entry.date):"Date unavailable"}</strong>
                     <small>{entry.source==="website"?
                       "★ WEBSITE · "+entry.label+(entry.note?" · "+entry.note:""):
                       entry.event==="paid_completed_clean"?
@@ -348,7 +351,7 @@ export default function CustomerHQ({embedded=false}){
                   onClick={()=>setShowCount(n=>n+20)}>
                   SHOW MORE HISTORY ↓
                 </button>}
-              <p className="hq-small">Website levels can earn XP once per calendar month. Free Bin Clean, Customer Portal and Contact Us can earn XP daily; bin-day checking only earns XP once. Every confirmed website booking can earn XP. Older website rewards without original dates are labelled accordingly. Squeegee cleaning history is based on the last verified import, not live invoices or payments.</p>
+              <p className="hq-small">Website levels can earn XP once per calendar month. Free Bin Clean, Customer Portal and Contact Us can earn XP daily; bin-day checking only earns XP once. Every confirmed website booking can earn XP. Older website rewards show a clearly labelled recorded-on date from the saved account, not an invented earning date. Squeegee cleaning history is based on the last verified import, not live invoices or payments.</p>
             </GamePanel>:
             <GamePanel label="CONTROL YOUR PUBLIC LEADERBOARD ENTRY">
               {permission?.ready?

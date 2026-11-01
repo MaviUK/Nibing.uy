@@ -69,6 +69,11 @@ async function linkedWebsiteXP(customerId) {
         ?privatePlayer.progressXP:0,
       bookingAwards:Array.isArray(privatePlayer?.bookingAwards)?
         privatePlayer.bookingAwards:[],
+      // These are dates of the SOURCE ACCOUNT RECORD, not original dates
+      // for every old booking or achievement included in the balance.
+      lastUpdatedAt:privatePlayer?.lastUpdatedAt||player?.lastUpdatedAt||null,
+      enrolledAt:privatePlayer?.enrolledAt||null,
+      createdAt:player?.createdAt||null,
     };
   }catch{return empty;}
 }
@@ -83,12 +88,20 @@ async function customerWebsiteRewards(customerId){
     portalActivityXP:balance.legacyXP,portalPeriodicXP:balance.periodicXP,
   });
   const history=merge.activityHistory(record);
+  // Existing player totals are verifiable, but the old site did not retain
+  // per-reward dates. Show the date of the saved record, distinctly labelled.
+  const recordedAt=merge.recordedAtFrom(linked);
+  const recordDate=merge.ukDay(Date.parse(recordedAt));
+  const recordedDateFields={
+    date:recordDate,dateKind:"recorded",earnedAt:null,recordedAt,
+  };
   const earlierLevelPoints=Math.max(0,
     Math.min(linked.points,linked.progressXP)-balance.legacyXP);
   if(earlierLevelPoints){
     history.push({source:"website",category:"website_activity",
-      label:"Earlier website achievements",date:null,earnedAt:null,
-      points:earlierLevelPoints,note:"Individual dates were not recorded"});
+      label:"Earlier website achievements",...recordedDateFields,
+      points:earlierLevelPoints,
+      note:"Exact earning dates not saved; this is the previous account record date"});
   }
   // Legacy player balance = confirmed bookings + already credited levels.
   // New bookings have their own verified server-side history; older bookings
@@ -107,14 +120,19 @@ async function customerWebsiteRewards(customerId){
     history.push({source:"website",category:"website_booking",
       label:"Confirmed website booking"+(binCount?
         " · "+binCount+" bin"+(binCount===1?"":"s"):""),
-      date:earnedAt?merge.ukDay(Date.parse(earnedAt)):null,earnedAt,
+      ...(earnedAt?{
+        date:merge.ukDay(Date.parse(earnedAt)),dateKind:"earned",earnedAt,
+      }:{
+        ...recordedDateFields,
+        note:"Exact booking date unavailable; using previous account record date",
+      }),
       points:award.points});
   }
   if(remaining>0){
     history.push({source:"website",category:"website_booking",
       label:"Earlier confirmed website bookings",
-      date:null,earnedAt:null,points:remaining,
-      note:"Booking-by-booking dates were not available for earlier rewards"});
+      ...recordedDateFields,points:remaining,
+      note:"Exact booking-by-booking dates unavailable; using previous account record date"});
   }
   return {websiteXp,history};
 }
@@ -124,8 +142,8 @@ function allRewardsHistory(cleaningHistory,websiteHistory){
   }));
   const both=clean.concat(Array.isArray(websiteHistory)?websiteHistory:[]);
   return both.sort((a,b)=>{
-    const aTime=a.earnedAt||a.date||"";
-    const bTime=b.earnedAt||b.date||"";
+    const aTime=a.earnedAt||a.recordedAt||a.date||"";
+    const bTime=b.earnedAt||b.recordedAt||b.date||"";
     return bTime.localeCompare(aTime);
   });
 }
