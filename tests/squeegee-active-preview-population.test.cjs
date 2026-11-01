@@ -88,6 +88,8 @@ test("backup expiry hides stale active accounts, not just a dated label",async()
 
 test("website endpoint serves the 941-row seed on preview 77, NEVER on the main hostname",async()=>{
   const original=Module._load;
+  const realNow=Date.now;
+  Date.now=()=>NOW; // test is independent of the real seven-day snapshot expiry
   const noopStore={
     get:async()=>null,
     list:async()=>({blobs:[]}),
@@ -119,6 +121,7 @@ test("website endpoint serves the 941-row seed on preview 77, NEVER on the main 
     assert.equal(JSON.parse(production.body).totalPlayers,0);
   }finally{
     Module._load=original;
+    Date.now=realNow;
     delete require.cache[require.resolve("../netlify/functions/arcadeLeaderboard")];
   }
 });
