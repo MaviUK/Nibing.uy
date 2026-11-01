@@ -41,7 +41,8 @@ export default function ArcadeLeaderboard() {
         const next = Array.isArray(data.entries)
           ? data.entries.slice(0, 10).map((p, i) => ({
               rank: i + 1,
-              name: String(p.name || "Player").slice(0, 45),
+              customerRef: String(p.customerRef || "NBG-UNKNOWN").slice(0, 20),
+              town: String(p.town || "Town unavailable").slice(0, 32),
               points: Number(p.points || 0),
             }))
           : [];
@@ -50,11 +51,11 @@ export default function ArcadeLeaderboard() {
           const before = previousPlayers.current;
           const movement = {};
           next.forEach((player) => {
-            const old = before.find((p) => p.name === player.name);
-            if (!old) movement[player.name] = "new";
-            else if (old.rank > player.rank) movement[player.name] = "up";
-            else if (old.rank < player.rank) movement[player.name] = "down";
-            else if (old.points !== player.points) movement[player.name] = "points";
+            const old = before.find((p) => p.customerRef === player.customerRef);
+            if (!old) movement[player.customerRef] = "new";
+            else if (old.rank > player.rank) movement[player.customerRef] = "up";
+            else if (old.rank < player.rank) movement[player.customerRef] = "down";
+            else if (old.points !== player.points) movement[player.customerRef] = "points";
           });
           setChanges(movement);
         }
@@ -112,13 +113,13 @@ export default function ArcadeLeaderboard() {
           </span>
         </div>
         <h2 id="n64-board-title">Global Leaderboard</h2>
-        <p>High scores update automatically as customers complete bookings and collect XP.</p>
+        <p>High scores update automatically. Only customer references, towns and XP are displayed.</p>
 
         <div className="n64-your-score" aria-label="Your device score">
           <div><strong>★ YOUR SCORE</strong><span>{localScore.points.toLocaleString("en-GB")} XP</span></div>
           <small>{localScore.registered
             ? "Your booking is registered. New level points sync to the global leaderboard."
-            : "Your XP stays on this device until a verified booking is linked. After a booking, your name and score are added automatically unless you choose to stay private."}</small>
+            : "Your XP stays on this device until a verified booking is linked. After a booking, your customer reference, town and XP appear on the board."}</small>
         </div>
 
 
@@ -133,11 +134,11 @@ export default function ArcadeLeaderboard() {
           {!players.length ? (
             <li><span>{connection === "live" ? "No registered players yet — be the first!" : "Waiting for live scores…"}</span></li>
           ) : players.map((player, i) => {
-            const change = changes[player.name];
+            const change = changes[player.customerRef];
             return (
-              <li key={player.rank + "-" + player.name}
+              <li key={player.customerRef}
                 className={change ? "n64-board-row n64-board-row--" + change : "n64-board-row"}>
-                <span><strong>{String(i + 1).padStart(2, "0")}</strong> {player.name}</span>
+                <span><strong>{String(i + 1).padStart(2, "0")}</strong> {player.customerRef}<span className="n64-board-town"> · {player.town}</span></span>
                 <span className="n64-board-score">
                   {change && <em className="n64-rank-change" aria-label={
                     change === "new" ? "New player" :
@@ -157,7 +158,7 @@ export default function ArcadeLeaderboard() {
         )}
         <small>
           Scores refresh automatically every 10 seconds while this page is open.
-          Confirmed customers appear automatically unless they opt out during booking. Only names and XP are public; contact details remain private.
+          Public entries show a pseudonymous customer reference, town and XP, never names or full addresses. Contact details remain private.
         </small>
       </div>
     </section>
