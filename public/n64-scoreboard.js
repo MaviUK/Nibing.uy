@@ -107,6 +107,8 @@
   let periodEvents = readPeriodEvents(stored?.periodic);
   let accountTotal = null;
   let accountRefreshPending = false;
+  let accountRefreshQueued = false;
+  let accountRevision = 0;
   let accountLastCheck = 0;
   let accountSyncTimer = null;
   let root, scoreNode, recentNode, historyNode, savedNode, saveButton, resetButton;
@@ -271,25 +273,43 @@
 
   // The verified customer session is HttpOnly. The badge never guesses an
   // account from a public leaderboard name or the unsigned website cookie.
+  // Customer HQ is the authority for the combined score. Ignore any
+  // previously started account lookup that finishes after a newer verified
+  // login or logout event. This prevents an older guest response replacing
+  // the correctly signed-in badge on slower mobile connections.
   async function refreshAccountTotal(force=false) {
-    if(accountRefreshPending || (!force && Date.now()-accountLastCheck<15000))return;
-    accountRefreshPending=true;
-    accountLastCheck=Date.now();
+    if (accountRefreshPending) {
+      if (force) accountRefreshQueued = true;
+      return;
+    }
+    if (!force && Date.now()-accountLastCheck<15000) return;
+    accountRefreshPending = true;
+    accountLastCheck = Date.now();
+    const requestRevision = accountRevision;
     try {
-      const response=await fetch("/api/customer-hq",{
-        method:"GET",cache:"no-store",credentials:"same-origin",
+      const response = await fetch("/api/customer-hq", {
+        method: "GET", cache: "no-store", credentials: "same-origin",
       });
-      if(!response.ok)throw Error("account_request_failed");
-      const data=await response.json();
-      accountTotal=data?.authenticated===true &&
-        Number.isSafeInteger(data.account?.points) &&
-        data.account.points>=0 ? data.account.points : null;
-      redraw();
-    }catch(_) {
-      // Avoid claiming someone else's account during a failed identity check.
-      accountTotal=null;
-      redraw();
-    }finally{accountRefreshPending=false;}
+      if (!response.ok) throw new Error("account_request_failed");
+      const data = await response.json();
+      if (accountRevision === requestRevision) {
+        accountTotal = data?.authenticated === true &&
+          Number.isSafeInteger(data.account?.points) &&
+          data.account.points >= 0 ? data.account.points : null;
+        redraw();
+      }
+    } catch (_) {
+      // A temporary connection error must not erase a total that Customer
+      // HQ already verified. A confirmed logout or unauthenticated response
+      // still resets it to the guest/device value.
+      if (accountRevision === requestRevision && accountTotal === null) redraw();
+    } finally {
+      accountRefreshPending = false;
+      if (accountRefreshQueued) {
+        accountRefreshQueued = false;
+        void refreshAccountTotal(true);
+      }
+    }
   }
   function scheduleAccountSync() {
     if(accountTotal===null)return;
@@ -594,13 +614,18 @@
     paint();
     window.dispatchEvent(new Event("n64:score-updated"));
     refreshLeaderboard();
-    void refreshAccountTotal(true);
+    // Register the verified-account listener BEFORE fetching, so neither
+    // a quick login nor a slow response can leave the star on local XP.
     window.addEventListener("n64:account-score",(event)=>{
-      const total=event?.detail?.points;
+      if (!event?.detail || !Object.prototype.hasOwnProperty.call(event.detail,"points")) return;
+      accountRevision += 1;
+      const total=event.detail.points;
       accountTotal=Number.isSafeInteger(total)&&total>=0?total:null;
       accountLastCheck=Date.now();
       redraw();
+      if (accountRefreshPending) accountRefreshQueued=true;
     });
+    void refreshAccountTotal(true);
     window.addEventListener("online", scheduleProgressSync);
     window.addEventListener("pageshow",()=>{
       scheduleProgressSync();
