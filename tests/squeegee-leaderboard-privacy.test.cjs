@@ -73,7 +73,8 @@ test("legacy public names and v2 snapshots cannot leak through either new GET or
     }
   });
   const pub = fakeStore(publicData), priv = fakeStore(privateData);
-  const history = fakeStore(new Map()), links = fakeStore(new Map());
+  const historyData = new Map(), linkData = new Map();
+  const history = fakeStore(historyData), links = fakeStore(linkData);
   Module._load = function (id, parent, isMain) {
     if (id === "@netlify/blobs") return {
       getStore({ name }) {
@@ -151,6 +152,52 @@ test("legacy public names and v2 snapshots cannot leak through either new GET or
     assert.equal(latest.entries[0].points, 725);
     assert.ok(!JSON.stringify(latest).includes("Jane"));
     assert.ok(!JSON.stringify(latest).includes("Newtownards Road"));
+
+    // Active-only import must NOT publish before the separate owner approval.
+    const historic=require("../netlify/functions/lib/squeegeeActiveLeaderboardImport.js");
+    const uuid="12345678-1111-4111-8111-123456789abc";
+    const ref=historic.canonicalLegacyRef(uuid);
+    const sourceAsOf=new Date().toISOString().slice(0,10);
+    const statusSnapshot={
+      version:1,asOf:sourceAsOf,importedAt:new Date().toISOString(),
+      published:false,
+      accounts:[{id:uuid,ref,town:"Bangor",paidCleans:20,active:true}]
+    };
+    historyData.set(historic.SNAPSHOT_KEY,statusSnapshot);
+    assert.equal(JSON.parse((await get()).body).entries[0].points,725);
+
+    // A published active customer enters ONCE, without website XP until the
+    // separately verified, private Squeegee UUID link exists.
+    historyData.set(historic.SNAPSHOT_KEY,{...statusSnapshot,published:true});
+    response=await get();
+    let historicBoard=JSON.parse(response.body);
+    assert.equal(response.statusCode,200);
+    assert.equal(historicBoard.totalPlayers,1);
+    assert.equal(historicBoard.entries[0].customerRef,ref);
+    assert.equal(historicBoard.entries[0].town,"Bangor");
+    assert.equal(historicBoard.entries[0].points,20);
+    assert.equal(historicBoard.sourceAsOf,sourceAsOf);
+    assert.ok(!response.body.includes(uuid));
+    assert.ok(!response.body.includes("Jane"));
+
+    linkData.set(recordKey,{squeegeeId:uuid,verified:true});
+    response=await get();
+    historicBoard=JSON.parse(response.body);
+    assert.equal(historicBoard.totalPlayers,1);
+    assert.equal(historicBoard.entries[0].points,745);
+    assert.equal(historicBoard.entries[0].customerRef,ref);
+    assert.equal(historicBoard.entries.length,1);
+    assert.ok(!response.body.includes(uuid));
+    assert.ok(!response.body.includes("Jane"));
+
+    // An out-of-date active account snapshot cannot continue ranking someone
+    // who might have since been deactivated in Squeegee.
+    historyData.set(historic.SNAPSHOT_KEY,{
+      ...statusSnapshot,asOf:"2025-01-01",published:true
+    });
+    const stale=JSON.parse((await get()).body);
+    assert.equal(stale.entries.length,0);
+    assert.equal(stale.status,"active_status_refresh_required");
   } finally {
     Module._load = originalLoad;
     if (envSecret === undefined) delete process.env.N64_PREVIEW_LEADERBOARD_SECRET;
