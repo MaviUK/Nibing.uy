@@ -8,6 +8,8 @@ export default function ArcadeLeaderboard() {
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [connection, setConnection] = useState("connecting");
   const [updatedAt, setUpdatedAt] = useState(null);
+  const [sourceAsOf, setSourceAsOf] = useState(null);
+  const [historyStatus, setHistoryStatus] = useState(null);
   const [changes, setChanges] = useState({});
   const previousPlayers = useRef(null);
   const [localScore, setLocalScore] = useState({ points: 0, registered: false });
@@ -64,6 +66,8 @@ export default function ArcadeLeaderboard() {
         setTotalPlayers(Number.isFinite(Number(data.totalPlayers))
           ? Math.max(0, Number(data.totalPlayers)) : next.length);
         setUpdatedAt(new Date());
+        setSourceAsOf(/^\d{4}-\d{2}-\d{2}$/.test(data.sourceAsOf || "") ? data.sourceAsOf : null);
+        setHistoryStatus(data.status === "active_status_refresh_required" ? data.status : null);
         setConnection("live");
       } catch (_) {
         if (mounted) setConnection("reconnecting");
@@ -109,16 +113,18 @@ export default function ArcadeLeaderboard() {
           <span className={"n64-live-indicator" + (connection !== "live" ? " n64-live-indicator--offline" : "")}
             role="status" aria-live="polite">
             <span className="n64-live-indicator-dot" aria-hidden="true" />
-            {connection === "live" ? "LIVE" : connection === "connecting" ? "CONNECTING" : "RECONNECTING"}
+            {connection === "live" ? (sourceAsOf ? "BACKUP SNAPSHOT" : "LIVE") : connection === "connecting" ? "CONNECTING" : "RECONNECTING"}
           </span>
         </div>
         <h2 id="n64-board-title">Global Leaderboard</h2>
-        <p>High scores update automatically. Only customer references, towns and XP are displayed.</p>
+        <p>{sourceAsOf
+          ? `Active Squeegee customer rankings from the ${new Date(sourceAsOf + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} backup. Only paid-clean points and verified linked website XP are counted.`
+          : "High scores update automatically. Only customer references, towns and XP are displayed."}</p>
 
         <div className="n64-your-score" aria-label="Your device score">
           <div><strong>★ YOUR SCORE</strong><span>{localScore.points.toLocaleString("en-GB")} XP</span></div>
           <small>{localScore.registered
-            ? "Your booking is registered. New level points sync to the global leaderboard."
+            ? (sourceAsOf ? "Your website XP is saved. It joins the active-only board after your Squeegee account is verified." : "Your booking is registered. New level points sync to the global leaderboard.")
             : "Your XP stays on this device until a verified booking is linked. After a booking, your customer reference, town and XP appear on the board."}</small>
         </div>
 
@@ -157,7 +163,8 @@ export default function ArcadeLeaderboard() {
           </p>
         )}
         <small>
-          Scores refresh automatically every 10 seconds while this page is open.
+          {historyStatus ? "Active account-status verification is out of date; historical scores are temporarily hidden. " : ""}
+          The display refreshes every 10 seconds. Historical Squeegee scores only change after a verified data update.
           Public entries show a pseudonymous customer reference, town and XP, never names or full addresses. Contact details remain private.
         </small>
       </div>
