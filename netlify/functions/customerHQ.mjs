@@ -210,4 +210,5 @@ export default async function handler(request,context) {
     return respond(503,{error:"customer_hq_temporarily_unavailable"});
   }
 }
-export const config={path:PATH};
+// Netlify's static route manifest requires a literal path here, not PATH.
+export const config={path:"/api/customer-hq"};
