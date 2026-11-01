@@ -134,11 +134,13 @@ function eligibleRankedEmailAccounts(snapshot){
   const known=new Map(history.ENTRIES.map(([alias,town,points])=>
     [alias,{town,points}]));
   const aliases=new Set(),seen=new Set();
-  let historicalPoints=0;
+  let historicalPoints=0,verifiedActiveEmailAccounts=0;
   for(const account of snapshot.accounts){
     if(!account || !UUID.test(String(account.id||"")) ||
        seen.has(account.id.toLowerCase()))return null;
     seen.add(account.id.toLowerCase());
+    if(typeof account.email==="string" && account.email &&
+      normalizeEmail(account.email)===account.email)verifiedActiveEmailAccounts++;
     const alias=canonicalLegacyRef(account.id);
     const baseline=known.get(alias);
     if(!baseline)continue;
@@ -156,6 +158,7 @@ function eligibleRankedEmailAccounts(snapshot){
   // The private customer UUIDs and email addresses never leave this helper.
   return {aliases,count:aliases.size,historicalPoints,
     verifiedAliases:aliases,verifiedCount:aliases.size,
+    verifiedActiveEmailAccounts,
     verificationStatus:"verified_from_squeegee_backup",
     verificationAsOf:snapshot.asOf};
 }
