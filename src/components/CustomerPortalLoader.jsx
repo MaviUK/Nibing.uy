@@ -36,8 +36,9 @@ export default function CustomerPortalLoader() {
           Customer Portal
         </h2>
         <p style={{ color: "#d4d4d8", margin: "0 auto 24px", maxWidth: "720px" }}>
-          Existing customers can manage their service through the NI Bin Guy customer portal.
+          Check your NI Bin Guy cleaning points, or use the existing Squeegee portal below for account services.
         </p>
+        <a href="/customer-hq" style={{display:"inline-flex",margin:"0 0 24px",padding:"13px 22px",background:"#f5d65c",color:"#111629",border:"3px solid #fff",boxShadow:"4px 4px #336347",fontWeight:900,textDecoration:"none",textTransform:"uppercase"}}>★ My Points &amp; Cleaning Streak →</a>
         <div className="n64-portal-shell">
         <div
           data-sqc="layout"
