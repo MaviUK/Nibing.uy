@@ -70,7 +70,7 @@ test("homepage leaderboard embeds customer sign-in as a switchable tab",()=>{
   assert.match(css,/\.n64-board-tab-content\[hidden\]/);
   assert.match(board,/eligibleCleaningXp/);
   assert.match(board,/SHOW MORE PUBLIC SCORES/);
-  assert.match(board,/Everyone can see the N64 test leaderboard by first name, town and points/);
+  assert.doesNotMatch(board,/Everyone can see the N64 test leaderboard by first name, town and points/);
 });
 test("owner private ranking cannot leak through public leaderboard; public API remains opt-in only",()=>{
   const root=path.resolve(__dirname,"..");
