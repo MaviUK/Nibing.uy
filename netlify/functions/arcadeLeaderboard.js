@@ -189,10 +189,14 @@ function publicLeaderboard(snapshot) {
   return {
     entries: (Array.isArray(snapshot?.entries) ? snapshot.entries : [])
       .filter(e => safePublicReference(e?.customerRef))
-      .slice(0, 10).map((e, i) => ({
+      .slice(0,snapshot?.status==="public_eligible_scores"?700:10)
+      .map((e,i)=>({
         rank: i + 1, customerRef: e.customerRef, town: safePublicTown(e.town),
         points: limitInt(e.points, 100000),
-        ...(snapshot?.status==="consent_only" &&
+        ...(snapshot?.status==="public_eligible_scores" && e.anonymous===true
+          ?{anonymous:true}:{}),
+        ...((snapshot?.status==="consent_only" ||
+              snapshot?.status==="public_eligible_scores") &&
           nameConsents.safeFirstName(e.displayName)
           ? {displayName:e.displayName}:{}),
       })),
@@ -200,8 +204,11 @@ function publicLeaderboard(snapshot) {
     lastUpdatedAt: typeof snapshot?.lastUpdatedAt === "string"
       ? snapshot.lastUpdatedAt : null,
     ...(typeof snapshot?.sourceAsOf === "string"?{sourceAsOf:snapshot.sourceAsOf}:{}),
-    ...(["active_status_refresh_required","eligibility_pending","consent_pending","consent_only"]
+    ...(["active_status_refresh_required","eligibility_pending",
+         "consent_pending","consent_only","public_eligible_scores"]
        .includes(snapshot?.status)?{status:snapshot.status}:{}),
+    ...(snapshot?.status==="public_eligible_scores"
+      ?{publicNamedCount:limitInt(snapshot?.approvedCount,700)}:{}),
   };
 }
 async function refreshSnapshotAfterWrite(stores) {
@@ -413,21 +420,18 @@ exports.handler = async (event) => {
           verifiedAsOf:eligible.verificationAsOf,
           eligibleCleaningXp:eligible.historicalPoints});
         }
-        if(!privateNames){
-          return out(200,{...publicLeaderboard({
-            entries:[],totalPlayers:0,status:"consent_pending"
-          }),eligiblePlayers:eligible.count,
-          verifiedPlayers:eligible.verifiedCount,
-          verifiedActiveAccounts:eligible.verifiedActiveEmailAccounts,
-          verifiedAsOf:eligible.verificationAsOf,
-          eligibleCleaningXp:eligible.historicalPoints});
-        }
+        // Public board is NOT a customer login. All current email-eligible
+        // customers have public scores; first-name/town are displayed ONLY
+        // for customers with proven consent. No consent list -> anonymity.
+        // The key is NEVER exposed to the browser or public source code.
+        const privateKey=customerHQ.secret(process.env);
+        if(!privateKey) return out(503,{error:"leaderboard_secret_unavailable"});
         const full=await historicalPreview.getStaticPreviewBoard(stores,Date.now(),true);
-        const allowed=nameConsents.publicConsentBoard(
-          privateNames,full,eligible.aliases
+        const publicScores=nameConsents.publicEligibleScoreboard(
+          privateNames,full,eligible.aliases,privateKey
         );
-        return out(200,{...publicLeaderboard(allowed||{
-          entries:[],totalPlayers:0,status:"consent_pending"
+        return out(200,{...publicLeaderboard(publicScores||{
+          entries:[],totalPlayers:0,status:"eligibility_pending"
         }),eligiblePlayers:eligible.count,
           verifiedPlayers:eligible.verifiedCount,
           verifiedActiveAccounts:eligible.verifiedActiveEmailAccounts,
@@ -437,7 +441,7 @@ exports.handler = async (event) => {
       const activeBoard=await getActiveHistoricalBoard(stores);
       // Production/non-Preview hosts retain the existing website-only board.
       // The exact N64 Preview host has already returned above using the
-      // owner-imported, email-eligible, consent-only account pool.
+      // owner-imported, email-eligible public scoreboard, with consent-gated names.
       return out(200,publicLeaderboard(activeBoard||await getSnapshot(stores)));
     }
     if (typeof event.body !== "string" || event.body.length > 16000) {
