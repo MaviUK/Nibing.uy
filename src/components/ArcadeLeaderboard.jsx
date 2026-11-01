@@ -7,6 +7,13 @@ const CustomerHQ=React.lazy(()=>import("../pages/CustomerHQ"));
 
 export default function ArcadeLeaderboard() {
   const [players, setPlayers] = useState([]);
+  const [publicShownCount,setPublicShownCount] = useState(20);
+  const [publicNamedCount,setPublicNamedCount] = useState(0);
+  // The owner-only view is accessible via a deliberate deep link, not a
+  // visible sign-in requirement on the public leaderboard.
+  const [showOwnerControls] = useState(()=>
+    new URLSearchParams(window.location.search).get("owner-board")==="1"
+  );
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [connection, setConnection] = useState("connecting");
   const [updatedAt, setUpdatedAt] = useState(null);
@@ -120,12 +127,14 @@ export default function ArcadeLeaderboard() {
         if (!response.ok) throw new Error("Leaderboard temporarily unavailable");
         const data = await response.json();
         if (!mounted) return;
+        const publicScores=data.status==="public_eligible_scores";
         const next = Array.isArray(data.entries)
-          ? data.entries.slice(0, 10).map((p, i) => ({
+          ? data.entries.slice(0, publicScores?700:10).map((p, i) => ({
               rank: i + 1,
               customerRef: String(p.customerRef || "NBG-UNKNOWN").slice(0, 20),
               displayName: typeof p.displayName === "string"
                 ? p.displayName.slice(0, 40) : null,
+              anonymous: publicScores && p.anonymous===true,
               town: String(p.town || "Town unavailable").slice(0, 32),
               points: Number(p.points || 0),
             }))
@@ -150,7 +159,10 @@ export default function ArcadeLeaderboard() {
         setUpdatedAt(new Date());
         setSourceAsOf(/^\d{4}-\d{2}-\d{2}$/.test(data.sourceAsOf || "") ? data.sourceAsOf : null);
         setHistoryStatus(data.status === "active_status_refresh_required" ? data.status : null);
-        setNameConsentMode(data.status === "consent_only" || data.status === "consent_pending");
+        setNameConsentMode(data.status === "consent_only" || data.status === "consent_pending" ||
+          data.status === "public_eligible_scores");
+        setPublicNamedCount(Number.isInteger(data.publicNamedCount)
+          ? data.publicNamedCount:0);
         setEligibilityPending(data.status === "eligibility_pending");
         setEligiblePlayers(Number.isInteger(data.eligiblePlayers) ? data.eligiblePlayers : null);
         setVerifiedPlayers(Number.isInteger(data.verifiedPlayers) ? data.verifiedPlayers : null);
@@ -216,7 +228,7 @@ export default function ArcadeLeaderboard() {
           </span>
         </div>
         <h2 id="n64-board-title">{rankingMode==="owner"?"Verified Customer Rankings":"Global Leaderboard"}</h2>
-        <div className="n64-rank-visibility" role="group" aria-label="Ranking visibility">
+        {showOwnerControls && <div className="n64-rank-visibility" role="group" aria-label="Ranking visibility">
           <button type="button" className={rankingMode==="public"?"n64-rank-visibility--active":""}
             aria-pressed={rankingMode==="public"} onClick={showPublicRankings}>
             PUBLIC LEADERBOARD
@@ -225,15 +237,13 @@ export default function ArcadeLeaderboard() {
             aria-pressed={rankingMode==="owner"} onClick={showOwnerRankings}>
             OWNER: ALL VERIFIED
           </button>
-        </div>
+        </div>}
         <div hidden={rankingMode!=="public"} className="n64-rank-public">
         <p>{eligibilityPending
-          ? "Preparing the verified Squeegee customer list. Only active accounts with a valid registered email can join the leaderboard; no names are public until permission is recorded."
-          : nameConsentMode
-          ? "Only active Squeegee customers with a registered email who have agreed to appear are shown by first name and town. Everyone else keeps their points privately."
+          ? "The customer list is being verified. Only Squeegee customers with a registered email qualify."
           : sourceAsOf
-          ? `Active Squeegee customer rankings from the ${new Date(sourceAsOf + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} backup. Loyalty points start at 20 per paid clean, rise by 2 for each consecutive completed visit, then restart at 20 after a recorded skipped visit. Verified linked website XP is added separately.`
-          : "High scores update automatically. Only customer references, towns and XP are displayed."}</p>
+          ? "Everyone can see the leaderboard without signing in. Customers who have agreed appear by first name and town; other eligible scores use an anonymous player label. Sign in only to see your own clean-by-clean points history."
+          : "Public cleaning rewards leaderboard. Sign in only to see your own private points breakdown."}</p>
 
         <div className="n64-your-score" aria-label="Your device score">
           <div><strong>★ ARCADE XP ON THIS PHONE</strong><span>{localScore.points.toLocaleString("en-GB")} XP</span></div>
@@ -257,13 +267,13 @@ export default function ArcadeLeaderboard() {
         <div className="n64-board-join-cta">
           <button type="button" onClick={openHQ}>★ SIGN IN / VIEW MY CLEANING POINTS →</button>
         </div>
-        <ol aria-label="Live top ten opted-in players">
+        <ol aria-label="Public leaderboard rankings">
           {!players.length ? (
             <li className="n64-board-empty">
               <span>{connection !== "live" ? "Connecting to the leaderboard…" : eligibilityPending
                 ? "Verifying customers with registered emails."
                 : nameConsentMode
-                ? "HIGH SCORES UNLOCK WHEN CUSTOMERS OPT IN"
+                ? "Public scores are being prepared."
                 : "No registered public players yet."}</span>
               {nameConsentMode && <small>
                 {verifiedPlayers!==null
@@ -272,18 +282,18 @@ export default function ArcadeLeaderboard() {
                   : eligiblePlayers!==null
                     ? eligiblePlayers.toLocaleString("en-GB")+" customers are email-eligible. " : ""}
                 {eligibleCleaningXp!==null ? eligibleCleaningXp.toLocaleString("en-GB")+" cleaning XP are safely recorded. " : ""}
-                Public names still require each customer's permission; verification alone does not publish personal information. Customers can opt in through My Customer HQ.
+                Public scores are viewable by everyone. Names and towns remain hidden unless the customer has given permission. Sign in to My Customer HQ for your private breakdown.
               </small>}
             </li>
-          ) : players.map((player, i) => {
+          ) : players.slice(0,publicShownCount).map((player, i) => {
             const change = changes[player.customerRef];
             return (
               <li key={player.customerRef}
                 className={change ? "n64-board-row n64-board-row--" + change : "n64-board-row"}>
                 <button type="button" className="n64-board-player-button" onClick={openHQ}
                   title="Open your own secure points dashboard — this public entry does not grant access to another customer's account">
-                  <strong>{String(i + 1).padStart(2, "0")}</strong> {nameConsentMode ? (player.displayName||"Player") : (player.displayName||player.customerRef)}
-                  <span className="n64-board-town"> · {player.town}</span>
+                  <strong>{String(i + 1).padStart(2, "0")}</strong> {player.anonymous?"ARCADE PLAYER "+String(i+1):player.displayName||player.customerRef}
+                  {player.town!=="Town unavailable" && <span className="n64-board-town"> · {player.town}</span>}
                 </button>
                 <span className="n64-board-score">
                   {change && <em className="n64-rank-change" aria-label={
@@ -297,6 +307,15 @@ export default function ArcadeLeaderboard() {
             );
           })}
         </ol>
+        {players.length>publicShownCount && <div className="n64-board-join-cta">
+          <button type="button" onClick={()=>setPublicShownCount(n=>n+25)}>
+            SHOW MORE PUBLIC SCORES ↓
+          </button>
+        </div>}
+        {nameConsentMode && players.length>0 && <p className="n64-board-display-note">
+          {publicNamedCount.toLocaleString("en-GB")} customers currently display their
+          first name and town. The other scores remain anonymous.
+        </p>}
         {connection === "reconnecting" && (
           <p className="n64-board-error" role="status">
             The leaderboard server is temporarily unavailable. Your device XP is unaffected; retrying automatically.
@@ -305,7 +324,7 @@ export default function ArcadeLeaderboard() {
         <small>
           {historyStatus ? "Active account-status verification is out of date; historical scores are temporarily hidden. " : ""}
           Tap a player or choose My Customer HQ above to open the email-code sign-in in this section. You can only see the account verified by your own email code. Public rankings refresh every 10 seconds; historical Squeegee scores change after a verified import.
-          {nameConsentMode || eligibilityPending ? "Public entries require a registered email and recorded permission, and show first name, town and XP only. Squeegee references and contact details remain private." : "Public entries show a pseudonymous customer reference, town and XP, never names or full addresses. Contact details remain private."}
+          {nameConsentMode || eligibilityPending ? "A registered email is required for a score to qualify. First name and town appear only with permission; others are shown anonymously. Squeegee references and contact details remain private." : "Full cleaning histories require secure sign-in. Public scores never grant access to another customer's account."}
         </small>
         </div>
         <div className="n64-owner-ranking" hidden={rankingMode!=="owner"}>
