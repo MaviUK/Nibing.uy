@@ -133,7 +133,8 @@ function normalizeActiveImport(input,{asOf,now=Date.now()}={}) {
     sourceHash:crypto.createHash("sha256").update(input).digest("hex"),
     summary:{
       activeAccounts:accounts.length,publishedCandidates,heldTown,zeroPoints,
-      historicalPaidPoints:paidPoints,paidCleanCount
+      historicalPaidPoints:paidPoints,
+      ...(version===2?{paidCleanCount}:{})
     },
     accounts
   };
