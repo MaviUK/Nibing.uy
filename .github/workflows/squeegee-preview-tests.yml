@@ -78,6 +78,11 @@ on:
       - netlify/functions/lib/squeegeeHistoricalLeaderboard.js
       - netlify/functions/squeegeePreviewLeaderboardHistory.mjs
       - tests/squeegee-historical-leaderboard.test.cjs
+      - netlify/functions/lib/arcadePublicIdentity.js
+      - netlify/functions/arcadeLeaderboard.js
+      - tests/squeegee-leaderboard-privacy.test.cjs
+      - src/components/ArcadeLeaderboard.jsx
+      - public/n64-scoreboard.js
       - .github/workflows/squeegee-preview-tests.yml
 
 permissions:
