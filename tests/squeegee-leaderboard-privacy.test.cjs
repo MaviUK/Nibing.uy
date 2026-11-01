@@ -60,9 +60,16 @@ test("legacy public names and v2 snapshots cannot leak through either new GET or
   ]]);
   const fakeStore = map => ({
     async get(key) { return map.get(key) || null; },
-    async setJSON(key, value) { map.set(key, value); },
+    async delete(key) { map.delete(key); },
+    async setJSON(key, value, options = {}) {
+      if (options.onlyIfMatch && options.onlyIfMatch !== '"etag:' + key + '"')
+        return { modified: false };
+      map.set(key, value);
+      return { modified: true, etag: '"new"' };
+    },
     async list({ prefix }) {
-      return { blobs: [...map.keys()].filter(key => key.startsWith(prefix)).map(key => ({ key })) };
+      return { blobs: [...map.keys()].filter(key => key.startsWith(prefix))
+        .map(key => ({ key, etag: '"etag:' + key + '"' })) };
     }
   });
   const pub = fakeStore(publicData), priv = fakeStore(privateData);
@@ -96,6 +103,9 @@ test("legacy public names and v2 snapshots cannot leak through either new GET or
     assert.ok(!response.body.includes(email));
     assert.ok(!("name" in board.entries[0]));
     assert.ok(!("displayName" in board.entries[0]));
+    assert.ok(!publicData.has("leaderboard:top10:v2"));
+    assert.ok(!("displayName" in publicData.get(recordKey)), "legacy public name was scrubbed");
+    assert.equal(publicData.get(recordKey).points, 550);
 
     // The new cache must not serve the legacy v2 name payload.
     response = await get();
