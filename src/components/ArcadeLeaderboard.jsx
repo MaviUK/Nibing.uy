@@ -333,17 +333,6 @@ export default function ArcadeLeaderboard() {
             </button>
           )}
         </div>
-        <p className="n64-leaderboard-year-note">
-          {selectedYear==="overall"
-            ?"All-time Squeegee cleaning and website rewards, including older XP whose individual earning dates were not saved."
-            :"Only verified cleaning XP and individually dated website rewards earned in "+selectedYear+
-              ". Older undated website XP stays in Overall. Cleaning visits come from the 31 Oct 2026 Squeegee backup."}
-        </p>
-        <p>{eligibilityPending
-          ? "The customer list is being verified. Only Squeegee customers with a registered email qualify."
-          : sourceAsOf
-          ? "Everyone can see the N64 test leaderboard by first name, town and points. Sign in only to see your own clean-by-clean history, streak and private stats."
-          : "Public cleaning rewards leaderboard. Sign in only to see your own private points breakdown."}</p>
 
         <div className="n64-your-score" aria-label="Your device score">
           <div><strong>★ ARCADE XP ON THIS PHONE</strong><span>{localScore.points.toLocaleString("en-GB")} XP</span></div>
