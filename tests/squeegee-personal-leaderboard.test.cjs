@@ -89,6 +89,33 @@ test("other customer identity cannot display this person's private XP or rank",(
   }),/personal_customer_not_in_backup/);
   assert.equal(personal.publicRef(ids[0],secretKey),null);
 });
+test("signed-in customers outside public rankings retain dated website XP, but not old unknown claims",async()=>{
+  const now=Date.parse("2026-11-01T18:00:00Z");
+  const entry={
+    claimed:["a:bin-checker"],firstRecordedAt:"2026-11-01T15:00:00Z",
+    events:[{key:"a:customer-portal@2026-11-01",earnedAt:"2026-11-01T14:00:00Z"}]
+  };
+  const stores={
+    activity:{
+      async list(){return {blobs:[{key:"customer:"+ids[0]}]};},
+      async get(){return entry;}
+    },
+    links:{async list(){return {blobs:[]};}},
+    private:{},public:{}
+  };
+  const result=await personal.getPersonalSummary({
+    stores,privateCustomers,customerId:ids[0],
+    consentSnapshot,secretKey,now
+  });
+  assert.deepEqual(result,{
+    points:47,cleaningPoints:22,websiteXp:25,
+    rank:null,yearly:{
+      "2025":{points:22,rank:null},
+      "2026":{points:25,rank:null}
+    },
+    yearlyXpTotal:47,rankingAvailable:false
+  });
+});
 test("homepage and Customer HQ use the same verified totals and never show unknown XP",()=>{
   const root=path.resolve(__dirname,"..");
   const server=fs.readFileSync(path.join(root,"netlify/functions/customerHQ.mjs"),"utf8");
