@@ -227,10 +227,21 @@
     scheduleAccountSync();
     return true;
   }
-  function awardLevel(sectionId) {
+  const LEVEL_SEQUENCE=Object.keys(LEVELS);
+  function levelStatus(sectionId){
     const level=LEVELS[String(sectionId||"")];
-    return level ? awardPeriod("l:"+sectionId+"@"+ukDate().slice(0,7),
-      POINTS.level,"Level "+String(level).padStart(2,"0")+" completed") : false;
+    if(!level)return "unknown";
+    const month=ukDate().slice(0,7);
+    if(periodEvents.some(e=>e.key==="l:"+sectionId+"@"+month))return "earned";
+    const unlocked=LEVEL_SEQUENCE.slice(0,level-1).every(id=>
+      periodEvents.some(e=>e.key==="l:"+id+"@"+month));
+    return unlocked?"ready":"locked";
+  }
+  function awardLevel(sectionId) {
+    if(levelStatus(sectionId)!=="ready")return false;
+    const level=LEVELS[String(sectionId||"")];
+    return awardPeriod("l:"+sectionId+"@"+ukDate().slice(0,7),
+      POINTS.level,"Level "+String(level).padStart(2,"0")+" completed");
   }
   function awardAction(name) {
     if(name==="coverage")return award("a:coverage",POINTS.coverage,"Checked service area");
@@ -682,6 +693,7 @@
 
   window.n64Score = Object.freeze({
     awardLevel,
+    levelStatus,
     awardAction,
     awardBooking,
     offerEntry,

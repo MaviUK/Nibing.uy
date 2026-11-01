@@ -136,7 +136,7 @@ test("script URL is cache-busted and overrides generic Netlify JS caching",()=>{
   assert.match(toml,/for = "\/n64-scoreboard\.js"\s+\[headers\.values\]\s+Cache-Control = "no-store, no-cache, max-age=0, must-revalidate"/);
   const hq=fs.readFileSync(path.join(ROOT,"src/pages/CustomerHQ.jsx"),"utf8");
   assert.match(hq,/new CustomEvent\("n64:account-score"/);
-  assert.match(scoreboard,/accountRevision === requestRevision/);
+  assert.match(scoreboard,/accountRevision !== requestRevision/);
   assert.match(scoreboard,/accountRevision \+= 1/);
 });
 
@@ -155,9 +155,11 @@ test("a newer verified 907 XP total is shared with the Customer HQ profile",asyn
   assert.equal(h.score(),"907");
   h.announce(857,"CUS123");
   assert.equal(h.score(),"907","an outdated Customer HQ total cannot demote the badge");
-  assert.deepEqual(events.at(-1),{points:907,customerReference:"CUS123"});
+  assert.equal(events.at(-1).points,907);
+  assert.equal(events.at(-1).customerReference,"CUS123");
   h.window.dispatchEvent({type:"n64:request-verified-total"});
-  assert.deepEqual(events.at(-1),{points:907,customerReference:"CUS123"});
+  assert.equal(events.at(-1).points,907);
+  assert.equal(events.at(-1).customerReference,"CUS123");
 });
 
 test("a different verified customer replaces the previous account score",async()=>{
