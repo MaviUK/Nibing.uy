@@ -1,6 +1,7 @@
 const crypto = require("node:crypto");
 const { getStore } = require("@netlify/blobs");
 const historical = require("./lib/squeegeeActiveLeaderboardImport");
+const historicalPreview = require("./lib/squeegeeActivePreviewBoard");
 const { publicCustomerReference, townFromAddress, safePublicTown, safePublicReference } =
   require("./lib/arcadePublicIdentity");
 const {
@@ -168,6 +169,13 @@ async function getActiveHistoricalBoard(stores) {
   for(const uuid of collisions)scores.delete(uuid);
   const board=historical.combinedPublicBoard(snapshot,scores);
   return {...board,status:"squeegee_active_only"};
+}
+
+// Source snapshots are strictly scoped to the historical N64 deploy preview.
+// The live nibing.uy API must never adopt a dated seed from a GitHub branch.
+function isExactN64PreviewRequest(event) {
+  const host=String(event?.headers?.host||event?.headers?.Host||"").toLowerCase();
+  return host==="deploy-preview-77--nibinguy.netlify.app";
 }
 
 function publicLeaderboard(snapshot) {
@@ -368,7 +376,12 @@ exports.handler = async (event) => {
     const stores = storePair();
     if (event.httpMethod === "GET") {
       const activeBoard=await getActiveHistoricalBoard(stores);
-      return out(200,publicLeaderboard(activeBoard||await getSnapshot(stores)));
+      // When the owner has not yet uploaded the private UUID mapping, use
+      // the reviewed 941-row REF/TOWN/PAID-POINT snapshot on PREVIEW 1 only.
+      // Owner-controlled publication/unpublication always takes precedence.
+      const previewBoard=!activeBoard && isExactN64PreviewRequest(event)
+        ? await historicalPreview.getStaticPreviewBoard(stores) : null;
+      return out(200,publicLeaderboard(activeBoard||previewBoard||await getSnapshot(stores)));
     }
     if (typeof event.body !== "string" || event.body.length > 16000) {
       return out(400, { error: "Invalid leaderboard request" });
