@@ -85,3 +85,116 @@
 @media(prefers-reduced-motion:reduce){
  .hq-button,.hq-loading{animation:none;transition:none}
 }
+
+
+/* The same secure Customer HQ now works in the homepage leaderboard tab.
+   Override generic board h2/p rules so the login fits mobile screens. */
+.hq-page.hq-embedded {
+  width:100%;
+  min-height:0;
+  background:transparent;
+  overflow:visible;
+  text-align:left;
+  padding:0;
+}
+.hq-embedded .hq-shell {width:100%;max-width:none;padding:0 0 16px;}
+.hq-embedded .hq-hero {
+  background:transparent;
+  padding:10px 3px 22px;
+  text-align:center;
+}
+.n64-public-leaderboard .hq-embedded .hq-hero h2 {
+  margin:7px 0 10px;
+  font:1000 clamp(1.65rem,5vw,2.4rem)/1.1 "Trebuchet MS",sans-serif;
+  color:#fef7dd;
+  letter-spacing:-.035em;
+  text-shadow:3px 4px 0 #395e88;
+}
+.n64-public-leaderboard .hq-embedded .hq-hero h2 span {color:#66e4b0;}
+.n64-public-leaderboard .hq-embedded .hq-hero p {
+  max-width:520px;
+  margin:0 auto;
+  text-align:center;
+  font-size:.92rem;
+  line-height:1.5;
+  color:#d3dfef;
+}
+.n64-public-leaderboard .hq-embedded .hq-panel {
+  margin:12px 0;
+  max-width:none;
+  box-shadow:4px 5px 0 #0d1426;
+  text-align:left;
+}
+.n64-public-leaderboard .hq-embedded h2.hq-panel-label {
+  font-size:.74rem;
+  line-height:1.35;
+  margin:0 0 17px;
+  color:#ffe16b;
+  letter-spacing:.1em;
+  text-shadow:none;
+}
+.n64-public-leaderboard .hq-embedded .hq-heading h2,
+.n64-public-leaderboard .hq-embedded h2.hq-panel-heading {
+  margin:0;
+  font-size:clamp(1.05rem,3.4vw,1.5rem);
+  line-height:1.2;
+  color:#fdf5e6;
+  text-shadow:none;
+}
+.n64-public-leaderboard .hq-embedded .hq-panel p {
+  max-width:none;
+  margin:0 0 14px;
+  text-align:left;
+  font-size:.9rem;
+  line-height:1.55;
+  color:#d6dff0;
+}
+.n64-public-leaderboard .hq-embedded .hq-panel p.hq-small {
+  font-size:.76rem;
+  line-height:1.55;
+  color:#b8c4d5;
+}
+.n64-public-leaderboard .hq-embedded .hq-welcome {
+  margin:7px 0 18px;
+  text-align:left;
+}
+.n64-public-leaderboard .hq-embedded .hq-welcome h2 {
+  margin:9px 0 8px;
+  font-size:clamp(1.25rem,4.2vw,2rem);
+  line-height:1.18;
+  text-shadow:none;
+}
+.n64-public-leaderboard .hq-embedded .hq-welcome p {
+  margin:0;
+  text-align:left;
+  color:#d1e4de;
+  font-size:.8rem;
+}
+.n64-public-leaderboard .hq-embedded .hq-stat {min-width:0;text-align:left;}
+.n64-public-leaderboard .hq-embedded .hq-form label {display:block;}
+.n64-public-leaderboard .hq-embedded .hq-form input {width:100%;}
+.n64-public-leaderboard .hq-embedded .hq-account-tabs button {color:#cbd5e1;}
+.n64-public-leaderboard .hq-embedded .hq-account-tabs button.hq-selected {color:#111a27;}
+.n64-public-leaderboard .hq-embedded .hq-button {color:#ecf3ff;}
+.n64-public-leaderboard .hq-embedded .hq-button.hq-primary {color:#0e1532;}
+.n64-public-leaderboard .hq-embedded .hq-button.hq-green {color:#0c1c1c;}
+.hq-embedded .hq-embedded-session {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  color:#95eec1;
+  font-size:.7rem;
+  letter-spacing:.06em;
+  font-weight:900;
+  padding:4px 3px;
+}
+@media(max-width:600px) {
+  .n64-public-leaderboard .hq-embedded .hq-panel {padding:15px 13px;}
+  .n64-public-leaderboard .hq-embedded .hq-login-grid {gap:5px;}
+  .n64-public-leaderboard .hq-embedded .hq-hero h2 {font-size:1.95rem;}
+  .n64-public-leaderboard .hq-embedded .hq-hero p {font-size:.82rem;}
+  .n64-public-leaderboard .hq-embedded .hq-heading {gap:10px;}
+  .n64-public-leaderboard .hq-embedded .hq-icon {width:42px;height:42px;}
+  .n64-public-leaderboard .hq-embedded .hq-stat strong {font-size:clamp(1.15rem,5.3vw,1.65rem);}
+}
