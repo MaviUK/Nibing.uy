@@ -4,8 +4,52 @@ import api from "./lib/squeegeeApiV3.js";
 import owner from "./lib/squeegeePreviewTestSession.js";
 import score from "./lib/squeegeeHistoricalLeaderboard.js";
 import { gunzipSync } from "node:zlib";
+import { getStore } from "@netlify/blobs";
+import active from "./lib/squeegeeActiveLeaderboardImport.js";
 
 const PATH = "/api/squeegee-preview-leaderboard-history";
+const ACTIVE_STATUS="n64-preview1-squeegee-active-only";
+const activeStore=()=>getStore({name:ACTIVE_STATUS,consistency:"strong"});
+async function currentActiveSnapshot() {
+  return activeStore().get(active.SNAPSHOT_KEY,{type:"json",consistency:"strong"});
+}
+function activeSection(snapshot) {
+  const list=snapshot?active.combinedPublicBoard(snapshot):null;
+  const summary=snapshot?.summary;
+  const state=snapshot?.published?"PUBLISHED ON PREVIEW 1":"STAGED FOR OWNER REVIEW";
+  const table=list?.entries?.map(e=>
+    "<li><strong>"+safe(e.customerRef)+"</strong> · "+safe(e.town)+
+    " · "+String(e.points)+" XP</li>").join("")||"";
+  const approved=snapshot?.published && active.snapshotIsFresh(snapshot);
+  return '<section><h2>Active-only Squeegee leaderboard</h2>'+
+    '<p><strong>'+(snapshot?state:"NOT IMPORTED")+'</strong></p>'+
+    (summary?'<p>Active accounts: '+summary.activeAccounts+
+      ' · Ranked: '+summary.publishedCandidates+
+      ' · Paid-clean points: '+summary.historicalPaidPoints+
+      ' · Town review: '+summary.heldTown+
+      ' · No verified paid cleans: '+summary.zeroPoints+'</p>'+
+      '<p>Source backup: '+safe(snapshot.asOf)+'. '+
+      (approved?'Public preview is enabled.':'Historical scores are not publicly served.')+
+      '</p><ol>'+table+'</ol>':
+      '<p>Import the private active-only mapping prepared from your Squeegee backup. The import stores only a private UUID-to-reference/town/points mapping, not names, emails, addresses, or the raw CSV.</p>')+
+    '<form method="post" enctype="multipart/form-data" action="'+PATH+'">'+
+    '<input type="hidden" name="action" value="active-import">'+
+    '<label for="activeMapping">Active Squeegee customer mapping CSV (max 250 KB)</label>'+
+    '<input id="activeMapping" name="activeMapping" type="file" accept=".csv,text/csv" required>'+
+    '<label for="asOf">Squeegee backup date</label>'+
+    '<input id="asOf" name="asOf" type="date" value="2026-10-31" required>'+
+    '<button type="submit">IMPORT ACTIVE CUSTOMERS - PRIVATE REVIEW</button></form>'+
+    (snapshot?
+      '<form method="post" action="'+PATH+'">'+
+      '<input type="hidden" name="action" value="publish-active">'+
+      '<label><input type="checkbox" name="privacyConfirmed" value="yes" required> '+
+      'I confirm suitable customer privacy information and participation controls are in place, and I have reviewed this active-only snapshot.</label>'+
+      '<button type="submit">PUBLISH ON N64 PREVIEW ONLY</button></form>'+
+      '<form method="post" action="'+PATH+'">'+
+      '<input type="hidden" name="action" value="unpublish-active">'+
+      '<button type="submit">HIDE HISTORICAL LEADERBOARD</button></form>':'')+
+    '<p><small>Preview 1 only. Changing the source backup replaces the full active set; inactive accounts are not carried forward. Publication is never automatic. Historical overdue deductions are excluded.</small></p></section>';
+}
 const HEADERS = {
   "Content-Type": "text/html; charset=utf-8",
   "Cache-Control": "private, no-store",
@@ -30,7 +74,7 @@ const page = (content, status = 200) => new Response(
   'input{background:white;color:#111;border:2px solid #f3d750}' +
   'small{color:#c7cddd}code{overflow-wrap:anywhere}</style></head><body><main>' +
   '<h1>NI Bin Guy - Historical leaderboard</h1>' + content +
-  '<p><small>Owner-only Preview 1 tool. No public XP, Squeegee jobs, invoices, customers or payments are changed here.</small></p>' +
+  '<p><small>Owner-only Preview 1 tool. Squeegee records remain untouched. Historical leaderboard visibility requires a separate explicit publish action.</small></p>' +
   '</main></body></html>', { status, headers: HEADERS });
 
 function scopeFrom(request, context) {
@@ -58,6 +102,60 @@ export default async function handler(request, context) {
     // Avoid storing, echoing or logging customer identifying data from uploads.
     try {
       const form = await request.formData();
+      const action=String(form.get("action")||"dryrun");
+      if(["active-import","publish-active","unpublish-active"].includes(action)) {
+        // An authenticated owner must submit from this exact preview origin.
+        if(request.headers.get("origin")!=="https://deploy-preview-77--nibinguy.netlify.app")
+          return page("<section>Cross-site import blocked. No changes made.</section>",403);
+        const store=activeStore();
+        if(action==="active-import"){
+          const file=form.get("activeMapping");
+          if(!file || typeof file.text!=="function" || file.size<20 ||
+             file.size>active.MAX_CSV_BYTES)
+            return page("<section>Choose the private active-only mapping CSV (max 250 KB).</section>",400);
+          const source=await file.text();
+          const snapshot=active.normalizeActiveImport(source,{
+            asOf:String(form.get("asOf")||""),
+          });
+          const previous=await store.get(active.SNAPSHOT_KEY,{type:"json",consistency:"strong"});
+          if(previous?.asOf && snapshot.asOf<previous.asOf)
+            return page("<section>Older backups cannot replace a newer import.</section>",409);
+          if(previous?.asOf===snapshot.asOf && previous.sourceHash===snapshot.sourceHash)
+            return page('<section><strong>ALREADY IMPORTED — no duplicate XP.</strong>'+
+              '<p>The same file and backup date were previously stored.</p></section>'+
+              '<p><a href="'+PATH+'">Review leaderboard</a></p>');
+          const saved=await store.setJSON(active.SNAPSHOT_KEY,snapshot);
+          if(saved?.modified!==true)
+            return page("<section>Import was not saved. No public changes made.</section>",503);
+          return page('<section><strong>ACTIVE-ONLY IMPORT SAVED — PRIVATE REVIEW</strong>'+
+            '<p>Active accounts: '+snapshot.summary.activeAccounts+
+            ' · Eligible: '+snapshot.summary.publishedCandidates+
+            ' · Paid-clean points: '+snapshot.summary.historicalPaidPoints+
+            ' · Held for town review: '+snapshot.summary.heldTown+'</p>'+
+            '<p>No score was added to the public board. No customer details were logged or sent to GitHub.</p>'+
+            '</section><p><a href="'+PATH+'">Review top scores and publication control</a></p>');
+        }
+        const state=await store.getWithMetadata(active.SNAPSHOT_KEY,{type:"json",consistency:"strong"});
+        const current=state?.data;
+        if(!current || state?.etag===undefined)
+          return page("<section>Import the active-only mapping first.</section>",409);
+        if(action==="publish-active" && (
+          form.get("privacyConfirmed")!=="yes" ||
+          !active.snapshotIsFresh(current)))
+          return page("<section>Privacy confirmation and a recent account-status backup are required before publishing.</section>",409);
+        if(action==="publish-active" && active.eligibleHistoricalEntries(current).length===0)
+          return page("<section>There are no eligible active customers.</section>",409);
+        const next={...current,
+          published:action==="publish-active",
+          publishedAt:action==="publish-active"?new Date().toISOString():null};
+        const saved=await store.setJSON(active.SNAPSHOT_KEY,next,{onlyIfMatch:state.etag});
+        if(saved?.modified!==true)
+          return page("<section>Leaderboard was updated elsewhere; refresh before trying again.</section>",409);
+        return page('<section><strong>'+(
+          next.published?"PUBLISHED TO PREVIEW 1":"HISTORICAL LEADERBOARD HIDDEN")+
+          '</strong><p>Customer names, contact details, Squeegee IDs and payment status are never public.</p></section>'+
+          '<p><a href="'+PATH+'">Return to owner leaderboard</a></p>');
+      }
       const file = form.get("history");
       if (!file || typeof file.text !== "function" || file.size > 2_000_000 || file.size < 2)
         return page("<section>Choose one normalized JSON or compressed .json.gz file of up to 2 MB.</section>", 400);
@@ -103,11 +201,14 @@ export default async function handler(request, context) {
       probe = '<section>Read-only customer check unavailable. No Squeegee changes were attempted.</section>';
     }
   }
-  return page('<section><strong>Stage 1: score engine ready (DRY RUN only)</strong>' +
+  let activePreview="";
+  try { activePreview=activeSection(await currentActiveSnapshot()); }
+  catch { activePreview="<section>Active leaderboard storage is temporarily unavailable.</section>"; }
+  return page(activePreview + '<section><strong>Historical score calculator (dry run)</strong>' +
     '<p>1 point per completed, fully paid bin clean. After a 28-day grace period, ' +
     '1 point is deducted per day with any verified overdue invoice, even if several are overdue. ' +
     'Historical deductions stop when the invoice was fully settled.</p>' +
-    '<p>No existing customers will be published by this preview; historical balances need reconciliation first.</p></section>' +
+    '<p>Historical overdue deductions are not included in the active-only leaderboard.</p></section>' +
     '<p><a href="' + PATH + '?probe=1">Check Squeegee customer API (READ ONLY)</a></p>' + probe +
     '<h2>History import dry run</h2>' +
     '<p>This accepts a <strong>normalized JSON or .json.gz</strong> file, not a raw Squeegee CSV. ' +
