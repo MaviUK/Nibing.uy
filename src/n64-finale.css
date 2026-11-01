@@ -286,9 +286,8 @@
 }
 
 
-/* ── LOCAL XP VS GLOBAL RANKINGS ────────────────────────────────────────────
-   A visitor's device XP is not a public leaderboard entry until a booking
-   is completed and the visitor explicitly opts in to display their name.
+/* ── VERIFIED PERSONAL XP VS PUBLIC GLOBAL RANKINGS ────────────────────────
+   A private rank is shown only after the email-code customer login.
 */
 .n64-public-leaderboard .n64-your-score {
   box-sizing:border-box;
@@ -330,6 +329,59 @@
  .n64-public-leaderboard .n64-your-score {padding:10px 11px;margin-bottom:20px}
  .n64-public-leaderboard .n64-your-score > div {font-size:.95rem}
  .n64-public-leaderboard .n64-your-score small {font-size:.75rem}
+}
+/* A customer's private yearly card sits below the public leaderboard year
+   selector. It only offers periods with securely verified positive XP. */
+.n64-public-leaderboard .n64-personal-score .n64-personal-position {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px 14px;
+  border-top:2px solid #d6c88a;
+  padding-top:10px;
+  margin-top:10px;
+  flex-wrap:wrap;
+  font-size:.93rem;
+}
+.n64-public-leaderboard .n64-personal-score .n64-personal-position strong {
+  font:900 .9rem/1.3 "Trebuchet MS",sans-serif;
+}
+.n64-public-leaderboard .n64-personal-score .n64-personal-position span {
+  color:#135b50;
+  font:1000 clamp(1.05rem,3.4vw,1.45rem)/1.25 "Arial Black","Trebuchet MS",sans-serif;
+  font-variant-numeric:tabular-nums;
+  overflow-wrap:anywhere;
+}
+.n64-public-leaderboard .n64-personal-score .n64-personal-years {
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  padding-top:12px;
+  margin-top:11px;
+  border-top:2px dashed #d6c88a;
+}
+.n64-public-leaderboard .n64-personal-years button {
+  flex:1 1 64px;
+  min-width:0;
+  padding:10px 7px;
+  border:2px solid #3c5478;
+  border-radius:0;
+  background:#e0effc;
+  box-shadow:3px 4px 0 #637b9c;
+  color:#20345c;
+  font:900 .8rem/1.25 "Trebuchet MS",sans-serif;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+.n64-public-leaderboard .n64-personal-years button.n64-personal-year-active {
+  background:#ffe266;
+  color:#1a3055;
+  border-color:#9c7b1f;
+  box-shadow:3px 4px 0 #32785d;
+}
+.n64-public-leaderboard .n64-personal-years button:focus-visible {
+  outline:3px solid #1a7259;
+  outline-offset:3px;
 }
 
 
