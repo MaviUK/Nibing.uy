@@ -115,9 +115,13 @@ test("sign-in CTA and both tabs anchor the TOP of the leaderboard after React ch
   assert.match(board,/onClick=\{openHQ\}>★ SIGN IN \/ VIEW MY CLEANING POINTS/);
   assert.match(board,/const openBoard = \(\) => \{\s*selectPanel\("leaderboard"\)/);
   assert.match(board,/ref=\{boardSectionRef\} id="live-leaderboard"/);
+  assert.match(board,/ref=\{boardTabsRef\} className="n64-board-tabs"/);
   assert.match(board,/scrollOnPanelChange\.current = true;\s*setActivePanel\(panel\)/);
   assert.match(board,/useLayoutEffect\(\(\) => \{/);
-  assert.match(board,/scrollToArcadeBoardStart\(boardSectionRef\.current\)/);
+  assert.match(board,/scrollToArcadeTabs\(boardTabsRef\.current\)/);
+  assert.match(board,/stabilizeArcadeTabScroll\(boardTabsRef\.current,panel\)/);
+  const css=fs.readFileSync(path.join(root,"src/n64-finale.css"),"utf8");
+  assert.match(css,/\.n64-board-hq-tab:not\(\[hidden\]\)\s*\{\s*min-height:100svh;\s*min-height:100dvh;/);
   assert.ok(!board.includes("window.location.hash ="),
     "switching tabs should not leave a hash that affects later refreshes");
 });
@@ -163,4 +167,89 @@ test("the navigation helper supports old mobile scrollTo and no-op without a mou
   assert.deepEqual(calls,[[0,0]],
     "scroll position clamps to top of document when section is above it");
   assert.equal(documentRef.documentElement.style.scrollBehavior,"smooth");
+});
+
+
+test("mobile switch anchors the actual tabs below floating menu rather than previous Book a Clean area",async()=>{
+  const {pathToFileURL}=require("node:url");
+  const {scrollToArcadeTabs}=await import(pathToFileURL(path.join(__dirname,
+    "../src/components/scrollToArcadeBoardStart.mjs")).href);
+  const calls=[];
+  const view={scrollY:2000,innerWidth:384,
+    scrollTo(value){calls.push(value);this.scrollY=value.top;}};
+  const doc={documentElement:{style:{scrollBehavior:"smooth"}}};
+  const absoluteTabsY=2475;
+  const tabs={getBoundingClientRect:()=>({top:absoluteTabsY-view.scrollY})};
+  assert.equal(scrollToArcadeTabs(tabs,view,doc),true);
+  assert.deepEqual(calls,[{left:0,top:2414,behavior:"instant"}]);
+  assert.equal(tabs.getBoundingClientRect().top,61,"tab row sits just below the fixed mobile header");
+  assert.equal(doc.documentElement.style.scrollBehavior,"smooth");
+});
+
+test("Customer HQ lazy loading: re-align after short fallback stops clamping the scroll",async()=>{
+  const {pathToFileURL}=require("node:url");
+  const {stabilizeArcadeTabScroll}=await import(pathToFileURL(path.join(__dirname,
+    "../src/components/scrollToArcadeBoardStart.mjs")).href);
+  const calls=[],events=new Map(),timers=new Map();
+  let nextId=0,resize=null,mutation=null;
+  const absoluteTabsY=2500;
+  let limit=2030;
+  const view={
+    innerWidth:384,scrollY:1940,
+    scrollTo({top}){this.scrollY=Math.min(limit,top);calls.push(this.scrollY);},
+    requestAnimationFrame(cb){timers.set(++nextId,cb);return nextId;},
+    cancelAnimationFrame(id){timers.delete(id);},
+    setTimeout(cb){timers.set(++nextId,cb);return nextId;},
+    clearTimeout(id){timers.delete(id);},
+    ResizeObserver:class{
+      constructor(cb){resize=cb;}
+      observe(node){assert.equal(node,panel);}
+      disconnect(){}
+    },
+    MutationObserver:class{
+      constructor(cb){mutation=cb;}
+      observe(node){assert.equal(node,panel);}
+      disconnect(){}
+    },
+    addEventListener(name,cb){events.set(name,cb);},
+    removeEventListener(name){events.delete(name);},
+  };
+  const tabs={getBoundingClientRect:()=>({top:absoluteTabsY-view.scrollY})};
+  const panel={};
+  const doc={documentElement:{style:{scrollBehavior:"smooth",overflowAnchor:"auto"}}};
+  const cancel=stabilizeArcadeTabScroll(tabs,panel,view,doc);
+  assert.equal(view.scrollY,2030,"short loading fallback clamps at max scroll position");
+  assert.equal(doc.documentElement.style.overflowAnchor,"none");
+  limit=3600; // React.lazy has now mounted the real authenticated Customer HQ.
+  resize();
+  assert.equal(view.scrollY,2439,"after HQ loads, the tab row aligns to viewport top");
+  assert.equal(tabs.getBoundingClientRect().top,61);
+  assert.ok(typeof mutation==="function");
+  cancel();
+  assert.equal(doc.documentElement.style.overflowAnchor,"auto");
+  assert.equal(events.size,0);
+});
+
+test("after a customer touches the page, late Customer HQ hydration cannot yank them back to tabs",async()=>{
+  const {pathToFileURL}=require("node:url");
+  const {stabilizeArcadeTabScroll}=await import(pathToFileURL(path.join(__dirname,
+    "../src/components/scrollToArcadeBoardStart.mjs")).href);
+  let onResize=null;const events=new Map(),calls=[];
+  const view={
+    innerWidth:384,scrollY:300,
+    scrollTo({top}){calls.push(top);this.scrollY=top;},
+    setTimeout(){return 1;},clearTimeout(){},
+    ResizeObserver:class{constructor(cb){onResize=cb;} observe(){} disconnect(){}},
+    addEventListener(name,cb){events.set(name,cb);},
+    removeEventListener(name){events.delete(name);},
+  };
+  const doc={documentElement:{style:{scrollBehavior:"smooth",overflowAnchor:"auto"}}};
+  const tabs={getBoundingClientRect:()=>({top:200})};
+  const cancel=stabilizeArcadeTabScroll(tabs,{},view,doc);
+  assert.equal(calls.length,1);
+  events.get("touchstart")();
+  onResize();
+  assert.equal(calls.length,1,"a real touch gesture cancels delayed auto-scroll");
+  assert.equal(doc.documentElement.style.overflowAnchor,"auto");
+  cancel();
 });

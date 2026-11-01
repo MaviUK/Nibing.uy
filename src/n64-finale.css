@@ -443,6 +443,14 @@
 .n64-public-leaderboard .n64-board-tab-content[hidden] {display:none !important;}
 .n64-public-leaderboard .n64-public-board-inner--hq {max-width:850px;}
 .n64-public-leaderboard .n64-board-hq-tab {text-align:left;}
+/* Customer HQ is loaded via React.lazy and its initial fallback is short.
+   Keep at least a viewport of content under the tabs during that transition,
+   otherwise mobile browsers clamp scrollTo and show Book a Clean above them. */
+.n64-public-leaderboard .n64-board-hq-tab:not([hidden]) {
+  min-height:100svh;
+  min-height:100dvh;
+}
+
 .n64-public-leaderboard .n64-board-join-cta {margin:15px auto 20px;max-width:570px;}
 .n64-public-leaderboard .n64-board-join-cta button {
   appearance:none;

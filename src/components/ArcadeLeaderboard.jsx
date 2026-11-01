@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { scrollToArcadeBoardStart } from "./scrollToArcadeBoardStart.mjs";
+import { scrollToArcadeTabs, stabilizeArcadeTabScroll } from "./scrollToArcadeBoardStart.mjs";
 
 const REFRESH_MS = 10000;
 const ENDPOINT = "/.netlify/functions/arcadeLeaderboard";
@@ -45,18 +45,20 @@ export default function ArcadeLeaderboard() {
   // Retain the code-challenge state when switching between the two panels.
   const [hqOpened, setHqOpened] = useState(false);
   const boardSectionRef = useRef(null);
+  const boardTabsRef = useRef(null);
   const scrollOnPanelChange = useRef(false);
+  const cancelPanelScroll = useRef(null);
 
   const selectPanel = (panel) => {
+    // First position the stable tab row while the public ranking is still
+    // tall enough to scroll. It prevents the initial Android scroll clamp.
+    cancelPanelScroll.current?.();
+    cancelPanelScroll.current = null;
+    scrollToArcadeTabs(boardTabsRef.current);
     if(panel === "hq") setHqOpened(true);
-    // Changing tabs changes the height of this whole section. Scroll only
-    // AFTER React has committed the new panel, otherwise Android Chrome
-    // clamps the old position and leaves the top of Customer HQ out of view.
     if(activePanel !== panel){
       scrollOnPanelChange.current = true;
       setActivePanel(panel);
-    }else{
-      scrollToArcadeBoardStart(boardSectionRef.current);
     }
   };
   const openHQ = () => selectPanel("hq");
@@ -67,13 +69,19 @@ export default function ArcadeLeaderboard() {
   useLayoutEffect(() => {
     if(!scrollOnPanelChange.current) return;
     scrollOnPanelChange.current = false;
-    // Place the section's top border at the top of the content viewport.
-    // This puts the LEADERBOARD / MY CUSTOMER HQ tabs in exactly the same
-    // place as when the leaderboard section is first opened.
-    scrollToArcadeBoardStart(boardSectionRef.current);
-    const frame = window.requestAnimationFrame(() =>
-      scrollToArcadeBoardStart(boardSectionRef.current));
-    return () => window.cancelAnimationFrame(frame);
+    // React.lazy briefly swaps the tall public board for a short loading
+    // fallback, then loads Customer HQ and its account. Keep aligning to the
+    // TABS (not the section container) after each height change, until the
+    // panel settles or the customer starts scrolling manually.
+    const panel=boardSectionRef.current?.querySelector(
+      ".n64-board-tab-content:not([hidden])"
+    );
+    const stop=stabilizeArcadeTabScroll(boardTabsRef.current,panel);
+    cancelPanelScroll.current=stop;
+    return ()=>{
+      stop();
+      if(cancelPanelScroll.current===stop)cancelPanelScroll.current=null;
+    };
   }, [activePanel]);
   const [changes, setChanges] = useState({});
   const previousPlayers = useRef(null);
@@ -266,7 +274,7 @@ export default function ArcadeLeaderboard() {
   return (
     <section ref={boardSectionRef} id="live-leaderboard" className="n64-public-leaderboard" aria-labelledby="n64-board-title">
       <div className={"n64-public-board-inner"+(activePanel==="hq"?" n64-public-board-inner--hq":"")}>
-        <div className="n64-board-tabs" role="group" aria-label="Leaderboard and Customer HQ">
+        <div ref={boardTabsRef} className="n64-board-tabs" role="group" aria-label="Leaderboard and Customer HQ">
           <button type="button" className={activePanel==="leaderboard"?"n64-board-tab n64-board-tab--selected":"n64-board-tab"}
             aria-pressed={activePanel==="leaderboard"} onClick={openBoard}>★ LEADERBOARD</button>
           <button type="button" className={activePanel==="hq"?"n64-board-tab n64-board-tab--selected":"n64-board-tab"}
