@@ -68,7 +68,15 @@ test("private owner route is session-gated and emits only minimal display fields
 test("N64 home page offers public and private owner views with no private client storage",()=>{
   const client=read("src/components/ArcadeLeaderboard.jsx");
   const css=read("src/n64-finale.css");
-  assert.match(client,/OWNER: ALL VERIFIED/);
+  assert.match(client,/TEST: ALL FIRST NAMES/);
+  assert.match(client,/TEST: SHOW ALL FIRST NAMES/);
+  assert.match(client,/SIMULATED CONSENT — YOUR VIEW ONLY/);
+  assert.match(client,/ownerPresentation==="simulation"/);
+  assert.match(client,/n64-simulated-scoreboard/);
+  assert.match(client,/simulatedOwnerRows=ownerRows\.filter\(row=>row\.permission!=="withdrawn"\)/);
+  assert.match(client,/No permission statuses/);
+  assert.match(client,/VIEW REAL PERMISSION STATUS/);
+  assert.match(client,/Customer HQ/);
   assert.match(client,/PUBLIC LEADERBOARD/);
   assert.match(client,/rankingMode==="owner"/);
   assert.match(client,/owner-board/);
@@ -95,4 +103,38 @@ test("existing signed-in owner can return directly to full leaderboard",()=>{
   assert.doesNotMatch(publicApi,/squeegeePreviewVerifiedLeaderboard/);
   assert.match(publicApi,/publicEligibleScoreboard\(/);
   assert.match(publicApi,/customerHQ\.eligibleRankedEmailAccounts/);
+});
+
+
+test("simulated all-customer permissions are only client-side owner display, never written as real consent",()=>{
+  const client=read("src/components/ArcadeLeaderboard.jsx");
+  const ownerApi=read("netlify/functions/squeegeePreviewVerifiedLeaderboard.mjs");
+  const publicApi=read("netlify/functions/arcadeLeaderboard.js");
+  const secureAudit=read("netlify/functions/lib/squeegeeLeaderboardNameConsent.js");
+  const css=read("src/n64-finale.css");
+
+  assert.match(client,/ownerState==="ready" && ownerInfo/);
+  assert.match(client,/const response=await fetch\(OWNER_ENDPOINT/);
+  assert.match(client,/data\.ownerView!==true \|\| data\.private!==true/);
+  assert.match(client,/OWNER TEST MODE — NOT THE PUBLIC WEBSITE/);
+  assert.match(client,/ownerPresentation==="simulation"/);
+  assert.match(client,/setOwnerPresentation\("simulation"\)/);
+  assert.match(client,/simulatedOwnerRows\.slice\(0,ownerShowCount\)/);
+  assert.match(client,/row\.firstName\|\|"Name needs checking"/);
+  assert.match(client,/row\.town/);
+  assert.match(client,/row\.points\.toLocaleString/);
+  assert.match(client,/onClick=\{openHQ\}/); // Still authenticates for own private details.
+  assert.match(css,/\.n64-simulated-scoreboard/);
+  assert.match(css,/Re-use the actual public leaderboard list appearance/);
+
+  // The owner endpoint must require an owner session; a query string alone
+  // never unlocks the private first-name records.
+  assert.match(ownerApi,/owner\.verifyTestSessionCookie\(/);
+  assert.match(ownerApi,/return json\(401,\{error:"owner_sign_in_required"\}\)/);
+  assert.doesNotMatch(ownerApi,/\bsetJSON\(/);
+  assert.doesNotMatch(publicApi,/ownerPrivateLeaderboardPreview/);
+  assert.match(publicApi,/nameConsents\.publicEligibleScoreboard/);
+  assert.match(secureAudit,/permission\?\.consent==="granted"/);
+  assert.doesNotMatch(client,/localStorage\.setItem\(/);
+  assert.doesNotMatch(client,/sessionStorage\.setItem\(/);
 });
