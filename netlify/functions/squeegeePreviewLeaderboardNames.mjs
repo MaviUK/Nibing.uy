@@ -79,8 +79,9 @@ function renderDashboard(snapshot,note="",emailEligibility=null,preview=null){
     '<p><strong>'+(emailEligibility?
       emailEligibility.verifiedCount+' imported ranked accounts are VERIFIED':
       'Email eligibility not loaded yet')+
-      '</strong> from the '+(emailEligibility?
-        safe(emailEligibility.verificationAsOf)+' backup (not a live status check). '+
+      '</strong>. '+(emailEligibility?
+        'Verification is based on the '+safe(emailEligibility.verificationAsOf)+
+        ' backup, NOT a live status check. ':'')+
       'Account verification is separate from publication permission. '+
       'Accounts without a valid Squeegee email address are excluded '+
       'from rankings and player counts, even if they have past cleans. '+
