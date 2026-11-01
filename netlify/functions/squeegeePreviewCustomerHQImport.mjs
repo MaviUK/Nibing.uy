@@ -7,6 +7,7 @@ import hq from "./lib/customerHQ.js";
 import nameConsents from "./lib/squeegeeLeaderboardNameConsent.js";
 import {getStore} from "@netlify/blobs";
 import crypto from "node:crypto";
+import uploadCsrf from "./lib/squeegeePreviewHQImportCsrf.js";
 
 const PATH="/api/squeegee-preview-hq-import";
 const HOST="https://deploy-preview-77--nibinguy.netlify.app";
@@ -53,6 +54,8 @@ export default async function handler(request,ctx){
         '<p><a href="/api/squeegee-preview-test?returnTo='+
         encodeURIComponent(PATH)+'">Sign in with my owner code</a></p></section>',403):
       page("<section>Session expired. No file processed.</section>",403);
+  const csrfToken=uploadCsrf.tokenForOwnerSession(cookie,process.env);
+  if(!csrfToken)return page("<section>Secure upload form is temporarily unavailable. No customer information was changed.</section>",503);
   const store=getStore({name:hq.DATA_STORE,consistency:"strong"});
   if(request.method==="GET"){
     let existing=null;
@@ -74,16 +77,25 @@ export default async function handler(request,ctx){
       '</p></section>'+
       '<section><h2>Upload private customer points history</h2>'+
       '<form method="post" enctype="multipart/form-data" action="'+PATH+'">'+
+      '<input type="hidden" name="csrf" value="'+escape(csrfToken)+'">'+
       '<input type="file" name="history" required>'+
       '<p><small>On Android, select the NI_Bin_Guy_Customer_HQ_Secure_Import_PRIVATE_2026-10-31.json file (about 2 MB). All file types can now be selected; the server checks the JSON content securely before importing.</small></p>'+
       '<button type="submit">Import customer history privately</button></form>'+
       '<p><small>Maximum 3 MB. A newer, checked import replaces the old private snapshot. Repeating the same file does not duplicate points.</small></p></section>'+
       '<p><a href="/customer-hq">Open Customer HQ</a></p>');
   }
-  if(request.headers.get("origin")!==HOST)
-    return page("<section>Cross-site upload blocked.</section>",403);
+  // Some Samsung/Android in-app browser uploads send Origin: null (or
+  // omit Origin). Verify an unpredictable token tied to this exact signed
+  // owner session instead of rejecting legitimate same-origin forms.
   try{
+    const size=Number(request.headers.get("content-length")||0);
+    if(!Number.isFinite(size)||size>3_500_000)
+      return page("<section>The selected file is too large. No customer data was imported.</section>",413);
     const form=await request.formData();
+    if(!uploadCsrf.isAllowedOwnerUpload({
+      cookie,token:form.get("csrf"),env:process.env,headers:request.headers,
+    }))return page('<section>The secure upload session was not verified. No customer data was imported. '+
+      '<a href="'+PATH+'">Return to the import form and select the file again.</a></section>',403);
     const file=form.get("history");
     if(!file||typeof file.text!=="function"||file.size<100||
        file.size>3_000_000)
