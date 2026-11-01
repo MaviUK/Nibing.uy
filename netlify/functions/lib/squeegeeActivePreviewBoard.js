@@ -11,7 +11,7 @@ const active=require("./squeegeeActiveLeaderboardImport");
 // confirms the same immutable customer UUID and writes a private link.
 // A second website player using that same Squeegee UUID causes ALL linked
 // website XP for that UUID to be held, never duplicated.
-async function getStaticPreviewBoard(stores, now=Date.now()) {
+async function getStaticPreviewBoard(stores, now=Date.now(), full=false) {
   const base=staticHistory.getHistoricalSnapshot(now);
   if(base.status==="active_status_refresh_required")return base;
   const refs=new Set(staticHistory.ENTRIES.map(([ref])=>ref));
@@ -41,7 +41,7 @@ async function getStaticPreviewBoard(stores, now=Date.now()) {
   }));
   entries.sort((a,b)=>b.points-a.points||a.customerRef.localeCompare(b.customerRef));
   return {
-    entries:entries.slice(0,10).map((e,i)=>({rank:i+1,...e})),
+    entries:entries.slice(0,full?entries.length:10).map((e,i)=>({rank:i+1,...e})),
     totalPlayers:entries.length,
     sourceAsOf:staticHistory.AS_OF,lastUpdatedAt:staticHistory.AS_OF+"T23:59:59Z",
     status:"squeegee_active_only",
