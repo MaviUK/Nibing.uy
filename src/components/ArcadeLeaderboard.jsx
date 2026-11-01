@@ -148,7 +148,7 @@ export default function ArcadeLeaderboard() {
             : "Checking scores…"}
           </span>
         </div>
-        <p style={{textAlign:"center",margin:"12px 0"}}><a href="/customer-hq" style={{color:"#fce164",fontWeight:900}}>SIGN IN TO VIEW MY CLEANING POINTS →</a></p>
+        <p style={{textAlign:"center",margin:"12px 0"}}><a href="/customer-hq?ntl-drawer-state=hidden" style={{color:"#fce164",fontWeight:900}}>SIGN IN TO VIEW MY CLEANING POINTS →</a></p>
         <ol aria-label="Live top ten players">
           {!players.length ? (
             <li><span>{connection !== "live" ? "Waiting for live scores…" : eligibilityPending
@@ -161,7 +161,7 @@ export default function ArcadeLeaderboard() {
             return (
               <li key={player.customerRef}
                 className={change ? "n64-board-row n64-board-row--" + change : "n64-board-row"}>
-                <a href="/customer-hq" title="Sign in to see your own points — this public entry does not grant account access" style={{color:"inherit",textDecoration:"none"}}><strong>{String(i + 1).padStart(2, "0")}</strong> {player.displayName || player.customerRef}<span className="n64-board-town"> · {player.town}</span></a>
+                <a href="/customer-hq?ntl-drawer-state=hidden" title="Sign in to see your own points — this public entry does not grant account access" style={{color:"inherit",textDecoration:"none"}}><strong>{String(i + 1).padStart(2, "0")}</strong> {player.displayName || player.customerRef}<span className="n64-board-town"> · {player.town}</span></a>
                 <span className="n64-board-score">
                   {change && <em className="n64-rank-change" aria-label={
                     change === "new" ? "New player" :
