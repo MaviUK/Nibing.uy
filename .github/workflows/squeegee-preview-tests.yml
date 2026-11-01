@@ -79,6 +79,10 @@ on:
       - netlify/functions/squeegeePreviewLeaderboardHistory.mjs
       - tests/squeegee-historical-leaderboard.test.cjs
       - netlify/functions/lib/arcadePublicIdentity.js
+      - netlify/functions/lib/squeegeeActiveLeaderboardImport.js
+      - netlify/functions/lib/arcadeSqueegeeLink.js
+      - tests/squeegee-active-leaderboard.test.cjs
+      - tests/squeegee-arcade-link.test.cjs
       - netlify/functions/arcadeLeaderboard.js
       - tests/squeegee-leaderboard-privacy.test.cjs
       - src/components/ArcadeLeaderboard.jsx
