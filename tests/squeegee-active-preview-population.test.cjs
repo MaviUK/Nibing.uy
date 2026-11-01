@@ -17,10 +17,11 @@ function fakeStores(links=[],players=new Map()){
     public:{get:async key=>players.get(key)||null},
   };
 }
-test("source is 941 pseudonymous active accounts, 20,778 points, 11 towns",()=>{
+test("source is 941 pseudonymous active accounts, 808,316 streak points, 11 towns",()=>{
   assert.equal(staticHistory.AS_OF,"2026-10-31");
   assert.equal(staticHistory.ENTRIES.length,941);
-  assert.equal(staticHistory.ENTRIES.reduce((n,entry)=>n+entry[2],0),20778);
+  assert.equal(staticHistory.ENTRIES.reduce((n,entry)=>n+entry[2],0),808316);
+  assert.equal(staticHistory.SCORING_VERSION,"2026-11-streak-20-plus-2-squeegee-skip-reset-v1");
   assert.equal(new Set(staticHistory.ENTRIES.map(row=>row[0])).size,941);
   assert.equal(new Set(staticHistory.ENTRIES.map(row=>row[1])).size,11);
   for(const [ref,town,points] of staticHistory.ENTRIES){
@@ -39,7 +40,7 @@ test("static board shows the actual Top 10 and 941 people, not unrelated website
   assert.equal(board.sourceAsOf,"2026-10-31");
   assert.equal(board.totalPlayers,941);
   assert.equal(board.entries.length,10);
-  assert.equal(board.entries[0].points,91);
+  assert.equal(board.entries[0].points,6738);
   assert.ok(board.entries.every(x=>/^NBG-[A-F0-9]{10}$/.test(x.customerRef)));
   assert.ok(!JSON.stringify(board).includes("squeegeeId"));
 });
@@ -57,7 +58,7 @@ test("confirmed website XP adds ONCE; duplicate linked players contribute zero X
     const board=await getStaticPreviewBoard(single,NOW);
     assert.equal(board.totalPlayers,941);
     assert.equal(board.entries[0].customerRef,target);
-    assert.equal(board.entries[0].points,641);
+    assert.equal(board.entries[0].points,7288);
 
     // A customer with two website profiles cannot collect two XP balances.
     const double=fakeStores([
@@ -66,11 +67,11 @@ test("confirmed website XP adds ONCE; duplicate linked players contribute zero X
     ],new Map([[keyA,{points:550}],[keyB,{points:300}]]));
     const collided=await getStaticPreviewBoard(double,NOW);
     assert.equal(collided.entries[0].customerRef,target);
-    assert.equal(collided.entries[0].points,91);
+    assert.equal(collided.entries[0].points,6738);
 
     const unverified=fakeStores([[keyA,{squeegeeId:id,verified:false}]],
       new Map([[keyA,{points:550}]]));
-    assert.equal((await getStaticPreviewBoard(unverified,NOW)).entries[0].points,91);
+    assert.equal((await getStaticPreviewBoard(unverified,NOW)).entries[0].points,6738);
   } finally {
     active.canonicalLegacyRef=old;
   }
