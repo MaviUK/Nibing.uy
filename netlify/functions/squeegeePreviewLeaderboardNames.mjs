@@ -5,6 +5,7 @@ import owner from "./lib/squeegeePreviewTestSession.js";
 import api from "./lib/squeegeeApiV3.js";
 import names from "./lib/squeegeeLeaderboardNameConsent.js";
 import customerHQ from "./lib/customerHQ.js";
+import privatePreview from "./lib/squeegeeOwnerLeaderboardPreview.js";
 
 const PATH="/api/squeegee-preview-leaderboard-names";
 const ORIGIN="https://deploy-preview-77--nibinguy.netlify.app";
@@ -41,7 +42,32 @@ function runtimeScope(request,ctx){
     deployContext:ctx?.deploy?.context,siteId:ctx?.site?.id};
 }
 function store(){return getStore({name:names.STORE_NAME,consistency:"strong"});}
-function renderDashboard(snapshot,note="",emailEligibility=null){
+function ownerPreviewSection(preview){
+  if(!preview)return '<section><h2>Private ranking preview</h2>'+
+    '<p>Import the private Customer HQ history to calculate the email-eligible rankings.</p></section>';
+  const entries=preview.rows.map(row=>
+    '<li style="display:flex;justify-content:space-between;gap:10px;'+
+    'border-bottom:1px solid #596b87;padding:11px 0;align-items:start">'+
+    '<div><strong style="color:#ffe175">#'+row.rank+' '+safe(row.firstName||"NAME TO CHECK")+'</strong>'+
+    '<div>'+safe(row.town)+'</div>'+
+    '<small>Private Squeegee ref: '+safe(row.customerReference)+
+    ' · '+safe(row.permission==='approved'?'Consent recorded':row.permission==='withdrawn'?
+      'Withdrawn':'Waiting for permission')+'</small></div>'+
+    '<strong style="white-space:nowrap;color:#82f1bb">'+Number(row.points).toLocaleString('en-GB')+' XP</strong></li>'
+  ).join('');
+  return '<section style="border-left-color:#81e4b1">'+
+    '<h2>OWNER PREVIEW — EMAIL-ELIGIBLE TOP 20</h2>'+
+    '<p><strong>'+preview.count+'</strong> eligible players · '+
+    '<strong>'+Number(preview.cleaningXp).toLocaleString('en-GB')+
+    '</strong> historic cleaning XP · <strong>'+preview.approved+
+    '</strong> with recorded consent.</p>'+
+    '<p><small>PRIVATE OWNER VIEW. Names and scores below are not public. '+
+    'The website displays first name, town and XP ONLY after individual consent; '+
+    'no-email accounts are excluded. This is based on the dated Squeegee backup.</small></p>'+
+    '<ol style="list-style:none;margin:0;padding:0">'+entries+'</ol></section>';
+}
+
+function renderDashboard(snapshot,note="",emailEligibility=null,preview=null){
   const stats=names.consentStats(snapshot);
   return (note?'<section><strong>'+safe(note)+'</strong></section>':'')+
     '<section><h2>Private first-name preparation</h2>'+
@@ -59,6 +85,7 @@ function renderDashboard(snapshot,note="",emailEligibility=null){
     '<strong>first name · town · XP</strong> and require recorded permission.'+
     ' When the first list is imported, customers without recorded consent '+ 
     'are hidden from the public leaderboard, but their XP is preserved.</p></section>'+
+    ownerPreviewSection(preview)+
     '<section><h2>1. Import the private first-name CSV</h2>'+
     '<p>Use the private 941-customer consent-tracking CSV; every record must '+ 
     'start with consent pending. Reimporting preserves approved or withdrawn '+ 
@@ -117,8 +144,11 @@ export default async function handler(request,ctx){
       getStore({name:customerHQ.DATA_STORE,consistency:"strong"})
         .get(customerHQ.DATA_KEY,{type:"json",consistency:"strong"}),
     ]);
-    return page(renderDashboard(snapshot,"",
-      customerHQ.eligibleRankedEmailAccounts(customerSnapshot)));
+    const eligible=customerHQ.eligibleRankedEmailAccounts(customerSnapshot);
+    const preview=privatePreview.ownerPrivateLeaderboardPreview(
+      customerSnapshot,snapshot,eligible,20
+    );
+    return page(renderDashboard(snapshot,"",eligible,preview));
   }
   if(request.headers.get("origin")!==ORIGIN)
     return page("<section>Cross-site request blocked. Nothing changed.</section>",403);
