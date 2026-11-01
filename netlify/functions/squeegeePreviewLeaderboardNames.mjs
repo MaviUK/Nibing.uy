@@ -176,4 +176,5 @@ export default async function handler(request,ctx){
       '<p>Reason: '+safe(code)+'. Please review the private file or account reference.</p></section>',422);
   }
 }
-export const config={path:PATH};
+// Netlify's static route manifest requires a literal path here, not PATH.
+export const config={path:"/api/squeegee-preview-leaderboard-names"};
