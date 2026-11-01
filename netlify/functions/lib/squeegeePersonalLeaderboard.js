@@ -31,8 +31,12 @@ function fromBoards({customerId,points,privateCustomers,eligibleAliases,
                      consentSnapshot,secretKey,overallBoard,yearlyBoards=[],
                      allowPublicRanks=true}){
   if(!Number.isSafeInteger(points)||points<0)throw new Error("invalid_personal_points");
+  // Annual charts contain only date-verified awards. Lifetime may include
+  // older imported rewards whose precise earning year was never saved.
+  // Keep the unassigned portion separate instead of inventing a year.
   const result={points,rank:null,yearly:{},
-    rankingAvailable:allowPublicRanks===true};
+    rankingAvailable:allowPublicRanks===true,
+    yearlyXpTotal:null,unassignedXp:null,yearBreakdownStatus:"unavailable"};
   const alias=historical.canonicalLegacyRef(customerId);
   if(!alias || !(eligibleAliases instanceof Set) || !eligibleAliases.has(alias))
     return {...result,rankingAvailable:false};
@@ -53,6 +57,17 @@ function fromBoards({customerId,points,privateCustomers,eligibleAliases,
       rank:allowPublicRanks?visibleRank({privateCustomers,eligibleAliases,
         consentSnapshot,secretKey,board,customerAlias:alias}):null
     };
+  }
+  const yearlyXpTotal=Object.values(result.yearly)
+    .reduce((total,entry)=>total+entry.points,0);
+  // A score audit can legitimately find non-additive records. Don't hide
+  // overcounts under a negative "undated" balance or change earned XP.
+  if(Number.isSafeInteger(yearlyXpTotal)&&yearlyXpTotal<=points){
+    result.yearlyXpTotal=yearlyXpTotal;
+    result.unassignedXp=points-yearlyXpTotal;
+    result.yearBreakdownStatus="reconciled";
+  }else{
+    result.yearBreakdownStatus="needs-review";
   }
   return result;
 }
