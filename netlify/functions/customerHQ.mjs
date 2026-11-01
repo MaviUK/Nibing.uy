@@ -144,8 +144,49 @@ async function customerWebsiteRewards(customerId){
   }
   return {websiteXp,history,achievementState:merge.achievementState(record)};
 }
-function allRewardsHistory(cleaningHistory,websiteHistory){
-  return merge.sortedRewardsHistory(cleaningHistory,websiteHistory);
+function allRewardsHistory(cleaningHistory,websiteHistory,summary,cleaningEvents,asOf){
+  // Do not show old "recorded on" balances as paid XP history. Limit even
+  // timestamped detail rows to the amount the verified yearly engine credited.
+  const budgets=new Map();
+  for(const [year,entry] of Object.entries(summary.yearly||{})){
+    const clean=personalRanksAnnualCleaning(cleaningEvents,Number(year),asOf);
+    budgets.set(year,Math.max(0,entry.points-clean));
+  }
+  const verified=[];
+  for(const entry of Array.isArray(websiteHistory)?websiteHistory:[]){
+    if(entry?.source!=="website" || typeof entry.earnedAt!=="string" ||
+       entry.dateKind==="recorded" ||
+       !Number.isSafeInteger(entry.points) || entry.points<=0)continue;
+    const time=Date.parse(entry.earnedAt);
+    if(!Number.isFinite(time) || time>Date.now()+60000)continue;
+    const year=String(new Date(time).getUTCFullYear());
+    const left=budgets.get(year)||0;
+    if(left<entry.points)continue;
+    budgets.set(year,left-entry.points);
+    verified.push(entry);
+  }
+  const years=new Set(Object.keys(summary.yearly||{}));
+  const cleaning=(Array.isArray(cleaningHistory)?cleaningHistory:[])
+    .filter(entry=>entry?.points===0 || years.has(String(entry.date||"").slice(0,4)));
+  return merge.sortedRewardsHistory(cleaning,verified);
+}
+function personalRanksAnnualCleaning(events,year,asOf){
+  if(!Number.isInteger(year))return 0;
+  return (Array.isArray(events)?events:[]).reduce((sum,event)=>
+    event?.event==="paid_completed_clean" &&
+    String(event.date||"").startsWith(String(year)+"-") &&
+    event.date<=asOf && Number.isSafeInteger(event.points)
+      ?sum+event.points:sum,0);
+}
+async function verifiedPersonalSummary(session,snapshot){
+  const consent=await consentStore().get(nameConsents.KEY,{
+    type:"json",consistency:"strong"
+  });
+  return personalRanks.getPersonalSummary({
+    stores:rankingStores(),privateCustomers:snapshot,
+    customerId:session.account.id,
+    consentSnapshot:consent,secretKey:auth.secret(process.env)
+  });
 }
 
 async function attachMatchedWebsiteBooking(session){
@@ -212,39 +253,26 @@ export default async function handler(request,context) {
       if(!session)return respond(200,{ready:true,authenticated:false,
         loginMethod:"email_code",sourceAsOf:snapshot.asOf});
       await attachMatchedWebsiteBooking(session);
-      // The homepage total-XP card may read ONLY this authenticated, minimal
-      // response. Never infer a customer from a clicked public leaderboard row.
+      // Both the homepage card and full Customer HQ use the same verified
+      // scoring; no old unallocated website XP is returned in either view.
       if(new URL(request.url).searchParams.get("view")==="rank-summary"){
-        const rewards=await customerWebsiteRewards(session.account.id);
-        const account=auth.publicAccount(session.account,rewards.websiteXp);
-        let summary;
-        try{
-          const consent=await consentStore().get(nameConsents.KEY,{
-            type:"json",consistency:"strong"
-          });
-          summary=await personalRanks.getPersonalSummary({
-            stores:rankingStores(),privateCustomers:snapshot,
-            customerId:session.account.id,points:account.points,
-            consentSnapshot:consent,secretKey:auth.secret(process.env)
-          });
-        }catch{
-          // Ranking dependencies can be briefly unavailable. The signed-in
-          // total is still authoritative; never fabricate a year or position.
-          console.warn("Customer leaderboard rankings temporarily unavailable");
-          summary={points:account.points,rank:null,yearly:{},
-            rankingAvailable:false};
-        }
+        const summary=await verifiedPersonalSummary(session,snapshot);
         return respond(200,{ready:true,authenticated:true,summary});
       }
-      const [rewards,visibility]=await Promise.all([
+      const [rewards,visibility,summary]=await Promise.all([
         customerWebsiteRewards(session.account.id),
         consentChoice(session.account.id),
+        verifiedPersonalSummary(session,snapshot)
       ]);
-      const account=auth.publicAccount(session.account,rewards.websiteXp);
+      const account=auth.publicAccount(session.account,0);
       return respond(200,{ready:true,authenticated:true,
         account:{...account,
+          points:summary.points,cleaningPoints:summary.cleaningPoints,
+          websiteXp:summary.websiteXp,
           achievementState:rewards.achievementState,
-          rewardsHistory:allRewardsHistory(account.history,rewards.history)},
+          rewardsHistory:allRewardsHistory(
+            account.history,rewards.history,summary,
+            session.account.events,snapshot.asOf)},
         leaderboard:{...visibility,
           noticeVersion:nameConsents.NOTICE_VERSION},
       });
@@ -314,9 +342,13 @@ export default async function handler(request,context) {
         events:Array.isArray(body.events)?body.events:[],
         store:activityStore(),
       });
-      const rewards=await customerWebsiteRewards(session.account.id);
+      const [rewards,summary]=await Promise.all([
+        customerWebsiteRewards(session.account.id),
+        verifiedPersonalSummary(session,await dataStore().get(
+          auth.DATA_KEY,{type:"json",consistency:"strong"}))
+      ]);
       return respond(200,{saved:true,changed:saved.changed,
-        websiteXp:rewards.websiteXp,
+        websiteXp:summary.websiteXp,
         achievementState:rewards.achievementState});
     }
     if(action==="leaderboard-opt-in"||action==="leaderboard-withdraw"){
