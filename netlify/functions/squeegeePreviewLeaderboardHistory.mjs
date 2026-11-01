@@ -37,22 +37,22 @@ function activeSection({staged,published,mode}={}) {
   return '<section><h2>Active-only Squeegee leaderboard</h2>'+
     '<p><strong>'+(!snapshot&&preloaded?"PRELOADED PUBLIC PREVIEW (active-only)":state)+'</strong></p>'+
     (!snapshot && preloaded?
-      '<p>Preloaded reference/town/paid-clean snapshot: <strong>'+publicPreview.totalPlayers+
+      '<p>Preloaded reference/town/streak points snapshot: <strong>'+publicPreview.totalPlayers+
       ' active customers</strong>, dated '+safe(publicSeed.AS_OF)+
       '. No private Squeegee account IDs are stored in the preview source.'+
       ' Customer names, contact details and overdue-payment flags are excluded.</p>':'')+
     (summary?'<p>Active accounts: '+summary.activeAccounts+
       ' · Ranked: '+summary.publishedCandidates+
-      ' · Paid-clean points: '+summary.historicalPaidPoints+
+      ' · Streak points: '+summary.historicalPaidPoints+
       ' · Town review: '+summary.heldTown+
       ' · No verified paid cleans: '+summary.zeroPoints+'</p>'+
       '<p>Source backup: '+safe(snapshot.asOf)+'. '+
       (approved?'Public preview is enabled.':'Historical scores are not publicly served.')+
       '</p><ol>'+table+'</ol>':
-      '<p>Import the private active-only mapping prepared from your Squeegee backup. The import stores only a private UUID-to-reference/town/points mapping, not names, emails, addresses, or the raw CSV.</p>')+
+      '<p>Import the new PRIVATE streak-scoring mapping from the Squeegee backup. The import stores only UUID-to-reference/town/streak points, not names, emails, addresses or raw CSV.</p>')+
     '<form method="post" enctype="multipart/form-data" action="'+PATH+'">'+
     '<input type="hidden" name="action" value="active-import">'+
-    '<label for="activeMapping">Active Squeegee customer mapping CSV (max 250 KB)</label>'+
+    '<label for="activeMapping">Active Squeegee streak-scoring mapping CSV (max 250 KB)</label>'+
     '<input id="activeMapping" name="activeMapping" type="file" accept=".csv,text/csv" required>'+
     '<label for="asOf">Squeegee backup date</label>'+
     '<input id="asOf" name="asOf" type="date" value="2026-10-31" required>'+
@@ -67,7 +67,7 @@ function activeSection({staged,published,mode}={}) {
       '<form method="post" action="'+PATH+'">'+
       '<input type="hidden" name="action" value="unpublish-active">'+
       '<button type="submit">HIDE HISTORICAL LEADERBOARD</button></form>':'')+
-    '<p><small>Preview 1 only. A later owner-uploaded private CSV is always staged for review before it replaces this preloaded public preview. Historical overdue deductions are excluded. Use HIDE to remove the dated public ranking immediately.</small></p></section>';
+    '<p><small>New rule: 20 points for the first paid completed clean, +2 per consecutive completed visit, reset to 20 after a Squeegee skipped visit. A paid job occurrence earns that visit bonus; overdue deductions remain excluded. Preview 1 only. Future imports stage privately before replacing the current public ranking.</small></p></section>';
 }
 const HEADERS = {
   "Content-Type": "text/html; charset=utf-8",
@@ -150,7 +150,7 @@ export default async function handler(request, context) {
           return page('<section><strong>ACTIVE-ONLY IMPORT SAVED — PRIVATE REVIEW</strong>'+
             '<p>Active accounts: '+snapshot.summary.activeAccounts+
             ' · Eligible: '+snapshot.summary.publishedCandidates+
-            ' · Paid-clean points: '+snapshot.summary.historicalPaidPoints+
+            ' · Streak points: '+snapshot.summary.historicalPaidPoints+
             ' · Held for town review: '+snapshot.summary.heldTown+'</p>'+
             '<p>No score was added to the public board. No customer details were logged or sent to GitHub.</p>'+
             '</section><p><a href="'+PATH+'">Review top scores and publication control</a></p>');
@@ -168,6 +168,8 @@ export default async function handler(request, context) {
         const current=state?.data;
         if(!current || state?.etag===undefined)
           return page("<section>Import the active-only mapping first.</section>",409);
+        if(action==="publish-active" && current.version!==2)
+          return page("<section>This is an OLD one-point mapping. Upload the new streak-scoring private CSV before publishing, so all customers use the +20/+2 reset rule.</section>",409);
         if(action==="publish-active" && (
           form.get("privacyConfirmed")!=="yes" ||
           !active.snapshotIsFresh(current)))
@@ -239,13 +241,13 @@ export default async function handler(request, context) {
   let activePreview="";
   try { activePreview=activeSection(await currentActiveSnapshots()); }
   catch { activePreview="<section>Active leaderboard storage is temporarily unavailable.</section>"; }
-  return page(activePreview + '<section><strong>Historical score calculator (dry run)</strong>' +
-    '<p>1 point per completed, fully paid bin clean. After a 28-day grace period, ' +
+  return page(activePreview + '<section><strong>Legacy paid-clean and invoice audit (NOT streak points)</strong>' +
+    '<p>This diagnostic counts verified paid completed cleans; it does NOT calculate the new 20, 22, 24... loyalty streak. After a 28-day grace period, ' +
     '1 point is deducted per day with any verified overdue invoice, even if several are overdue. ' +
     'Historical deductions stop when the invoice was fully settled.</p>' +
     '<p>Historical overdue deductions are not included in the active-only leaderboard.</p></section>' +
     '<p><a href="' + PATH + '?probe=1">Check Squeegee customer API (READ ONLY)</a></p>' + probe +
-    '<h2>History import dry run</h2>' +
+    '<h2>Legacy paid-clean evidence dry run</h2>' +
     '<p>This accepts a <strong>normalized JSON or .json.gz</strong> file, not a raw Squeegee CSV. ' +
     'First export Job and Financial/Payments reports from Squeegee, then confirm column headings ' +
     'so we can map them without guessing.</p>' +
