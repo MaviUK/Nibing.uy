@@ -52,6 +52,8 @@ on:
       - netlify/functions/squeegeePreviewTest.mjs
       - netlify/functions/squeegeePreviewTestSubmit.mjs
       - src/LandingPage.jsx
+      - src/components/CustomerTrustSections.jsx
+      - tests/squeegee-customer-questions-accordion.test.cjs
       - src/bookingReference.mjs
       - netlify/functions/lib/bookingEmailTemplate.js
       - netlify/functions/lib/ownerBookingTermsSummary.js

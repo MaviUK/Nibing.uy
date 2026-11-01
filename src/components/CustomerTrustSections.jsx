@@ -201,13 +201,13 @@ const QUESTION_TOPICS = [
 
 export function CustomerQuestions({ onBook }) {
   const [selectedTopicId, setSelectedTopicId] = useState("pricing");
-  const [openQuestion, setOpenQuestion] = useState(0);
+  const [openQuestion, setOpenQuestion] = useState(null);
   const selectedTopic = QUESTION_TOPICS.find(({ id }) => id === selectedTopicId) || QUESTION_TOPICS[0];
 
   const chooseTopic = (topic) => {
     if (topic.id === selectedTopicId) return;
     setSelectedTopicId(topic.id);
-    setOpenQuestion(topic.indices[0]);
+    setOpenQuestion(null);
   };
 
   return (
