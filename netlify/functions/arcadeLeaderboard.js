@@ -54,11 +54,14 @@ function activityXP(claimed) {
 }
 
 async function rebuildSnapshot(stores) {
+  // Old caches may contain legacy names; remove the obsolete cache, leaving
+  // player scores untouched. Public GET never reads a v2 snapshot.
+  try { await stores.public.delete("leaderboard:top10:v2"); } catch (_) {}
   // The old v2 snapshot is NEVER read. Existing points are retained.
   const { blobs = [] } = await stores.public.list({ prefix: "player:" });
   const records = [];
   for (let i = 0; i < blobs.length; i += 20) {
-    const rows = await Promise.all(blobs.slice(i, i + 20).map(async ({ key }) => {
+    const rows = await Promise.all(blobs.slice(i, i + 20).map(async ({ key, etag }) => {
       if (typeof key !== "string" || !/^player:[a-f0-9]{64}$/.test(key)) return null;
       const customerRef = publicCustomerReference(key.slice("player:".length));
       if (!customerRef) return null;
@@ -74,10 +77,18 @@ async function rebuildSnapshot(stores) {
             return null;
           town = townFromAddress(privateRow.address);
         }
-        return {
+        const safeRecord = {
           customerRef, town, points: limitInt(row.points, 100000),
           createdAt: row.createdAt || "", lastUpdatedAt: row.lastUpdatedAt || "",
         };
+        if (typeof row.displayName === "string" && typeof etag === "string" && etag.length >= 4) {
+          // Best-effort removal of names from legacy PUBLIC Blob records.
+          // Conditional ETag write avoids overwriting XP earned concurrently.
+          // If the CAS loses the race, no name is returned to the browser.
+          try { await stores.public.setJSON(key, safeRecord, { onlyIfMatch: etag }); }
+          catch (_) {}
+        }
+        return safeRecord;
       } catch (_) { return null; }
     }));
     for (const row of rows) if (row) records.push(row);
