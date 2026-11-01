@@ -650,6 +650,18 @@ test("owner-code return target only permits exact read-only automatic status pat
     "/api/squeegee-preview-auto-status");
   assert.equal(safeOwnerReturnPath("/api/squeegee-preview-auto-recover"),
     "/api/squeegee-preview-auto-recover");
+  // Exact owner-only N64 first-name simulation return after OTP sign-in.
+  // This is deliberately one literal URL, not a generic homepage redirect.
+  const leaderboardReturn="/?ntl-drawer-state=hidden&owner-board=1&owner-auth-complete=1#live-leaderboard";
+  assert.equal(safeOwnerReturnPath(leaderboardReturn),leaderboardReturn);
+  for(const malformed of [
+    leaderboardReturn+"&next=https://evil.example",
+    leaderboardReturn.replace("owner-board=1","owner-board=2"),
+    leaderboardReturn.replace("#live-leaderboard","#other"),
+    leaderboardReturn.replace("ntl-drawer-state=hidden","ntl-drawer-state=visible"),
+    "/?owner-board=1#live-leaderboard",
+    "//evil.example/?owner-board=1",
+  ])assert.equal(safeOwnerReturnPath(malformed),null);
   for(const injection of [
     null,undefined,"",123,
     "https://evil.example/booking",
