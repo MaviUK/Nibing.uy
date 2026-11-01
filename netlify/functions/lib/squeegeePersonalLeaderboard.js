@@ -27,80 +27,84 @@ function visibleRank({privateCustomers,eligibleAliases,consentSnapshot,
   const row=shown?.entries?.find(entry=>entry.customerRef===ref);
   return Number.isSafeInteger(row?.rank)&&row.rank>0?row.rank:null;
 }
-function fromBoards({customerId,points,privateCustomers,eligibleAliases,
+function fromBoards({customerId,privateCustomers,eligibleAliases,
                      consentSnapshot,secretKey,overallBoard,yearlyBoards=[],
                      allowPublicRanks=true}){
-  if(!Number.isSafeInteger(points)||points<0)throw new Error("invalid_personal_points");
-  // Annual charts contain only date-verified awards. Lifetime may include
-  // older imported rewards whose precise earning year was never saved.
-  // Keep the unassigned portion separate instead of inventing a year.
-  const result={points,rank:null,yearly:{},
-    rankingAvailable:allowPublicRanks===true,
-    yearlyXpTotal:null,unassignedXp:null,yearBreakdownStatus:"unavailable"};
   const alias=historical.canonicalLegacyRef(customerId);
-  if(!alias || !(eligibleAliases instanceof Set) || !eligibleAliases.has(alias))
-    return {...result,rankingAvailable:false};
-  if(allowPublicRanks && overallBoard){
-    result.rank=visibleRank({privateCustomers,eligibleAliases,consentSnapshot,
-      secretKey,board:overallBoard,customerAlias:alias});
-    // Do not falsely label a missing public board as a withdrawal.
-    if(overallBoard.status==="active_status_refresh_required")
-      result.rankingAvailable=false;
-  }else if(allowPublicRanks)result.rankingAvailable=false;
+  const eligible=Boolean(alias && eligibleAliases instanceof Set &&
+    eligibleAliases.has(alias));
+  const matched=eligible?overallBoard?.entries?.find(
+    entry=>entry.customerRef===alias):null;
+  const account=privateCustomers?.accounts?.find(x=>x.id===customerId);
+  if(!account)throw new Error("personal_customer_not_in_backup");
+  const yearly={};
+  let cleanTotal=0,yearlyTotal=0;
   for(const board of yearlyBoards){
     const year=board?.year;
-    if(!Number.isSafeInteger(year) || year<annual.FIRST_YEAR)continue;
-    const own=board?.entries?.find(row=>row.customerRef===alias);
+    if(!annual.validVerifiedYear(year))continue;
+    const clean=annual.annualCleaningXP(account.events,year,privateCustomers.asOf);
+    cleanTotal+=clean;
+    const own=board.entries?.find(row=>row.customerRef===alias);
     if(!Number.isSafeInteger(own?.points)||own.points<=0)continue;
-    result.yearly[String(year)]={
+    yearly[String(year)]={
       points:own.points,
       rank:allowPublicRanks?visibleRank({privateCustomers,eligibleAliases,
         consentSnapshot,secretKey,board,customerAlias:alias}):null
     };
+    yearlyTotal+=own.points;
   }
-  const yearlyXpTotal=Object.values(result.yearly)
-    .reduce((total,entry)=>total+entry.points,0);
-  // A score audit can legitimately find non-additive records. Don't hide
-  // overcounts under a negative "undated" balance or change earned XP.
-  if(Number.isSafeInteger(yearlyXpTotal)&&yearlyXpTotal<=points){
-    result.yearlyXpTotal=yearlyXpTotal;
-    result.unassignedXp=points-yearlyXpTotal;
-    result.yearBreakdownStatus="reconciled";
-  }else{
-    result.yearBreakdownStatus="needs-review";
-  }
-  return result;
+  if(!Number.isSafeInteger(cleanTotal)||cleanTotal<0)
+    throw new Error("invalid_cleaning_score");
+  // Only the sum of dated yearly awards may be displayed as Overall.
+  // A positive undated legacy balance is intentionally never credited.
+  const points=eligible ? (matched?.points||0) : cleanTotal;
+  if(!Number.isSafeInteger(points)||points<cleanTotal ||
+     (eligible&&points!==yearlyTotal))
+    throw new Error("personal_dated_total_mismatch");
+  const websiteXp=points-cleanTotal;
+  const hasPublicBoard=allowPublicRanks===true &&
+    overallBoard?.status!=="active_status_refresh_required";
+  return {
+    points,cleaningPoints:cleanTotal,websiteXp,
+    rank:eligible&&hasPublicBoard?visibleRank({
+      privateCustomers,eligibleAliases,consentSnapshot,secretKey,
+      board:overallBoard,customerAlias:alias
+    }):null,
+    yearly,rankingAvailable:eligible&&hasPublicBoard,
+    yearlyXpTotal:yearlyTotal
+  };
 }
-async function getPersonalSummary({stores,privateCustomers,customerId,points,
+async function getPersonalSummary({stores,privateCustomers,customerId,
                                    consentSnapshot,secretKey,now=Date.now()}){
-  if(!Number.isSafeInteger(points)||points<0)
-    throw new Error("invalid_personal_points");
-  const empty={points,rank:null,yearly:{},rankingAvailable:false};
+  const account=privateCustomers?.accounts?.find(x=>x.id===customerId);
+  if(!account)throw new Error("personal_customer_not_in_backup");
   const eligible=hq.eligibleRankedEmailAccounts(privateCustomers);
   const alias=historical.canonicalLegacyRef(customerId);
   if(!eligible || !alias || !eligible.aliases.has(alias) ||
-     !Buffer.isBuffer(secretKey) || secretKey.length<16)return empty;
-
-  // When the owner hides a published board, private XP remains visible but
-  // no ranking is inferred or re-published through this authenticated route.
+     !Buffer.isBuffer(secretKey)||secretKey.length<16){
+    // An authenticated customer outside the public cohort retains only
+    // their already dated cleaning points. Unknown website XP is excluded.
+    const yearTotals=new Map();
+    for(const event of Array.isArray(account.events)?account.events:[]){
+      const year=Number(String(event?.date||"").slice(0,4));
+      const points=annual.annualCleaningXP([event],year,privateCustomers.asOf);
+      if(!annual.validVerifiedYear(year,now)||!points)continue;
+      yearTotals.set(year,(yearTotals.get(year)||0)+points);
+    }
+    const yearly={};
+    let points=0;
+    for(const [year,xp] of yearTotals){yearly[String(year)]={points:xp,rank:null};points+=xp;}
+    return {points,cleaningPoints:points,websiteXp:0,rank:null,yearly,
+      yearlyXpTotal:points,rankingAvailable:false};
+  }
   const [mode,published]=await Promise.all([
     stores.history.get(historical.MODE_KEY,{type:"json",consistency:"strong"}),
     stores.history.get(historical.PUBLISHED_KEY,{type:"json",consistency:"strong"})
   ]);
   const allowPublicRanks=mode?.activeOnly!==true || Boolean(published);
-  const [overallBoard,datedWeb]=await Promise.all([
-    allowPublicRanks?overallPreview.getStaticPreviewBoard(stores,now,true):null,
-    annual.datedWebsiteXP(stores,eligible.aliases,now)
-  ]);
-  // Re-use ONE verified website ledger scan for all years, instead of three
-  // expensive duplicate reads. Exactly mirrors public annual board sorting.
-  const yearlyBoards=[];
-  for(const year of annual.availableYears(now)){
-    yearlyBoards.push(await annual.getAnnualPreviewBoard(
-      stores,privateCustomers,eligible.aliases,year,now,datedWeb
-    ));
-  }
-  return fromBoards({customerId,points,privateCustomers,
+  const {overallBoard,yearlyBoards}=await annual.getDatedScoreBoards(
+    stores,privateCustomers,eligible.aliases,now);
+  return fromBoards({customerId,privateCustomers,
     eligibleAliases:eligible.aliases,consentSnapshot,secretKey,
     overallBoard,yearlyBoards,allowPublicRanks});
 }
