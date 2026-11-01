@@ -407,12 +407,12 @@ exports.handler = async (event) => {
           // Keep the owner's previous HIDE action authoritative.
           return out(200,{...publicLeaderboard({
             entries:[],totalPlayers:0,status:"consent_pending"
-          }),eligiblePlayers:eligible.count});
+          }),eligiblePlayers:eligible.count,eligibleCleaningXp:eligible.historicalPoints});
         }
         if(!privateNames){
           return out(200,{...publicLeaderboard({
             entries:[],totalPlayers:0,status:"consent_pending"
-          }),eligiblePlayers:eligible.count});
+          }),eligiblePlayers:eligible.count,eligibleCleaningXp:eligible.historicalPoints});
         }
         const full=await historicalPreview.getStaticPreviewBoard(stores,Date.now(),true);
         const allowed=nameConsents.publicConsentBoard(
@@ -420,7 +420,7 @@ exports.handler = async (event) => {
         );
         return out(200,{...publicLeaderboard(allowed||{
           entries:[],totalPlayers:0,status:"consent_pending"
-        }),eligiblePlayers:eligible.count});
+        }),eligiblePlayers:eligible.count,eligibleCleaningXp:eligible.historicalPoints});
       }
       const activeBoard=await getActiveHistoricalBoard(stores);
       // Production/non-Preview hosts retain the existing website-only board.
