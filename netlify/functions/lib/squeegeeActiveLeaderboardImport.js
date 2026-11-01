@@ -1,6 +1,7 @@
 "use strict";
 const crypto = require("node:crypto");
 const { safePublicTown } = require("./arcadePublicIdentity");
+const { RULE_VERSION } = require("./squeegeeCleaningStreak");
 
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PUBLIC_REF_RE=/^NBG-[A-F0-9]{10}$/;
@@ -10,6 +11,11 @@ const PUBLISHED_KEY="published-active-accounts-v1";
 const MODE_KEY="active-only-mode-v1";
 const MAX_CSV_BYTES=250000;
 const MAX_ACCOUNTS=5000;
+const STREAK_COLUMNS=Object.freeze([
+  "streak_points", "current_consecutive_clean_visits",
+  "next_completed_visit_bonus", "recorded_skipped_visits",
+  "max_consecutive_clean_visits", "scoring_version"
+]);
 const REQUIRED_COLUMNS=Object.freeze([
   "squeegee_customer_uuid_PRIVATE",
   "public_customer_reference",
@@ -51,10 +57,14 @@ function parseCsv(text) {
   if(new Set(columns).size!==columns.length ||
      REQUIRED_COLUMNS.some(name=>!columns.includes(name)))
     throw new Error("csv_missing_or_duplicate_columns");
+  const streakColumnsFound=STREAK_COLUMNS.filter(name=>columns.includes(name));
+  if(streakColumnsFound.length && streakColumnsFound.length!==STREAK_COLUMNS.length)
+    throw new Error("incomplete_streak_scoring_columns");
   const ix=Object.fromEntries(columns.map((name,i)=>[name,i]));
+  const requested=streakColumnsFound.length ? [...REQUIRED_COLUMNS,...STREAK_COLUMNS] : REQUIRED_COLUMNS;
   return rows.slice(1).map(cells=>{
     if(cells.length!==columns.length)throw new Error("csv_invalid_row");
-    return Object.fromEntries(REQUIRED_COLUMNS.map(name=>[name,cells[ix[name]].trim()]));
+    return Object.fromEntries(requested.map(name=>[name,cells[ix[name]].trim()]));
   });
 }
 function canonicalLegacyRef(uuid) {
@@ -73,7 +83,10 @@ function normalizeActiveImport(input,{asOf,now=Date.now()}={}) {
     throw new Error("invalid_source_date");
   const rows=parseCsv(input);
   const seenIds=new Set(),seenRefs=new Set();const accounts=[];
-  let heldTown=0, zeroPoints=0, publishedCandidates=0, paidPoints=0;
+  const version=rows.every(row => row.scoring_version===RULE_VERSION) ? 2 : 1;
+  if(rows.some(row=>Object.hasOwn(row,"streak_points")) && version!==2)
+    throw new Error("streak_scoring_version_invalid");
+  let heldTown=0, zeroPoints=0, publishedCandidates=0, paidPoints=0, paidCleanCount=0;
   for(const row of rows){
     const id=row.squeegee_customer_uuid_PRIVATE.toLowerCase();
     const ref=row.public_customer_reference;
@@ -85,6 +98,22 @@ function normalizeActiveImport(input,{asOf,now=Date.now()}={}) {
        row.squeegee_state_PRIVATE.toLowerCase()!=="active" ||
        row.deleted_in_backup_PRIVATE!=="0")
       throw new Error("inactive_or_invalid_account_row");
+    let streakPoints=points;
+    let currentStreak=0, recordedSkippedVisits=0;
+    if(version===2){
+      streakPoints=Number(row.streak_points);
+      currentStreak=Number(row.current_consecutive_clean_visits);
+      const nextPoints=Number(row.next_completed_visit_bonus);
+      const longest=Number(row.max_consecutive_clean_visits);
+      recordedSkippedVisits=Number(row.recorded_skipped_visits);
+      if(!Number.isSafeInteger(streakPoints) || streakPoints<points*20 ||
+         streakPoints>100000 || (points===0&&streakPoints!==0) ||
+         !Number.isSafeInteger(currentStreak) || currentStreak<0 ||
+         !Number.isSafeInteger(nextPoints) || nextPoints!==20+currentStreak*2 ||
+         !Number.isSafeInteger(recordedSkippedVisits) || recordedSkippedVisits<0 ||
+         !Number.isSafeInteger(longest) || longest<currentStreak || longest>10000)
+        throw new Error("invalid_streak_scoring_values");
+    }
     if(seenIds.has(id)||seenRefs.has(ref))throw new Error("duplicate_account");
     seenIds.add(id);seenRefs.add(ref);
     const eligibility=points===0?"no_verified_paid_history":
@@ -93,35 +122,41 @@ function normalizeActiveImport(input,{asOf,now=Date.now()}={}) {
       throw new Error("inconsistent_eligibility");
     if(points===0)zeroPoints++;
     else if(town==="Town unavailable")heldTown++;
-    else {publishedCandidates++;paidPoints+=points;}
-    accounts.push({id,ref,town,paidCleans:points,active:true});
+    else {publishedCandidates++;paidPoints+=streakPoints;paidCleanCount+=points;}
+    accounts.push({id,ref,town,paidCleans:points,historicalPoints:streakPoints,
+      currentStreak,recordedSkippedVisits,active:true});
   }
   accounts.sort((a,b)=>a.id.localeCompare(b.id));
   return {
-    version:1,asOf,importedAt:new Date(now).toISOString(),published:false,
+    version,scoringVersion:version===2?RULE_VERSION:"legacy-one-point-per-clean",
+    asOf,importedAt:new Date(now).toISOString(),published:false,
     sourceHash:crypto.createHash("sha256").update(input).digest("hex"),
     summary:{
       activeAccounts:accounts.length,publishedCandidates,heldTown,zeroPoints,
-      historicalPaidPoints:paidPoints
+      historicalPaidPoints:paidPoints,paidCleanCount
     },
     accounts
   };
 }
 function eligibleHistoricalEntries(snapshot) {
-  if(snapshot?.version!==1 || !Array.isArray(snapshot?.accounts) ||
+  if(![1,2].includes(snapshot?.version) || !Array.isArray(snapshot?.accounts) ||
      !isoDate(snapshot.asOf))return [];
+  if(snapshot.version===2 && snapshot.scoringVersion!==RULE_VERSION)return [];
   const candidates=[];
   const refs=new Set();
   for(const row of snapshot.accounts){
     if(!row || row.active!==true || !UUID_RE.test(String(row.id||"")) ||
        canonicalLegacyRef(row.id)!==row.ref ||
        !Number.isSafeInteger(row.paidCleans) || row.paidCleans<=0 ||
-       row.paidCleans>100000 || safePublicTown(row.town)!==row.town ||
+       row.paidCleans>100000 ||
+       !Number.isSafeInteger(row.historicalPoints) ||
+       row.historicalPoints<row.paidCleans || row.historicalPoints>100000 ||
+       safePublicTown(row.town)!==row.town ||
        row.town==="Town unavailable" || refs.has(row.ref))continue;
     refs.add(row.ref);
     candidates.push({
       squeegeeId:row.id,customerRef:row.ref,town:row.town,
-      paidCleans:row.paidCleans
+      paidCleans:row.paidCleans,historicalPoints:row.historicalPoints
     });
   }
   return candidates;
@@ -134,7 +169,7 @@ function combinedPublicBoard(snapshot,websiteScores=new Map()) {
       Math.min(100000,websitePoints):0;
     return {
       customerRef:row.customerRef,town:row.town,
-      points:Math.min(100000,row.paidCleans+safeXP),
+      points:Math.min(100000,row.historicalPoints+safeXP),
     };
   }).sort((a,b)=>b.points-a.points ||
     a.customerRef.localeCompare(b.customerRef));
