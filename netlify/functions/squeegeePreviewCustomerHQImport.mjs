@@ -82,7 +82,7 @@ export default async function handler(request,ctx){
       '<p><small>On Android, select the NI_Bin_Guy_Customer_HQ_Secure_Import_PRIVATE_2026-10-31.json file (about 2 MB). All file types can now be selected; the server checks the JSON content securely before importing.</small></p>'+
       '<button type="submit">Import customer history privately</button></form>'+
       '<p><small>Maximum 3 MB. A newer, checked import replaces the old private snapshot. Repeating the same file does not duplicate points.</small></p></section>'+
-      '<p><a href="/customer-hq">Open Customer HQ</a></p>');
+      '<p><a href="/customer-hq?ntl-drawer-state=hidden">Open Customer HQ</a></p>');
   }
   // Some Samsung/Android in-app browser uploads send Origin: null (or
   // omit Origin). Verify an unpredictable token tied to this exact signed
@@ -137,7 +137,7 @@ export default async function handler(request,ctx){
       '<p>Customer sign-ins can now be tested on the N64 preview. '+
       'No-email accounts are excluded from the public leaderboard but their historical XP is retained. '+
       'Four customers with shared emails require manual identity verification for portal sign-in.</p></section>'+
-      '<p><a href="/customer-hq">Open Customer HQ</a></p>');
+      '<p><a href="/customer-hq?ntl-drawer-state=hidden">Open Customer HQ</a></p>');
   }catch{
     return page("<section>Private history validation failed. No records were imported. Check that you selected the correct NI Bin Guy Customer HQ JSON.</section>",422);
   }
