@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 
 const REFRESH_MS = 10000;
 const ENDPOINT = "/.netlify/functions/arcadeLeaderboard";
+const OWNER_ENDPOINT="/api/squeegee-preview-verified-leaderboard";
 const CustomerHQ=React.lazy(()=>import("../pages/CustomerHQ"));
 
 export default function ArcadeLeaderboard() {
@@ -18,6 +19,12 @@ export default function ArcadeLeaderboard() {
   const [verifiedAsOf, setVerifiedAsOf] = useState(null);
   const [eligibleCleaningXp, setEligibleCleaningXp] = useState(null);
   const [activePanel, setActivePanel] = useState("leaderboard");
+  const [rankingMode,setRankingMode]=useState("public");
+  const [ownerState,setOwnerState]=useState("idle");
+  const [ownerRows,setOwnerRows]=useState([]);
+  const [ownerInfo,setOwnerInfo]=useState(null);
+  const [ownerSearch,setOwnerSearch]=useState("");
+  const [ownerShowCount,setOwnerShowCount]=useState(20);
   // Retain the code-challenge state when switching between the two panels.
   const [hqOpened, setHqOpened] = useState(false);
   const openHQ = () => {setHqOpened(true);setActivePanel("hq");};
@@ -28,6 +35,64 @@ export default function ArcadeLeaderboard() {
   const [changes, setChanges] = useState({});
   const previousPlayers = useRef(null);
   const [localScore, setLocalScore] = useState({ points: 0, registered: false });
+
+  function showPublicRankings(){
+    setRankingMode("public");
+    // No private owner ranking stays in memory after leaving the owner panel.
+    setOwnerRows([]);
+    setOwnerInfo(null);
+    setOwnerState("idle");
+    window.dispatchEvent(new Event("n64:leaderboard-updated"));
+  }
+  async function showOwnerRankings(){
+    setRankingMode("owner");
+    setOwnerRows([]);
+    setOwnerInfo(null);
+    setOwnerState("loading");
+    setOwnerShowCount(20);
+    try{
+      const response=await fetch(OWNER_ENDPOINT,{
+        credentials:"same-origin",cache:"no-store",
+        headers:{"Accept":"application/json"}
+      });
+      if(response.status===401){
+        setOwnerState("owner-login-required");
+        return;
+      }
+      if(!response.ok)throw new Error("owner_board_unavailable");
+      const data=await response.json();
+      if(data.ownerView!==true || data.private!==true ||
+         !Array.isArray(data.entries) ||
+         !Number.isInteger(data.verifiedPlayers) ||
+         data.entries.length!==data.verifiedPlayers)
+        throw new Error("owner_board_invalid");
+      const records=data.entries.map((p,i)=>({
+        rank:i+1,
+        firstName:typeof p.firstName==="string"&&p.firstName.length<=40?p.firstName:null,
+        town:typeof p.town==="string"?p.town.slice(0,40):"Town unavailable",
+        points:Number.isSafeInteger(p.points)&&p.points>=0?p.points:0,
+        permission:["approved","pending","withdrawn"].includes(p.permission)
+          ?p.permission:"pending",
+      }));
+      setOwnerRows(records);
+      setOwnerInfo({
+        verifiedPlayers:data.verifiedPlayers,
+        historicalCleaningXp:data.historicalCleaningXp,
+        sourceAsOf:data.sourceAsOf,
+        publicApprovedCount:data.publicApprovedCount,
+      });
+      setOwnerState("ready");
+    }catch{
+      setOwnerState("unavailable");
+      setOwnerRows([]);
+      setOwnerInfo(null);
+    }
+  }
+  const filteredOwnerRows=ownerRows.filter(row=>{
+    const query=ownerSearch.trim().toLowerCase();
+    return !query || (row.firstName||"").toLowerCase().includes(query) ||
+      row.town.toLowerCase().includes(query);
+  });
 
 
   useEffect(() => {
@@ -148,7 +213,18 @@ export default function ArcadeLeaderboard() {
             {connection === "live" ? (sourceAsOf ? "BACKUP SNAPSHOT" : "LIVE") : connection === "connecting" ? "CONNECTING" : "RECONNECTING"}
           </span>
         </div>
-        <h2 id="n64-board-title">Global Leaderboard</h2>
+        <h2 id="n64-board-title">{rankingMode==="owner"?"Verified Customer Rankings":"Global Leaderboard"}</h2>
+        <div className="n64-rank-visibility" role="group" aria-label="Ranking visibility">
+          <button type="button" className={rankingMode==="public"?"n64-rank-visibility--active":""}
+            aria-pressed={rankingMode==="public"} onClick={showPublicRankings}>
+            PUBLIC LEADERBOARD
+          </button>
+          <button type="button" className={rankingMode==="owner"?"n64-rank-visibility--active":""}
+            aria-pressed={rankingMode==="owner"} onClick={showOwnerRankings}>
+            OWNER: ALL VERIFIED
+          </button>
+        </div>
+        <div hidden={rankingMode!=="public"} className="n64-rank-public">
         <p>{eligibilityPending
           ? "Preparing the verified Squeegee customer list. Only active accounts with a valid registered email can join the leaderboard; no names are public until permission is recorded."
           : nameConsentMode
@@ -229,6 +305,74 @@ export default function ArcadeLeaderboard() {
           Tap a player or choose My Customer HQ above to open the email-code sign-in in this section. You can only see the account verified by your own email code. Public rankings refresh every 10 seconds; historical Squeegee scores change after a verified import.
           {nameConsentMode || eligibilityPending ? "Public entries require a registered email and recorded permission, and show first name, town and XP only. Squeegee references and contact details remain private." : "Public entries show a pseudonymous customer reference, town and XP, never names or full addresses. Contact details remain private."}
         </small>
+        </div>
+        <div className="n64-owner-ranking" hidden={rankingMode!=="owner"}>
+          <p className="n64-owner-private-notice">
+            <strong>OWNER-ONLY REVIEW</strong> · These are the verified email-eligible
+            customers from the Squeegee backup. Names here are private and
+            have <strong>not</strong> all given permission for public display.
+          </p>
+          {ownerState==="loading" && <p role="status">Checking your owner session and loading verified scores…</p>}
+          {ownerState==="owner-login-required" && <div className="n64-owner-login">
+            <strong>OWNER CODE REQUIRED</strong>
+            <p>Sign in using your existing NI Bin Guy owner code to view all
+              verified first names, towns and points. This does not change
+              anyone's leaderboard permission.</p>
+            <a href="/api/squeegee-preview-leaderboard-names"
+              target="_blank" rel="noopener noreferrer">
+              OPEN SECURE OWNER SIGN-IN ↗
+            </a>
+            <button type="button" onClick={showOwnerRankings}>
+              I'VE SIGNED IN — LOAD ALL RANKINGS
+            </button>
+          </div>}
+          {ownerState==="unavailable" && <div className="n64-owner-login" role="alert">
+            <p>The private owner rankings couldn't be loaded. No customer data
+              was changed. Please try again.</p>
+            <button type="button" onClick={showOwnerRankings}>RETRY PRIVATE VIEW</button>
+          </div>}
+          {ownerState==="ready" && ownerInfo && <>
+            <div className="n64-owner-summary">
+              <div><strong>{ownerInfo.verifiedPlayers.toLocaleString("en-GB")}</strong>
+                <span>VERIFIED CUSTOMERS</span></div>
+              <div><strong>{Number(ownerInfo.historicalCleaningXp||0).toLocaleString("en-GB")}</strong>
+                <span>HISTORICAL CLEANING XP</span></div>
+              <div><strong>{Number(ownerInfo.publicApprovedCount||0).toLocaleString("en-GB")}</strong>
+                <span>PUBLICLY OPTED IN</span></div>
+            </div>
+            <p className="n64-owner-source">
+              Private owner view · Squeegee backup {ownerInfo.sourceAsOf||"date unavailable"}.
+              Customers without a valid email are excluded. Public ranking consent
+              is tracked separately.
+            </p>
+            <label className="n64-owner-search">
+              <span>SEARCH VERIFIED CUSTOMERS BY FIRST NAME OR TOWN</span>
+              <input type="search" value={ownerSearch}
+                onChange={e=>{setOwnerSearch(e.target.value);setOwnerShowCount(20);}}
+                placeholder="Search first name or town…" maxLength={70}/>
+            </label>
+            <ol aria-label="Private owner-only verified customer rankings">
+              {filteredOwnerRows.slice(0,ownerShowCount).map(row=>
+                <li key={row.rank} className="n64-owner-score-row">
+                  <div>
+                    <strong>{String(row.rank).padStart(2,"0")} · {row.firstName||"Name needs checking"} · {row.town}</strong>
+                    <small>{row.permission==="approved"?"PUBLIC PERMISSION RECORDED":
+                      row.permission==="withdrawn"?"PUBLIC PERMISSION WITHDRAWN":
+                      "PUBLIC PERMISSION NOT RECORDED"}</small>
+                  </div>
+                  <strong className="n64-owner-points">{row.points.toLocaleString("en-GB")} XP</strong>
+                </li>
+              )}
+            </ol>
+            <div className="n64-owner-list-footer">
+              {filteredOwnerRows.length.toLocaleString("en-GB")} matching verified customers
+              {filteredOwnerRows.length>ownerShowCount &&
+                <button type="button" onClick={()=>setOwnerShowCount(n=>n+25)}>
+                  SHOW 25 MORE ↓
+                </button>}
+            </div>
+          </>}
+        </div>
         </div>
         <div className="n64-board-tab-content n64-board-hq-tab" hidden={activePanel!=="hq"}>
           {hqOpened && <React.Suspense fallback={<p role="status">Loading your secure Customer HQ…</p>}>
