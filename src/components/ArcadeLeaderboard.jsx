@@ -3,6 +3,7 @@ import { scrollToArcadeTabs, stabilizeArcadeTabScroll } from "./scrollToArcadeBo
 
 const REFRESH_MS = 10000;
 const ENDPOINT = "/.netlify/functions/arcadeLeaderboard";
+const CUSTOMER_SUMMARY_ENDPOINT="/api/customer-hq?view=rank-summary";
 const OWNER_ENDPOINT="/api/squeegee-preview-verified-leaderboard";
 const OWNER_LOGIN_RETURN="/?ntl-drawer-state=hidden&owner-board=1&owner-auth-complete=1#live-leaderboard";
 const OWNER_LOGIN_URL="/api/squeegee-preview-test?returnTo="+encodeURIComponent(OWNER_LOGIN_RETURN);
@@ -98,7 +99,11 @@ export default function ArcadeLeaderboard() {
     setConnection("connecting");
     setSelectedYear(period);
   };
-  const [localScore, setLocalScore] = useState({ points: 0, registered: false });
+  // Customer totals must come from a verified email-code session, NEVER from
+  // this device's arcade cookie or a clicked public leaderboard entry.
+  const [customerSummary,setCustomerSummary]=useState(null);
+  const [customerSummaryStatus,setCustomerSummaryStatus]=useState("checking");
+  const [customerPeriod,setCustomerPeriod]=useState("overall");
 
   function showPublicRankings(){
     setRankingMode("public");
@@ -174,22 +179,90 @@ export default function ArcadeLeaderboard() {
   // excluded from the simulated public view.
   const simulatedOwnerRows=ownerRows.filter(row=>row.permission!=="withdrawn");
 
+  useEffect(()=>{
+    let active=true;
+    let requestId=0;
+    async function refreshCustomer(){
+      const current=++requestId;
+      try{
+        const response=await fetch(CUSTOMER_SUMMARY_ENDPOINT,{
+          cache:"no-store",credentials:"same-origin"
+        });
+        if(!response.ok)throw new Error("customer_summary_unavailable");
+        const data=await response.json();
+        if(!active || current!==requestId)return;
+        if(data?.authenticated!==true || !data.summary){
+          setCustomerSummary(null);
+          setCustomerSummaryStatus("signed-out");
+          return;
+        }
+        const sum=data.summary;
+        if(!Number.isSafeInteger(sum.points) || sum.points<0)
+          throw new Error("invalid_customer_total");
+        const yearly={};
+        for(const [year,stats] of Object.entries(sum.yearly||{})){
+          if(!/^20\\d{2}$/.test(year) || !Number.isSafeInteger(stats?.points) ||
+             stats.points<=0)continue;
+          yearly[year]={
+            points:stats.points,
+            rank:Number.isSafeInteger(stats.rank)&&stats.rank>0?stats.rank:null
+          };
+        }
+        setCustomerSummary({
+          points:sum.points,
+          rank:Number.isSafeInteger(sum.rank)&&sum.rank>0?sum.rank:null,
+          rankingAvailable:sum.rankingAvailable===true,
+          yearly
+        });
+        setCustomerSummaryStatus("ready");
+      }catch{
+        if(active && current===requestId){
+          setCustomerSummary(null);
+          setCustomerSummaryStatus("unavailable");
+        }
+      }
+    }
+    const onAccountScore=(event)=>{
+      if(event?.detail?.points===null){
+        // Clearing immediately prevents one account's score appearing while
+        // another person signs in on the same phone.
+        requestId++;
+        setCustomerSummary(null);
+        setCustomerPeriod("overall");
+        setCustomerSummaryStatus("signed-out");
+      }else void refreshCustomer();
+    };
+    const onVisible=()=>{
+      if(document.visibilityState==="visible")void refreshCustomer();
+    };
+    void refreshCustomer();
+    const poll=window.setInterval(onVisible,120000);
+    window.addEventListener("n64:account-score",onAccountScore);
+    window.addEventListener("n64:verified-total",refreshCustomer);
+    window.addEventListener("focus",onVisible);
+    document.addEventListener("visibilitychange",onVisible);
+    return()=>{
+      active=false;requestId++;
+      window.clearInterval(poll);
+      window.removeEventListener("n64:account-score",onAccountScore);
+      window.removeEventListener("n64:verified-total",refreshCustomer);
+      window.removeEventListener("focus",onVisible);
+      document.removeEventListener("visibilitychange",onVisible);
+    };
+  },[]);
+  const customerPeriods=["overall",...Object.keys(customerSummary?.yearly||{})
+    .filter(year=>customerSummary.yearly[year].points>0)
+    .sort((a,b)=>Number(a)-Number(b))];
+  const shownCustomerPeriod=customerPeriods.includes(customerPeriod)
+    ?customerPeriod:"overall";
+  const shownCustomerStats=shownCustomerPeriod==="overall"
+    ?{points:customerSummary?.points??0,rank:customerSummary?.rank??null}
+    :customerSummary?.yearly?.[shownCustomerPeriod];
 
   useEffect(() => {
     let mounted = true;
     let busy = false;
     let refreshAgain = false;
-
-    const refreshLocalScore = () => {
-      if (!mounted) return;
-      const api = window.n64Score;
-      setLocalScore({
-        points: Math.max(0, Number(api?.points?.() || 0)),
-        registered: Boolean(api?.isRegistered?.()),
-      });
-    };
-    refreshLocalScore();
-    window.addEventListener("n64:score-updated", refreshLocalScore);
 
     async function refresh() {
       if (!mounted || document.visibilityState === "hidden") return;
@@ -284,7 +357,6 @@ export default function ArcadeLeaderboard() {
       mounted = false;
       window.clearInterval(intervalId);
       window.removeEventListener("n64:leaderboard-updated", refresh);
-      window.removeEventListener("n64:score-updated", refreshLocalScore);
       window.removeEventListener("online", refresh);
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisible);
@@ -334,11 +406,42 @@ export default function ArcadeLeaderboard() {
           )}
         </div>
 
-        <div className="n64-your-score" aria-label="Your device score">
-          <div><strong>★ ARCADE XP ON THIS PHONE</strong><span>{localScore.points.toLocaleString("en-GB")} XP</span></div>
-          <small>{localScore.registered
-            ? (sourceAsOf ? "Your website XP is saved. It joins the active-only board after your Squeegee account is verified." : "Your booking is registered. New level points sync to the global leaderboard.")
-            : "This is your arcade score on this phone, not your full cleaning rewards. Open My Customer HQ to see your verified Squeegee cleaning points."}</small>
+        <div className="n64-your-score n64-personal-score"
+          aria-label="Your verified total XP and leaderboard position">
+          <div className="n64-personal-total">
+            <strong>★ {shownCustomerPeriod==="overall"?"TOTAL XP":shownCustomerPeriod+" XP"}</strong>
+            <span>{customerSummary
+              ?shownCustomerStats.points.toLocaleString("en-GB")+" XP"
+              :customerSummaryStatus==="checking"?"CHECKING…":"—"}</span>
+          </div>
+          {customerSummary ? <>
+            <div className="n64-personal-position">
+              <strong>LEADERBOARD POSITION</strong>
+              <span>{shownCustomerStats.rank
+                ?"#"+shownCustomerStats.rank.toLocaleString("en-GB")
+                :customerSummary.rankingAvailable
+                  ?"NOT PUBLICLY RANKED":"UNAVAILABLE"}</span>
+            </div>
+            <div className="n64-personal-years" role="group"
+              aria-label="Your yearly leaderboard results">
+              {customerPeriods.map(period=>
+                <button type="button" key={period}
+                  className={period===shownCustomerPeriod?"n64-personal-year-active":""}
+                  aria-pressed={period===shownCustomerPeriod}
+                  onClick={()=>setCustomerPeriod(period)}>
+                  {period==="overall"?"OVERALL":period}
+                </button>
+              )}
+            </div>
+            {customerSummary.rankingAvailable===false &&
+              <small>Your verified XP is available, but the public ranking is temporarily unavailable.</small>}
+          </> : <small>
+            {customerSummaryStatus==="checking"
+              ?"Checking for your signed-in cleaning account…"
+              :customerSummaryStatus==="unavailable"
+              ?"Your total XP and position are temporarily unavailable. Open My Customer HQ to try again."
+              :"Sign in to see your total XP, leaderboard position and years with points."}
+          </small>}
         </div>
 
 
