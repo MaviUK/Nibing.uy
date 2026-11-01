@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { scrollToArcadeBoardStart } from "./scrollToArcadeBoardStart.mjs";
 
 const REFRESH_MS = 10000;
 const ENDPOINT = "/.netlify/functions/arcadeLeaderboard";
@@ -43,11 +44,37 @@ export default function ArcadeLeaderboard() {
   const [ownerShowCount,setOwnerShowCount]=useState(20);
   // Retain the code-challenge state when switching between the two panels.
   const [hqOpened, setHqOpened] = useState(false);
-  const openHQ = () => {setHqOpened(true);setActivePanel("hq");};
+  const boardSectionRef = useRef(null);
+  const scrollOnPanelChange = useRef(false);
+
+  const selectPanel = (panel) => {
+    if(panel === "hq") setHqOpened(true);
+    // Changing tabs changes the height of this whole section. Scroll only
+    // AFTER React has committed the new panel, otherwise Android Chrome
+    // clamps the old position and leaves the top of Customer HQ out of view.
+    if(activePanel !== panel){
+      scrollOnPanelChange.current = true;
+      setActivePanel(panel);
+    }else{
+      scrollToArcadeBoardStart(boardSectionRef.current);
+    }
+  };
+  const openHQ = () => selectPanel("hq");
   const openBoard = () => {
-    setActivePanel("leaderboard");
+    selectPanel("leaderboard");
     window.dispatchEvent(new Event("n64:leaderboard-updated"));
   };
+  useLayoutEffect(() => {
+    if(!scrollOnPanelChange.current) return;
+    scrollOnPanelChange.current = false;
+    // Place the section's top border at the top of the content viewport.
+    // This puts the LEADERBOARD / MY CUSTOMER HQ tabs in exactly the same
+    // place as when the leaderboard section is first opened.
+    scrollToArcadeBoardStart(boardSectionRef.current);
+    const frame = window.requestAnimationFrame(() =>
+      scrollToArcadeBoardStart(boardSectionRef.current));
+    return () => window.cancelAnimationFrame(frame);
+  }, [activePanel]);
   const [changes, setChanges] = useState({});
   const previousPlayers = useRef(null);
   const [localScore, setLocalScore] = useState({ points: 0, registered: false });
@@ -237,7 +264,7 @@ export default function ArcadeLeaderboard() {
 
 
   return (
-    <section id="live-leaderboard" className="n64-public-leaderboard" aria-labelledby="n64-board-title">
+    <section ref={boardSectionRef} id="live-leaderboard" className="n64-public-leaderboard" aria-labelledby="n64-board-title">
       <div className={"n64-public-board-inner"+(activePanel==="hq"?" n64-public-board-inner--hq":"")}>
         <div className="n64-board-tabs" role="group" aria-label="Leaderboard and Customer HQ">
           <button type="button" className={activePanel==="leaderboard"?"n64-board-tab n64-board-tab--selected":"n64-board-tab"}

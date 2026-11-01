@@ -105,3 +105,62 @@ test("verified Squeegee membership is separate from public permission",()=>{
   assert.match(consent,/emailEligibleAliases\.has\(r\.alias\)/);
   assert.doesNotMatch(api,/r\.consent="granted"/);
 });
+
+
+test("sign-in CTA and both tabs anchor the TOP of the leaderboard after React changes panels",()=>{
+  const root=path.resolve(__dirname,"..");
+  const board=fs.readFileSync(path.join(root,"src/components/ArcadeLeaderboard.jsx"),"utf8");
+  // The sign-in CTA and public name buttons must route to the same HQ panel.
+  assert.match(board,/const openHQ = \(\) => selectPanel\("hq"\)/);
+  assert.match(board,/onClick=\{openHQ\}>★ SIGN IN \/ VIEW MY CLEANING POINTS/);
+  assert.match(board,/const openBoard = \(\) => \{\s*selectPanel\("leaderboard"\)/);
+  assert.match(board,/ref=\{boardSectionRef\} id="live-leaderboard"/);
+  assert.match(board,/scrollOnPanelChange\.current = true;\s*setActivePanel\(panel\)/);
+  assert.match(board,/useLayoutEffect\(\(\) => \{/);
+  assert.match(board,/scrollToArcadeBoardStart\(boardSectionRef\.current\)/);
+  assert.ok(!board.includes("window.location.hash ="),
+    "switching tabs should not leave a hash that affects later refreshes");
+});
+
+test("switching from a long public leaderboard to short Customer HQ scrolls to section start",async()=>{
+  const {pathToFileURL}=require("node:url");
+  const target=pathToFileURL(path.join(__dirname,
+    "../src/components/scrollToArcadeBoardStart.mjs")).href;
+  const {scrollToArcadeBoardStart}=await import(target);
+  const calls=[];
+  const viewport={
+    scrollY:3800,
+    scrollTo(arg){
+      calls.push(arg);
+      assert.equal(documentRef.documentElement.style.scrollBehavior,"auto",
+        "global smooth-scrolling must be disabled while positioning");
+    }
+  };
+  const documentRef={documentElement:{style:{scrollBehavior:"smooth"}}};
+  const section={getBoundingClientRect(){return {top:-1525}}};
+  assert.equal(scrollToArcadeBoardStart(section,viewport,documentRef),true);
+  assert.deepEqual(calls,[{top:2275,left:0,behavior:"instant"}]);
+  assert.equal(documentRef.documentElement.style.scrollBehavior,"smooth",
+    "normal smooth section links should still work afterward");
+});
+
+test("the navigation helper supports old mobile scrollTo and no-op without a mounted section",async()=>{
+  const {pathToFileURL}=require("node:url");
+  const {scrollToArcadeBoardStart}=await import(pathToFileURL(path.join(__dirname,
+    "../src/components/scrollToArcadeBoardStart.mjs")).href);
+  const calls=[];
+  const viewport={
+    scrollY:800,
+    scrollTo(...args){
+      if(typeof args[0]==="object")throw new TypeError("unsupported options");
+      calls.push(args);
+    }
+  };
+  const documentRef={documentElement:{style:{scrollBehavior:"smooth"}}};
+  assert.equal(scrollToArcadeBoardStart(null,viewport,documentRef),false);
+  const section={getBoundingClientRect:()=>({top:-1200})};
+  assert.equal(scrollToArcadeBoardStart(section,viewport,documentRef),true);
+  assert.deepEqual(calls,[[0,0]],
+    "scroll position clamps to top of document when section is above it");
+  assert.equal(documentRef.documentElement.style.scrollBehavior,"smooth");
+});
