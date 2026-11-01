@@ -51,13 +51,14 @@ function ownerPreviewSection(preview){
     '<div><strong style="color:#ffe175">#'+row.rank+' '+safe(row.firstName||"NAME TO CHECK")+'</strong>'+
     '<div>'+safe(row.town)+'</div>'+
     '<small>Private Squeegee ref: '+safe(row.customerReference)+
-    ' · '+safe(row.permission==='approved'?'Consent recorded':row.permission==='withdrawn'?
+    ' · Verified from Squeegee backup · '+safe(row.permission==='approved'?'Consent recorded':row.permission==='withdrawn'?
       'Withdrawn':'Waiting for permission')+'</small></div>'+
     '<strong style="white-space:nowrap;color:#82f1bb">'+Number(row.points).toLocaleString('en-GB')+' XP</strong></li>'
   ).join('');
   return '<section style="border-left-color:#81e4b1">'+
-    '<h2>OWNER PREVIEW — EMAIL-ELIGIBLE TOP 20</h2>'+
-    '<p><strong>'+preview.count+'</strong> eligible players · '+
+    '<h2>OWNER PREVIEW — VERIFIED TOP 20</h2>'+
+    '<p><strong>'+preview.verified+'</strong> verified ranked accounts from the '+
+    safe(preview.verifiedAsOf||"dated")+' Squeegee backup · '+
     '<strong>'+Number(preview.cleaningXp).toLocaleString('en-GB')+
     '</strong> historic cleaning XP · <strong>'+preview.approved+
     '</strong> with recorded consent.</p>'+
@@ -74,11 +75,14 @@ function renderDashboard(snapshot,note="",emailEligibility=null,preview=null){
     '<p><strong>'+stats.total+'</strong> imported • <strong>'+stats.consented+
     '</strong> permission granted • '+stats.pending+' pending • '+
     stats.withdrawn+' withdrawn • '+stats.requiresNameReview+
-    ' names needing additional verification.</p>'+
+    ' first names needing review (account verification is separate).</p>'+
     '<p><strong>'+(emailEligibility?
-      emailEligibility.count+' with an email address qualify for ranking':
+      emailEligibility.verifiedCount+' imported ranked accounts are VERIFIED':
       'Email eligibility not loaded yet')+
-      '</strong>. Accounts without a valid Squeegee email address are excluded '+
+      '</strong> from the '+(emailEligibility?
+        safe(emailEligibility.verificationAsOf)+' backup (not a live status check). '+
+      'Account verification is separate from publication permission. '+
+      'Accounts without a valid Squeegee email address are excluded '+
       'from rankings and player counts, even if they have past cleans. '+
       'Their historical points are not deleted.</p>'+
     '<p>Original Squeegee reference stays private. Public entries use only '+ 
