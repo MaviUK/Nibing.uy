@@ -207,6 +207,8 @@ async function executeAutomaticPreviewBooking(payload,{
       notifyOwnerOfQuantityBooking(id,details,{env})),
     completedAlert:typeof deps.completedAlert==="function"?
       deps.completedAlert:null,
+    onSucceededCustomer:typeof deps.onSucceededCustomer==="function"?
+      deps.onSucceededCustomer:null,
   };
   let duplicateFlags=[];
   let verifiedFirstCleanDates=[];
@@ -707,6 +709,17 @@ async function executeAutomaticPreviewBooking(payload,{
             ?"every_"+group.input.frequencyInterval+"_weeks":"one_off"),
       };
       await mark("created_customer_and_jobs",completedStatus);
+      // A confirmed Squeegee job is authoritative enough to link this
+      // website player's points to the same private Squeegee customer UUID.
+      // The link is best-effort only and can NEVER change a completed job
+      // or cause an automatic retry.
+      if(use.onSucceededCustomer){
+        try{
+          await use.onSucceededCustomer({squeegeeId:customerId,booking:payload});
+        }catch{
+          console.warn("Confirmed booking website-XP link needs owner review");
+        }
+      }
       // The normal business booking email is deferred ONLY on Preview 1.
       // After confirmed success, send that email once via the accepted
       // signed event. Do not retry any Squeegee write for an email failure.
