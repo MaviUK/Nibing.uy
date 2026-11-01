@@ -201,7 +201,7 @@ export default function ArcadeLeaderboard() {
           throw new Error("invalid_customer_total");
         const yearly={};
         for(const [year,stats] of Object.entries(sum.yearly||{})){
-          if(!/^20\\d{2}$/.test(year) || !Number.isSafeInteger(stats?.points) ||
+          if(!/^20\d{2}$/.test(year) || !Number.isSafeInteger(stats?.points) ||
              stats.points<=0)continue;
           yearly[year]={
             points:stats.points,
