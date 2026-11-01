@@ -93,5 +93,6 @@ test("existing signed-in owner can return directly to full leaderboard",()=>{
   assert.match(manager,/owner\.verifyTestSessionCookie\(/);
   const publicApi=read("netlify/functions/arcadeLeaderboard.js");
   assert.doesNotMatch(publicApi,/squeegeePreviewVerifiedLeaderboard/);
-  assert.match(publicApi,/publicConsentBoard\(/);
+  assert.match(publicApi,/publicEligibleScoreboard\(/);
+  assert.match(publicApi,/customerHQ\.eligibleRankedEmailAccounts/);
 });
