@@ -69,7 +69,8 @@ test("homepage leaderboard embeds customer sign-in as a switchable tab",()=>{
   assert.match(hq,/const Container=embedded\?"div":"main"/);
   assert.match(css,/\.n64-board-tab-content\[hidden\]/);
   assert.match(board,/eligibleCleaningXp/);
-  assert.match(board,/HIGH SCORES UNLOCK WHEN CUSTOMERS OPT IN/);
+  assert.match(board,/SHOW MORE PUBLIC SCORES/);
+  assert.match(board,/Everyone can see the leaderboard without signing in/);
 });
 test("owner private ranking cannot leak through public leaderboard; public API remains opt-in only",()=>{
   const root=path.resolve(__dirname,"..");
@@ -80,7 +81,8 @@ test("owner private ranking cannot leak through public leaderboard; public API r
   assert.match(owner,/PRIVATE OWNER VIEW/);
   assert.match(owner,/no-store/);
   assert.doesNotMatch(api,/ownerPrivateLeaderboardPreview/);
-  assert.match(api,/publicConsentBoard/);
+  assert.match(api,/publicEligibleScoreboard/);
+  assert.match(api,/anonymous:true/);
   assert.match(api,/eligibleCleaningXp:eligible\.historicalPoints/);
 });
 
