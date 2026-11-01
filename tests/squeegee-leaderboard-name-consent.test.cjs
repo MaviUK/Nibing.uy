@@ -17,7 +17,7 @@ const fullBoard={entries:[{rank:1,customerRef:alias,town,points}],
 const when=Date.parse("2026-11-01T12:00:00Z");
 
 test("pending customer cannot appear publicly, despite a valid first name",()=>{
-  const result=engine.publicConsentBoard(consentSnapshot(),fullBoard);
+  const result=engine.publicConsentBoard(consentSnapshot(),fullBoard,new Set([alias]));
   assert.equal(result.totalPlayers,0);
   assert.equal(result.status,"consent_pending");
   assert.deepEqual(result.entries,[]);
@@ -31,7 +31,7 @@ test("verified evidence permits ONLY first name, town and XP, no Squeegee refere
   assert.equal(granted.records[0].consent,"granted");
   assert.equal(granted.records[0].consentAt,"2026-11-01T12:00:00.000Z");
   assert.equal(granted.records[0].noticeVersion,engine.NOTICE_VERSION);
-  const result=engine.publicConsentBoard(granted,fullBoard);
+  const result=engine.publicConsentBoard(granted,fullBoard,new Set([alias]));
   assert.equal(result.status,"consent_only");
   assert.equal(result.totalPlayers,1);
   assert.equal(result.entries[0].displayName,"Alex");
@@ -58,8 +58,8 @@ test("withdrawal immediately removes public name, retains private points",()=>{
   },when+1000);
   assert.equal(revoked.records[0].consent,"withdrawn");
   assert.equal(revoked.records[0].firstName,"Alex");
-  assert.equal(engine.publicConsentBoard(revoked,fullBoard).entries.length,0);
-  assert.equal(engine.publicConsentBoard(revoked,fullBoard).totalPlayers,0);
+  assert.equal(engine.publicConsentBoard(revoked,fullBoard,new Set([alias])).entries.length,0);
+  assert.equal(engine.publicConsentBoard(revoked,fullBoard,new Set([alias])).totalPlayers,0);
   assert.equal(fullBoard.entries[0].points,points);
 });
 test("first name, identity, town and account status must match trusted source",()=>{
@@ -74,10 +74,29 @@ test("first name, identity, town and account status must match trusted source",(
   },when);
   assert.equal(engine.publicConsentBoard(granted,{
     ...fullBoard,entries:[{...fullBoard.entries[0],town:"Different Town"}]
-  }).entries.length,0);
+  },new Set([alias])).entries.length,0);
   assert.equal(engine.publicConsentBoard(granted,{
     ...fullBoard,status:"active_status_refresh_required",
     entries:[]
-  }).entries.length,0);
+  },new Set([alias])).entries.length,0);
   assert.throws(()=>engine.preparePrivateConsentImport("anything"),/invalid_private_consent_csv|unexpected_private_customer_count/);
+});
+
+test("a customer without a verified registered email is NEVER counted, even with consent",()=>{
+  const granted=engine.changeConsent(consentSnapshot(),{
+    action:"grant",reference:"CUS123456",method:"signed_form",
+    evidenceRef:"permission-2026-11-01",confirm:"yes"
+  },when);
+  const disqualified=engine.publicConsentBoard(granted,fullBoard,new Set());
+  assert.equal(disqualified.totalPlayers,0);
+  assert.deepEqual(disqualified.entries,[]);
+  assert.equal(disqualified.status,"consent_pending");
+  assert.equal(engine.publicConsentBoard(granted,fullBoard),null);
+  assert.throws(()=>engine.changeConsent(consentSnapshot(),{
+    action:"grant",reference:"CUS123456",method:"signed_form",
+    evidenceRef:"permission-2026-11-01",confirm:"yes"
+  },when,new Set()),/email_required_for_leaderboard/);
+  assert.equal(granted.records[0].consent,"granted");
+  // The private points remain untouched; eligibility is not deletion.
+  assert.equal(fullBoard.entries[0].points,points);
 });
