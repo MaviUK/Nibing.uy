@@ -79,8 +79,8 @@ function computeEstimatedRouteTotals(now) {
   while (cursor < today) {
     const plan = getPlanForDate(cursor);
 
-    // Newer completed route days are extrapolated from snapshot job counts.
-    // Pre-backup days are backed by recorded completed occurrences instead.
+    // Post-backup days are estimated from scheduled physical BIN QUANTITIES.
+    // Pre-backup totals come from actual completed occurrence quantities.
     if (plan.active && ["Mon", "Tue", "Wed", "Thu"].includes(plan.dayKey)) {
       bins += plan.bins;
       customers += plan.customers;
