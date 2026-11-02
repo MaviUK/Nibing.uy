@@ -3,208 +3,46 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-test("MET forecast codes choose the correct N64 weather worlds", async () => {
-  const { arcadeWeatherMode, isBangorDay, parseBangorForecast } =
-    await import("../netlify/functions/arcadeWeather.mjs");
-  for (const [source, result] of [
-    ["clearsky_day", "sunny"], ["fair_night", "sunny"],
-    ["partlycloudy_day", "cloudy"], ["lightrainshowers_night", "rain"],
-    ["rainandthunder", "storm"], ["heavysnow", "snow"],
-    ["sleet", "snow"], ["fog", "fog"]
-  ]) assert.equal(arcadeWeatherMode(source), result);
-  assert.equal(isBangorDay(new Date("2026-11-01T12:00:00Z")), true);
-  assert.equal(isBangorDay(new Date("2026-11-01T20:00:00Z")), false);
-  assert.equal(isBangorDay(new Date("2026-07-01T20:00:00Z")), true);
-  const sample = { properties: { timeseries: [
-    { time: "2026-11-01T19:00:00Z", data: {
-      instant: { details: { air_temperature: 7.3 } },
-      next_1_hours: { summary: { symbol_code: "rain" } }
-    } }
-  ] } };
-  const forecast = parseBangorForecast(sample, new Date("2026-11-01T19:15:00Z"));
-  assert.equal(forecast.mode, "rain");
-  assert.equal(forecast.isNight, true);
-  assert.equal(forecast.temperatureC, 7);
-  assert.equal(forecast.location, "Bangor & North Down");
-});
+const root = path.join(__dirname, "..");
+const read = file => fs.readFileSync(path.join(root, file), "utf8");
 
-test("Preview 1 weather is cosmetic, mobile-safe, and booking code is untouched", () => {
-  const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
-  const jsx = read("src/LandingPage.jsx");
-  const component = read("src/components/ArcadeWeather.jsx");
-  const css = read("src/n64-weather.css");
-  assert.match(jsx, /useArcadeWeather\(\)/);
-  assert.match(jsx, /<ArcadeWeatherScene /);
-  assert.match(jsx, /<Hero weather=\{weather\}/);
-  assert.match(jsx, /getPreviewBookingProof/);
-  assert.doesNotMatch(jsx, /<SnowCanvas enabled=/);
-  assert.match(component, /deploy-preview-77--nibinguy\.netlify\.app/);
-  assert.match(component, /\/\.netlify\/functions\/arcadeWeather/);
-  assert.match(css, /prefers-reduced-motion:reduce/);
-  assert.match(css, /pointer-events:none/);
-  assert.match(read("src/App.jsx"), /n64-weather\.css/);
-});
-
-
-test("Preview 1 weather theme buttons override only the scenery and Auto restores real forecasts", () => {
-  const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
-  const component = read("src/components/ArcadeWeather.jsx");
+test("original N64 sunny scenery and three clouds are restored", () => {
   const landing = read("src/LandingPage.jsx");
-  const css = read("src/n64-weather.css");
   const app = read("src/App.jsx");
-  assert.match(component, /export function useArcadeWeather\(\)/);
-  assert.match(component, /setForecast\(next\)/);
-  assert.match(component, /\/\.netlify\/functions\/arcadeWeather/);
-  assert.match(component, /window\.location\.hostname === "deploy-preview-77--nibinguy\.netlify\.app"/);
-  assert.match(component, /const \[chosenTheme, setChosenTheme\] = useState\(readThemeChoice\)/);
-  assert.match(component, /setChosenTheme\(next\)/);
-  assert.match(component, /chosenTheme === "night" \? "sunny" : chosenTheme/);
-  assert.match(component, /isNight: chosenTheme === "night"/);
-  assert.match(component, /window\.history\.replaceState/);
-  assert.match(component, /if \(next === "auto"\) url\.searchParams\.delete\("weather"\)/);
-  for (const mode of ["auto", "sunny", "cloudy", "rain", "snow", "storm", "fog", "night"]) {
-    assert.ok(component.includes('["' + mode + '",'), "Missing weather theme option " + mode);
+  const theme = read("src/n64-theme.css");
+  const square = read("src/n64-square.css");
+  assert.match(landing, /<section className="n64-hero n64-hero-layout-v2"/);
+  for (const position of ["one", "two", "three"]) {
+    assert.match(landing, new RegExp('<div className="n64-cloud n64-cloud--' + position + '" aria-hidden="true" />'));
   }
-  assert.match(component, /weather\.chooseTheme\(value\)/);
-  assert.match(component, /aria-pressed=\{weather\.chosenTheme === value\}/);
-  assert.match(landing, /<ArcadeWeatherPreviewBar weather=\{weather\} \/>/);
-  assert.match(landing, /<ArcadeWeatherScene mode=\{weather\.mode\} isNight=\{weather\.isNight\} \/>/);
-  assert.match(landing, /data-weather=\{weather\.mode\}/);
-  assert.doesNotMatch(landing, /ArcadeWeatherBadge/);
-  assert.doesNotMatch(css, /n64-weather-badge/);
-  assert.match(css, /n64-weather-test-grid/);
-  assert.match(css, /grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
-  assert.match(app, /MET Norway/);
-  assert.match(css, /data-weather="rain"/);
-  assert.match(css, /data-weather="snow"/);
-  assert.match(css, /data-weather="cloudy"/);
-  assert.match(css, /data-weather="fog"/);
+  assert.match(theme, /radial-gradient\(circle at 84% 13%/);
+  assert.match(theme, /#61bbfa/);
+  assert.match(square, /#main-content\.n64-world \.n64-cloud/);
+  assert.match(app, /\.\/n64-theme\.css/);
+  assert.match(app, /\.\/n64-square\.css/);
 });
 
-test("N64 clouds and moon use 3D shaded facets instead of 8-bit silhouettes", () => {
-  const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
-  const component = read("src/components/ArcadeWeather.jsx");
+test("no weather menu, forecast requests, rain, night, fog or other weather variants remain", () => {
   const landing = read("src/LandingPage.jsx");
-  const css = read("src/n64-weather.css");
-  assert.match(component, /export function N64LowPolyCloud/);
-  assert.match(component, /function N64LowPolySkyOrb/);
-  assert.match(component, /N64LowPolySkyOrb isNight=\{isNight\}/);
-  assert.match(component, /fill="var\(--n64-cloud-facet\)"/);
-  assert.match(component, /fill="var\(--n64-orb-shade\)"/);
-  assert.match(landing, /<N64LowPolyCloud className="n64-cloud--one"/);
-  assert.match(landing, /<N64LowPolyCloud className="n64-cloud--two"/);
-  assert.match(landing, /<N64LowPolyCloud className="n64-cloud--three"/);
-  assert.doesNotMatch(landing, /<div className="n64-cloud/);
-  assert.doesNotMatch(component, /n64-weather-pixel-moon|n64-weather-extra-clouds"><i/);
-  assert.doesNotMatch(css, /n64-weather-pixel-moon/);
-  assert.match(css, /\.n64-lowpoly-cloud \{/);
-  assert.match(css, /\.n64-weather-orb--moon \{/);
-  assert.match(css, /\.n64-weather-orb--sun \{/);
-  assert.match(css, /data-night="true".*\.n64-hero \.n64-lead/s);
-  assert.match(css, /color:#f8f9f2!important/);
+  const app = read("src/App.jsx");
+  assert.doesNotMatch(landing, /ArcadeWeather|useArcadeWeather|N64LowPolyCloud|data-weather=|data-night=|weather\.isPreview|n64-weather-testing/);
+  assert.doesNotMatch(app, /n64-weather\.css|Background weather data|met\.no/);
+  for (const file of [
+    "src/components/ArcadeWeather.jsx",
+    "src/n64-weather.css",
+    "netlify/functions/arcadeWeather.mjs"
+  ]) {
+    assert.equal(fs.existsSync(path.join(root, file)), false, file + " should not be deployed");
+  }
 });
 
-
-test("storm mode shows two subtle lightning flashes every ten seconds, with reduced-motion fallback", () => {
-  const css = fs.readFileSync(path.join(__dirname, "..", "src/n64-weather.css"), "utf8");
-  const component = fs.readFileSync(path.join(__dirname, "..", "src/components/ArcadeWeather.jsx"), "utf8");
-  assert.match(component, /mode === "storm" && <span className="n64-weather-lightning"/);
-  assert.match(css, /data-weather="storm"\] \.n64-weather-scene::after/);
-  assert.match(css, /animation:n64-storm-sky-flash 10s linear infinite/);
-  assert.match(css, /animation:n64-storm-bolt-flash 10s linear infinite/);
-  assert.match(css, /@keyframes n64-storm-sky-flash\s*\{/);
-  assert.match(css, /@keyframes n64-storm-bolt-flash\s*\{/);
-  assert.match(css, /91\.2% \{opacity:\.27;\}/);
-  assert.match(css, /94\.8% \{opacity:\.43;\}/);
-  assert.match(css, /prefers-reduced-motion:reduce\)\s*\{[\s\S]*?n64-weather-scene::after\s*\{[\s\S]*?animation:none!important/);
-});
-
-
-test("storm lightning has a visible side fork pulsing with the main bolt every ten seconds", () => {
-  const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
-  const scene = read("src/components/ArcadeWeather.jsx");
-  const css = read("src/n64-weather.css");
-  assert.match(scene, /mode === "storm" && <span className="n64-weather-lightning" \/>/);
-  assert.match(scene, /mode === "storm" && <span className="n64-weather-lightning-fork" \/>/);
-  assert.match(css, /data-weather="storm"\] \.n64-weather-lightning-fork\s*\{/);
-  assert.match(css, /animation:n64-storm-bolt-flash 10s linear infinite/);
-  assert.match(css, /right:calc\(18% - 22px\)/);
-  assert.match(css, /right:calc\(10% - 14px\)/);
-  assert.match(css, /fork \{[\s\S]*?animation:none!important;[\s\S]*?opacity:\.36!important;/);
-  assert.match(css, /@keyframes n64-storm-bolt-flash/);
-});
-
-
-test("storm hero text stays readable against dark skies on desktop and mobile", () => {
-  const css = fs.readFileSync(path.join(__dirname, "..", "src/n64-weather.css"), "utf8");
-  const landing = fs.readFileSync(path.join(__dirname, "..", "src/LandingPage.jsx"), "utf8");
-  assert.match(landing, /<p className="n64-lead">/);
-  assert.match(css, /data-weather="storm"\] \.n64-hero \.n64-lead\s*\{/);
-  assert.match(css, /color:#f8fbff!important/);
-  assert.match(css, /background:rgba\(15,30,55,\.86\)!important/);
-  assert.match(css, /border-left:5px solid #ffd857!important/);
-  assert.match(css, /data-weather="storm"\] \.n64-hero \.n64-lead strong\s*\{/);
-  assert.match(css, /color:#ffe783!important/);
-  assert.match(css, /@media\(max-width:600px\)\s*\{[\s\S]*?data-weather="storm"\] \.n64-hero \.n64-lead\s*\{[\s\S]*?padding:10px 11px/);
-  // Keep the weather switcher, N64 meshes and lightning timing intact.
-  assert.match(landing, /<ArcadeWeatherPreviewBar weather=\{weather\} \/>/);
-  assert.match(css, /animation:n64-storm-sky-flash 10s linear infinite/);
-  assert.match(css, /animation:n64-storm-bolt-flash 10s linear infinite/);
-  assert.match(css, /n64-weather-lightning-fork/);
-});
-
-
-test("Night world has a faceted crescent, cinematic layered mountains and readable controls", () => {
-  const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
-  const scene = read("src/components/ArcadeWeather.jsx");
-  const css = read("src/n64-weather.css");
+test("booking, postcode checker, customer portal and leaderboard remain", () => {
   const landing = read("src/LandingPage.jsx");
-  assert.match(scene, /function N64LowPolySkyOrb\(\{ isNight \}\)/);
-  assert.match(scene, /id="n64-moon-crescent-mask"/);
-  assert.match(scene, /mask="url\(#n64-moon-crescent-mask\)"/);
-  assert.match(scene, /<svg className="n64-night-ridgeline"/);
-  assert.match(scene, /className="n64-night-atmosphere"/);
-  assert.match(scene, /mode !== "rain" && mode !== "storm"/);
-  assert.match(scene, /n64-night-star--bright/);
-  assert.match(css, /#main-content\.n64-world\[data-night="true"\]:not\(\[data-weather="storm"\]\) \.n64-hero\s*\{/);
-  assert.match(css, /radial-gradient\(ellipse 40% 29%/);
-  assert.match(css, /data-night="true"\] \.n64-weather-orb--moon\s*\{/);
-  assert.match(css, /data-night="true"\] \.n64-hero\.n64-weather-testing \.n64-weather-orb--moon/);
-  assert.match(css, /@keyframes n64-night-star-glimmer/);
-  assert.match(css, /data-night="true"\]:not\(\[data-weather="storm"\]\) \.n64-hero \.n64-lead\s*\{/);
-  assert.match(css, /color:#f6faff!important/);
-  assert.match(css, /background:rgba\(10,23,50,\.68\)!important/);
-  assert.match(css, /data-night="true"\] \.n64-weather-test-button\[aria-pressed="true"\]/);
-  assert.match(css, /prefers-reduced-motion:reduce\)[\s\S]*?n64-weather-stars i/);
-  assert.match(landing, /<ArcadeWeatherPreviewBar weather=\{weather\} \/>/);
-  assert.match(landing, /<Hero weather=\{weather\}/);
-  assert.match(css, /n64-storm-bolt-flash 10s linear infinite/);
-  assert.match(scene, /n64-weather-lightning-fork/);
-});
-
-
-test("N64 fog world has layered drifting mist and distant faceted scenery, not striped 8-bit fog", () => {
-  const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
-  const component = read("src/components/ArcadeWeather.jsx");
-  const css = read("src/n64-weather.css");
-  const landing = read("src/LandingPage.jsx");
-  assert.match(component, /mode === "fog" && \(/);
-  assert.match(component, /className="n64-fog-world"/);
-  assert.match(component, /className="n64-fog-landscape"/);
-  assert.match(component, /n64-fog-drift--back/);
-  assert.match(component, /n64-fog-drift--middle/);
-  assert.match(component, /n64-fog-drift--front/);
-  assert.match(component, /mode === "cloudy" \|\| mode === "snow" \|\| mode === "fog"/);
-  assert.doesNotMatch(component, /className="n64-weather-mist"/);
-  assert.doesNotMatch(css, /repeating-linear-gradient\(180deg,transparent 0 55px/);
-  assert.match(css, /#main-content\.n64-world\[data-weather="fog"\] \.n64-fog-landscape/);
-  assert.match(css, /@keyframes n64-fog-drift-left/);
-  assert.match(css, /@keyframes n64-fog-drift-right/);
-  assert.match(css, /data-weather="fog"\]:not\(\[data-night="true"\]\) \.n64-hero \.n64-lead/);
-  assert.match(css, /background:rgba\(249,253,249,\.9\)!important/);
-  assert.match(css, /data-night="true"\]\[data-weather="fog"\] \.n64-hero/);
-  assert.match(css, /@media\(prefers-reduced-motion:reduce\)[\s\S]*?data-weather="fog"\] \.n64-fog-drift/);
-  assert.match(landing, /<ArcadeWeatherPreviewBar weather=\{weather\} \/>/);
-  assert.match(css, /n64-storm-bolt-flash 10s linear infinite/);
-  assert.match(component, /n64-moon-crescent-mask/);
+  const app = read("src/App.jsx");
+  assert.match(landing, /getPreviewBookingProof/);
+  assert.match(landing, /<BookingForm /);
+  assert.match(landing, /<Hero onBook=\{openBooking\}/);
+  assert.match(landing, /setShowCoverageChecker/);
+  assert.match(app, /CustomerPortalLoader/);
+  assert.match(app, /ArcadeLeaderboard/);
 });

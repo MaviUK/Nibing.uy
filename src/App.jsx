@@ -6,7 +6,6 @@ import "./n64-complete.css"
 import "./n64-square.css"
 import "./n64-finale.css"
 import "./n64-trust.css"
-import "./n64-weather.css"
 import HomepageServiceSchema from "./HomepageServiceSchema"
 import CustomerPortalLoader from "./components/CustomerPortalLoader"
 import FinalLevel from "./components/FinalLevel"
@@ -35,9 +34,6 @@ function SiteFooter() {
       </p>
       <p className="mt-2 text-sm">
         <a className="text-green-400 underline" href="/privacy-policy.html">Privacy Policy</a>
-      </p>
-      <p className="mt-2 text-xs">
-        Background weather data: <a className="text-zinc-400 underline" href="https://www.met.no/en" target="_blank" rel="noopener noreferrer">MET Norway</a> (CC BY 4.0)
       </p>
     </footer>
   )

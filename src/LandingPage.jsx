@@ -6,7 +6,6 @@ import LevelWasher from "./components/LevelWasher.jsx";
 import { CustomerReviews, CustomerQuestions } from "./components/CustomerTrustSections.jsx";
 import BookingAddressAutocomplete, { findNiPostcode } from "./components/BookingAddressAutocomplete.jsx";
 import { createFriendlyBookingReference } from "./bookingReference.mjs";
-import { useArcadeWeather, ArcadeWeatherScene, ArcadeWeatherPreviewBar, N64LowPolyCloud } from "./components/ArcadeWeather.jsx";
 
 const TenSecondChallenge = lazy(() => import("./TenSecondChallenge.jsx"));
 const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
@@ -1299,7 +1298,7 @@ function ChallengeModal({ open, onClose }) {
 /* ────────────────────────────────────────────────────────────────────────────
    Page Sections
    ──────────────────────────────────────────────────────────────────────────── */
-function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage, weather }) {
+function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
   const { totalBinsCleaned, todaysArea, totalMonthlyCustomers } = useLiveCounters();
 
   // Soft-live counter (display only)
@@ -1338,12 +1337,10 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage, weathe
 
 
   return (
-    <section className={`n64-hero n64-hero-layout-v2${weather.isPreview ? " n64-weather-testing" : ""}`} aria-labelledby="n64-hero-title">
-      <N64LowPolyCloud className="n64-cloud--one" />
-      <N64LowPolyCloud className="n64-cloud--two" />
-      <N64LowPolyCloud className="n64-cloud--three" />
-      <ArcadeWeatherScene mode={weather.mode} isNight={weather.isNight} />
-      <ArcadeWeatherPreviewBar weather={weather} />
+    <section className="n64-hero n64-hero-layout-v2" aria-labelledby="n64-hero-title">
+      <div className="n64-cloud n64-cloud--one" aria-hidden="true" />
+      <div className="n64-cloud n64-cloud--two" aria-hidden="true" />
+      <div className="n64-cloud n64-cloud--three" aria-hidden="true" />
 
       <div className="n64-hero-inner">
         <div className="n64-hero-copy">
@@ -1591,11 +1588,9 @@ export default function NiBinGuyLandingPage() {
     });
   };
 
-  const weather = useArcadeWeather();
-
   return (
-  <main id="main-content" tabIndex="-1" data-weather={weather.mode} data-night={weather.isNight ? "true" : "false"} className="n64-world min-h-screen bg-black text-white font-sans relative">
-      <Hero weather={weather} onBook={openBooking} onContact={() => {window.n64Score?.awardAction("contact");setShowContact(true);}} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} onCoverage={() => setShowCoverageChecker(true)} />
+  <main id="main-content" tabIndex="-1" className="n64-world min-h-screen bg-black text-white font-sans relative">
+      <Hero onBook={openBooking} onContact={() => {window.n64Score?.awardAction("contact");setShowContact(true);}} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} onCoverage={() => setShowCoverageChecker(true)} />
 
       {/* Compact coverage control aligns with the existing fixed site menu. */}
       <button
