@@ -5,7 +5,7 @@ const CACHE_KEY = "nbg_n64_weather_v1", TTL = 12 * 60 * 1000;
 const FALLBACK = { mode: "sunny", isNight: false, temperatureC: null, available: false };
 const DROPS = Array.from({ length: 62 }, (_, i) => i);
 const FLAKES = Array.from({ length: 42 }, (_, i) => i);
-const STARS = Array.from({ length: 21 }, (_, i) => i);
+const STARS = Array.from({ length: 38 }, (_, i) => i);
 
 function readCache() {
   try {
@@ -148,7 +148,7 @@ export function N64LowPolyCloud({ className = "" }) {
   );
 }
 
-/* A faceted, softly glowing sky orb with N64-era polygon shading. */
+/* N64-era faceted sky orbs. A crescent at night, a bright sphere by day. */
 function N64LowPolySkyOrb({ isNight }) {
   return (
     <svg
@@ -158,22 +158,51 @@ function N64LowPolySkyOrb({ isNight }) {
       aria-hidden="true"
       focusable="false"
     >
-      <polygon
-        points="56,3 84,9 105,24 119,49 116,78 100,103 78,119 49,117 24,104 7,80 5,51 20,25 37,11"
-        fill="var(--n64-orb-rim)"
-      />
-      <polygon
-        points="55,12 82,16 100,31 110,53 107,78 92,97 76,109 50,109 29,96 15,76 14,53 29,32 45,18"
-        fill="var(--n64-orb-base)"
-      />
-      <polygon points="45,18 55,12 82,16 100,31 110,53 84,55 66,36" fill="var(--n64-orb-light)" />
-      <polygon points="15,53 29,32 45,18 66,36 84,55 54,78 20,74" fill="var(--n64-orb-facet)" />
-      <polygon points="84,55 110,53 107,78 92,97 76,109 54,78" fill="var(--n64-orb-shade)" />
-      <polygon points="20,74 54,78 76,109 50,109 29,96 15,76" fill="var(--n64-orb-bottom)" />
-      {isNight && (
+      {isNight ? (
         <>
-          <polygon points="44,46 53,42 60,49 57,57 47,60 40,53" fill="#a9b7b4" opacity=".25" />
-          <polygon points="83,79 90,74 96,80 92,88 84,88" fill="#b7bfac" opacity=".23" />
+          <defs>
+            <mask id="n64-moon-crescent-mask" maskUnits="userSpaceOnUse">
+              <rect x="0" y="0" width="124" height="124" fill="white" />
+              <circle cx="91" cy="36" r="53" fill="black" />
+            </mask>
+          </defs>
+          {/* The far side remains visible as a softly shaded low-poly sphere. */}
+          <polygon
+            points="56,3 84,9 105,24 119,49 116,78 100,103 78,119 49,117 24,104 7,80 5,51 20,25 37,11"
+            fill="#304569"
+            opacity=".49"
+          />
+          <g mask="url(#n64-moon-crescent-mask)">
+            <polygon
+              points="56,3 84,9 105,24 119,49 116,78 100,103 78,119 49,117 24,104 7,80 5,51 20,25 37,11"
+              fill="var(--n64-orb-rim)"
+            />
+            <polygon
+              points="55,12 82,16 100,31 110,53 107,78 92,97 76,109 50,109 29,96 15,76 14,53 29,32 45,18"
+              fill="var(--n64-orb-base)"
+            />
+            <polygon points="29,32 45,18 65,14 77,35 46,65 15,64" fill="var(--n64-orb-light)" />
+            <polygon points="15,64 46,65 61,82 50,109 29,96 15,76" fill="var(--n64-orb-facet)" />
+            <polygon points="46,65 78,61 95,81 76,109 50,109 61,82" fill="var(--n64-orb-shade)" />
+            <polygon points="50,109 76,109 99,99 78,118 49,117" fill="var(--n64-orb-bottom)" />
+            <polygon points="27,74 36,69 44,76 38,84 29,82" fill="#9ba9b7" opacity=".24" />
+            <polygon points="48,94 55,89 61,95 57,102 50,103" fill="#9ba9b7" opacity=".2" />
+          </g>
+        </>
+      ) : (
+        <>
+          <polygon
+            points="56,3 84,9 105,24 119,49 116,78 100,103 78,119 49,117 24,104 7,80 5,51 20,25 37,11"
+            fill="var(--n64-orb-rim)"
+          />
+          <polygon
+            points="55,12 82,16 100,31 110,53 107,78 92,97 76,109 50,109 29,96 15,76 14,53 29,32 45,18"
+            fill="var(--n64-orb-base)"
+          />
+          <polygon points="45,18 55,12 82,16 100,31 110,53 84,55 66,36" fill="var(--n64-orb-light)" />
+          <polygon points="15,53 29,32 45,18 66,36 84,55 54,78 20,74" fill="var(--n64-orb-facet)" />
+          <polygon points="84,55 110,53 107,78 92,97 76,109 54,78" fill="var(--n64-orb-shade)" />
+          <polygon points="20,74 54,78 76,109 50,109 29,96 15,76" fill="var(--n64-orb-bottom)" />
         </>
       )}
     </svg>
@@ -215,12 +244,32 @@ export function ArcadeWeatherScene({ mode, isNight }) {
   const rainy = mode === "rain" || mode === "storm";
   return (
     <div className="n64-weather-scene" aria-hidden="true">
+      {isNight && <span className="n64-night-atmosphere" />}
+      {isNight && (
+        <svg className="n64-night-ridgeline" viewBox="0 0 1200 240" preserveAspectRatio="none" focusable="false">
+          <polygon points="0,240 0,176 120,157 237,191 390,69 534,188 662,127 820,190 965,88 1104,175 1200,147 1200,240" fill="#233c63" />
+          <polygon points="238,191 390,69 529,186 391,121" fill="#385979" />
+          <polygon points="664,127 821,190 743,160" fill="#355775" />
+          <polygon points="817,190 965,88 1105,175 963,133" fill="#425f7c" />
+          <polygon points="0,240 0,205 173,214 315,182 488,225 620,188 776,220 928,174 1095,216 1200,197 1200,240" fill="#1b3856" />
+          <polygon points="0,240 0,228 200,219 375,238 618,216 826,236 1036,216 1200,230 1200,240" fill="#254f5f" />
+        </svg>
+      )}
       {mode === "sunny" && !isNight && <span className="n64-weather-rays" />}
       {(isNight || mode === "sunny" || mode === "snow") &&
         <N64LowPolySkyOrb isNight={isNight} />}
-      {isNight && <div className="n64-weather-stars">{STARS.map(i =>
-        <i key={i} style={{ left: ((i * 47 + 9) % 97) + "%", top: ((i * 31 + 8) % 59) + "%" }} />
-      )}</div>}
+      {isNight && mode !== "rain" && mode !== "storm" &&
+        <div className="n64-weather-stars">{STARS.map(i =>
+          <i
+            key={i}
+            className={i % 7 === 0 ? "n64-night-star--bright" : ""}
+            style={{
+              left: ((i * 37 + i * i * 13 + 9) % 97) + "%",
+              top: ((i * 29 + i * i * 7 + 5) % 53) + "%",
+              animationDelay: -(i % 11) * .75 + "s"
+            }}
+          />
+        )}</div>}
       {(rainy || mode === "cloudy" || mode === "snow") &&
         <div className="n64-weather-extra-clouds">
           <N64LowPolyCloud className="n64-weather-extra-cloud n64-weather-extra-cloud--one" />

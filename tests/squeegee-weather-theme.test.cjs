@@ -152,3 +152,32 @@ test("storm hero text stays readable against dark skies on desktop and mobile", 
   assert.match(css, /animation:n64-storm-bolt-flash 10s linear infinite/);
   assert.match(css, /n64-weather-lightning-fork/);
 });
+
+
+test("Night world has a faceted crescent, cinematic layered mountains and readable controls", () => {
+  const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
+  const scene = read("src/components/ArcadeWeather.jsx");
+  const css = read("src/n64-weather.css");
+  const landing = read("src/LandingPage.jsx");
+  assert.match(scene, /function N64LowPolySkyOrb\(\{ isNight \}\)/);
+  assert.match(scene, /id="n64-moon-crescent-mask"/);
+  assert.match(scene, /mask="url\(#n64-moon-crescent-mask\)"/);
+  assert.match(scene, /<svg className="n64-night-ridgeline"/);
+  assert.match(scene, /className="n64-night-atmosphere"/);
+  assert.match(scene, /mode !== "rain" && mode !== "storm"/);
+  assert.match(scene, /n64-night-star--bright/);
+  assert.match(css, /#main-content\.n64-world\[data-night="true"\]:not\(\[data-weather="storm"\]\) \.n64-hero\s*\{/);
+  assert.match(css, /radial-gradient\(ellipse 40% 29%/);
+  assert.match(css, /data-night="true"\] \.n64-weather-orb--moon\s*\{/);
+  assert.match(css, /data-night="true"\] \.n64-hero\.n64-weather-testing \.n64-weather-orb--moon/);
+  assert.match(css, /@keyframes n64-night-star-glimmer/);
+  assert.match(css, /data-night="true"\]:not\(\[data-weather="storm"\]\) \.n64-hero \.n64-lead\s*\{/);
+  assert.match(css, /color:#f6faff!important/);
+  assert.match(css, /background:rgba\(10,23,50,\.68\)!important/);
+  assert.match(css, /data-night="true"\] \.n64-weather-test-button\[aria-pressed="true"\]/);
+  assert.match(css, /prefers-reduced-motion:reduce\)[\s\S]*?n64-weather-stars i/);
+  assert.match(landing, /<ArcadeWeatherPreviewBar weather=\{weather\} \/>/);
+  assert.match(landing, /<Hero weather=\{weather\}/);
+  assert.match(css, /n64-storm-bolt-flash 10s linear infinite/);
+  assert.match(scene, /n64-weather-lightning-fork/);
+});

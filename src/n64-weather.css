@@ -451,3 +451,196 @@ html[data-arcade-weather="snow"] #level-08-final{
     box-shadow:3px 4px 0 rgba(11,24,46,.68)!important;
   }
 }
+
+
+/* ── N64 TWILIGHT WORLD ──────────────────────────────────────────────
+ * Independent of the daytime themes, with cinematic layered lighting,
+ * faceted distance mountains, a crescent moon and high-contrast hero.
+ * The square-edged interface and all booking/score controls stay intact.
+ */
+#main-content.n64-world[data-night="true"] {
+  --n64-cloud-base:#566e93;
+  --n64-cloud-light:#8ea3c7;
+  --n64-cloud-top:#a3b5d2;
+  --n64-cloud-side:#445d84;
+  --n64-cloud-bottom:#344c74;
+  --n64-cloud-facet:#9cafce;
+}
+#main-content.n64-world[data-night="true"]:not([data-weather="storm"]) .n64-hero {
+  background:
+    radial-gradient(ellipse 40% 29% at 83% 27%,rgba(141,168,220,.22),transparent 93%),
+    radial-gradient(ellipse 65% 32% at 33% 84%,rgba(86,134,152,.24),transparent 100%),
+    linear-gradient(180deg,#0c1634 0%,#15264a 36%,#2a4567 67%,#466975 86%,#395a65 100%)!important;
+}
+#main-content.n64-world[data-night="true"] .n64-night-atmosphere {
+  position:absolute;
+  inset:0;
+  z-index:0;
+  background:
+    radial-gradient(ellipse 23% 18% at 83% 29%,rgba(225,227,193,.14),transparent 100%),
+    linear-gradient(180deg,transparent 55%,rgba(113,153,174,.08) 76%,transparent 94%);
+  pointer-events:none;
+}
+#main-content.n64-world[data-night="true"] .n64-night-ridgeline {
+  position:absolute;
+  left:0;
+  bottom:9%;
+  z-index:0;
+  width:100%;
+  height:clamp(148px,24%,250px);
+  opacity:.63;
+  pointer-events:none;
+}
+#main-content.n64-world[data-night="true"] .n64-hero::before {
+  background:#244d61;
+  opacity:.84;
+}
+#main-content.n64-world[data-night="true"] .n64-lowpoly-cloud {
+  opacity:.58;
+  filter:drop-shadow(0 9px 5px rgba(10,21,46,.27));
+}
+#main-content.n64-world[data-night="true"] .n64-weather-orb--moon {
+  top:15%;
+  right:9%;
+  width:156px;
+  height:156px;
+  opacity:1;
+  --n64-orb-rim:#c7d6df;
+  --n64-orb-base:#e9e6d8;
+  --n64-orb-light:#fffdf0;
+  --n64-orb-facet:#f2f4e8;
+  --n64-orb-shade:#b3c6d0;
+  --n64-orb-bottom:#cbd6d4;
+  filter:drop-shadow(0 0 16px rgba(241,243,207,.44)) drop-shadow(0 0 36px rgba(144,184,232,.28));
+}
+#main-content.n64-world[data-night="true"] .n64-hero.n64-weather-testing .n64-weather-orb--moon {
+  top:24%;
+}
+/* Genuine points of soft N64 starlight rather than square 8-bit pixels. */
+#main-content.n64-world[data-night="true"] .n64-weather-stars {
+  z-index:0;
+}
+#main-content.n64-world[data-night="true"] .n64-weather-stars i {
+  width:7px;
+  height:7px;
+  background:#fff9d9;
+  clip-path:polygon(50% 0,61% 37%,100% 50%,61% 63%,50% 100%,39% 63%,0 50%,39% 37%);
+  box-shadow:none;
+  filter:drop-shadow(0 0 4px rgba(255,250,213,.58));
+  opacity:.64;
+  animation:n64-night-star-glimmer 7.5s ease-in-out infinite;
+}
+#main-content.n64-world[data-night="true"] .n64-weather-stars i:nth-child(3n) {
+  width:5px;
+  height:5px;
+  opacity:.52;
+}
+#main-content.n64-world[data-night="true"] .n64-weather-stars i.n64-night-star--bright {
+  width:12px;
+  height:12px;
+  opacity:.94;
+  filter:drop-shadow(0 0 6px rgba(254,250,219,.72));
+}
+@keyframes n64-night-star-glimmer {
+  0%,100% {opacity:.48;}
+  48% {opacity:.91;}
+}
+#main-content.n64-world[data-night="true"] .n64-hero .n64-brand {
+  background:#203052!important;
+  border-color:#accced!important;
+  box-shadow:5px 6px 0 #101d3b!important;
+}
+#main-content.n64-world[data-night="true"] .n64-hero .n64-brand strong {
+  color:#fff9e7!important;
+}
+#main-content.n64-world[data-night="true"] .n64-hero .n64-brand small {
+  color:#c8d7ed!important;
+}
+#main-content.n64-world[data-night="true"] .n64-hero .n64-kicker {
+  color:#fff6da!important;
+  background:#494178!important;
+  border-color:#d4cced!important;
+  box-shadow:4px 4px 0 #1d2453!important;
+}
+#main-content.n64-world[data-night="true"] .n64-hero .n64-headline {
+  color:#fcfdff!important;
+  text-shadow:
+    -3px -3px 0 #15244b,3px -3px 0 #15244b,
+    -3px 3px 0 #15244b,3px 3px 0 #15244b,
+    2px 8px 0 #355b8c,4px 13px 0 rgba(4,13,32,.5)!important;
+}
+#main-content.n64-world[data-night="true"] .n64-hero .n64-headline span {
+  color:#ffe58a!important;
+}
+/* Night without thunder gets a softer dialogue panel; thunder keeps the
+   brighter high-contrast panel defined for storm mode. */
+#main-content.n64-world[data-night="true"]:not([data-weather="storm"]) .n64-hero .n64-lead {
+  max-width:550px;
+  color:#f6faff!important;
+  background:rgba(10,23,50,.68)!important;
+  border:2px solid #8cafd0!important;
+  border-left:5px solid #e9ddaa!important;
+  border-radius:0!important;
+  padding:13px 16px;
+  box-shadow:5px 6px 0 rgba(5,13,31,.48)!important;
+  text-shadow:0 2px 1px rgba(4,11,31,.82)!important;
+}
+#main-content.n64-world[data-night="true"]:not([data-weather="storm"]) .n64-hero .n64-lead strong {
+  color:#ffe991!important;
+  text-shadow:0 1px 0 rgba(4,11,31,.88)!important;
+}
+/* Give the temporary test switcher a night skin without changing its buttons
+   or their selection mechanics. Only Preview 1 renders the switcher. */
+#main-content.n64-world[data-night="true"] .n64-weather-test-bar {
+  background:#1d2c4c!important;
+  border-color:#94b4d3!important;
+  color:#f3f6ff!important;
+  box-shadow:5px 6px 0 #0c1931!important;
+}
+#main-content.n64-world[data-night="true"] .n64-weather-test-heading small {
+  color:#bfd1e7!important;
+}
+#main-content.n64-world[data-night="true"] .n64-weather-test-button {
+  background:#293d61!important;
+  color:#f8faff!important;
+  border-color:#a9c0dc!important;
+  box-shadow:2px 3px 0 #101e38!important;
+}
+#main-content.n64-world[data-night="true"] .n64-weather-test-button[aria-pressed="true"] {
+  background:#ffe18c!important;
+  color:#1e3155!important;
+  border-color:#17284e!important;
+  box-shadow:2px 3px 0 #99824c!important;
+}
+@media(max-width:600px) {
+  #main-content.n64-world[data-night="true"] .n64-weather-orb--moon {
+    top:145px;
+    right:2%;
+    width:100px;
+    height:100px;
+  }
+  #main-content.n64-world[data-night="true"] .n64-hero.n64-weather-testing .n64-weather-orb--moon {
+    top:260px;
+    right:2%;
+    width:98px;
+    height:98px;
+  }
+  #main-content.n64-world[data-night="true"] .n64-night-ridgeline {
+    bottom:8%;
+    height:170px;
+    opacity:.53;
+  }
+  #main-content.n64-world[data-night="true"] .n64-hero .n64-lead {
+    padding:10px 12px;
+  }
+  #main-content.n64-world[data-night="true"] .n64-weather-stars i.n64-night-star--bright {
+    width:10px;
+    height:10px;
+  }
+}
+@media(prefers-reduced-motion:reduce) {
+  #main-content.n64-world[data-night="true"] .n64-weather-stars i {
+    animation:none!important;
+    opacity:.72!important;
+  }
+}
