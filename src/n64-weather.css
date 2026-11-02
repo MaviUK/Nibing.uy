@@ -175,12 +175,6 @@
   background:#fff7c9;opacity:.55;
   clip-path:polygon(54% 0,13% 53%,44% 53%,25% 100%,87% 39%,55% 39%,80% 0);
 }
-#main-content.n64-world .n64-weather-mist{
-  position:absolute;inset:25% 0 10%;
-  background:repeating-linear-gradient(180deg,transparent 0 55px,rgba(248,250,243,.32) 56px 96px,transparent 97px 145px);
-  animation:n64-weather-mist 9s ease-in-out infinite alternate;
-}
-@keyframes n64-weather-mist{to{transform:translateX(24px)}}
 
 /* Other levels keep their bright cards and four-row checked finish lines. */
 #main-content.n64-world[data-weather="rain"]>section:nth-of-type(2),
@@ -642,5 +636,191 @@ html[data-arcade-weather="snow"] #level-08-final{
   #main-content.n64-world[data-night="true"] .n64-weather-stars i {
     animation:none!important;
     opacity:.72!important;
+  }
+}
+
+
+
+/* ── N64 FOG WORLD ──────────────────────────────────────────────────
+ * Misty low-poly valley with soft depth layers, rather than stacked 8-bit
+ * bands. Mist stays behind the interactive content and weather test menu.
+ */
+#main-content.n64-world[data-weather="fog"] {
+  --n64-cloud-base:#cbd9d9;
+  --n64-cloud-light:#f5faf6;
+  --n64-cloud-top:#e9f1ef;
+  --n64-cloud-side:#afc8c3;
+  --n64-cloud-bottom:#9fbcb5;
+  --n64-cloud-facet:#e8f5ef;
+}
+#main-content.n64-world[data-weather="fog"]:not([data-night="true"]) .n64-hero {
+  background:
+    radial-gradient(ellipse 35% 28% at 77% 22%,rgba(255,252,218,.64),transparent 95%),
+    linear-gradient(180deg,#8faab8 0%,#b6cbd1 33%,#d8e4df 64%,#b7d0c1 83%,#87aa9d 100%)!important;
+}
+#main-content.n64-world[data-weather="fog"] .n64-hero::before {
+  background:#80a99b!important;
+  opacity:.58;
+}
+#main-content.n64-world[data-weather="fog"] .n64-fog-world {
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  overflow:hidden;
+}
+#main-content.n64-world[data-weather="fog"] .n64-fog-light {
+  position:absolute;
+  z-index:0;
+  top:4%;
+  right:7%;
+  width:clamp(210px,32vw,430px);
+  aspect-ratio:1;
+  background:radial-gradient(circle,rgba(255,255,229,.56) 0%,rgba(255,252,226,.22) 34%,transparent 74%);
+  opacity:.9;
+}
+#main-content.n64-world[data-weather="fog"] .n64-fog-landscape {
+  position:absolute;
+  z-index:1;
+  left:-2%;
+  width:104%;
+  bottom:9%;
+  height:clamp(190px,37%,370px);
+  opacity:.72;
+  mask-image:linear-gradient(to bottom,transparent 0%,#000 18%,#000 78%,transparent 100%);
+}
+#main-content.n64-world[data-weather="fog"] .n64-lowpoly-cloud {
+  opacity:.46;
+  filter:drop-shadow(0 8px 8px rgba(69,112,113,.10));
+}
+#main-content.n64-world[data-weather="fog"] .n64-weather-extra-cloud {
+  opacity:.32;
+}
+#main-content.n64-world[data-weather="fog"] .n64-fog-drift {
+  position:absolute;
+  display:block;
+  z-index:2;
+  left:-12%;
+  width:124%;
+  pointer-events:none;
+  will-change:transform;
+}
+#main-content.n64-world[data-weather="fog"] .n64-fog-drift--back {
+  top:14%;
+  height:46%;
+  opacity:.76;
+  background:
+    radial-gradient(ellipse 28% 38% at 14% 57%,rgba(239,248,245,.8),transparent 96%),
+    radial-gradient(ellipse 37% 45% at 49% 49%,rgba(236,245,242,.82),transparent 95%),
+    radial-gradient(ellipse 31% 41% at 85% 62%,rgba(244,250,244,.75),transparent 95%);
+  animation:n64-fog-drift-left 26s ease-in-out infinite alternate;
+}
+#main-content.n64-world[data-weather="fog"] .n64-fog-drift--middle {
+  top:38%;
+  height:47%;
+  opacity:.88;
+  background:
+    radial-gradient(ellipse 38% 45% at 7% 51%,rgba(230,243,237,.84),transparent 96%),
+    radial-gradient(ellipse 34% 48% at 38% 64%,rgba(243,249,243,.9),transparent 98%),
+    radial-gradient(ellipse 43% 49% at 78% 42%,rgba(231,244,239,.88),transparent 96%);
+  animation:n64-fog-drift-right 22s ease-in-out infinite alternate;
+}
+#main-content.n64-world[data-weather="fog"] .n64-fog-drift--front {
+  z-index:3;
+  bottom:5%;
+  height:37%;
+  opacity:.92;
+  background:
+    radial-gradient(ellipse 44% 64% at 13% 67%,rgba(232,245,238,.78),transparent 97%),
+    radial-gradient(ellipse 46% 66% at 51% 70%,rgba(241,249,241,.91),transparent 98%),
+    radial-gradient(ellipse 45% 59% at 94% 62%,rgba(230,241,234,.85),transparent 97%);
+  animation:n64-fog-drift-left 29s ease-in-out infinite alternate-reverse;
+}
+@keyframes n64-fog-drift-left {
+  from {transform:translate3d(-2%,0,0);}
+  to {transform:translate3d(3%,0,0);}
+}
+@keyframes n64-fog-drift-right {
+  from {transform:translate3d(2%,0,0);}
+  to {transform:translate3d(-3%,0,0);}
+}
+/* Fog has an airy sky but the copy sits on solid frosted glass so it
+   remains clearly legible even as mist moves through the background. */
+#main-content.n64-world[data-weather="fog"]:not([data-night="true"]) .n64-hero .n64-lead {
+  color:#173953!important;
+  background:rgba(249,253,249,.9)!important;
+  border:3px solid #5e9291!important;
+  border-left:5px solid #317d7b!important;
+  border-radius:0!important;
+  padding:12px 15px;
+  box-shadow:5px 6px 0 rgba(41,88,90,.26)!important;
+  text-shadow:none!important;
+}
+#main-content.n64-world[data-weather="fog"]:not([data-night="true"]) .n64-hero .n64-lead strong {
+  color:#136b61!important;
+  text-shadow:none!important;
+}
+#main-content.n64-world[data-weather="fog"]:not([data-night="true"]) .n64-hero .n64-headline {
+  color:#fcfffb!important;
+  text-shadow:
+    -3px -3px 0 #244d61,3px -3px 0 #244d61,
+    -3px 3px 0 #244d61,3px 3px 0 #244d61,
+    2px 8px 0 #5a8992,4px 13px 0 rgba(46,88,98,.24)!important;
+}
+#main-content.n64-world[data-weather="fog"] .n64-hero .n64-kicker {
+  color:#204c51!important;
+  background:#d7f1e3!important;
+  border-color:#427f7f!important;
+  box-shadow:4px 4px 0 #6e9f9a!important;
+}
+#main-content.n64-world[data-weather="fog"] .n64-weather-test-bar {
+  background:#ecf5ed!important;
+  border-color:#427d86!important;
+  box-shadow:5px 6px 0 #82aaa3!important;
+}
+/* The auto forecast can report fog after sunset. Keep the N64 night
+   palette while allowing mist, without daytime dark-text rules. */
+#main-content.n64-world[data-night="true"][data-weather="fog"] .n64-hero {
+  background:
+    radial-gradient(ellipse 35% 29% at 79% 25%,rgba(149,190,199,.24),transparent 95%),
+    linear-gradient(180deg,#182942 0%,#344e61 45%,#688b8b 80%,#557e79 100%)!important;
+}
+#main-content.n64-world[data-night="true"][data-weather="fog"] .n64-fog-drift {
+  opacity:.6;
+}
+#main-content.n64-world[data-night="true"][data-weather="fog"] .n64-hero .n64-lead {
+  color:#f5ffff!important;
+  background:rgba(17,42,57,.83)!important;
+  border-color:#b3cece!important;
+  border-left-color:#addac4!important;
+  text-shadow:0 1px 0 rgba(6,19,32,.68)!important;
+}
+#main-content.n64-world[data-night="true"][data-weather="fog"] .n64-hero .n64-lead strong {
+  color:#d8f6c8!important;
+}
+@media(max-width:600px) {
+  #main-content.n64-world[data-weather="fog"] .n64-fog-landscape {
+    bottom:11%;
+    height:250px;
+    width:170%;
+    left:-35%;
+    opacity:.58;
+  }
+  #main-content.n64-world[data-weather="fog"] .n64-fog-light {
+    top:14%;
+    right:-19%;
+  }
+  #main-content.n64-world[data-weather="fog"] .n64-hero .n64-lead {
+    padding:10px 12px;
+    border-width:2px!important;
+    border-left-width:4px!important;
+    box-shadow:3px 4px 0 rgba(41,88,90,.25)!important;
+  }
+}
+@media(prefers-reduced-motion:reduce) {
+  #main-content.n64-world[data-weather="fog"] .n64-fog-drift {
+    animation:none!important;
+    will-change:auto;
+    transform:none!important;
   }
 }

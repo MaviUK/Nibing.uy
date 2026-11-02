@@ -270,7 +270,7 @@ export function ArcadeWeatherScene({ mode, isNight }) {
             }}
           />
         )}</div>}
-      {(rainy || mode === "cloudy" || mode === "snow") &&
+      {(rainy || mode === "cloudy" || mode === "snow" || mode === "fog") &&
         <div className="n64-weather-extra-clouds">
           <N64LowPolyCloud className="n64-weather-extra-cloud n64-weather-extra-cloud--one" />
           <N64LowPolyCloud className="n64-weather-extra-cloud n64-weather-extra-cloud--two" />
@@ -291,7 +291,31 @@ export function ArcadeWeatherScene({ mode, isNight }) {
       )}</div>}
       {mode === "storm" && <span className="n64-weather-lightning" />}
       {mode === "storm" && <span className="n64-weather-lightning-fork" />}
-      {mode === "fog" && <span className="n64-weather-mist" />}
+      {mode === "fog" && (
+        <div className="n64-fog-world">
+          <span className="n64-fog-light" />
+          <svg className="n64-fog-landscape" viewBox="0 0 1200 320" preserveAspectRatio="none" focusable="false">
+            {/* Faceted distant hills and misty tree silhouettes, not pixel art. */}
+            <polygon points="0,320 0,227 115,205 215,236 377,102 506,245 664,165 824,235 985,117 1131,214 1200,192 1200,320" fill="#7f9c9f" />
+            <polygon points="215,236 377,102 508,244 382,159" fill="#9eb6b4" />
+            <polygon points="663,165 825,235 739,194" fill="#a0b9b3" />
+            <polygon points="822,236 985,117 1132,214 985,173" fill="#a8c0ba" />
+            <polygon points="0,320 0,261 160,234 275,276 457,223 622,278 800,232 986,273 1130,226 1200,243 1200,320" fill="#719a96" />
+            <polygon points="0,320 0,284 191,268 345,299 530,259 729,297 907,257 1102,283 1200,270 1200,320" fill="#8eb1a6" />
+            <polygon points="80,277 117,177 154,277" fill="#7d9e96" />
+            <polygon points="93,240 117,180 141,240" fill="#a6bdb2" />
+            <polygon points="172,293 202,208 232,293" fill="#87a79e" />
+            <polygon points="180,263 202,208 224,263" fill="#b0c4b7" />
+            <polygon points="999,274 1039,174 1079,274" fill="#789e94" />
+            <polygon points="1013,237 1039,174 1066,237" fill="#9eb9ab" />
+            <polygon points="1090,300 1120,222 1150,300" fill="#80a69b" />
+            <polygon points="1100,267 1120,222 1141,267" fill="#b7c9b9" />
+          </svg>
+          <span className="n64-fog-drift n64-fog-drift--back" />
+          <span className="n64-fog-drift n64-fog-drift--middle" />
+          <span className="n64-fog-drift n64-fog-drift--front" />
+        </div>
+      )}
     </div>
   );
 }

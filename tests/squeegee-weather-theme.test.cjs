@@ -181,3 +181,30 @@ test("Night world has a faceted crescent, cinematic layered mountains and readab
   assert.match(css, /n64-storm-bolt-flash 10s linear infinite/);
   assert.match(scene, /n64-weather-lightning-fork/);
 });
+
+
+test("N64 fog world has layered drifting mist and distant faceted scenery, not striped 8-bit fog", () => {
+  const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
+  const component = read("src/components/ArcadeWeather.jsx");
+  const css = read("src/n64-weather.css");
+  const landing = read("src/LandingPage.jsx");
+  assert.match(component, /mode === "fog" && \(/);
+  assert.match(component, /className="n64-fog-world"/);
+  assert.match(component, /className="n64-fog-landscape"/);
+  assert.match(component, /n64-fog-drift--back/);
+  assert.match(component, /n64-fog-drift--middle/);
+  assert.match(component, /n64-fog-drift--front/);
+  assert.match(component, /mode === "cloudy" \|\| mode === "snow" \|\| mode === "fog"/);
+  assert.doesNotMatch(component, /className="n64-weather-mist"/);
+  assert.doesNotMatch(css, /repeating-linear-gradient\(180deg,transparent 0 55px/);
+  assert.match(css, /#main-content\.n64-world\[data-weather="fog"\] \.n64-fog-landscape/);
+  assert.match(css, /@keyframes n64-fog-drift-left/);
+  assert.match(css, /@keyframes n64-fog-drift-right/);
+  assert.match(css, /data-weather="fog"\]:not\(\[data-night="true"\]\) \.n64-hero \.n64-lead/);
+  assert.match(css, /background:rgba\(249,253,249,\.9\)!important/);
+  assert.match(css, /data-night="true"\]\[data-weather="fog"\] \.n64-hero/);
+  assert.match(css, /@media\(prefers-reduced-motion:reduce\)[\s\S]*?data-weather="fog"\] \.n64-fog-drift/);
+  assert.match(landing, /<ArcadeWeatherPreviewBar weather=\{weather\} \/>/);
+  assert.match(css, /n64-storm-bolt-flash 10s linear infinite/);
+  assert.match(component, /n64-moon-crescent-mask/);
+});
