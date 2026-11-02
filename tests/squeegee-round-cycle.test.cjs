@@ -151,3 +151,51 @@ test("job group labels must match real numeric codes",()=>{
   assert.equal(normalizedGroupNumber("Round 11"),null);
   assert.equal(normalizedGroupNumber("011"),null);
 });
+
+
+test("31 Oct Squeegee backup numbers match the public four-week cycle", async () => {
+  const { FOUR_WEEK_PLAN, CYCLE_SNAPSHOT } = await import("../src/data/cleaningCycleData.mjs");
+  assert.equal(CYCLE_SNAPSHOT.backupDate, "2026-10-31");
+  assert.equal(CYCLE_SNAPSHOT.weekOneMonday, "2026-10-19");
+  assert.equal(CYCLE_SNAPSHOT.activeFourWeeklyCustomers, 785);
+  assert.equal(CYCLE_SNAPSHOT.completedBinsThroughBackup, 30162);
+  assert.equal(FOUR_WEEK_PLAN.length, 4);
+  const days = ["Mon","Tue","Wed","Thu"];
+  const expectedRounds = [
+    [1,2,3,4],[6,7,8,9],[11,12,13,14],[16,17,18,19]
+  ];
+  let scheduled = 0, washed = 0;
+  for (let week = 0; week < 4; week++) {
+    for (let day = 0; day < 4; day++) {
+      const row = FOUR_WEEK_PLAN[week][days[day]];
+      assert.equal(row.round, expectedRounds[week][day]);
+      assert.ok(Number.isInteger(row.bins) && row.bins >= 0);
+      assert.ok(Number.isInteger(row.washedLastCycle) && row.washedLastCycle >= 0);
+      scheduled += row.bins;
+      washed += row.washedLastCycle;
+    }
+  }
+  assert.equal(scheduled, 1288);
+  assert.equal(washed, 1186);
+  // Active group gaps are NOT 100+ bins of work: these rounds are empty.
+  assert.equal(FOUR_WEEK_PLAN[1].Mon.bins, 0);
+  assert.equal(FOUR_WEEK_PLAN[1].Tue.bins, 0);
+  assert.equal(FOUR_WEEK_PLAN[2].Mon.round, 11);
+  assert.equal(FOUR_WEEK_PLAN[2].Mon.bins, 98);
+  assert.equal(FOUR_WEEK_PLAN[2].Mon.washedLastCycle, 96);
+  // The 42 bins cleaned Friday 23 Oct belonged to Thursday's Round 04,
+  // rather than an ongoing Friday bin-collection area.
+  assert.equal(FOUR_WEEK_PLAN[0].Thu.washedLastCycle, 131);
+  assert.match(CYCLE_SNAPSHOT.note, /42 on Fri 23 Oct/);
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const stats = fs.readFileSync(path.join(__dirname, "../src/data/statsPlan.js"), "utf8");
+  const liveStats = fs.readFileSync(path.join(__dirname, "../src/utils/liveStats.js"), "utf8");
+  const rota = fs.readFileSync(path.join(__dirname, "../bot/rota.js"), "utf8");
+  assert.match(stats, /CYCLE_SNAPSHOT\.weekOneMonday/);
+  assert.match(stats, /2026-11-01T00:00:00/);
+  assert.match(liveStats, /CYCLE_SNAPSHOT\.weekOneMonday/);
+  assert.match(rota, /CYCLE_SNAPSHOT\.weekOneMonday/);
+  assert.doesNotMatch(stats + liveStats + rota, /2026-01-05|2026-02-06/);
+  assert.equal(roundForCleaningDate("2026-11-02").roundNumber, FOUR_WEEK_PLAN[2].Mon.round);
+});

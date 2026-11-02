@@ -1,49 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 
-// ✅ Change these anytime
+// The completed total is a real snapshot, not a retroactive replay of
+// estimated daily cleans. Future progress uses the current backup rota until
+// an updated Squeegee backup or completion feed is available.
+import { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN } from "./cleaningCycleData.mjs";
+export { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN };
+
 export const STATS_BASE = {
-  totalBinsCleaned: 27886,  // total before the last 4 months were added
-  monthlyCustomers: 1078,   // your starting total monthly customers
+  totalBinsCleaned: CYCLE_SNAPSHOT.completedBinsThroughBackup,
+  monthlyCustomers: CYCLE_SNAPSHOT.activeFourWeeklyCustomers,
 };
 
-// ✅ Your real 4-week rota (Mon–Thu only)
-export const FOUR_WEEK_PLAN = [
-   // Week 1
-  {
-    Mon: { area: "Groomsport & Bangor", bins: 105, customers: 61 },
-    Tue: { area: "Bangor", bins: 115, customers: 75 },
-    Wed: { area: "Ards", bins: 95, customers: 66 },
-    Thu: { area: "Ards & Bangor", bins: 121, customers: 69 },
-  },
-  // Week 2
-  {
-    Mon: { area: "Comber & Ards", bins: 110, customers: 79 },
-    Tue: { area: "Bangor & Ards", bins: 95, customers: 61 },
-    Wed: { area: "Comber & Ards", bins: 120, customers: 73 },
-    Thu: { area: "Bangor & Ards", bins: 105, customers: 81 },
-  },
-  // Week 3
-  {
-    Mon: { area: "Bangor", bins: 100, customers: 73 },
-    Tue: { area: "Bangor", bins: 90, customers: 67 },
-    Wed: { area: "Comber & Ards", bins: 125, customers: 71 },
-    Thu: { area: "Comber", bins: 105, customers: 75 },
-  },
-  // Week 4
-  {
-    Mon: { area: "Portaferry", bins: 135, customers: 81 },
-    Tue: { area: "Millisle", bins: 101, customers: 72 },
-    Wed: { area: "Donaghadee", bins: 112, customers: 71 },
-    Thu: { area: "Donaghadee", bins: 129, customers: 78 },
-  },
-];
+// Verified round mapping: Monday 2 November 2026 is Round 11, Week 3.
+export const ANCHOR_MONDAY = new Date(CYCLE_SNAPSHOT.weekOneMonday + "T00:00:00Z");
 
-// ✅ Set this to the Monday that should count as “Week 1”
-export const ANCHOR_MONDAY = new Date("2026-01-05T00:00:00");
-
-// ✅ Counter catch-up date: 4 months before 6 June 2026.
-// The live headline adds all completed route bins from this date onward.
-const COUNTER_COUNT_FROM = new Date("2026-02-06T00:00:00");
+// Do not replay the newest route sizes against months preceding the snapshot:
+// those jobs/customers/areas changed considerably during the year.
+const COUNTER_COUNT_FROM = new Date("2026-11-01T00:00:00");
 
 // Workday times
 const START_HOUR = 9;
@@ -53,8 +26,11 @@ const DAY_MAP = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
-const weeksBetween = (a, b) =>
-  Math.floor((b.getTime() - a.getTime()) / (7 * 24 * 60 * 60 * 1000));
+// Calendar-week maths, immune to the March/October UK clock changes.
+const weeksBetween = (a, b) => {
+  const day = d => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.floor((day(b) - day(a)) / (7 * 24 * 60 * 60 * 1000));
+};
 
 function getPlanForDate(date = new Date()) {
   const dayKey = DAY_MAP[date.getDay()];
@@ -70,10 +46,12 @@ function getPlanForDate(date = new Date()) {
   const plan = FOUR_WEEK_PLAN[weekIndex]?.[dayKey];
 
   return {
-    active: !!plan,
+    active: Boolean(plan && plan.bins > 0),
     dayKey,
-    area: plan?.area ?? "Route Day",
+    area: plan?.area ?? "No cleans scheduled",
+    round: plan?.round ?? null,
     bins: plan?.bins ?? 0,
+    washedLastCycle: plan?.washedLastCycle ?? 0,
     customers: plan?.customers ?? 0,
   };
 }
@@ -92,7 +70,7 @@ function startOfDay(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
 }
 
-function computeCompletedRouteTotals(now) {
+function computeEstimatedRouteTotals(now) {
   let bins = 0;
   let customers = 0;
   const cursor = startOfDay(COUNTER_COUNT_FROM);
@@ -101,8 +79,8 @@ function computeCompletedRouteTotals(now) {
   while (cursor < today) {
     const plan = getPlanForDate(cursor);
 
-    // Count every completed route day since the counter catch-up date.
-    // This keeps the headline cumulative and includes the last 4 months.
+    // Newer completed route days are extrapolated from snapshot job counts.
+    // Pre-backup days are backed by recorded completed occurrences instead.
     if (plan.active && ["Mon", "Tue", "Wed", "Thu"].includes(plan.dayKey)) {
       bins += plan.bins;
       customers += plan.customers;
@@ -125,13 +103,13 @@ export function useLiveCounters() {
 
   const now = useMemo(() => new Date(), [tick]);
   const today = useMemo(() => getPlanForDate(now), [now]);
-  const completedRoutes = useMemo(() => computeCompletedRouteTotals(now), [now]);
+  const completedRoutes = useMemo(() => computeEstimatedRouteTotals(now), [now]);
 
   const progress = today.active ? getDayProgress(now) : 0;
 
   return {
     totalBinsCleaned: STATS_BASE.totalBinsCleaned + completedRoutes.bins + Math.floor(today.bins * progress),
     todaysArea: today.area,
-    totalMonthlyCustomers: STATS_BASE.monthlyCustomers, // ✅ always 1078
+    totalMonthlyCustomers: STATS_BASE.monthlyCustomers, // active four-weekly, covered towns
   };
 }

@@ -1,8 +1,7 @@
 // bot/rota.js
-import { FOUR_WEEK_PLAN } from "../src/data/statsPlan.js"; 
-// ^ adjust this import path to wherever your FOUR_WEEK_PLAN lives
+import { FOUR_WEEK_PLAN, CYCLE_SNAPSHOT } from "../src/data/cleaningCycleData.mjs";
 
-const WEEK1_MONDAY_ISO = process.env.ROTATION_WEEK1_MONDAY || "2026-01-05";
+const WEEK1_MONDAY_ISO = process.env.ROTATION_WEEK1_MONDAY || CYCLE_SNAPSHOT.weekOneMonday;
 
 /**
  * Return 0..3 for week index based on a fixed Week-1 Monday anchor.
@@ -27,10 +26,11 @@ export function getRotaAreaForDate(dateObj) {
   if (!["Mon", "Tue", "Wed", "Thu"].includes(dayName)) return null;
 
   const w = getWeekIndexForDate(dateObj);
-  return FOUR_WEEK_PLAN[w]?.[dayName]?.area || null;
+  const plan = FOUR_WEEK_PLAN[w]?.[dayName];
+  return plan?.bins > 0 ? plan.area : null;
 }
 
 export function isRotaDay(dateObj) {
   const day = dateObj.getUTCDay();
-  return day >= 1 && day <= 4; // Mon..Thu
+  return day >= 1 && day <= 4 && getRotaAreaForDate(dateObj) !== null;
 }
