@@ -372,6 +372,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [placeId, setPlaceId] = useState(null);
+  const [manualPostcode, setManualPostcode] = useState("");
 
   // Discount state
   const [discountCode, setDiscountCode] = useState("");
@@ -401,6 +402,20 @@ function BookingForm({ onClose, initialAddress = "" }) {
 
 
   const canToggleAgree = termsConfirmed;
+  const addSelectedPostcode = () => {
+    const postcode=findNiPostcode(manualPostcode);
+    if (!postcode) return;
+    setAddress(current => {
+      const base=String(current||"").trim()
+        .replace(/,\s*(?:UK|United Kingdom)\s*$/i,"")
+        .replace(/,\s*$/,"");
+      return base ? base+", "+postcode : postcode;
+    });
+    setManualPostcode("");
+    setPlaceId(null); // Street-only Google location isn't a verified house.
+    selectedPlaceRef.current=null;
+    clearFieldError("address");
+  };
   const clearFieldError = (key) => setFieldErrors((current) => {
     if (!current[key]) return current;
     const copy = { ...current };
@@ -997,9 +1012,28 @@ function BookingForm({ onClose, initialAddress = "" }) {
       {renderFieldError("address")}
       <p className="text-xs text-gray-500 -mt-2">Select an address to fill its postcode automatically, or enter your full address and BT postcode manually.</p>
       {address.trim() && !findNiPostcode(address) && (
-        <p className="text-xs font-semibold text-amber-800" role="status">
-          Full BT postcode required to calculate your bin cleaning date.
-        </p>
+        <div className="border-2 border-amber-700 bg-amber-50 p-3 space-y-2">
+          <label htmlFor="booking-postcode-helper" className="block text-sm font-bold text-amber-950">
+            Add your BT postcode
+          </label>
+          <p className="text-xs text-amber-950">
+            Google couldn't confirm the postcode. Check your house number and street above,
+            then enter your postcode here. We won't guess one.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <input id="booking-postcode-helper" type="text" inputMode="text"
+              autoComplete="postal-code" placeholder="BT20 4AA" maxLength={9}
+              value={manualPostcode} onChange={(e) => setManualPostcode(e.target.value.toUpperCase())}
+              className="min-w-0 flex-1 border border-amber-800 bg-white rounded-none px-3 py-2"
+              aria-label="Full BT postcode"
+            />
+            <button type="button" onClick={addSelectedPostcode}
+              disabled={!findNiPostcode(manualPostcode)}
+              className="border-2 border-[#20345c] bg-[#ffda43] px-3 py-2 font-bold text-[#20345c] disabled:opacity-50">
+              Add postcode
+            </button>
+          </div>
+        </div>
       )}
 
       <label htmlFor="booking-contact-phone" className="sr-only">Contact number</label>
