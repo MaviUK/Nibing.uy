@@ -14,6 +14,7 @@ const api=require("./squeegeeApiV3");
 const rollout=require("./squeegeePreviewAutoRollout");
 const {prepareReadOnlyBooking}=require("./squeegeeBookingPreparation");
 const {groupedSqueegeeJobs}=require("./squeegeeJobGrouping");
+const jobReadback=require("./squeegeeCreatedJobVerification");
 const {fetchAuthoritativeSchedule}=require("./squeegeeBookingStage");
 const {matchCustomersAcrossPages,addressKey,normalName,normalEmail,normalPhone}=require("./squeegeeCustomerMatcher");
 const {resolveSqueegeeServiceIds}=require("./squeegeeServiceCatalog");
@@ -194,6 +195,9 @@ async function executeAutomaticPreviewBooking(payload,{
     getJobGroups:deps.getJobGroups||api.getJobGroups,
     listCustomers:deps.listCustomers||api.listCustomers,
     getCustomer:deps.getCustomer||api.getCustomer,
+    confirmJob:deps.confirmJob||((options)=>jobReadback.confirmPostedJob({
+      ...options,getCustomer:deps.getCustomer||api.getCustomer,
+    })),
     claim:deps.claim||claimOnce,
     changeState:deps.changeState||changeClaimState,
     createCustomer:deps.createCustomer||api.createCustomer,
@@ -396,6 +400,10 @@ async function executeAutomaticPreviewBooking(payload,{
       (matchedByIdentity?"existing_additional_property":"existing"):
       anotherProperty?"additional_property":"new";
     let customerId=existing?customerMatch.customerId:null;
+    // Track the pre-existing job IDs so an older job cannot be mistaken for
+    // the one just POSTed. The public customer GET omits appointment dates.
+    const knownPostedJobIds=new Set();
+    let baselineJobIdsComplete=true;
     let differentProperty=false;
     const additionalTypes=new Set();
     const additionalIdentities=new Set();
@@ -459,6 +467,11 @@ async function executeAutomaticPreviewBooking(payload,{
         allowAdditionalBins:true,additionalTypes,additionalIdentities,
       });
       if(overlap)return await held(overlap);
+      for(const oldJob of record.jobs){
+        const id=jobReadback.idOf(oldJob);
+        if(id)knownPostedJobIds.add(id);
+        else baselineJobIdsComplete=false;
+      }
 
     }
 
@@ -622,12 +635,25 @@ async function executeAutomaticPreviewBooking(payload,{
             group.input.notes+
               " | ADDITIONAL BIN PURCHASE: existing jobs unchanged; review same-day consolidation":
             group.input.notes;
-          await use.addJob(customerId,{
+          const jobWriteResult=await use.addJob(customerId,{
             ...group.input,notes,
             ...(differentProperty?{
               jobAddress:{...plan.customerInput.address},
             }:{}),
           });
+          // A successful Squeegee HTTP response does not prove the job was
+          // saved. Verify a NEW job is visible via read-only customer GET
+          // before marking claims completed or emailing a success receipt.
+          // This GET cannot independently verify appointment date/recurrence.
+          failureStage="verifying_created_job";
+          const observed=await use.confirmJob({
+            customerId,planned:group.input,writeResult:jobWriteResult,
+            knownJobIds:[...knownPostedJobIds],
+            baselineComplete:baselineJobIdsComplete,
+          });
+          if(observed?.verified!==true)
+            throw new Error("created_job_not_visible_after_api_success");
+          if(observed.jobId)knownPostedJobIds.add(observed.jobId);
           completed++;
           failureStage="committing_job_claims";
           for(const entry of entries){
@@ -689,6 +715,7 @@ async function executeAutomaticPreviewBooking(payload,{
         additionalTypes.size>0;
       const completedStatus={
         customerMode,
+        jobReadbackVerified:true,
         createdCustomer:customerCreated,
         createdJobs:completed,binServices:plan.jobs.length,
         physicalBins:bins.reduce((n,bin)=>n+Number(bin.count),0),
