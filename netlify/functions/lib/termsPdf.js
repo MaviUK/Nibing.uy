@@ -3,7 +3,9 @@ const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const DEFAULT_TERMS_BODY = require("../../../src/data/bookingTerms.json").body;
+const TERMS_DOC = require("../../../src/data/bookingTerms.json");
+const DEFAULT_TERMS_BODY = TERMS_DOC.body;
+const { fillPreparedTermsMaster } = require("./preparedTermsPdf");
 
 const BRAND = {
   black: rgb(0.02, 0.02, 0.02),
@@ -145,7 +147,7 @@ async function tryEmbedLogo(pdfDoc) {
   }
 }
 
-async function buildTermsAcceptancePdfAttachment(data) {
+async function buildTermsAcceptancePdfAttachmentLegacy(data) {
   const termsBody = data.termsBody || DEFAULT_TERMS_BODY;
   const verificationHash = data.verificationHash || buildHash({ ...data, termsBody });
 
@@ -311,8 +313,32 @@ async function buildTermsAcceptancePdfAttachment(data) {
   };
 }
 
+// The fixed, branded September 2026 master is produced once at build time.
+ // Only personal details and the hash are stamped per request. If an unusual
+ // booking cannot fit the reserved spaces, or a stale/missing template appears,
+ // retain the complete original generator rather than lose any legal text.
+async function buildTermsAcceptancePdfAttachment(data) {
+  const actualTerms = data.termsBody || DEFAULT_TERMS_BODY;
+  if (actualTerms !== DEFAULT_TERMS_BODY ||
+      (data.termsVersion && data.termsVersion !== TERMS_DOC.version)) {
+    return buildTermsAcceptancePdfAttachmentLegacy(data);
+  }
+  try {
+    const verifiedHash = data.verificationHash ||
+      buildHash({ ...data, termsBody: actualTerms });
+    const filled = await fillPreparedTermsMaster(data, verifiedHash);
+    if (filled) return filled;
+  } catch (error) {
+    console.warn("Prepared Terms PDF unavailable; using complete generator",
+      error?.message || "unknown");
+  }
+  return buildTermsAcceptancePdfAttachmentLegacy(data);
+}
+
 module.exports = {
   buildTermsAcceptancePdfAttachment,
+  buildTermsAcceptancePdfAttachmentLegacy,
+  buildHash,
   getBundledLogoBytes,
   DEFAULT_TERMS_BODY,
 };

@@ -126,28 +126,28 @@
 # signed Terms PDFs. This removes the live-site fetch on each booking without
 # adding a 1 MB image to every Netlify function.
 [functions.sendBookingEmail]
-  included_files = ["public/logo.png"]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
 
 [functions.sendStreetBookingEmail]
-  included_files = ["public/logo.png"]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
 
 [functions.sendStreetBookingEmailV2]
-  included_files = ["public/logo.png"]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
 
 [functions.sendAutomaticBookingConfirmation]
-  included_files = ["public/logo.png"]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
 
 [functions.sendTosReceipt]
-  included_files = ["public/logo.png"]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
 
 [functions.sheilaTermsAcceptance]
-  included_files = ["public/logo.png"]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
 
 [functions.evelynTermsAcceptance]
-  included_files = ["public/logo.png"]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
 
 [functions.grahamTermsAcceptance]
-  included_files = ["public/logo.png"]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
 
 # Keep one canonical URL for every town page. Without these rules, a trailing
 # slash on an extensionless static town file can fall through to the SPA

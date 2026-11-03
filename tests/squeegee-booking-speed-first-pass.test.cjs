@@ -82,7 +82,8 @@ test("signed PDF uses bundled original logo, even when outbound HTTP is unavaila
   const config = read("netlify.toml");
   for (const name of ["sendBookingEmail", "sendStreetBookingEmail",
     "sendStreetBookingEmailV2", "sendAutomaticBookingConfirmation", "sendTosReceipt"]) {
-    assert.ok(config.includes(`[functions.${name}]\n  included_files = ["public/logo.png"]`), name + " must include the logo");
+    assert.ok(config.includes(`[functions.${name}]\n  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]`),
+      name + " must include the logo and prepared Terms PDF");
   }
   assert.doesNotMatch(read("netlify/functions/lib/termsPdf.js"), /fetch\("https:\/\/nibing\.uy\/logo\.png"/);
 });
