@@ -464,6 +464,20 @@ exports.handler = async (event) => {
       createdAt: new Date().toISOString(),
     });
 
+    // Preview 77: the signed Squeegee worker can be durably queued once
+    // the accepted submission is claimed, its signed PDF is staged and the
+    // normal audit has finished. Run that handoff in parallel with Resend
+    // instead of waiting for emails, leaderboard and shadow analysis.
+    // This NEVER makes a second dispatch; the final block awaits this one.
+    const squeegeeDispatchTask = deferAdminForPreview
+      ? Promise.resolve(auditPromise)
+          .then(() => timed("squeegeeQueue", () =>
+            dispatchAcceptedBooking(payload,{
+              channel:"email",eventHost:syncHost,ownerReceipt,
+            })))
+          .catch(() => ({queued:false,reason:"dispatch_unavailable"}))
+      : null;
+
     const [adminResult, customerResult] = await timed("receiptsAndAudit", () => Promise.all([
       adminEmailPromise,
       customerEmailPromise,
@@ -531,12 +545,14 @@ exports.handler = async (event) => {
     let deferredDispatchAccepted=false;
     let dispatchFailureReason="dispatch_unavailable";
     try {
-      const handoffStarted=Date.now();
-      const dispatched=await dispatchAcceptedBooking(payload,{
-        channel:"email",eventHost:syncHost,
-        ownerReceipt:deferAdminForPreview?ownerReceipt:null,
-      });
-      timings.squeegeeQueue=Date.now()-handoffStarted;
+      const dispatched=squeegeeDispatchTask
+        ? await squeegeeDispatchTask
+        : await dispatchAcceptedBooking(payload,{
+            channel:"email",eventHost:syncHost,
+            ownerReceipt:deferAdminForPreview?ownerReceipt:null,
+          });
+      if(!squeegeeDispatchTask)
+        timings.squeegeeQueue=Date.now()-startedAt;
       deferredDispatchAccepted=dispatched.queued===true;
       dispatchFailureReason=dispatched.reason||"dispatch_unavailable";
       if(isPreview1) {
