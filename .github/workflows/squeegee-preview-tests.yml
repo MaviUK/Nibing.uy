@@ -39,6 +39,8 @@ on:
       - tests/squeegee-quantity-probe.test.cjs
       - src/bookingScheduleBridge.js
       - netlify/functions/lib/squeegeeAutomaticBooking.js
+      - netlify/functions/lib/squeegeeCreatedJobVerification.js
+      - tests/squeegee-created-job-verification.test.cjs
       - netlify/functions/lib/squeegeeJobGrouping.js
       - netlify/functions/lib/ukBookingPhone.js
       - netlify/functions/lib/squeegeeSyncOwnerAlert.js
