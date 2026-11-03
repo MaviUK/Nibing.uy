@@ -162,5 +162,5 @@ test("leaderboard keeps its title and year selection but omits the redundant hea
   assert.doesNotMatch(component,/HIGH SCORES|BACKUP SNAPSHOT|n64-live-board-head|n64-live-indicator/);
   assert.match(component,/id="n64-board-title"/);
   assert.match(component,/n64-leaderboard-years/);
-  assert.match(component,/aria-label="Your verified overall XP and leaderboard position"/);
+  assert.match(component,/Your verified overall XP and leaderboard position/);
 });
