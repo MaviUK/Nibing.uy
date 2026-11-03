@@ -144,6 +144,7 @@ export default async function handler(request,context) {
         simple("ownerAlertDelivery")+simple("ownerAlertReason")+
         (quantityHelp?'<p><strong>Manual action: '+safe(quantityHelp)+'</strong></p>':'')+
         simple("createdCustomer")+simple("createdJobs")+simple("jobsConfirmed")+
+        simple("jobReadbackVerified")+
         simple("jobCount")+simple("binServicesPlanned")+
         simple("failureStage")+simple("failureClass")+
         simple("squeegeeHttpStatus")+simple("squeegeeErrorCode")+
