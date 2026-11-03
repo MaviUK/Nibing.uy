@@ -545,6 +545,7 @@ exports.handler = async (event) => {
     let deferredDispatchAccepted=false;
     let dispatchFailureReason="dispatch_unavailable";
     try {
+      const handoffStarted=Date.now();
       const dispatched=squeegeeDispatchTask
         ? await squeegeeDispatchTask
         : await dispatchAcceptedBooking(payload,{
@@ -552,7 +553,7 @@ exports.handler = async (event) => {
             ownerReceipt:deferAdminForPreview?ownerReceipt:null,
           });
       if(!squeegeeDispatchTask)
-        timings.squeegeeQueue=Date.now()-startedAt;
+        timings.squeegeeQueue=Date.now()-handoffStarted;
       deferredDispatchAccepted=dispatched.queued===true;
       dispatchFailureReason=dispatched.reason||"dispatch_unavailable";
       if(isPreview1) {
