@@ -41,8 +41,9 @@ test("GBP45 is the one-off price for both 660L and 1100L commercial bins",()=>{
 });
 test("verified completed bins never include estimated daily progress or animation increments",()=>{
   const stats=source("src/data/statsPlan.js"),hero=source("src/LandingPage.jsx");
-  assert.match(stats,/totalBinsCleaned:CYCLE_SNAPSHOT\.completedBinsThroughBackup/);
-  assert.match(hero,/Verified to \{verifiedThrough\}/);
+  assert.match(stats,/totalBinsCleaned:TOTAL_COMPLETED_BINS/);
+  assert.match(stats,/PRE_SQUEEGEE_COMPLETED_BINS = 14000/);
+  assert.match(hero,/Squeegee records to \{verifiedThrough\}/);
   assert.doesNotMatch(stats,/computeEstimatedRouteTotals|Math\.floor\(today\.bins/);
   assert.doesNotMatch(hero,/MAX_ADDS|sessionAddsRef/);
 });

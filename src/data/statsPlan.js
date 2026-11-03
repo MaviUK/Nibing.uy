@@ -1,15 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 
-// Only actual completed physical-bin quantities from a verified Squeegee
-// snapshot count as "Bins Cleaned". Never add scheduled rounds, estimated
-// progress, job counts or animation increments.
+// Lifetime cleans combine two non-overlapping sources:
+// 1) Owner-reported completed cleans before migrating to Squeegee (14,000).
+// 2) Completed physical-bin quantities in the Squeegee backup (30,803).
+// Never add planned round totals, jobs or animation-driven increments.
 import { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN, OWNER_CONFIRMED_WEEK, getOwnerConfirmedWeekReconciliation } from "./cleaningCycleData.mjs";
 import { OWNER_MONTHLY_PLAN, MONTHLY_CLEANING_TARGET } from "./ownerMonthlyPlan.mjs";
 export { OWNER_MONTHLY_PLAN, MONTHLY_CLEANING_TARGET } from "./ownerMonthlyPlan.mjs";
 export { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN, OWNER_CONFIRMED_WEEK, getOwnerConfirmedWeekReconciliation };
 
+// Historical cleans entered by the owner on 3 November 2026. Not contained
+// in the 31 October Squeegee backup; do not alter the Squeegee audit figure.
+export const PRE_SQUEEGEE_COMPLETED_BINS = 14000;
+export const TOTAL_COMPLETED_BINS =
+  PRE_SQUEEGEE_COMPLETED_BINS + CYCLE_SNAPSHOT.completedBinsThroughBackup;
+
 export const STATS_BASE = {
-  totalBinsCleaned: CYCLE_SNAPSHOT.completedBinsThroughBackup,
+  totalBinsCleaned: TOTAL_COMPLETED_BINS,
   // The new round is not yet in the 31 Oct Squeegee backup.
   monthlyCustomers: OWNER_MONTHLY_PLAN.monthlyCustomers,
 };
@@ -36,7 +43,8 @@ export function useLiveCounters() {
   },[]);
   const todaysArea=useMemo(()=>getPlanForDate(now),[now]);
   return {
-    totalBinsCleaned:CYCLE_SNAPSHOT.completedBinsThroughBackup,
+    totalBinsCleaned:TOTAL_COMPLETED_BINS,
+    preSqueegeeCompletedBins:PRE_SQUEEGEE_COMPLETED_BINS,
     verifiedThrough:new Date(CYCLE_SNAPSHOT.backupDate+"T12:00:00Z").toLocaleDateString("en-GB",{
       day:"numeric",month:"short",year:"numeric",timeZone:"Europe/London"
     }),

@@ -1278,9 +1278,9 @@ function ChallengeModal({ open, onClose }) {
    Page Sections
    ──────────────────────────────────────────────────────────────────────────── */
 function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
-  const { totalBinsCleaned, verifiedThrough, todaysArea, totalMonthlyCustomers } = useLiveCounters();
+  const { totalBinsCleaned, preSqueegeeCompletedBins, verifiedThrough, todaysArea, totalMonthlyCustomers } = useLiveCounters();
 
-  // The verified Squeegee snapshot is the only source of completed washes.
+  // Lifetime total adds the owner's pre-Squeegee history once to the verified backup.
   return (
     <section className="n64-hero n64-hero-layout-v2" aria-labelledby="n64-hero-title">
       <div className="n64-cloud n64-cloud--one" aria-hidden="true" />
@@ -1356,7 +1356,10 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
         <div className="n64-score">
           <span className="n64-score-title">Bins Cleaned</span>
           <strong className="n64-score-value">{Number(totalBinsCleaned).toLocaleString("en-GB")}</strong>
-          <span className="block mt-2 text-[10px] sm:text-xs font-bold opacity-80">Verified to {verifiedThrough}</span>
+          <span className="block mt-2 text-[10px] sm:text-xs font-bold opacity-80">
+            Includes {preSqueegeeCompletedBins.toLocaleString("en-GB")} pre-Squeegee cleans
+            <span className="block">Squeegee records to {verifiedThrough}</span>
+          </span>
         </div>
         <div className="n64-score">
           <span className="n64-score-title">Today's Area</span>

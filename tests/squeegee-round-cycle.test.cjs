@@ -191,7 +191,8 @@ test("31 Oct Squeegee quantity-aware plan counts physical bins instead of jobs",
   assert.equal(FOUR_WEEK_PLAN[0].Thu.washedLastCycle,89+42);
   const fs=require("node:fs"),path=require("node:path");
   const stats=fs.readFileSync(path.join(__dirname,"../src/data/statsPlan.js"),"utf8");
-  assert.match(stats,/totalBinsCleaned: CYCLE_SNAPSHOT\.completedBinsThroughBackup/);
+  assert.match(stats,/totalBinsCleaned: TOTAL_COMPLETED_BINS/);
+  assert.match(stats,/PRE_SQUEEGEE_COMPLETED_BINS = 14000/);
   assert.match(stats,/only actual completed physical-bin quantities/i);
   assert.doesNotMatch(stats,/computeEstimatedRouteTotals/);
   assert.match(stats,/CYCLE_SNAPSHOT\.weekOneMonday/);

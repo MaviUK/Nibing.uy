@@ -21,7 +21,8 @@ test("new business forecast never rewrites verified October backup or route assi
   assert.equal(CYCLE_SNAPSHOT.completedBinsThroughBackup,30803);
   assert.equal(FOUR_WEEK_PLAN[2].Mon.bins,102);
   const stats=fs.readFileSync(path.join(__dirname,"../src/data/statsPlan.js"),"utf8");
-  assert.match(stats,/totalBinsCleaned:CYCLE_SNAPSHOT\.completedBinsThroughBackup/);
+  assert.match(stats,/totalBinsCleaned:TOTAL_COMPLETED_BINS/);
+  assert.match(stats,/PRE_SQUEEGEE_COMPLETED_BINS = 14000/);
   assert.match(stats,/monthlyCustomers: OWNER_MONTHLY_PLAN\.monthlyCustomers/);
   assert.match(stats,/totalMonthlyCustomers:OWNER_MONTHLY_PLAN\.monthlyCustomers/);
 });
@@ -29,6 +30,7 @@ test("homepage retains the customer count but removes the four-week forecast pan
   const hero=fs.readFileSync(path.join(__dirname,"../src/LandingPage.jsx"),"utf8");
   assert.match(hero,/Monthly Customers/);
   assert.match(hero,/Including our new round/);
-  assert.match(hero,/Verified to \{verifiedThrough\}/);
+  assert.match(hero,/Squeegee records to \{verifiedThrough\}/);
+  assert.match(hero,/Includes \{preSqueegeeCompletedBins\.toLocaleString/);
   assert.doesNotMatch(hero,/n64-cleaning-plan|planned cleans per month|Planning averages for the new round/);
 });
