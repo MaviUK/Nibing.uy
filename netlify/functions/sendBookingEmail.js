@@ -20,6 +20,7 @@ const {emailContent:buildOwnerReviewEmail}=
 const { normaliseUkBookingPhone } = require("./lib/ukBookingPhone");
 const { validateCommercialBinSizes } = require("./lib/squeegeeBookingPricing");
 const { PILOT_NAME } = require("./lib/squeegeePreviewAutoRollout");
+const { recordNoDispatch } = require("./lib/squeegeeBookingReviewTrace");
 
 // Optional audit logging. If Netlify Blobs is unavailable, logging is skipped.
 let getStoreSafe = null;
@@ -326,7 +327,9 @@ exports.handler = async (event) => {
       }
     }
     const claimStarted=Date.now();
-    const claim = await claimBookingSubmission({ ...submission, channel: "email" });
+    const claim = await claimBookingSubmission({
+      ...submission, channel: "email", sourceHost: syncHost,
+    });
     timings.claim=Date.now()-claimStarted;
     if (!claim.ok) return submissionErrorResponse({ ...submission, ...claim });
 
@@ -469,6 +472,10 @@ exports.handler = async (event) => {
 
     if (adminResult?.error) {
       console.error("Resend admin error:", adminResult.error);
+      if(isPreview1) await recordNoDispatch(submission.bookingId,{
+        reason:"owner_receipt_delivery_failed_before_squeegee_dispatch",
+        ownerAlertDelivery:"not_sent",
+      });
       return {
         statusCode: 502,
         body: JSON.stringify({ error: "Failed to send admin email", details: adminResult.error }),
@@ -555,6 +562,7 @@ exports.handler = async (event) => {
       // Send ONE urgent/manual-review email with full booking details,
       // never a normal "import succeeded" owner email. For a timeout the
       // worker MAY have started; the email explicitly warns to check first.
+      let fallbackOwnerDelivery="not_sent";
       try{
         const uncertain=dispatchFailureReason==="dispatch_uncertain_reconcile" ||
           dispatchFailureReason==="dispatch_not_accepted";
@@ -567,12 +575,22 @@ exports.handler = async (event) => {
           resend.emails.send(fallbackMessage||adminEmailMessage));
         if(fallback?.error)
           console.error("Preview 1 owner review email fallback failed",fallback.error);
-        else console.info("Preview 1 owner manual review email sent after Squeegee handoff failed",{
-          bookingId:submission.bookingId,
-        });
+        else {
+          fallbackOwnerDelivery="sent";
+          console.info("Preview 1 owner manual review email sent after Squeegee handoff failed",{
+            bookingId:submission.bookingId,
+          });
+        }
       }catch{
         console.error("Preview 1 owner review email fallback delivery exception");
       }
+      // The owner-only status page must still show the booking when the
+      // Resend review email failed or the worker handoff never succeeded.
+      // onlyIfNew prevents an uncertain dispatch from overwriting a worker.
+      await recordNoDispatch(submission.bookingId,{
+        reason:dispatchFailureReason,
+        ownerAlertDelivery:fallbackOwnerDelivery,
+      });
     }
 
     const durationMs = Date.now() - startedAt;
