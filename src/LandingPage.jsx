@@ -1592,20 +1592,30 @@ export default function NiBinGuyLandingPage() {
   <main id="main-content" tabIndex="-1" className="n64-world min-h-screen bg-black text-white font-sans relative">
       <Hero onBook={openBooking} onContact={() => {window.n64Score?.awardAction("contact");setShowContact(true);}} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} onCoverage={() => setShowCoverageChecker(true)} />
 
-      {/* Compact coverage control aligns with the existing fixed site menu. */}
-      <button
-        type="button"
-        onClick={() => setShowCoverageChecker(true)}
-        aria-label="Check whether we cover your postcode"
-        aria-haspopup="dialog"
-        className="fixed left-[14px] top-[14px] z-40 flex h-[46px] max-w-[calc(100vw-94px)] items-center justify-center gap-2 rounded-[14px] border border-white/30 bg-zinc-900/95 px-3 text-xs sm:text-sm font-bold text-white shadow-lg transition hover:border-green-400 hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"
-      >
-        <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-          <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
-          <circle cx="12" cy="10" r="2.5" />
-        </svg>
-        <span className="whitespace-nowrap">Check Your Area</span>
-      </button>
+      {/* Fixed, compact arcade actions sit together beside the site menu. */}
+      <div className="n64-top-actions fixed left-[14px] top-[14px] z-40 flex max-w-[calc(100vw-94px)] items-center gap-2" role="group" aria-label="Quick actions">
+        <button
+          type="button"
+          onClick={() => setShowCoverageChecker(true)}
+          aria-label="Check whether we cover your postcode"
+          aria-haspopup="dialog"
+          className="n64-top-action n64-top-action--area"
+        >
+          <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#236c85" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
+            <circle cx="12" cy="10" r="2.5" />
+          </svg>
+          <span>Check Your Area</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => openBooking()}
+          aria-haspopup="dialog"
+          className="n64-top-action n64-top-action--book"
+        >
+          Book a Clean
+        </button>
+      </div>
 
       <Modal
         open={showCoverageChecker}
