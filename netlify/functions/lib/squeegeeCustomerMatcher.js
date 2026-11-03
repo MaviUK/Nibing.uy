@@ -155,8 +155,15 @@ function matchCustomers(booking, customerList) {
     return checkedCustomer(byRef[0],"external_reference");
   if(nameMatches.length===1)
     return checkedCustomer(nameMatches[0],"exact_property_and_name");
-  if(contactMatches.length===1)
+  if(contactMatches.length===1) {
+    // A shared phone or email at a property does not prove two different
+    // full names are the same customer. Hold for the owner rather than
+    // quietly attaching a new booking to somebody else\x27s Squeegee record.
+    const storedName=normalName(contactMatches[0].name);
+    if(wantedName && storedName && wantedName!==storedName)
+      return {status:"needs_review",reason:"same_address_contact_name_conflict"};
     return checkedCustomer(contactMatches[0],"exact_property_and_contact");
+  }
 
   return {status:"needs_review",
     reason:"same_address_without_name_or_contact_match"};
