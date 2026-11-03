@@ -277,8 +277,11 @@ function TermsModal({ open, onClose, onConfirm, version, title, body }) {
 
   useEffect(() => {
     if (!open) return;
+    // Reopening the agreement must never reuse a prior scrolled-to-end state.
+    setScrolledToEnd(false);
     const el = scrollRef.current;
     if (!el) return;
+    el.scrollTop = 0;
     const onScroll = () => {
       const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
       if (atEnd) setScrolledToEnd(true);
@@ -377,7 +380,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
 
   // Terms gating state
   const [showTerms, setShowTerms] = useState(false);
-  const [termsViewed, setTermsViewed] = useState(false);
+  const [termsConfirmed, setTermsConfirmed] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   // Lock immediately on the first tap, before schedule/CAPTCHA/email awaits.
   // Keep the same random booking reference for this attempt to avoid duplicates.
@@ -395,7 +398,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const arcadeOptOut = false;
 
 
-  const canToggleAgree = termsViewed;
+  const canToggleAgree = termsConfirmed;
 
 
   // Re-validate discount whenever selection changes
@@ -528,8 +531,8 @@ function BookingForm({ onClose, initialAddress = "" }) {
       alert("Please include the full BT postcode in your address so we can calculate the correct bin cleaning date.");
       return;
     }
-    if (!agreeToTerms) {
-      alert("Please view and agree to the Terms of Service before booking.");
+    if (!termsConfirmed || !agreeToTerms) {
+      alert("Please scroll through and confirm the Terms of Service before booking.");
       return;
     }
     if (normalizeCode(discountCode) && discountStatus.state !== "valid") {
@@ -960,10 +963,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
             You must view and agree to the{" "}
             <button
               type="button"
-              onClick={() => {
-                setShowTerms(true);
-                setTermsViewed(true);
-              }}
+              onClick={() => setShowTerms(true)}
               className="underline font-semibold"
             >
               Terms of Service
@@ -976,7 +976,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
           <input id="agree" type="checkbox" className="mt-1" checked={agreeToTerms} disabled={!canToggleAgree} onChange={(e) => setAgreeToTerms(e.target.checked)} />
           <label htmlFor="agree" className="text-sm text-gray-800">
             I’ve read and agree to the September 2026 Terms of Service, including the public leaderboard acknowledgement. This does not make my name public.
-            {!canToggleAgree && <span className="block text-xs text-gray-500">(Open the Terms and scroll to the bottom to enable this.)</span>}
+            {!canToggleAgree && <span className="block text-xs text-gray-500">(Scroll to the bottom of the Terms and select Confirm & Agree to unlock this.)</span>}
           </label>
         </div>
       </div>
@@ -985,8 +985,8 @@ function BookingForm({ onClose, initialAddress = "" }) {
         type="button"
         onClick={handleSubmitBooking}
         className="w-full rounded-none border-2 border-[#20345c] bg-[#ffda43] px-6 py-3 text-lg font-black text-[#101827] shadow-[4px_4px_0_#20345c] hover:bg-[#ffe573] disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={!agreeToTerms || isEmailSubmitting || bookingStatus !== "idle" || emailBookingUncertain}
-        aria-disabled={!agreeToTerms || isEmailSubmitting || bookingStatus !== "idle" || emailBookingUncertain}
+        disabled={!termsConfirmed || !agreeToTerms || isEmailSubmitting || bookingStatus !== "idle" || emailBookingUncertain}
+        aria-disabled={!termsConfirmed || !agreeToTerms || isEmailSubmitting || bookingStatus !== "idle" || emailBookingUncertain}
       >
         {isEmailSubmitting ? bookingSendingText : "Submit Booking"}
       </button>
@@ -999,17 +999,22 @@ function BookingForm({ onClose, initialAddress = "" }) {
         </div>
       )}
 
-      <TermsModal
-        open={showTerms}
-        onClose={() => setShowTerms(false)}
-        onConfirm={() => {
-          setAgreeToTerms(true);
-          setShowTerms(false);
-        }}
-        version={TERMS_VERSION}
-        title={TERMS_TITLE}
-        body={TERMS_BODY}
-      />
+      {showTerms && (
+        <TermsModal
+          open={showTerms}
+          onClose={() => setShowTerms(false)}
+          onConfirm={() => {
+            // Only the modal's scrolled-to-bottom Confirm & Agree can unlock
+            // the separate checkbox. Dismissing the modal leaves it locked.
+            setTermsConfirmed(true);
+            setAgreeToTerms(true);
+            setShowTerms(false);
+          }}
+          version={TERMS_VERSION}
+          title={TERMS_TITLE}
+          body={TERMS_BODY}
+        />
+      )}
     </div>
   );
 }

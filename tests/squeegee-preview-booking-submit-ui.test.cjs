@@ -36,7 +36,7 @@ test("new one-button booking keeps its signed preview security, anti-duplicate a
   assert.match(booking,/Booking reference:/);
   assert.match(booking,/aria-busy=\{isEmailSubmitting\}/);
   assert.match(booking,/animate-spin/);
-  assert.match(booking,/aria-disabled=\{!agreeToTerms \|\| isEmailSubmitting \|\| bookingStatus !== "idle" \|\| emailBookingUncertain\}/);
+  assert.match(booking,/aria-disabled=\{!termsConfirmed \|\| !agreeToTerms \|\| isEmailSubmitting \|\| bookingStatus !== "idle" \|\| emailBookingUncertain\}/);
   assert.match(booking,/setEmailBookingUncertain\(true\)/);
   assert.match(booking,/TermsModal/);
 });

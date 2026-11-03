@@ -98,6 +98,7 @@ function TermsModal({ open, onClose, onConfirm }) {
     setScrolledToEnd(false);
     const el = scrollRef.current;
     if (!el) return;
+    el.scrollTop = 0;
     const onScroll = () => {
       if (el.scrollTop + el.clientHeight >= el.scrollHeight - 8) setScrolledToEnd(true);
     };
@@ -132,7 +133,7 @@ export default function StreetBookingPage() {
   const [address, setAddress] = useState("");
   const [placeId, setPlaceId] = useState(null);
   const [termsOpen, setTermsOpen] = useState(false);
-  const [termsViewed, setTermsViewed] = useState(false);
+  const [termsConfirmed, setTermsConfirmed] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -205,7 +206,7 @@ export default function StreetBookingPage() {
     setPhone("");
     setAddress("");
     setPlaceId(null);
-    setTermsViewed(false);
+    setTermsConfirmed(false);
     setTermsAccepted(false);
     setSuccess(false);
     selectedPlaceRef.current = null;
@@ -221,8 +222,8 @@ export default function StreetBookingPage() {
       alert("Please complete all fields before submitting.");
       return;
     }
-    if (!termsAccepted) {
-      alert("Please view and agree to the Terms of Service.");
+    if (!termsConfirmed || !termsAccepted) {
+      alert("Please scroll through and confirm the Terms of Service.");
       return;
     }
 
@@ -361,22 +362,32 @@ export default function StreetBookingPage() {
 
               <div className="rounded-xl border border-gray-400 bg-gray-50 p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm text-gray-700">Customer must view and agree to the <button type="button" onClick={() => { setTermsOpen(true); setTermsViewed(true); }} className="underline font-bold">Terms of Service</button>.</p>
+                  <p className="text-sm text-gray-700">Customer must view and agree to the <button type="button" onClick={() => setTermsOpen(true)} className="underline font-bold">Terms of Service</button>.</p>
                   <span className="text-[10px] text-gray-500">v{TERMS_VERSION}</span>
                 </div>
                 <label className="mt-3 flex items-start gap-2 text-sm">
-                  <input type="checkbox" className="mt-1" checked={termsAccepted} disabled={!termsViewed} onChange={(event) => setTermsAccepted(event.target.checked)} />
-                  <span>I’ve read and agree to the Terms of Service.{!termsViewed && <span className="block text-xs text-gray-500">Open the Terms first to enable this.</span>}</span>
+                  <input type="checkbox" className="mt-1" checked={termsAccepted} disabled={!termsConfirmed} onChange={(event) => setTermsAccepted(event.target.checked)} />
+                  <span>I’ve read and agree to the Terms of Service.{!termsConfirmed && <span className="block text-xs text-gray-500">Scroll to the bottom of the Terms and select Confirm & Agree to unlock this.</span>}</span>
                 </label>
               </div>
 
-              <button type="submit" disabled={submitting || !termsAccepted} className="w-full bg-green-500 hover:bg-green-600 text-black font-black uppercase py-4 px-6 rounded-xl disabled:opacity-50">{submitting ? "Completing signup…" : "Complete Street Signup"}</button>
+              <button type="submit" disabled={submitting || !termsConfirmed || !termsAccepted} className="w-full bg-green-500 hover:bg-green-600 text-black font-black uppercase py-4 px-6 rounded-xl disabled:opacity-50">{submitting ? "Completing signup…" : "Complete Street Signup"}</button>
             </form>
           )}
         </div>
       </div>
 
-      <TermsModal open={termsOpen} onClose={() => setTermsOpen(false)} onConfirm={() => { setTermsAccepted(true); setTermsOpen(false); }} />
+      {termsOpen && (
+        <TermsModal
+          open={termsOpen}
+          onClose={() => setTermsOpen(false)}
+          onConfirm={() => {
+            setTermsConfirmed(true);
+            setTermsAccepted(true);
+            setTermsOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
