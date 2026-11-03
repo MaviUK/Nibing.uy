@@ -1,0 +1,35 @@
+name: N64 Preview 77 read-only booking runtime smoke
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/n64-booking-runtime-smoke.yml
+permissions:
+  contents: read
+jobs:
+  read-only-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Safe GET-only booking, owner-auth and Squeegee handoff probes
+        shell: bash
+        run: |
+          set -eu
+          base="https://deploy-preview-77--nibinguy.netlify.app"
+          probe() {
+            path="$1"
+            expected="$2"
+            echo "GET $path (expected HTTP $expected)"
+            actual="$(curl --silent --show-error --max-time 18               --max-redirs 0 --output /dev/null --write-out "%{http_code}"               --request GET "$base$path")"
+            echo "HTTP $actual"
+            if [ "$actual" != "$expected" ]; then
+              echo "FAIL: Unexpected runtime status; no booking was submitted."
+              exit 1
+            fi
+          }
+          echo "SAFETY: GET only. No booking data, no customer email, no Squeegee POST."
+          probe "/.netlify/functions/sendBookingEmail" "405"
+          probe "/api/squeegee-preview-auto-sync" "405"
+          probe "/api/squeegee-preview-auto-status?review=1" "403"
+          echo "PASS: booking function runs, Squeegee worker rejects GET, owner review requires login."
