@@ -308,10 +308,11 @@ exports.handler = async (event) => {
         rollout.acceptedForRollout(payload,"email",process.env)) {
       try {
         if (!getStoreSafe) throw new Error("netlify_blobs_not_available");
-        const saved=await timed("ownerPdfStore", () =>
-          ownerCertificate.storeCustomerCertificate(
-            submission.bookingId,termsPdfAttachment,
-            getStoreSafe(ownerCertificate.STORE,"strong")));
+        const ownerPdfStart=Date.now();
+        const saved=await ownerCertificate.storeCustomerCertificate(
+          submission.bookingId,termsPdfAttachment,
+          getStoreSafe(ownerCertificate.STORE,"strong"));
+        timings.ownerPdfStore=Date.now()-ownerPdfStart;
         stagedOwnerPdfSha=saved.sha256;
       } catch (error) {
         console.error("Preview 77 owner certificate staging failed:",error?.message||"unavailable");
@@ -322,8 +323,9 @@ exports.handler = async (event) => {
         };
       }
     }
-    const claim = await timed("claim", () =>
-      claimBookingSubmission({ ...submission, channel: "email" }));
+    const claimStarted=Date.now();
+    const claim = await claimBookingSubmission({ ...submission, channel: "email" });
+    timings.claim=Date.now()-claimStarted;
     if (!claim.ok) return submissionErrorResponse({ ...submission, duplicate: true });
 
     // Both immediate customer and owner emails share this generated PDF.
