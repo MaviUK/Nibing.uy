@@ -129,7 +129,7 @@ function browser({mounted=true,sectionTop=3800,headingTop=4020,hash="",
   };
 }
 
-test("all ten menu sections are supported, with targets visible below the floating menu",()=>{
+test("all ten menu sections are supported, with controls visible below the floating menu",()=>{
   for(const [hash,id] of Object.entries(targets)){
     const x=browser();
     const click=x.click(hash);
@@ -139,8 +139,11 @@ test("all ten menu sections are supported, with targets visible below the floati
     assert.equal(x.historyCalls.length,1);
     assert.equal(x.historyCalls[0].url,"/?ntl-drawer-state=hidden"+hash);
     assert.equal(x.scrolls[0].behavior,"auto");
-    assert.ok(x.stripeVisibleBottom()<0,hash+" must not display the checkerboard");
-    assert.equal(x.headingVisibleY(),122,hash+" heading should be below floating nav");
+    if(hash!=="#live-leaderboard")
+      assert.ok(x.stripeVisibleBottom()<0,hash+" must not display the checkerboard");
+    assert.equal(x.headingVisibleY(),
+      hash==="#live-leaderboard"?74:122,
+      hash+" first controls should be below the floating menu");
     assert.equal(x.document.documentElement.style.scrollBehavior,"smooth");
     assert.ok(menu.includes('href="'+hash+'"'),id+" must be in the actual website menu");
   }
@@ -226,7 +229,7 @@ test("menu and cache-busted assets preserve the real dynamic Areas section and n
   assert.match(areaMount,/var target=document\.getElementById\("customer-portal"\)/);
   assert.match(areaMount,/target\.parentNode\.insertBefore\(section,target\)/);
   assert.match(areaMount,/dispatchEvent\(new Event\("nbg:areas-mounted"\)\)/);
-  assert.match(html,/src="\/n64-areas-navigation\.js\?v=20261103-leaderboard-menu"\s+defer/);
+  assert.match(html,/src="\/n64-areas-navigation\.js\?v=20261103-leaderboard-top-fix"\s+defer/);
   assert.match(html,/src="\/privacy-link\.js\?v=20261101-areas-after-portal"\s+defer/);
   assert.match(html,/#site-section-menu a,\s*#site-section-menu button/);
   assert.match(html,/if \(event\.target\.closest\("a"\)\) closeMenu\(\)/);
@@ -245,15 +248,42 @@ test("Leaderboards menu and shared deep link land on the leaderboard tabs rather
   const clicked=mobile.click("#live-leaderboard");
   assert.equal(clicked.prevented,true);
   assert.equal(mobile.location.hash,"#live-leaderboard");
-  assert.equal(mobile.headingVisibleY(),122);
+  assert.equal(mobile.headingVisibleY(),74);
   assert.ok(mobile.stripeVisibleBottom()<0);
 
   const deepLink=browser({mounted:false,hash:"#live-leaderboard"});
   deepLink.ready();
   assert.equal(deepLink.scrollCount(),0);
   deepLink.mount();
-  assert.equal(deepLink.headingVisibleY(),122);
+  assert.equal(deepLink.headingVisibleY(),74);
 
   const otherPage=browser({pathname:"/customer-hq"});
   assert.equal(otherPage.click("#live-leaderboard").prevented,false);
+});
+
+test("leaderboard tabs near its actual section top are never scrolled off-screen by an imaginary checkerboard",()=>{
+  // On mobile the section has a 9px border and 52px top padding, NOT a
+  // 4-row checker. The previous stripe clamp scrolled the tabs to -6px.
+  const mobile=browser({sectionTop:3800,headingTop:3861,width:390});
+  mobile.click("#live-leaderboard");
+  assert.equal(mobile.window.scrollY,3787);
+  assert.equal(mobile.headingVisibleY(),74);
+  mobile.emit("resize");
+  assert.equal(mobile.headingVisibleY(),74,"mobile address-bar resize preserves tab placement");
+
+  const desktop=browser({sectionTop:3800,headingTop:3879,width:1280});
+  desktop.click("#live-leaderboard");
+  assert.equal(desktop.window.scrollY,3800);
+  assert.equal(desktop.headingVisibleY(),79);
+
+  for(const type of ["touchstart","wheel","pointerdown","keydown"]){
+    const x=browser({sectionTop:3800,headingTop:3861,width:390});
+    x.click("#live-leaderboard");
+    const count=x.scrollCount();
+    x.emit(type);
+    x.shift(4000);
+    x.emit("resize");
+    x.timer(2200);
+    assert.equal(x.scrollCount(),count,type+" cancels realignment");
+  }
 });

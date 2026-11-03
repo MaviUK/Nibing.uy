@@ -45,10 +45,11 @@ export function scrollToArcadeTabs(tabs,viewport=window,documentRef=document){
   if(!Number.isFinite(rect?.top))return false;
   const current=Number.isFinite(viewport.scrollY)?viewport.scrollY:
     (Number.isFinite(viewport.pageYOffset)?viewport.pageYOffset:0);
-  // 61px on mobile = the section's 9px top line plus 52px top padding;
-  // the floating Check Your Area/menu controls finish just above the tabs.
+  // 74px mobile / 79px desktop keeps the entire tab row visible immediately
+  // below the floating hamburger, matching the main menu's leaderboard jump.
+  // Never anchor to the section's checkerboard (it has none).
   const mobile=!(Number.isFinite(viewport.innerWidth)&&viewport.innerWidth>600);
-  const topOffset=mobile?61:79;
+  const topOffset=mobile?74:79;
   const top=Math.max(0,Math.round(current+rect.top-topOffset));
   const style=documentRef?.documentElement?.style;
   const previous=style?.scrollBehavior;

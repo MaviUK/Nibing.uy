@@ -182,8 +182,8 @@ test("mobile switch anchors the actual tabs below floating menu rather than prev
   const absoluteTabsY=2475;
   const tabs={getBoundingClientRect:()=>({top:absoluteTabsY-view.scrollY})};
   assert.equal(scrollToArcadeTabs(tabs,view,doc),true);
-  assert.deepEqual(calls,[{left:0,top:2414,behavior:"instant"}]);
-  assert.equal(tabs.getBoundingClientRect().top,61,"tab row sits just below the fixed mobile header");
+  assert.deepEqual(calls,[{left:0,top:2401,behavior:"instant"}]);
+  assert.equal(tabs.getBoundingClientRect().top,74,"tab row sits just below the fixed mobile header");
   assert.equal(doc.documentElement.style.scrollBehavior,"smooth");
 });
 
@@ -223,8 +223,8 @@ test("Customer HQ lazy loading: re-align after short fallback stops clamping the
   assert.equal(doc.documentElement.style.overflowAnchor,"none");
   limit=3600; // React.lazy has now mounted the real authenticated Customer HQ.
   resize();
-  assert.equal(view.scrollY,2439,"after HQ loads, the tab row aligns to viewport top");
-  assert.equal(tabs.getBoundingClientRect().top,61);
+  assert.equal(view.scrollY,2426,"after HQ loads, the tab row aligns beneath the menu");
+  assert.equal(tabs.getBoundingClientRect().top,74);
   assert.ok(typeof mutation==="function");
   cancel();
   assert.equal(doc.documentElement.style.overflowAnchor,"auto");

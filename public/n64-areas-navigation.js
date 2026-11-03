@@ -45,12 +45,14 @@
     if(!Number.isFinite(rect.top))return false;
     var current=window.scrollY||window.pageYOffset||0;
     var mobile=window.innerWidth<=600;
-    // Title sits below the floating header; opening a section from the menu
-    // should not first show its checkered finish line.
-    var titleOffset=mobile?122:108;
+    // The leaderboard has no four-row checker at its top: its very first
+    // controls should sit directly below the fixed hamburger menu. Other
+    // sections continue to clear their checkerboard animation.
+    var titleOffset=hash==="#live-leaderboard"
+      ?(mobile?74:79):(mobile?122:108);
     var destination=Math.max(0,Math.round(current+rect.top-titleOffset));
     var section=heading.closest?heading.closest("section"):null;
-    if(section&&section.getBoundingClientRect){
+    if(hash!=="#live-leaderboard" && section && section.getBoundingClientRect){
       // Four checker rows: mobile 16px each, desktop 20px each. Never land
       // before their bottom edge even when a section has a short heading.
       var stripeHeight=mobile?64:80;
@@ -60,6 +62,8 @@
           Math.max(0,Math.ceil(current+sectionTop+stripeHeight+3)));
       }
     }
+    // Don't cause an extra scroll or address-bar movement if already aligned.
+    if(Math.abs(destination-current)<2)return true;
     var root=document.documentElement;
     var oldBehavior=root.style.scrollBehavior;
     root.style.scrollBehavior="auto";
@@ -77,6 +81,7 @@
     var active=true,observer=null,found=false;
     var timers=[],frames=[];
     var manualEvents=["touchstart","wheel","pointerdown","keydown"];
+    var onResize=function(){realign();};
     function stop(){
       if(!active)return;
       active=false;
@@ -85,6 +90,7 @@
       for(var k=0;k<frames.length;k++)window.cancelAnimationFrame?.(frames[k]);
       for(var j=0;j<manualEvents.length;j++)
         window.removeEventListener(manualEvents[j],stop);
+      window.removeEventListener("resize",onResize);
     }
     stopPrevious=stop;
     function schedule(fn,ms){timers.push(window.setTimeout(fn,ms));}
@@ -95,21 +101,22 @@
       if(!found){
         found=true;
         if(observer){observer.disconnect();observer=null;}
-        // A newly mounted React section or Squeegee widget may still move
-        // after its first paint. Re-position briefly, then leave scroll
-        // entirely to the customer.
-        for(var i=0;i<3;i++)schedule(realign,[70,240,630][i]);
+        // Late layout/image loads and mobile address-bar resizing can change
+        // the tab position. Correct it only during this short navigation
+        // window; any user gesture immediately cancels these corrections.
+        for(var i=0;i<5;i++)schedule(realign,[70,240,630,1350,2200][i]);
         if(typeof window.requestAnimationFrame==="function"){
           frames.push(window.requestAnimationFrame(function(){
             realign();
             frames.push(window.requestAnimationFrame(realign));
           }));
         }
-        schedule(stop,1250);
+        schedule(stop,2700);
       }
     }
     for(var i=0;i<manualEvents.length;i++)
       window.addEventListener(manualEvents[i],stop,{passive:true});
+    window.addEventListener("resize",onResize,{passive:true});
     realign();
     if(!found&&typeof MutationObserver==="function"){
       observer=new MutationObserver(realign);
