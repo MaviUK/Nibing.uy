@@ -1,3 +1,4 @@
+const BOOKING_TERMS = require("../../src/data/bookingTerms.json");
 // netlify/functions/sendBookingEmail.js
 const { Resend } = require("resend");
 const { signBooking } = require("./lib/arcadeBookingProof");
@@ -38,33 +39,11 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM_DEFAULT = process.env.RESEND_FROM || "Ni Bin Guy <noreply@nibing.uy>";
 const TO_ADMIN = process.env.BOOKINGS_TO || "info@nibing.uy";
-const TERMS_VERSION_DEFAULT = "July 2026";
+const TERMS_VERSION_DEFAULT = BOOKING_TERMS.version;
 const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET_KEY || "";
 const RECAPTCHA_MIN_SCORE = Number(process.env.RECAPTCHA_MIN_SCORE || "0.5");
 
-const TERMS_BODY = `
-Ni Bin Guy – Terms of Service
-
-• Regular 4-weekly plans are based on a 13-clean minimum term, which is approximately 12 months, unless agreed otherwise.
-• One-off cleans have no minimum term and may be cancelled up to 24 hours before the scheduled clean day without charge.
-• Bins must be left out or made accessible on the scheduled cleaning day and must remain available until 8pm.
-• If your bin is not available when we attend, or access is blocked, the clean may still be charged.
-• If we are unable to attend on the scheduled day, we will notify you and rearrange the clean as soon as reasonably possible.
-• A 4-weekly plan may be cancelled any time up to 24 hours before the second scheduled clean. If cancelled before the second clean, the first clean will be charged at the standard one-off clean price, and any difference between the 4-weekly price and one-off price will become payable.
-• After the second clean, the 4-weekly plan continues for the full 13-clean minimum term.
-• If the customer cancels before the end of the 13-clean minimum term, they will remain liable for the outstanding balance for the remaining cleans within the 12-month minimum term.
-• After the 13-clean minimum term has been completed, the plan continues on a rolling basis and may be cancelled by giving at least 30 days’ notice.
-• One-off cleans containing dog faeces, cat litter, animal bedding, or other animal faeces/waste will incur a £5 surcharge per affected bin.
-• We may refuse to clean bins containing excessive animal waste, hazardous waste, sharp items, medical waste, chemicals, paint, oil, rubble, hot ashes, or anything unsafe.
-• Bins are cleaned inside and outside where safe using pressurised water and detergent. Some stains, ingrained smells, paint, tar, or long-term residue may take multiple visits or may not fully remove.
-• Payment is due within 7 days unless agreed otherwise. Accepted methods are Direct Debit, Bank Transfer, and Card. No cash.
-• Cancelling a Direct Debit does not cancel your service or contract. Cancellation must be requested directly with Ni Bin Guy.
-• Overdue accounts may result in service being stopped and may be referred for recovery.
-• Please keep your contact details, address, and payment details up to date, and make sure access is safe on cleaning day.
-• We may place a small sticker or service tag on your bin. Discounts are discretionary and may be withdrawn or changed.
-• You consent to us storing your details and contacting you about your booking, schedule, payment, and service.
-• Text reminders are a courtesy only. You remain responsible for knowing your scheduled clean date.
-`;
+const TERMS_BODY = BOOKING_TERMS.body;
 
 const escapeHtml = (value) =>
   String(value ?? "")

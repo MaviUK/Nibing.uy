@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import BOOKING_TERMS from "./data/bookingTerms.json";
 import { useLiveCounters } from "./data/statsPlan";
 import CoverageChecker from "./CoverageChecker.jsx";
 import N64GameBin from "./N64GameBin.jsx";
@@ -34,46 +35,9 @@ const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
 const PHONE_E164 = "+447555178484";
 const PHONE_DISPLAY = "07555 178484";
 
-const TERMS_VERSION = "September 2025";
-const TERMS_TITLE = "Ni Bin Guy – Terms of Service";
-const TERMS_BODY = `We keep our Terms of Service simple and transparent. By booking or receiving a bin clean from Ni Bin Guy, you agree to:
-
-1) Service & Contracts
-• Regular plans have a minimum 12-month term (unless agreed otherwise).
-• One-off cleans have no minimum term.
-• Each bin is a separate contract; adding a bin starts a new term for that bin.
-• Contracts aren’t transferable without our agreement.
-
-2) Bin Availability (8 AM rule)
-• Put bins out or make them accessible by **8 AM** on the scheduled day.
-• If your bin isn’t available and you haven’t told us **before 8 AM that day**, the clean **will still be charged**.
-• We may still charge if access is blocked, refuse wasn’t collected, there’s excessive/unsafe waste, or conditions are unsafe.
-
-3) Cleaning Process
-• Inside & outside cleaned (where safe) using pressurised water and detergent.
-• Some stains may take multiple visits or may not fully remove.
-• Loosened waste may be bagged and left in your bin for disposal.
-• Keep at least 5 m away during cleaning.
-
-4) Payments
-• Payment due within 7 days of each clean.
-• Accepted: Direct Debit, Bank Transfer, Card (no cash).
-• Cancelling a Direct Debit does **not** cancel service — give at least 48 hours’ notice to cancel.
-• Overdue accounts may incur fees and be referred to collections.
-
-5) Customer Responsibilities
-• Keep contact & payment details up to date.
-• Tell us in advance if your bin won’t be available.
-• Zero tolerance for abuse toward staff (including online).
-
-6) Other Terms
-• We may place a small sticker/service tag on your bin.
-• Discounts are discretionary; prices may change outside a fixed term.
-• After the minimum term, plans continue on a rolling 30-day basis (30 days’ notice to cancel).
-
-7) Data & Communication
-• You consent to us storing your details and contacting you about your service.
-• Text reminders are a courtesy; you’re responsible for knowing your schedule.`;
+const TERMS_VERSION = BOOKING_TERMS.version;
+const TERMS_TITLE = BOOKING_TERMS.title;
+const TERMS_BODY = BOOKING_TERMS.body;
 
 /* ────────────────────────────────────────────────────────────────────────────
    reCAPTCHA v3 (dynamic inject + token helper)
@@ -191,7 +155,7 @@ const PLANS = [
   { id: "comm_lt360_oneoff", label: "Commercial <360L One-Off", price: 15 },
 
   { id: "comm_gt660_4w", label: "Commercial >660L 4 Weekly", price: 15 },
-  { id: "comm_gt660_oneoff", label: "Commercial >660L One-Off", price: 45 },
+  { id: "comm_gt660_oneoff", label: "Commercial >660L One-Off", price: 35 },
 ];
 
 // Discount rules (edit these whenever you want)
@@ -452,7 +416,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const missingFields = useMemo(() => !name || !email || !address || !phone ||
     bins.some((b) => !b.type || !hasRequiredBinSize(b)), [name, email, address, phone, bins]);
 
-  const TOS_PREFIX = useMemo(() => `I confirm I’ve read and agree to the Ni Bin Guy Terms of Service (v${TERMS_VERSION})`, []);
+  const TOS_PREFIX = useMemo(() => `I confirm I’ve read and agree to the Ni Bin Guy Terms of Service (v${TERMS_VERSION}), including the optional leaderboard acknowledgement`, []);
 
   const addBinRow = () => setBins((prev) => [...prev, { ...DEFAULT_BIN }]);
   const removeLastBin = () => setBins((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
@@ -1006,7 +970,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
         <div className="mt-3 flex items-start gap-2">
           <input id="agree" type="checkbox" className="mt-1" checked={agreeToTerms} disabled={!canToggleAgree} onChange={(e) => setAgreeToTerms(e.target.checked)} />
           <label htmlFor="agree" className="text-sm text-gray-800">
-            I’ve read and agree to the Terms of Service.
+            I’ve read and agree to the September 2026 Terms of Service, including the public leaderboard acknowledgement. This does not make my name public.
             {!canToggleAgree && <span className="block text-xs text-gray-500">(Open the Terms and scroll to the bottom to enable this.)</span>}
           </label>
         </div>
