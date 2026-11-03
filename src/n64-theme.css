@@ -358,13 +358,13 @@
 #site-section-menu a:focus-visible,#site-section-menu button:focus-visible {
   background:#f9da7a !important;color:#1d3457 !important;
 }
-#main-content.n64-world > button[aria-label="Check whether we cover your postcode"] {
+#main-content.n64-world .n64-top-actions .n64-top-action--area {
   background:#ffffff !important;color:#1b3158 !important;
-  border:3px solid #20345b !important;border-radius:12px !important;
+  border:3px solid #20345b !important;border-radius:0 !important;
   box-shadow:4px 5px 0 #37618a !important;
   font-weight:1000 !important;
 }
-#main-content.n64-world > button[aria-label="Check whether we cover your postcode"] svg {stroke:#236c85;}
+#main-content.n64-world .n64-top-actions .n64-top-action--area svg {stroke:#236c85;}
 #main-content.n64-world [role="dialog"] > div > div {
   border:3px solid #20345b;
   border-radius:17px !important;
