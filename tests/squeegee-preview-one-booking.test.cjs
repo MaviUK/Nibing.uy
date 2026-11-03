@@ -362,11 +362,12 @@ test("owner-only reconciliation scans the existing customers without creating an
   assert.ok(!JSON.stringify(result).includes("test.person@example.org"));
 });
 
-test("read-only reconciliation recognizes the labelled API test customer",async()=>{
+test("read-only reconciliation recognizes the labelled API test customer when the full name matches",async()=>{
   const id="33333333-3333-4333-8333-333333333333";
   let details=0;
   const result=await reconcileAcceptedBooking("NBG-ABCDE-ABCDEFGH",{
-    auditStore:archived(),
+    auditStore:archived({...mockAcceptedAuditRecord(),
+      name:"TEST API - Original Test Person"}),
     listCustomers:async()=>({customers:[{
       _id:id,email:"test.person@example.org",status:"active",
       name:"TEST API - Original Test Person",
@@ -385,6 +386,22 @@ test("read-only reconciliation recognizes the labelled API test customer",async(
   assert.equal(result.jobCount,1);
   assert.equal(details,1);
   assert.ok(!JSON.stringify(result).includes("Original Test Person"));
+});
+
+test("read-only reconciliation holds for review when a labelled Squeegee customer name differs",async()=>{
+  let details=0;
+  const result=await reconcileAcceptedBooking("NBG-ABCDE-ABCDEFGH",{
+    auditStore:archived(),
+    listCustomers:async()=>({customers:[{
+      _id:"33333333-3333-4333-8333-333333333333",
+      email:"test.person@example.org",status:"active",
+      name:"TEST API - Original Test Person",
+      address:{addressDescription:"17 Example Street, Bangor BT20 4AA"},
+    }],hasMore:false,page:1,pageSize:100}),
+    getCustomer:async()=>{details++;return{};},
+  });
+  assert.equal(result.customer,"requires_review");
+  assert.equal(details,0,"uncertain names must never be assumed to refer to the same person");
 });
 
 test("incomplete customer pagination is never mistaken for no existing customer",async()=>{
