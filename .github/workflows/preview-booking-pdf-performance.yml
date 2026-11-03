@@ -10,6 +10,8 @@ on:
       - scripts/buildPreparedTermsPdf.cjs
       - scripts/benchmarkPreparedTermsPdf.cjs
       - tests/squeegee-prepared-terms-pdf.test.cjs
+      - tests/squeegee-annual-pdf-breakdown.test.cjs
+      - netlify/functions/lib/annualBookingBreakdown.js
       - .github/workflows/preview-booking-pdf-performance.yml
 permissions:
   contents: read
@@ -26,8 +28,8 @@ jobs:
       - run: npm ci
       - name: Prebuild master September 2026 Terms PDF
         run: node scripts/buildPreparedTermsPdf.cjs
-      - name: Verify uniqueness, fallback and safe terms fidelity
-        run: node --test tests/squeegee-prepared-terms-pdf.test.cjs
+      - name: Verify uniqueness, fallback, annual pricing and safe terms fidelity
+        run: node --test tests/squeegee-prepared-terms-pdf.test.cjs tests/squeegee-annual-pdf-breakdown.test.cjs
       - name: Benchmark old renderer against prebuilt fill-only renderer
         run: node scripts/benchmarkPreparedTermsPdf.cjs
       - name: Install PDF visual-review utilities
@@ -45,6 +47,9 @@ jobs:
             grep -F "September 2026" qa-extracted.txt | head -n 2
             grep -F "Customer Rewards" qa-extracted.txt
             grep -F "SHA-256" qa-extracted.txt
+            grep -F "ANNUAL COST BREAKDOWN" qa-extracted.txt
+            grep -F "TOTAL FOR 13 CLEANS" qa-extracted.txt
+            grep -F "GBP 130" qa-extracted.txt
             grep -F "1) Service & Contracts" qa-extracted.txt
             grep -F "10) Customer Rewards" qa-extracted.txt
             if command -v pdftoppm >/dev/null; then
