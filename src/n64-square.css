@@ -140,10 +140,70 @@
 }
 #site-section-menu a,
 #site-section-menu button { border-radius:0 !important; }
-#main-content.n64-world > button[aria-label="Check whether we cover your postcode"] {
+/* Two compact top actions must leave enough room for the fixed hamburger menu. */
+#main-content.n64-world .n64-top-actions {
+  display:flex;
+  align-items:stretch;
+  gap:8px;
+  max-width:calc(100vw - 94px);
+}
+#main-content.n64-world .n64-top-actions .n64-top-action {
+  box-sizing:border-box;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 1 auto;
+  gap:8px;
+  min-width:0;
+  height:46px;
+  padding:0 12px;
   border-radius:0 !important;
   border:4px solid #20345c !important;
   box-shadow:5px 6px 0 #37618a !important;
+  color:#20345c !important;
+  font:1000 12px/1.05 "Trebuchet MS",Verdana,sans-serif;
+  letter-spacing:-.02em;
+  white-space:nowrap;
+  cursor:pointer;
+  transition:transform .12s ease,filter .12s ease,box-shadow .12s ease;
+}
+#main-content.n64-world .n64-top-actions .n64-top-action--area {
+  background:#fff !important;
+}
+#main-content.n64-world .n64-top-actions .n64-top-action--area svg {
+  stroke:#236c85;
+  flex-shrink:0;
+}
+#main-content.n64-world .n64-top-actions .n64-top-action--book {
+  background:#ffe05f !important;
+  box-shadow:5px 6px 0 #b7892c !important;
+}
+#main-content.n64-world .n64-top-actions .n64-top-action:hover {
+  transform:translateY(-2px);
+  filter:brightness(1.04);
+}
+#main-content.n64-world .n64-top-actions .n64-top-action:active {
+  transform:translateY(4px);
+  box-shadow:1px 2px 0 #37618a !important;
+}
+#main-content.n64-world .n64-top-actions .n64-top-action:focus-visible {
+  outline:3px solid #fff !important;
+  outline-offset:4px;
+}
+@media(max-width:430px) {
+  #main-content.n64-world .n64-top-actions { gap:6px; }
+  #main-content.n64-world .n64-top-actions .n64-top-action {
+    font-size:clamp(10px,2.95vw,12px);
+    padding:0 clamp(5px,2vw,9px);
+    gap:5px;
+  }
+  #main-content.n64-world .n64-top-actions .n64-top-action--area svg {
+    width:15px;
+    height:15px;
+  }
+}
+@media(prefers-reduced-motion:reduce) {
+  #main-content.n64-world .n64-top-actions .n64-top-action { transition:none; }
 }
 
 #areas-we-cover a,
