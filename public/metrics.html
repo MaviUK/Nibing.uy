@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>10-Second Challenge Metrics</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root { --bg:#0a0a0a; --card:#111; --border:#2b2b2b; --txt:#fff; --muted:#a3a3a3; --accent:#10b981; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--txt); }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    h1 { margin: 0 0 12px; font-size: 24px; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); margin-top: 16px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+    .kpi { font-size: 34px; font-weight: 800; margin-top: 4px; }
+    .row { margin-top: 24px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 8px; border-top: 1px solid var(--border); }
+    thead th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-top: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+    .bar { height: 6px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+    .bar > span { display:block; height:100%; background: var(--accent); }
+    .actions { display:flex; gap:10px; align-items:center; margin-top: 8px; }
+    button { background:#1f2937; color:#fff; border:1px solid var(--border); padding:8px 12px; border-radius:10px; cursor:pointer; }
+    button:hover { opacity:.9; }
+    a { color: var(--accent); text-decoration: none; }
+    .error { color:#f87171; }
+    .center { display:flex; align-items:center; gap:10px; }
+  </style>
+  <link rel="stylesheet" href="/n64-static.css">
+</head>
+<body class="n64-metrics-standalone">
+  <div class="wrap">
+    <div class="card">
+      <div class="center" style="justify-content:space-between;">
+        <div>
+          <h1>10-Second Challenge Metrics</h1>
+          <div class="muted">Source: <code>/.netlify/functions/tensec-metrics</code></div>
+        </div>
+        <div class="actions">
+          <button id="refreshBtn" title="Reload metrics">Refresh</button>
+          <a href="/"><button title="Back to site">Home</button></a>
+        </div>
+      </div>
+
+      <div id="status" class="muted" style="margin-top:8px;">Loading…</div>
+
+      <div id="kpis" class="grid" style="display:none;">
+        <div class="card">
+          <div class="muted">Total Attempts</div>
+          <div id="k_attempts" class="kpi">—</div>
+        </div>
+        <div class="card">
+          <div class="muted">Total Wins</div>
+          <div id="k_wins" class="kpi">—</div>
+        </div>
+        <div class="card">
+          <div class="muted">Win Rate</div>
+          <div id="k_rate" class="kpi">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row card">
+      <h2 style="margin:0 0 8px;">Last 30 Days</h2>
+      <div class="muted">Daily attempts and wins.</div>
+      <div style="margin:10px 0;" class="bar" title="Daily fill vs max in range">
+        <span id="sparkDays" style="width:0%"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="t_days">
+          <thead><tr><th>Date</th><th>Attempts</th><th>Wins</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="row card">
+      <h2 style="margin:0 0 8px;">Last 12 ISO Weeks</h2>
+      <div class="table-wrap">
+        <table id="t_weeks">
+          <thead><tr><th>Week</th><th>Attempts</th><th>Wins</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="row card">
+      <h2 style="margin:0 0 8px;">Last 12 Months</h2>
+      <div class="table-wrap">
+        <table id="t_months">
+          <thead><tr><th>Month</th><th>Attempts</th><th>Wins</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="row muted">
+      Tip: Need CSV quickly? Hit the function with <a href="/.netlify/functions/tensec-metrics">JSON</a> and export from DevTools, or use the optional CSV mode we discussed earlier.
+    </div>
+  </div>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+    const tbody = (id) => document.querySelector(id + " tbody");
+
+    async function loadMetrics() {
+      $("#status").textContent = "Loading…";
+      try {
+        const res = await fetch("/.netlify/functions/tensec-metrics", { headers: { "Cache-Control": "no-store" }});
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+
+        // KPIs
+        const attempts = data.totals?.attempts || 0;
+        const wins = data.totals?.wins || 0;
+        const rate = attempts ? ((wins / attempts) * 100).toFixed(2) : "0.00";
+
+        $("#k_attempts").textContent = attempts;
+        $("#k_wins").textContent = wins;
+        $("#k_rate").textContent = rate + "%";
+        $("#kpis").style.display = "";
+
+        // Tables
+        fillTable(tbody("#t_days"), data.last30Days, "date");
+        fillTable(tbody("#t_weeks"), data.last12Weeks, "token");
+        fillTable(tbody("#t_months"), data.last12Months, "token");
+
+        // Simple “spark” fill based on the max daily attempts (for a quick visual)
+        const maxDay = Math.max(1, ...data.last30Days.map(r => r.attempts || 0));
+        const today = data.last30Days[data.last30Days.length - 1] || { attempts: 0 };
+        const pct = Math.min(100, Math.round((today.attempts || 0) / maxDay * 100));
+        $("#sparkDays").style.width = pct + "%";
+
+        const ts = new Date().toLocaleString();
+        $("#status").textContent = "Loaded • " + ts;
+      } catch (e) {
+        console.error(e);
+        $("#status").innerHTML = '<span class="error">Failed to load metrics.</span> ' + (e.message || e);
+      }
+    }
+
+    function fillTable(tbodyEl, rows, labelKey) {
+      tbodyEl.innerHTML = rows.map(r => {
+        const label = r[labelKey];
+        const a = r.attempts || 0;
+        const w = r.wins || 0;
+        return `<tr><td>${escapeHtml(label)}</td><td>${a}</td><td>${w}</td></tr>`;
+      }).join("");
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    }
+
+    $("#refreshBtn").addEventListener("click", loadMetrics);
+    loadMetrics();
+  </script>
+</body>
+</html>

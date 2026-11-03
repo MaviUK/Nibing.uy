@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#050505"/>
+  <circle cx="256" cy="218" r="156" fill="#22c55e"/>
+  <circle cx="256" cy="218" r="130" fill="#ffd400"/>
+  <text x="256" y="205" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="104" font-weight="900" fill="#050505">NBG</text>
+  <text x="256" y="278" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="47" font-weight="900" fill="#050505">STREET</text>
+  <rect x="82" y="382" width="348" height="62" rx="31" fill="#22c55e"/>
+  <text x="256" y="425" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="34" font-weight="900" fill="#050505">SIGNUP</text>
+</svg>

@@ -1,0 +1,5 @@
+Source: ni_bin_guy_website_round_lookup.csv
+Records: 1074
+Derived schedule cells: 916
+Generated: 2026-08-21
+Fields used: latitude, longitude, round, bin_service, round_next_visit, customer_frequency_weeks

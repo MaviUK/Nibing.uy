@@ -1,0 +1,1 @@
+Nearby customer schedule dates are authoritative for new addresses. Council lookup confirms the property/bin but does not force the clean date onto a generic round phase.

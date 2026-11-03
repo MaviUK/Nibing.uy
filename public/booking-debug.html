@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NI Bin Guy Booking Debug</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b0b0b;color:#111;margin:0;padding:20px}
+    .wrap{max-width:760px;margin:0 auto;background:#fff;border-radius:18px;padding:22px}
+    h1{margin:0 0 18px;font-size:28px}
+    label{display:block;font-weight:700;margin:14px 0 6px}
+    input,select,button{box-sizing:border-box;width:100%;font:inherit;border:1px solid #9ca3af;border-radius:10px;padding:12px}
+    button{margin-top:16px;background:#16a34a;color:#fff;border:0;font-weight:800;cursor:pointer}
+    .box{margin-top:20px;border:1px solid #d1d5db;border-radius:12px;padding:14px;background:#f9fafb}
+    .ok{color:#166534}.bad{color:#991b1b}.muted{color:#6b7280}.row{padding:6px 0;border-bottom:1px solid #e5e7eb}.row:last-child{border-bottom:0}
+    code,pre{white-space:pre-wrap;word-break:break-word;font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Booking Schedule Debug</h1>
+    <p class="muted">Hidden diagnostic page. This does not create a booking.</p>
+
+    <label for="address">Address including postcode</label>
+    <input id="address" placeholder="22 Duff Avenue, BT22 1PX" />
+
+    <label for="bin">Bin</label>
+    <select id="bin">
+      <option>Black</option>
+      <option>Blue</option>
+      <option>Brown</option>
+      <option>Green</option>
+      <option>Grey</option>
+    </select>
+
+    <button id="run">Run diagnostic</button>
+    <div id="result"></div>
+  </div>
+
+<script>
+const esc=(v)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const postcodeFrom=(s)=>{const m=String(s||'').toUpperCase().match(/\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i);if(!m)return'';const c=m[1].replace(/\s+/g,'');return c.length>3?`${c.slice(0,-3)} ${c.slice(-3)}`:c};
+function row(label,value,good=null){const cls=good===true?'ok':good===false?'bad':'';return `<div class="row"><strong>${esc(label)}:</strong> <span class="${cls}">${esc(value||'—')}</span></div>`}
+function diagnostic(data,responseOk){
+  let html='<div class="box">';
+  html+=row('API response',responseOk?'OK':'HTTP error',responseOk);
+  if(data.error){html+=row('Failure',data.error,false);return html+'</div>'}
+  if(data.reason){html+=row('Failure stage',data.reason,false)}
+  html+=row('Postcode',data.postcode);
+  html+=row('Council address source',data.addressSource);
+  html+=row('Council address selected',data.councilAddress);
+  html+=row('Town detected',data.town,Boolean(data.town));
+  html+=row('Town source',data.townSource);
+  html+=row('UPRN',data.uprn);
+
+  const results=Array.isArray(data.results)?data.results:[];
+  if(!results.length){
+    html+=row('Result',data.reason||'No bin result returned',false);
+    if(Array.isArray(data.candidates)&&data.candidates.length){html+=row('Top council candidates',data.candidates.map(x=>`${x.label} (score ${x.score})`).join(' | '))}
+  }
+  results.forEach((r,i)=>{
+    html+=`<div style="margin-top:14px;font-weight:800">Bin ${i+1}: ${esc(r.bin)}</div>`;
+    html+=row('Council bin mapping',r.councilBin);
+    html+=row('Parsed council dates',(r.councilDates||[]).join(', '),(r.councilDates||[]).length>0);
+    html+=row('Next two council dates',(r.nextTwoCouncilDates||[]).join(', '),(r.nextTwoCouncilDates||[]).length===2);
+    const support=r.round?.townDateSupport||[];
+    html+=row('Town work on those dates',support.length?support.map(x=>`${x.date}: ${x.support} jobs`).join(' | '):'No workload data',support.some(x=>Number(x.support)>0));
+    html+=row('Decision method',r.round?.resolvedBy);
+    html+=row('Assigned clean date',r.assignedCleanDate,r.automatic===true);
+    if(!r.automatic){
+      let failure='No automatic date selected';
+      if(!(r.councilDates||[]).length) failure='Council bin dates were not parsed';
+      else if(!(r.nextTwoCouncilDates||[]).length) failure='No future council dates available';
+      else if(!data.town) failure='Town could not be determined';
+      else if(!support.some(x=>Number(x.support)>0)) failure='No scheduled work found in this town on either council date';
+      html+=row('Likely failure',failure,false);
+    }
+  });
+  html+=row('Overall automatic match',data.matched?'YES':'NO',data.matched===true);
+  html+='</div><details class="box"><summary><strong>Raw response</strong></summary><pre>'+esc(JSON.stringify(data,null,2))+'</pre></details>';
+  return html;
+}
+
+document.getElementById('run').addEventListener('click',async()=>{
+  const address=document.getElementById('address').value.trim();
+  const bin=document.getElementById('bin').value;
+  const postcode=postcodeFrom(address);
+  const out=document.getElementById('result');
+  if(!postcode){out.innerHTML='<div class="box bad">A full postcode is required.</div>';return}
+  out.innerHTML='<div class="box">Checking…</div>';
+  try{
+    const res=await fetch('/api/booking-schedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({address,postcode,bins:[{type:bin}]})});
+    const data=await res.json().catch(()=>({error:'Response was not JSON'}));
+    out.innerHTML=diagnostic(data,res.ok);
+  }catch(err){out.innerHTML='<div class="box bad">Request failed: '+esc(err.message)+'</div>'}
+});
+</script>
+</body>
+</html>

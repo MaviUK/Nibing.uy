@@ -1,0 +1,113 @@
+name: Preview 1 Squeegee booking website build smoke
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/squeegee-preview-build-smoke.yml
+      - src/LandingPage.jsx
+      - src/bookingReference.mjs
+      - netlify/functions/lib/bookingEmailTemplate.js
+      - netlify/functions/lib/ownerBookingTermsSummary.js
+      - netlify/functions/lib/squeegeeOwnerCertificate.js
+      - tests/squeegee-owner-certificate.test.cjs
+      - tests/squeegee-booking-reference.test.cjs
+      - tests/squeegee-preview-booking-submit-ui.test.cjs
+      - src/bookingScheduleBridge.js
+      - netlify/functions/lib/squeegeeBookingStage.js
+      - scripts/hardenBookingSubmissions.cjs
+      - netlify/functions/squeegeePreviewTest.mjs
+      - netlify/functions/squeegeePreviewTestSubmit.mjs
+      - netlify/functions/lib/squeegeePreviewTestSession.js
+      - netlify/functions/lib/squeegeeOneBookingTest.js
+      - netlify/functions/lib/squeegeePreviewAutoDispatch.js
+      - netlify/functions/lib/squeegeePreviewAutoRollout.js
+      - netlify/functions/lib/squeegeeAutoPilotRecovery.js
+      - netlify/functions/squeegeePreviewAutoRecover.mjs
+      - netlify/functions/squeegeePreviewQuantityProbe.mjs
+      - tests/squeegee-quantity-probe.test.cjs
+      - netlify/functions/lib/squeegeeAutomaticBooking.js
+      - netlify/functions/lib/squeegeeCustomerMatcher.js
+      - tests/squeegee-name-address-matching.test.cjs
+      - tests/squeegee-duplicate-flags.test.cjs
+      - netlify/functions/lib/squeegeeJobGrouping.js
+      - netlify/functions/lib/ukBookingPhone.js
+      - netlify/functions/lib/squeegeeSyncOwnerAlert.js
+      - tests/squeegee-sync-owner-alert.test.cjs
+      - tests/squeegee-booking-phone-validation.test.cjs
+      - netlify/functions/squeegeePreviewAutoSync.mjs
+      - netlify/functions/squeegeePreviewAutoStatus.mjs
+      - netlify/functions/sendBookingEmail.js
+      - netlify/functions/sendTosReceipt.js
+      - netlify/functions/lib/squeegeeApiV3.js
+      - netlify/functions/lib/arcadePublicIdentity.js
+      - netlify/functions/lib/squeegeeActiveLeaderboardImport.js
+      - netlify/functions/lib/squeegeeCleaningStreak.js
+      - tests/squeegee-cleaning-streak.test.cjs
+      - tests/squeegee-active-streak-import.test.cjs
+      - netlify/functions/lib/squeegeeActivePreviewSnapshot.js
+      - netlify/functions/lib/squeegeeActivePreviewBoard.js
+      - netlify/functions/lib/squeegeeLeaderboardNameConsent.js
+      - netlify/functions/lib/customerHQ.js
+      - netlify/functions/customerHQ.mjs
+      - netlify/functions/squeegeePreviewCustomerHQImport.mjs
+      - public/_redirects
+      - tests/squeegee-customer-hq-routing.test.cjs
+      - tests/squeegee-leaderboard-inline-hq.test.cjs
+      - netlify/functions/squeegeePreviewVerifiedLeaderboard.mjs
+      - tests/squeegee-verified-owner-board.test.cjs
+      - tests/squeegee-public-scoreboard.test.cjs
+      - tests/squeegee-preview-public-firstnames.test.cjs
+      - netlify/functions/lib/squeegeeOwnerLeaderboardPreview.js
+      - src/n64-finale.css
+      - src/pages/SqueegeePortalPage.jsx
+      - src/components/CustomerPortalLoader.jsx
+      - src/App.jsx
+      - netlify.toml
+      - netlify/functions/lib/squeegeePreviewHQImportCsrf.js
+      - tests/squeegee-preview-hq-upload-csrf.test.cjs
+      - src/pages/CustomerHQ.jsx
+      - src/customer-hq.css
+      - tests/squeegee-customer-hq.test.cjs
+      - netlify/functions/squeegeePreviewLeaderboardNames.mjs
+      - tests/squeegee-leaderboard-name-consent.test.cjs
+      - tests/squeegee-active-preview-population.test.cjs
+      - netlify/functions/lib/arcadeSqueegeeLink.js
+      - tests/squeegee-active-leaderboard.test.cjs
+      - tests/squeegee-arcade-link.test.cjs
+      - netlify/functions/squeegeePreviewLeaderboardHistory.mjs
+      - netlify/functions/arcadeLeaderboard.js
+      - src/components/ArcadeLeaderboard.jsx
+      - public/n64-scoreboard.js
+      - tests/squeegee-leaderboard-privacy.test.cjs
+      - netlify/functions/lib/squeegeeOwnerReactivation.js
+      - netlify/functions/squeegeePreviewOwnerReactivation.mjs
+      - tests/squeegee-owner-reactivation.test.cjs
+      - netlify/functions/lib/squeegeePartialGreenReconciliation.js
+      - netlify/functions/squeegeePreviewPartialGreenReconciliation.mjs
+      - tests/squeegee-partial-green-reconciliation.test.cjs
+      - netlify/functions/lib/squeegeeHeldGroomsportRecovery.js
+      - netlify/functions/squeegeePreviewHeldGroomsportRecovery.mjs
+      - tests/squeegee-held-groomsport-recovery.test.cjs
+      - netlify/functions/lib/squeegeeOwnerRecovery.js
+      - netlify/functions/squeegeePreviewOwnerRecoveryV2.mjs
+      - tests/squeegee-owner-recovery.test.cjs
+      - netlify/functions/lib/squeegeeOneBookingReconcile.js
+      - netlify/functions/lib/squeegeeAcceptedBookingRecovery.js
+      - netlify/functions/squeegeePreviewRecoverOriginal.mjs
+permissions:
+  contents: read
+jobs:
+  check-preview-website-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Build preview website
+        run: npm run build
