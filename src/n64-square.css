@@ -140,19 +140,22 @@
 }
 #site-section-menu a,
 #site-section-menu button { border-radius:0 !important; }
-/* Two compact top actions must leave enough room for the fixed hamburger menu. */
+/* Both quick actions have the same width and height, with an 8px gutter
+   between them and the fixed hamburger menu on mobile. */
 #main-content.n64-world .n64-top-actions {
-  display:flex;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
   align-items:stretch;
   gap:8px;
-  max-width:calc(100vw - 94px);
+  width:min(510px,calc(100vw - 82px));
+  max-width:calc(100vw - 82px);
 }
 #main-content.n64-world .n64-top-actions .n64-top-action {
   box-sizing:border-box;
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  flex:0 1 auto;
+  width:100%;
   gap:8px;
   min-width:0;
   height:46px;
@@ -191,7 +194,6 @@
   outline-offset:4px;
 }
 @media(max-width:430px) {
-  #main-content.n64-world .n64-top-actions { gap:6px; }
   #main-content.n64-world .n64-top-actions .n64-top-action {
     font-size:clamp(10px,2.95vw,12px);
     padding:0 clamp(5px,2vw,9px);
