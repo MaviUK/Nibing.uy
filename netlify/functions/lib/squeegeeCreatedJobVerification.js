@@ -9,7 +9,7 @@
  * Never infer that the appointment date was verified by this readback.
  * A 2xx POST or JSON success:true alone is NOT proof that a job exists.
  */
-const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_ATTEMPTS=3;
 
 function idOf(value) {
