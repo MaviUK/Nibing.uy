@@ -31,7 +31,7 @@ test("homepage only unlocks its terms checkbox AFTER modal confirmation", () => 
   assert.match(homeForm, /const \[termsConfirmed, setTermsConfirmed\] = useState\(false\)/);
   assert.match(homeForm, /const canToggleAgree = termsConfirmed/);
   assert.match(homeForm, /onClick=\{\(\) => setShowTerms\(true\)\}/);
-  assert.match(homeForm, /checked=\{agreeToTerms\} disabled=\{!canToggleAgree\}/);
+  assert.match(homeForm, /checked=\{agreeToTerms\}\s*disabled=\{!canToggleAgree\}/);
   assert.match(homeForm, /onConfirm=\{\(\) => \{[\s\S]*?setTermsConfirmed\(true\);\s*setAgreeToTerms\(true\)/);
   assert.match(homeForm, /if \(!termsConfirmed \|\| !agreeToTerms\)/);
   assert.match(homeForm, /disabled=\{!termsConfirmed \|\| !agreeToTerms \|\| isEmailSubmitting/);

@@ -1009,7 +1009,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
         aria-invalid={Boolean(fieldErrors.phone)}
         className="w-full border border-gray-500 rounded-none px-4 py-2 mt-2" />
       {renderFieldError("phone")}
-      <p className="text-xs text-gray-600">Enter an 11-digit UK phone number, including 028 landlines or 07 mobiles.</p>
+      <p className="text-xs text-gray-600">Enter an 11-digit UK phone number, including 028 landlines or 07 mobiles. A postcode cannot be used as a phone number.</p>
       <label htmlFor="booking-contact-email" className="sr-only">Email address</label>
       <input id="booking-contact-email" type="email" placeholder="Email Address" autoComplete="email"
         value={email} onChange={(e) => { setEmail(e.target.value); clearFieldError("email"); }}
