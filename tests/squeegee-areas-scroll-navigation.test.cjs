@@ -182,7 +182,7 @@ test("a newly loaded section can settle after React mounts and still align corre
   x.shift(4200);
   x.timer(240);
   assert.equal(x.headingVisibleY(),122);
-  x.timer(1250);
+  x.timer(2700);
   const count=x.scrollCount();
   x.shift(4600);
   x.timer(630);
