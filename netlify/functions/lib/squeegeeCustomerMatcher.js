@@ -151,8 +151,14 @@ function matchCustomers(booking, customerList) {
       (contactMatches.length===1 && contactMatches[0]._id!==byRef[0]._id)))
     return {status:"needs_review",reason:"conflicting_customer_reference"};
 
-  if(byRef.length===1)
+  if(byRef.length===1) {
+    // Even an externally linked customer reference does not make two
+    // different full names at one property the same person.
+    const refName=normalName(byRef[0].name);
+    if(wantedName && refName && refName!==wantedName)
+      return {status:"needs_review",reason:"same_address_contact_name_conflict"};
     return checkedCustomer(byRef[0],"external_reference");
+  }
   if(nameMatches.length===1)
     return checkedCustomer(nameMatches[0],"exact_property_and_name");
   if(contactMatches.length===1) {
