@@ -16,9 +16,8 @@ test("the owner-reported 14,000 pre-Squeegee cleans are counted once alongside t
   assert.doesNotMatch(stats, /computeEstimatedRouteTotals|sessionAddsRef|dailyProgressBins/);
 });
 
-test("the homepage labels the older cleans separately from the Squeegee data date", () => {
+test("the homepage shows a clean lifetime number without explanatory notes", () => {
   const source = fs.readFileSync(path.join(__dirname, "../src/LandingPage.jsx"), "utf8");
-  assert.match(source, /preSqueegeeCompletedBins/);
-  assert.match(source, /pre-Squeegee cleans/);
-  assert.match(source, /Squeegee records to \{verifiedThrough\}/);
+  assert.match(source, /Number\(totalBinsCleaned\)\.toLocaleString/);
+  assert.doesNotMatch(source, /pre-Squeegee cleans|Squeegee records to|Including our new round/);
 });

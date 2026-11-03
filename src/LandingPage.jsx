@@ -1278,7 +1278,7 @@ function ChallengeModal({ open, onClose }) {
    Page Sections
    ──────────────────────────────────────────────────────────────────────────── */
 function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
-  const { totalBinsCleaned, preSqueegeeCompletedBins, verifiedThrough, todaysArea, totalMonthlyCustomers } = useLiveCounters();
+  const { totalBinsCleaned, todaysArea, totalMonthlyCustomers } = useLiveCounters();
 
   // Lifetime total adds the owner's pre-Squeegee history once to the verified backup.
   return (
@@ -1356,10 +1356,6 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
         <div className="n64-score">
           <span className="n64-score-title">Bins Cleaned</span>
           <strong className="n64-score-value">{Number(totalBinsCleaned).toLocaleString("en-GB")}</strong>
-          <span className="block mt-2 text-[10px] sm:text-xs font-bold opacity-80">
-            Includes {preSqueegeeCompletedBins.toLocaleString("en-GB")} pre-Squeegee cleans
-            <span className="block">Squeegee records to {verifiedThrough}</span>
-          </span>
         </div>
         <div className="n64-score">
           <span className="n64-score-title">Today's Area</span>
@@ -1368,7 +1364,6 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
         <div className="n64-score">
           <span className="n64-score-title">Monthly Customers</span>
           <strong className="n64-score-value">{Number(totalMonthlyCustomers).toLocaleString("en-GB")}</strong>
-          <span className="n64-score-note">Including our new round</span>
         </div>
       </div>
 

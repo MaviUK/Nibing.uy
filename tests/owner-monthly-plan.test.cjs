@@ -29,8 +29,6 @@ test("new business forecast never rewrites verified October backup or route assi
 test("homepage retains the customer count but removes the four-week forecast panel",()=>{
   const hero=fs.readFileSync(path.join(__dirname,"../src/LandingPage.jsx"),"utf8");
   assert.match(hero,/Monthly Customers/);
-  assert.match(hero,/Including our new round/);
-  assert.match(hero,/Squeegee records to \{verifiedThrough\}/);
-  assert.match(hero,/Includes \{preSqueegeeCompletedBins\.toLocaleString/);
+  assert.doesNotMatch(hero,/Including our new round|Squeegee records to|preSqueegeeCompletedBins/);
   assert.doesNotMatch(hero,/n64-cleaning-plan|planned cleans per month|Planning averages for the new round/);
 });

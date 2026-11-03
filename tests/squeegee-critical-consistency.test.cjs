@@ -43,7 +43,7 @@ test("verified completed bins never include estimated daily progress or animatio
   const stats=source("src/data/statsPlan.js"),hero=source("src/LandingPage.jsx");
   assert.match(stats,/totalBinsCleaned:TOTAL_COMPLETED_BINS/);
   assert.match(stats,/PRE_SQUEEGEE_COMPLETED_BINS = 14000/);
-  assert.match(hero,/Squeegee records to \{verifiedThrough\}/);
+  assert.doesNotMatch(hero,/Squeegee records to|Including our new round/);
   assert.doesNotMatch(stats,/computeEstimatedRouteTotals|Math\.floor\(today\.bins/);
   assert.doesNotMatch(hero,/MAX_ADDS|sessionAddsRef/);
 });
