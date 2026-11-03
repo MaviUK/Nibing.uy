@@ -1278,11 +1278,7 @@ function ChallengeModal({ open, onClose }) {
    Page Sections
    ──────────────────────────────────────────────────────────────────────────── */
 function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
-  const {
-    totalBinsCleaned, verifiedThrough, todaysArea, totalMonthlyCustomers,
-    monthlyCleansTarget, weeklyCleaningTargets, weeklyAverageCleans,
-    dailyAverageCleans, monthlyRevenueTargetGBP, pricePerPaidCleanGBP,
-  } = useLiveCounters();
+  const { totalBinsCleaned, verifiedThrough, todaysArea, totalMonthlyCustomers } = useLiveCounters();
 
   // The verified Squeegee snapshot is the only source of completed washes.
   return (
@@ -1373,31 +1369,7 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
         </div>
       </div>
 
-      <div className="n64-cleaning-plan" aria-label="New round monthly cleaning plan">
-        <div className="n64-cleaning-plan__heading">
-          <span className="n64-cleaning-plan__kicker">NEW ROUND · FOUR-WEEK PLAN</span>
-          <strong className="n64-cleaning-plan__title">{monthlyCleansTarget.toLocaleString("en-GB")} planned cleans per month</strong>
-          <p className="n64-cleaning-plan__summary">
-            £{monthlyRevenueTargetGBP.toLocaleString("en-GB")} monthly target at £{pricePerPaidCleanGBP} per bin
-            <span aria-hidden="true"> · </span>
-            {weeklyAverageCleans.toLocaleString("en-GB")} bins per week
-            <span aria-hidden="true"> · </span>
-            {dailyAverageCleans.toLocaleString("en-GB")} per working day (Mon–Thu)
-          </p>
-        </div>
-        <div className="n64-cleaning-plan__weeks" aria-label="Evenly distributed weekly cleaning targets">
-          {weeklyCleaningTargets.map((target) => (
-            <div className="n64-cleaning-plan__week" key={target.week}>
-              <span>Week {target.week}</span>
-              <strong>{target.cleans.toLocaleString("en-GB")} bins</strong>
-              <small>£{target.revenueGBP.toLocaleString("en-GB")}</small>
-            </div>
-          ))}
-        </div>
-        <p className="n64-cleaning-plan__disclaimer">
-          Planning averages for the new round, not confirmed cleans or assigned Squeegee round totals.
-        </p>
-      </div>
+
     </section>
   );
 }

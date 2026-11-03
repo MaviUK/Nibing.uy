@@ -25,11 +25,10 @@ test("new business forecast never rewrites verified October backup or route assi
   assert.match(stats,/monthlyCustomers: OWNER_MONTHLY_PLAN\.monthlyCustomers/);
   assert.match(stats,/totalMonthlyCustomers:OWNER_MONTHLY_PLAN\.monthlyCustomers/);
 });
-test("homepage separates planned targets from verifiable washes and displays the new customer count",()=>{
+test("homepage retains the customer count but removes the four-week forecast panel",()=>{
   const hero=fs.readFileSync(path.join(__dirname,"../src/LandingPage.jsx"),"utf8");
   assert.match(hero,/Monthly Customers/);
   assert.match(hero,/Including our new round/);
-  assert.match(hero,/planned cleans per month/);
-  assert.match(hero,/Planning averages for the new round, not confirmed cleans/);
   assert.match(hero,/Verified to \{verifiedThrough\}/);
+  assert.doesNotMatch(hero,/n64-cleaning-plan|planned cleans per month|Planning averages for the new round/);
 });
