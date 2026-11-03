@@ -629,8 +629,13 @@ function BookingForm({ onClose, initialAddress = "" }) {
       if (!res.ok) {
         // These failures are rejected before any email send, so it's safe
         // to create a new security ticket and let the visitor try again.
-        safeToRetry = [400, 401, 403, 422, 429].includes(res.status);
-        const message = res.status === 403
+        safeToRetry = [400, 401, 403, 422, 424, 428, 429].includes(res.status);
+        if (res.status === 424) emailSubmissionRef.current = null;
+        const message = res.status === 424
+          ? "The Terms PDF could not be prepared. Nothing was submitted; please try again."
+          : res.status === 428
+            ? "Our Terms of Service have been updated. Refresh the page, review them and try again."
+          : res.status === 403
           ? "The booking security check was not accepted. Nothing was sent; please try again."
           : res.status === 429
             ? "Too many booking attempts. Please leave a little time before trying again."
@@ -1100,11 +1105,20 @@ function ContactForm({ onClose }) {
   const handleEmail = async () => {
     if (!validateOrAlert()) return;
 
-    // ✅ reCAPTCHA token (v3)
+    // This preview uses the existing signed, rate-limited challenge for
+    // contact messages too. Production continues to use reCAPTCHA v3.
     const recaptchaAction = "contact_submit";
-    const recaptchaToken = await getRecaptchaToken(recaptchaAction);
-    if (!recaptchaToken) {
-      alert("Anti-bot check not ready. Please try again in a moment.");
+    let recaptchaToken = null;
+    let previewProof = null;
+    try {
+      if (window.location.hostname === N64_BOOKING_PREVIEW_HOST) {
+        previewProof = await getPreviewBookingProof();
+      } else {
+        recaptchaToken = await getRecaptchaToken(recaptchaAction);
+        if (!recaptchaToken) throw new Error("Anti-bot verification unavailable");
+      }
+    } catch {
+      alert("The security check could not be completed. No message was sent; please try again.");
       return;
     }
 
@@ -1117,6 +1131,7 @@ function ContactForm({ onClose }) {
           email: cEmail.trim(),
           phone: cPhone.trim(),
           message: cMessage.trim(),
+          previewProof,
           recaptchaToken,
           recaptchaAction,
         }),
@@ -1263,43 +1278,9 @@ function ChallengeModal({ open, onClose }) {
    Page Sections
    ──────────────────────────────────────────────────────────────────────────── */
 function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
-  const { totalBinsCleaned, todaysArea, totalMonthlyCustomers } = useLiveCounters();
+  const { totalBinsCleaned, verifiedThrough, todaysArea, totalMonthlyCustomers } = useLiveCounters();
 
-  // Soft-live counter (display only)
-  const [displayTotal, setDisplayTotal] = useState(() => Number(totalBinsCleaned) || 0);
-  const sessionAddsRef = useRef(0);
-  const lastAddRef = useRef(0);
-
-  // When the real total changes (e.g. refresh/new data), reset display base + session add cap
-  useEffect(() => {
-    const base = Number(totalBinsCleaned) || 0;
-    setDisplayTotal(base);
-    sessionAddsRef.current = 0;
-    lastAddRef.current = Date.now();
-  }, [totalBinsCleaned]);
-
-  useEffect(() => {
-    // Tune these:
-    const EVERY_MS = 45000; // add 1 every 45s
-    const MAX_ADDS = 4; // cap to 4 per session so it never drifts too far
-
-    const tick = () => {
-      if (document.hidden) return; // pause when tab not visible
-      if (sessionAddsRef.current >= MAX_ADDS) return;
-
-      const now = Date.now();
-      if (now - lastAddRef.current < EVERY_MS) return;
-
-      lastAddRef.current = now;
-      sessionAddsRef.current += 1;
-      setDisplayTotal((v) => v + 1);
-    };
-
-    const interval = setInterval(tick, 1000); // check once per second
-    return () => clearInterval(interval);
-  }, []);
-
-
+  // The verified Squeegee snapshot is the only source of completed washes.
   return (
     <section className="n64-hero n64-hero-layout-v2" aria-labelledby="n64-hero-title">
       <div className="n64-cloud n64-cloud--one" aria-hidden="true" />
@@ -1374,7 +1355,8 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
       <div className="n64-scoreboard" aria-label="Our cleaning statistics">
         <div className="n64-score">
           <span className="n64-score-title">Bins Cleaned</span>
-          <strong className="n64-score-value">{Number(displayTotal).toLocaleString()}</strong>
+          <strong className="n64-score-value">{Number(totalBinsCleaned).toLocaleString("en-GB")}</strong>
+          <span className="block mt-2 text-[10px] sm:text-xs font-bold opacity-80">Verified to {verifiedThrough}</span>
         </div>
         <div className="n64-score">
           <span className="n64-score-title">Today's Area</span>

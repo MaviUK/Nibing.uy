@@ -180,6 +180,15 @@ exports.handler = async (event) => {
       termsTimestamp = new Date().toISOString(),
     } = payload;
 
+    // Website bookings must refer to the currently published agreement.
+    if (source === "website" && termsVersion !== TERMS_VERSION_DEFAULT) {
+      return {
+        statusCode: 428,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+        body: JSON.stringify({ error: "Reload and accept the September 2026 terms" }),
+      };
+    }
+
     // Reject postcodes/non-phone text BEFORE claiming a booking ID, emailing
     // anyone, awarding XP or dispatching any real Squeegee API work.
     const phone=normaliseUkBookingPhone(rawPhone);
@@ -267,12 +276,43 @@ exports.handler = async (event) => {
         body: JSON.stringify({ error: "Anti-bot check failed" }),
       };
     }
+    // A customer cannot accept a booking unless their signed Terms PDF exists.
+    // This guard runs BEFORE reserving the reference or sending any email.
+    if (!termsPdfAttachment) {
+      return {
+        statusCode: 424,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+        body: JSON.stringify({ error: "Terms certificate unavailable; no booking submitted" }),
+      };
+    }
 
     // Once the security check has passed, claim this random booking reference.
     // This prevents rapid repeated taps/retries from sending duplicate emails.
     // Claims are deliberately NOT consumed when CAPTCHA verification fails.
     const submission = validateBookingSubmission(payload);
     if (!submission.ok) return submissionErrorResponse(submission);
+    // The preview worker must send the owner the SAME PDF already given to
+    // the customer. Stage those exact bytes BEFORE accepting the booking.
+    const syncHost=String(event?.headers?.host||event?.headers?.Host||"").toLowerCase();
+    const isPreview1=syncHost==="deploy-preview-77--nibinguy.netlify.app";
+    let stagedOwnerPdfSha=null;
+    if (isPreview1 && autoDispatchConfigured(process.env) &&
+        rollout.acceptedForRollout(payload,"email",process.env)) {
+      try {
+        if (!getStoreSafe) throw new Error("netlify_blobs_not_available");
+        const saved=await ownerCertificate.storeCustomerCertificate(
+          submission.bookingId,termsPdfAttachment,
+          getStoreSafe(ownerCertificate.STORE,"strong"));
+        stagedOwnerPdfSha=saved.sha256;
+      } catch (error) {
+        console.error("Preview 77 owner certificate staging failed:",error?.message||"unavailable");
+        return {
+          statusCode: 424,
+          headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+          body: JSON.stringify({ error: "Terms certificate could not be secured; no booking submitted" }),
+        };
+      }
+    }
     const claim = await claimBookingSubmission({ ...submission, channel: "email" });
     if (!claim.ok) return submissionErrorResponse({ ...submission, duplicate: true });
 
@@ -301,8 +341,6 @@ exports.handler = async (event) => {
       <p style="color:#6b7280;font-size:12px;margin-top:12px">Source: ${escapeHtml(source)}</p>
     `;
 
-    const syncHost=String(event?.headers?.host||event?.headers?.Host||"").toLowerCase();
-    const isPreview1=syncHost==="deploy-preview-77--nibinguy.netlify.app";
     const ownerReceipt={
       subject:subjectAdmin,text:textAdmin,html:htmlAdmin,
       replyTo:email||null,termsBody:TERMS_BODY,
@@ -316,22 +354,8 @@ exports.handler = async (event) => {
       autoDispatchConfigured(process.env) &&
       rollout.acceptedForRollout(payload,"email",process.env) &&
       Boolean(normalOwnerReceipt(ownerReceipt));
-    if(deferAdminForPreview && termsPdfAttachment){
-      try{
-        if(!getStoreSafe)throw new Error("netlify_blobs_not_available");
-        // Store the EXACT original PDF that will be attached to the
-        // customer email, BEFORE signing/dispatching the owner receipt.
-        // Never place 1.2 MB of PDF base64 in the signed event.
-        const saved=await ownerCertificate.storeCustomerCertificate(
-          submission.bookingId,termsPdfAttachment,
-          getStoreSafe(ownerCertificate.STORE,"strong"));
-        ownerReceipt.ownerPdfSha256=saved.sha256;
-      }catch(error){
-        // This booking remains accepted: do not create duplicates or block
-        // the customer. The worker will remove any false "PDF attached"
-        // statement if its original certificate is unavailable.
-        console.error("Preview 77 owner PDF staging failed:",error?.message||"unavailable");
-      }
+    if (deferAdminForPreview && stagedOwnerPdfSha) {
+      ownerReceipt.ownerPdfSha256=stagedOwnerPdfSha;
     }
     const adminEmailMessage={
       from:FROM_DEFAULT,to:TO_ADMIN,subject:subjectAdmin,

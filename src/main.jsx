@@ -14,7 +14,9 @@ import './serviceAreaLinks.js';
 // a customer submits the booking form. LandingPage also has its own loader,
 // so this is intentionally defensive rather than a replacement.
 const recaptchaSiteKey = import.meta.env?.VITE_RECAPTCHA_SITE_KEY;
-if (recaptchaSiteKey && !document.getElementById('recaptcha-script')) {
+// Production reCAPTCHA keys cannot render on Netlify preview hostnames.
+const isNetlifyPreview = /--nibinguy\\.netlify\\.app$/.test(window.location.hostname);
+if (recaptchaSiteKey && !isNetlifyPreview && !document.getElementById('recaptcha-script')) {
   const script = document.createElement('script');
   script.id = 'recaptcha-script';
   script.src = `https://www.google.com/recaptcha/api.js?render=${recaptchaSiteKey}`;
