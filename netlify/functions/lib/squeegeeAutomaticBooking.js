@@ -388,18 +388,18 @@ async function executeAutomaticPreviewBooking(payload,{
     // only after matching full name + email + phone across all pages.
     duplicateFlags=Array.isArray(customerMatch.duplicateFlags)?
       customerMatch.duplicateFlags:[];
+    if(!["matched","not_found","reactivation_required"].includes(customerMatch.status))
+      return await held("customer_match_ambiguous_or_incomplete",{
+        matchReason:customerMatch.reason||"unspecified_match_reason",
+      },ownerSubmissionInfo("not confirmed"));
     // Another registered full name at this service address needs owner
-    // confirmation even if a different matching contact/ref was found.
+    // confirmation even if a matching name/contact/ref was also found.
     // Do not silently attach jobs to one of several possible residents.
     if(duplicateFlags.includes("address_registered_to_other_name") ||
        duplicateFlags.includes("multiple_records_at_address"))
       return await held("customer_match_ambiguous_or_incomplete",{
         matchReason:"another_customer_registered_at_service_address",
       });
-    if(!["matched","not_found","reactivation_required"].includes(customerMatch.status))
-      return await held("customer_match_ambiguous_or_incomplete",{
-        matchReason:customerMatch.reason||"unspecified_match_reason",
-      },ownerSubmissionInfo("not confirmed"));
     const existing=customerMatch.status!=="not_found";
     const anotherProperty=customerMatch.relatedContactAtDifferentAddress===true;
     const matchedByIdentity=customerMatch.reason==="exact_identity_other_property" ||
