@@ -632,9 +632,14 @@ function BookingForm({ onClose, initialAddress = "" }) {
       if (!res.ok) {
         // These failures are rejected before any email send, so it's safe
         // to create a new security ticket and let the visitor try again.
-        safeToRetry = [400, 401, 403, 422, 424, 428, 429].includes(res.status);
+        safeToRetry = [400, 401, 403, 422, 424, 428, 429].includes(res.status) ||
+          (res.status === 503 && result?.reason === "booking_guard_not_ready" && result?.safeToRetry === true);
         if (res.status === 424) emailSubmissionRef.current = null;
-        const message = res.status === 424
+        const message = res.status === 503 && result?.reason === "booking_guard_not_ready"
+          ? "Booking security is temporarily unavailable. Nothing was submitted; please try again shortly."
+          : res.status === 503 && result?.reason === "booking_reservation_uncertain"
+          ? "Your booking may already be recorded. Do not book again; contact NI Bin Guy with your booking reference."
+          : res.status === 424
           ? "The Terms PDF could not be prepared. Nothing was submitted; please try again."
           : res.status === 428
             ? "Our Terms of Service have been updated. Refresh the page, review them and try again."

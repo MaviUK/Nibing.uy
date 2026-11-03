@@ -328,7 +328,7 @@ exports.handler = async (event) => {
     const claimStarted=Date.now();
     const claim = await claimBookingSubmission({ ...submission, channel: "email" });
     timings.claim=Date.now()-claimStarted;
-    if (!claim.ok) return submissionErrorResponse({ ...submission, duplicate: true });
+    if (!claim.ok) return submissionErrorResponse({ ...submission, ...claim });
 
     // Both immediate customer and owner emails share this generated PDF.
     // Preview 1 deferred owner delivery rebuilds the same acceptance
