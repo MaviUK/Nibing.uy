@@ -123,6 +123,9 @@ function makeHarness(booking,options={}){
         throw new Error("ambiguous external job result");
       return{success:true};
     },
+    // Most unit scenarios use a mocked write; production performs a separate
+    // read-only Squeegee GET and only marks it complete after finding the job.
+    confirmJob:async()=>({verified:true,jobId:"99999999-9999-4999-8999-999999999999"}),
     save:async(id,stage,extra={})=>{
       statuses.push({id,stage,...extra});
       return{saved:true};
