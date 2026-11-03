@@ -135,6 +135,8 @@ async function preflight(id,day){
     return {ok:false,reason:"The matched Squeegee account is not active or its identity/address differs."};
   const prepared=prepare.prepareReadOnlyBooking(booking,schedules,services,{
     jobGroups:groups,
+    // Trusted original audit only; never supplied by a new public booking.
+    legacyLargeCommercialPrice:reactivate.acceptedLegacyCommercialPrice(booking.submittedAt),
   });
   const grouped=reactivate.preparedJobs(prepared,booking,Date.now());
   if(!grouped)

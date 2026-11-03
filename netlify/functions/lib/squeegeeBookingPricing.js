@@ -60,7 +60,12 @@ function discountFor(planId, code, now) {
   return { valid: true, applied: true, rule };
 }
 
-function verifyAndPriceBooking(bins, discountCode, postedPricing, { now = Date.now() } = {}) {
+// Legacy prices are allowed ONLY when a trusted owner-only recovery validates
+// an immutable, previously accepted audit. Customer booking handlers never
+// pass this option, so all NEW commercial one-offs cost GBP 35.
+function verifyAndPriceBooking(bins, discountCode, postedPricing, {
+  now = Date.now(), legacyLargeCommercialPrice = false,
+} = {}) {
   if (!Array.isArray(bins) || bins.length === 0 || bins.length > 20) {
     return { ok: false, reason: "invalid_bin_count" };
   }
@@ -94,11 +99,13 @@ function verifyAndPriceBooking(bins, discountCode, postedPricing, { now = Date.n
     }
     const discount = discountFor(bin.planId, code, nowMs);
     if (!discount.valid) return { ok: false, reason: discount.reason };
-    let unitPrice = plan.price;
+    const baseUnit = legacyLargeCommercialPrice && bin.planId === "comm_gt660_oneoff"
+      ? 45 : plan.price;
+    let unitPrice = baseUnit;
     if (discount.applied) {
       const rule = discount.rule;
-      if (rule.type === "percent") unitPrice = roundMoney(plan.price * (1 - rule.value / 100));
-      else if (rule.type === "fixed") unitPrice = Math.max(0, roundMoney(plan.price - rule.value));
+      if (rule.type === "percent") unitPrice = roundMoney(baseUnit * (1 - rule.value / 100));
+      else if (rule.type === "fixed") unitPrice = Math.max(0, roundMoney(baseUnit - rule.value));
       else if (rule.type === "free") unitPrice = 0;
     }
     lines.push({
@@ -106,7 +113,7 @@ function verifyAndPriceBooking(bins, discountCode, postedPricing, { now = Date.n
       sizeLitres: LARGE_PLANS.has(bin.planId) ? bin.sizeLitres : null,
       planLabel: plan.label +
         (LARGE_PLANS.has(bin.planId) ? " — " + bin.sizeLitres + "L" : ""),
-      baseUnit: plan.price, unitPrice, discounted: discount.applied,
+      baseUnit, unitPrice, discounted: discount.applied,
       freeCount: 0, multiBuyDiscount: 0,
       lineTotal: roundMoney(unitPrice * count),
     });

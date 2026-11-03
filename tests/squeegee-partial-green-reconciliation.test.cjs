@@ -23,7 +23,7 @@ function audit(){
   createdAt:"2026-10-31T21:24:07.000Z",
   name:"Gavin Stevenson",email:"example@example.org",phone:"07555178484",
   address:"78 Groomsport Rd, Bangor BT20 5NF",termsAccepted:true,
-  bins,pricing:verifyAndPriceBooking(bins,"",{}).canonical,
+  bins,pricing:verifyAndPriceBooking(bins,"",{}, {legacyLargeCommercialPrice:true}).canonical,
   bookingScheduleSnapshot:{postcode:"BT20 5NF",results:bins.map(
    bin=>({bin:bin.type,assignedCleanDate:"2026-11-17"}))},
  };
@@ -160,7 +160,7 @@ test("recovery accepts commercial-under-360L colour services equivalent to domes
   const a=audit();
   a.bins[0].planId="comm_lt360_4w";
   a.bins[1].planId="comm_lt360_4w";
-  a.pricing=verifyAndPriceBooking(a.bins,"",{}).canonical;
+  a.pricing=verifyAndPriceBooking(a.bins,"",{}, {legacyLargeCommercialPrice:true}).canonical;
   const valid=p.checkApprovedGroups(a,planned(),Date.parse("2026-10-31T22:00:00Z"));
   assert.equal(valid.ok,true,valid.reason);
   assert.equal(valid.first.input.price,10);
@@ -179,14 +179,14 @@ test("recovery exposes only fixed diagnostic codes when server plan differs",()=
     blockedReasons:["job_group_round_mapping_required"],
   }},at).reason,"round_mapping_reverification_failed");
   const wrong=audit();wrong.bins[0].planId="domestic_oneoff";
-  wrong.pricing=verifyAndPriceBooking(wrong.bins,"",{}).canonical;
+  wrong.pricing=verifyAndPriceBooking(wrong.bins,"",{}, {legacyLargeCommercialPrice:true}).canonical;
   assert.equal(p.checkApprovedGroups(wrong,planned(),at).reason,
     "black_brown_service_plan_differs");
   const altered=planned();altered.privatePlan.jobs[2].input.price=30;
   assert.equal(p.checkApprovedGroups(a,altered,at).reason,
     "prepared_verified_jobs_invalid");
   const green=audit();green.bins[2].sizeLitres=660;
-  green.pricing=verifyAndPriceBooking(green.bins,"",{}).canonical;
+  green.pricing=verifyAndPriceBooking(green.bins,"",{}, {legacyLargeCommercialPrice:true}).canonical;
   assert.equal(p.checkApprovedGroups(green,planned(),at).reason,
     "green_1100L_service_plan_differs");
 });

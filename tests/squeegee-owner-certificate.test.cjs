@@ -126,7 +126,10 @@ test("failure to save cannot claim the attachment is available for owner send",a
   const sender=fs.readFileSync(path.join(root,"netlify/functions/sendBookingEmail.js"),"utf8");
   const worker=fs.readFileSync(path.join(root,"netlify/functions/squeegeePreviewAutoSync.mjs"),"utf8");
   assert.ok(sender.includes('getStoreSafe(ownerCertificate.STORE,"strong")'));
-  assert.ok(sender.includes("ownerReceipt.ownerPdfSha256=saved.sha256"));
+  assert.ok(sender.includes("ownerReceipt.ownerPdfSha256=stagedOwnerPdfSha"));
+  assert.ok(sender.indexOf("ownerCertificate.storeCustomerCertificate") <
+    sender.indexOf("const claim = await claimBookingSubmission"));
+  assert.ok(sender.includes("statusCode: 424"));
   assert.ok(worker.includes("ownerCertificateStore.delete(bookingId)"));
   assert.ok(!worker.includes('import("./lib/termsPdf.js")'));
 });

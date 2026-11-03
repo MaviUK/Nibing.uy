@@ -11,6 +11,13 @@ const DAY_RE=/^\d{4}-\d{2}-\d{2}$/;
 const PATH="/api/squeegee-preview-owner-reactivation";
 const HOLD_REASON="existing_customer_reactivation_required";
 const MAX_LINES=12;
+// Historical £45 bookings were accepted before the corrected £35 rate
+// published on 3 November 2026. Never reprice signed, completed audit records.
+const LEGACY_LARGE_ONEOFF_CUTOFF_MS=Date.parse("2026-11-03T11:25:00Z");
+function acceptedLegacyCommercialPrice(acceptedAt) {
+  const ms=Date.parse(String(acceptedAt||""));
+  return Number.isFinite(ms) && ms<LEGACY_LARGE_ONEOFF_CUTOFF_MS;
+}
 function validId(value){return ID_RE.test(String(value||""));}
 function validDay(value,now=Date.now()){
   if(!DAY_RE.test(String(value||"")))return false;
@@ -53,7 +60,8 @@ function auditedBooking(audit,id,day){
     now:Date.parse(audit.createdAt),
   }).ok)return {ok:false,reason:"original_submission_invalid"};
   const verified=verifyAndPriceBooking(original.bins,original.discountCode,
-    original.pricing,{now:Date.parse(audit.createdAt)});
+    original.pricing,{now:Date.parse(audit.createdAt),
+      legacyLargeCommercialPrice:acceptedLegacyCommercialPrice(audit.createdAt)});
   if(!verified.ok || Number(verified.canonical?.total)!==Number(original.pricing.total))
     return {ok:false,reason:"original_price_unverified"};
   return {ok:true,booking:original};
@@ -167,4 +175,5 @@ function existingJobRisk(customerJobs,grouped,id,{acceptedGroups=[]}={}){
 module.exports={
   ID_RE,PATH,HOLD_REASON,validId,validDay,recoveryKey,safeHeld,
   auditedBooking,exactActiveCustomer,preparedJobs,existingJobRisk,
+  acceptedLegacyCommercialPrice,
 };

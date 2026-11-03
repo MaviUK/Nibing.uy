@@ -148,3 +148,13 @@ test("large commercial 4-weekly £15 and one-off £35 agree with both booking fo
       "client_price_mismatch",planId);
   }
 });
+
+test("explicit historical recovery preserves a prior accepted commercial GBP45 price without changing GBP35 new-booking validation",()=>{
+  const bin={type:"Green Bin",count:1,planId:"comm_gt660_oneoff",sizeLitres:1100};
+  const oldLine={idx:0,type:bin.type,count:1,planId:bin.planId,sizeLitres:1100,
+    planLabel:"Commercial >660L One-Off — 1100L",baseUnit:45,unitPrice:45,
+    freeCount:0,multiBuyDiscount:0,lineTotal:45,discounted:false};
+  const quote=posted([oldLine],{total:45,subtotal:45});
+  assert.equal(verifyAndPriceBooking([bin],"",quote).reason,"client_price_mismatch");
+  assert.equal(verifyAndPriceBooking([bin],"",quote,{legacyLargeCommercialPrice:true}).ok,true);
+});
