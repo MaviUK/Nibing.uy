@@ -40,7 +40,7 @@ function councilSuggestions(payload, postcode) {
   }).filter(Boolean).slice(0, 30);
 }
 
-export default function BookingAddressAutocomplete({ value, onChange, onPlace }) {
+export default function BookingAddressAutocomplete({ value, onChange, onPlace, invalid = false }) {
   const wrapperRef = useRef(null);
   const requestRef = useRef(0);
   const selectionRef = useRef(0);
@@ -429,7 +429,9 @@ export default function BookingAddressAutocomplete({ value, onChange, onPlace })
         onChange={handleChange}
         onFocus={() => { setOpen(true); if (!typed && value?.trim()) setTyped(value); }}
         onKeyDown={handleKeyDown}
-        className="w-full border border-gray-500 rounded-lg px-4 py-2"
+        className={"w-full border rounded-none px-4 py-2 " + (invalid ? "border-red-700 bg-red-50" : "border-gray-500")}
+        aria-invalid={invalid}
+        aria-describedby={invalid ? "booking-error-address" : undefined}
         autoComplete="off"
         inputMode="text"
         role="combobox"

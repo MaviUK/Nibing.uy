@@ -7,6 +7,7 @@ import LevelWasher from "./components/LevelWasher.jsx";
 import { CustomerReviews, CustomerQuestions } from "./components/CustomerTrustSections.jsx";
 import BookingAddressAutocomplete, { findNiPostcode } from "./components/BookingAddressAutocomplete.jsx";
 import { createFriendlyBookingReference } from "./bookingReference.mjs";
+import { validateArcadeBookingFields, bookingFieldTarget } from "./bookingFormValidation.mjs";
 
 const TenSecondChallenge = lazy(() => import("./TenSecondChallenge.jsx"));
 const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
@@ -387,6 +388,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);
   const [emailSendingStage, setEmailSendingStage] = useState("checking");
   const [emailBookingError, setEmailBookingError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [emailBookingUncertain, setEmailBookingUncertain] = useState(false);
   const emailSubmissionInFlightRef = useRef(false);
   const emailSubmissionRef = useRef(null);
@@ -399,7 +401,17 @@ function BookingForm({ onClose, initialAddress = "" }) {
 
 
   const canToggleAgree = termsConfirmed;
-
+  const clearFieldError = (key) => setFieldErrors((current) => {
+    if (!current[key]) return current;
+    const copy = { ...current };
+    delete copy[key];
+    return copy;
+  });
+  const renderFieldError = (key) => fieldErrors[key] ? (
+    <p id={"booking-error-" + key} className="mt-1 text-sm font-bold text-red-800" role="alert">
+      {fieldErrors[key]}
+    </p>
+  ) : null;
 
   // Re-validate discount whenever selection changes
   useEffect(() => {
@@ -425,6 +437,9 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const removeLastBin = () => setBins((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
 
   const handleBinChange = (index, field, value) => {
+    clearFieldError("binType" + index);
+    clearFieldError("binCount" + index);
+    clearFieldError("binSize" + index);
     setBins((prev) => {
       const next = [...prev];
       const updated = {
@@ -514,31 +529,25 @@ function BookingForm({ onClose, initialAddress = "" }) {
     if (emailSubmissionInFlightRef.current || emailBookingUncertain ||
         bookingStatus !== "idle") return;
 
-    if (bins.some((bin) => !hasRequiredBinSize(bin))) {
-      alert("Please select 660L or 1100L for each large commercial bin.");
-      return;
-    }
-    if (missingFields) {
-      alert("Please complete all fields before sending.");
-      return;
-    }
     const validContactNumber=normaliseBookingContactNumber(phone);
-    if(!validContactNumber) {
-      alert("Please enter a valid 11-digit UK contact number (e.g. 028 or 07). A postcode cannot be used as a phone number.");
+    const errors=validateArcadeBookingFields({
+      name,email,phone,address,bins,
+      hasNiPostcode:Boolean(findNiPostcode(address)),
+      validPhone:Boolean(validContactNumber),
+      discountCode,discountValid:discountStatus.state==="valid",
+      termsConfirmed,agreeToTerms,
+    });
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors);
+      const target=bookingFieldTarget(Object.keys(errors)[0]);
+      window.requestAnimationFrame(() => {
+        const field=document.getElementById(target);
+        field?.focus?.();
+        field?.scrollIntoView?.({ behavior:"smooth",block:"center" });
+      });
       return;
     }
-    if (!findNiPostcode(address)) {
-      alert("Please include the full BT postcode in your address so we can calculate the correct bin cleaning date.");
-      return;
-    }
-    if (!termsConfirmed || !agreeToTerms) {
-      alert("Please scroll through and confirm the Terms of Service before booking.");
-      return;
-    }
-    if (normalizeCode(discountCode) && discountStatus.state !== "valid") {
-      alert("That discount code isn't valid for your selected clean(s).");
-      return;
-    }
+    setFieldErrors({});
 
     // Preserve one reference for this booking. If the request reaches Netlify
     // twice, the server's replay guard rejects the second delivery.
@@ -560,6 +569,16 @@ function BookingForm({ onClose, initialAddress = "" }) {
     let requestTimer = null;
 
     try {
+      // Begin the preview security proof while the independent council
+      // calendar is still loading. Both complete before any booking POST.
+      // Catch promptly so an early security failure never becomes unhandled.
+      const recaptchaAction = "booking_submit";
+      const previewHost = window.location.hostname === N64_BOOKING_PREVIEW_HOST;
+      const securityWork = (previewHost
+        ? getPreviewBookingProof().then(previewProof => ({ previewProof }))
+        : getRecaptchaToken(recaptchaAction).then(recaptchaToken => ({ recaptchaToken }))
+      ).then(value => ({ value }), error => ({ error }));
+
       // The booking schedule is informative and must not leave a customer
       // staring at an unresponsive Send button if its lookup hangs.
       if (typeof window.nbgEnsureBookingSchedule === "function") {
@@ -578,15 +597,11 @@ function BookingForm({ onClose, initialAddress = "" }) {
       }
 
       setEmailSendingStage("verifying");
-      const recaptchaAction = "booking_submit";
-      let recaptchaToken = null;
-      let previewProof = null;
-      if (window.location.hostname === N64_BOOKING_PREVIEW_HOST) {
-        previewProof = await getPreviewBookingProof();
-      } else {
-        recaptchaToken = await getRecaptchaToken(recaptchaAction);
-        if (!recaptchaToken) throw new Error("security_not_ready");
-      }
+      const verified = await securityWork;
+      if (verified.error) throw verified.error;
+      const previewProof = verified.value.previewProof || null;
+      const recaptchaToken = verified.value.recaptchaToken || null;
+      if (!previewHost && !recaptchaToken) throw new Error("security_not_ready");
 
       const loc = selectedPlaceRef.current?.geometry?.location;
       const lat = loc ? loc.lat() : null;
@@ -837,13 +852,27 @@ function BookingForm({ onClose, initialAddress = "" }) {
         Book a Bin Clean
       </h2>
 
-      <input type="text" placeholder="Your Name" value={name} onChange={(e) => setName(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2" />
+      {Object.keys(fieldErrors).length > 0 && (
+        <div id="booking-form-error-summary" className="border-2 border-red-800 bg-red-50 p-3 text-sm font-bold text-red-900" role="alert">
+          Please check the highlighted booking details below. Your entries have been kept.
+        </div>
+      )}
+      <label htmlFor="booking-customer-name" className="sr-only">Your name</label>
+      <input id="booking-customer-name" type="text" placeholder="Your Name" autoComplete="name"
+        value={name} onChange={(e) => { setName(e.target.value); clearFieldError("name"); }}
+        aria-invalid={Boolean(fieldErrors.name)}
+        aria-describedby={fieldErrors.name ? "booking-error-name" : undefined}
+        className="w-full border border-gray-500 rounded-none px-4 py-2" />
+      {renderFieldError("name")}
 
       {bins.map((bin, index) => {
         return (
           <div key={index} className="space-y-2 border-b border-gray-200 pb-4 mb-4">
             <div className="flex gap-4">
-              <select value={bin.type} onChange={(e) => handleBinChange(index, "type", e.target.value)} className="w-2/3 border border-gray-500 rounded-lg px-4 py-2">
+              <select id={`booking-bin-type-${index}`} aria-label={`Bin colour ${index+1}`}
+                aria-invalid={Boolean(fieldErrors["binType"+index])}
+                value={bin.type} onChange={(e) => handleBinChange(index, "type", e.target.value)}
+                className="w-2/3 border border-gray-500 rounded-none px-4 py-2">
                 <option value="">Select Bin</option>
                 <option value="Black Bin">Black</option>
                 <option value="Brown Bin">Brown</option>
@@ -851,8 +880,14 @@ function BookingForm({ onClose, initialAddress = "" }) {
                 <option value="Blue Bin">Blue</option>
               </select>
 
-              <input type="number" min="1" value={bin.count} onChange={(e) => handleBinChange(index, "count", e.target.value)} className="w-1/3 border border-gray-500 rounded-lg px-4 py-2" />
+              <input id={`booking-bin-count-${index}`} type="number" min="1" max="200"
+                aria-label={`Quantity for bin ${index+1}`}
+                aria-invalid={Boolean(fieldErrors["binCount"+index])}
+                value={bin.count} onChange={(e) => handleBinChange(index, "count", e.target.value)}
+                className="w-1/3 border border-gray-500 rounded-none px-4 py-2" />
             </div>
+            {renderFieldError("binType"+index)}
+            {renderFieldError("binCount"+index)}
 
             <select value={bin.planId} onChange={(e) => handleBinChange(index, "planId", e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2">
               {PLANS.map((p) => {
@@ -876,12 +911,14 @@ function BookingForm({ onClose, initialAddress = "" }) {
                   onChange={(e) => handleBinChange(index, "sizeLitres", e.target.value)}
                   required
                   aria-required="true"
-                  className="w-full border border-gray-500 rounded-lg px-4 py-2"
+                  aria-invalid={Boolean(fieldErrors["binSize"+index])}
+                  className="w-full border border-gray-500 rounded-none px-4 py-2"
                 >
                   <option value="">Select your bin size</option>
                   <option value="660">660 litres (660L)</option>
                   <option value="1100">1100 litres (1100L)</option>
                 </select>
+                {renderFieldError("binSize"+index)}
                 <p className="text-xs text-gray-600">
                   Choose the bin capacity so we book the correct cleaning service.
                 </p>
@@ -904,7 +941,10 @@ function BookingForm({ onClose, initialAddress = "" }) {
 
       <div className="mt-2">
         <label className="block text-sm font-semibold text-gray-700 mb-1">Discount Code (optional)</label>
-        <input type="text" placeholder="Enter code" value={discountCode} onChange={(e) => setDiscountCode(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2" />
+        <input id="booking-discount-code" type="text" placeholder="Enter code"
+          value={discountCode} onChange={(e) => { setDiscountCode(e.target.value); clearFieldError("discount"); }}
+          aria-invalid={Boolean(fieldErrors.discount)} className="w-full border border-gray-500 rounded-none px-4 py-2" />
+        {renderFieldError("discount")}
 
         {discountStatus.state === "valid" && <p className="text-sm mt-2 text-green-700 font-semibold">{discountStatus.message}</p>}
         {discountStatus.state === "invalid" && <p className="text-sm mt-2 text-red-600 font-semibold">{discountStatus.message}</p>}
@@ -939,9 +979,11 @@ function BookingForm({ onClose, initialAddress = "" }) {
       </div>
 
       <BookingAddressAutocomplete
+        invalid={Boolean(fieldErrors.address)}
         value={address}
         onChange={(nextAddress) => {
           setAddress(nextAddress);
+          clearFieldError("address");
           setPlaceId(null);
           selectedPlaceRef.current = null;
         }}
@@ -949,8 +991,10 @@ function BookingForm({ onClose, initialAddress = "" }) {
           selectedPlaceRef.current = place;
           setPlaceId(place?.place_id || null);
           setAddress(place?.formatted_address || place?.name || "");
+          clearFieldError("address");
         }}
       />
+      {renderFieldError("address")}
       <p className="text-xs text-gray-500 -mt-2">Select an address to fill its postcode automatically, or enter your full address and BT postcode manually.</p>
       {address.trim() && !findNiPostcode(address) && (
         <p className="text-xs font-semibold text-amber-800" role="status">
@@ -958,15 +1002,27 @@ function BookingForm({ onClose, initialAddress = "" }) {
         </p>
       )}
 
-      <input type="tel" placeholder="Contact Number (11 digits)" inputMode="tel" autoComplete="tel" maxLength={22} value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
+      <label htmlFor="booking-contact-phone" className="sr-only">Contact number</label>
+      <input id="booking-contact-phone" type="tel" placeholder="Contact Number (11 digits)" inputMode="tel"
+        autoComplete="tel" maxLength={22} value={phone}
+        onChange={(e) => { setPhone(e.target.value); clearFieldError("phone"); }}
+        aria-invalid={Boolean(fieldErrors.phone)}
+        className="w-full border border-gray-500 rounded-none px-4 py-2 mt-2" />
+      {renderFieldError("phone")}
       <p className="text-xs text-gray-600">Enter an 11-digit UK phone number, including 028 landlines or 07 mobiles.</p>
-      <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
+      <label htmlFor="booking-contact-email" className="sr-only">Email address</label>
+      <input id="booking-contact-email" type="email" placeholder="Email Address" autoComplete="email"
+        value={email} onChange={(e) => { setEmail(e.target.value); clearFieldError("email"); }}
+        aria-invalid={Boolean(fieldErrors.email)}
+        className="w-full border border-gray-500 rounded-none px-4 py-2 mt-2" />
+      {renderFieldError("email")}
 
       <div className="mt-4 p-3 rounded-lg border border-gray-500 bg-gray-50">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm text-gray-700">
             You must view and agree to the{" "}
             <button
+              id="booking-terms-open"
               type="button"
               onClick={() => setShowTerms(true)}
               className="underline font-semibold"
@@ -978,12 +1034,14 @@ function BookingForm({ onClose, initialAddress = "" }) {
           <span className="text-[10px] text-gray-500">v{TERMS_VERSION}</span>
         </div>
         <div className="mt-3 flex items-start gap-2">
-          <input id="agree" type="checkbox" className="mt-1" checked={agreeToTerms} disabled={!canToggleAgree} onChange={(e) => setAgreeToTerms(e.target.checked)} />
+          <input id="agree" type="checkbox" className="mt-1" checked={agreeToTerms}
+            disabled={!canToggleAgree} onChange={(e) => { setAgreeToTerms(e.target.checked); clearFieldError("terms"); }} />
           <label htmlFor="agree" className="text-sm text-gray-800">
             I’ve read and agree to the September 2026 Terms of Service, including the public leaderboard acknowledgement. This does not make my name public.
             {!canToggleAgree && <span className="block text-xs text-gray-500">(Scroll to the bottom of the Terms and select Confirm & Agree to unlock this.)</span>}
           </label>
         </div>
+        {renderFieldError("terms")}
       </div>
 
       <button

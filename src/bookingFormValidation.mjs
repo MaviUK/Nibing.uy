@@ -43,6 +43,6 @@ export function bookingFieldTarget(key) {
     address:"booking-address-input",
     phone:"booking-contact-phone",
     email:"booking-contact-email",
-    terms:"agree",
+    terms:"booking-terms-open",
   })[key]||"booking-form-error-summary";
 }
