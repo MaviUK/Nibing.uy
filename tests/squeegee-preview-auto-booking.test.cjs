@@ -2639,3 +2639,53 @@ test("still-inactive customer cannot be resumed by a link, even after another at
     assert.equal(h.ledger.records.size,0);
   }
 });
+
+
+test("Squeegee HTTP success without a new visible job triggers ONE urgent owner-review email",async()=>{
+  const b=sampleBooking();
+  const alerts=[],completedOwnerEmails=[];
+  const h=makeHarness(b,{deps:{
+    confirmJob:async()=>({verified:false}),
+    alert:async(id,reason,extra)=>{
+      alerts.push({id,reason,extra});
+      return {sent:true};
+    },
+    completedAlert:async()=>{completedOwnerEmails.push(true);return {sent:true};},
+  }});
+  const result=await h.run();
+  assert.equal(result.status,"requires_reconciliation");
+  assert.equal(result.reason,"partial_or_ambiguous_squeegee_write");
+  assert.equal(h.posts.filter(x=>x.kind==="customer").length,1);
+  assert.equal(h.posts.filter(x=>x.kind==="job").length,1);
+  assert.equal(h.statuses.at(-1).stage,"requires_reconciliation");
+  assert.equal(h.statuses.at(-1).failureStage,"verifying_created_job");
+  assert.equal(h.statuses.at(-1).jobPostMayHaveSucceeded,true);
+  assert.equal(h.statuses.at(-1).jobsConfirmed,0);
+  assert.equal(h.statuses.at(-1).ownerAlertDelivery,"sent");
+  assert.equal(alerts.length,1);
+  assert.equal(alerts[0].reason,"requires_reconciliation");
+  assert.deepEqual(completedOwnerEmails,[]);
+  // An immutable claim prevents trying the same POST again.
+  assert.equal((await h.run()).status,"held");
+  assert.equal(h.posts.filter(x=>x.kind==="job").length,1);
+});
+
+test("same Squeegee address and phone with a different full name is held, not attached to the other account",async()=>{
+  const b=sampleBooking();
+  const alerts=[];
+  const h=makeHarness(b,{
+    existingRows:[{
+      _id:customerId,name:"Another Resident",email:b.email,
+      phoneNumber:b.phone,status:"active",
+      address:{addressDescription:b.address},
+    }],
+    deps:{alert:async(id,reason)=>{alerts.push({id,reason});return {sent:true};}},
+  });
+  const result=await h.run();
+  assert.equal(result.status,"held");
+  assert.equal(result.reason,"customer_match_ambiguous_or_incomplete");
+  assert.equal(h.statuses.at(-1).matchReason,"same_address_contact_name_conflict");
+  assert.equal(h.posts.length,0);
+  assert.equal(alerts.length,1);
+  assert.equal(alerts[0].reason,"customer_match_ambiguous_or_incomplete");
+});
