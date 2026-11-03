@@ -68,7 +68,13 @@ export default async function handler(req) {
 
     return new Response(JSON.stringify({ html: calendarHTML }), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // Collection dates can change around bank holidays: cache briefly
+        // and keep errors uncached. Keys vary by UPRN query parameter.
+        "Cache-Control": "public, max-age=0, must-revalidate",
+        "Netlify-CDN-Cache-Control": "public, durable, max-age=600, stale-while-revalidate=60",
+      },
     });
   } catch (e) {
     return new Response(JSON.stringify({ error: e?.message || "Server error" }), {

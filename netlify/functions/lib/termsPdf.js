@@ -1,5 +1,7 @@
 const crypto = require("crypto");
 const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const DEFAULT_TERMS_BODY = require("../../../src/data/bookingTerms.json").body;
 
@@ -105,12 +107,39 @@ function buildHash(data) {
   return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
+// The exact existing NI Bin Guy brand image is packed into the functions
+// that generate signed agreements. Never issue a live HTTP request while
+// building a booking certificate. Memoize across warm function invocations.
+let bundledLogoBytes;
+function getBundledLogoBytes() {
+  if (bundledLogoBytes !== undefined) return bundledLogoBytes;
+  const candidates = [
+    path.resolve(process.cwd(), "public/logo.png"),
+    path.resolve(__dirname, "../../../public/logo.png"),
+    path.resolve(__dirname, "public/logo.png"),
+  ];
+  for (const filename of candidates) {
+    try {
+      const bytes = fs.readFileSync(filename);
+      if (bytes.length > 8 &&
+          bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+        bundledLogoBytes = bytes;
+        return bytes;
+      }
+    } catch (error) {
+      if (error?.code !== "ENOENT") {
+        console.warn("Local terms logo unavailable:", error?.code || "read_error");
+      }
+    }
+  }
+  bundledLogoBytes = null; // Fallback: retain a complete text-only agreement.
+  return null;
+}
+
 async function tryEmbedLogo(pdfDoc) {
   try {
-    const response = await fetch("https://nibing.uy/logo.png");
-    if (!response.ok) return null;
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    return await pdfDoc.embedPng(bytes);
+    const bytes = getBundledLogoBytes();
+    return bytes ? await pdfDoc.embedPng(bytes) : null;
   } catch (_) {
     return null;
   }
@@ -284,5 +313,6 @@ async function buildTermsAcceptancePdfAttachment(data) {
 
 module.exports = {
   buildTermsAcceptancePdfAttachment,
+  getBundledLogoBytes,
   DEFAULT_TERMS_BODY,
 };

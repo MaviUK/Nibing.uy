@@ -152,6 +152,14 @@ function buildAuditPromise(details) {
 
 exports.handler = async (event) => {
   const startedAt = Date.now();
+  // No names, addresses, emails, booking IDs or tokens in performance logs.
+  // Each duration measures a real stage, including its network time.
+  const timings = {};
+  const timed = async (name, fn) => {
+    const since = Date.now();
+    try { return await fn(); }
+    finally { timings[name] = Date.now() - since; }
+  };
 
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }) };
@@ -247,10 +255,10 @@ exports.handler = async (event) => {
       // Staging has its own signed, rate-limited test challenge because
       // the production reCAPTCHA key may reject Netlify preview hostnames.
       // Production requests never pass this preview-only verification.
-      payload.previewProof
+      timed("security", () => payload.previewProof
         ? verifyPreviewBooking(event, payload.previewProof)
-        : verifyRecaptcha({ token: recaptchaToken, expectedAction: recaptchaAction }),
-      buildTermsAcceptancePdfAttachment({
+        : verifyRecaptcha({ token: recaptchaToken, expectedAction: recaptchaAction })),
+      timed("pdf", () => buildTermsAcceptancePdfAttachment({
         name,
         email,
         phone,
@@ -266,7 +274,7 @@ exports.handler = async (event) => {
       }).catch((error) => {
         console.warn("Terms PDF generation skipped:", error.message);
         return null;
-      }),
+      })),
     ]);
 
     if (!recaptcha.ok) {
@@ -300,9 +308,10 @@ exports.handler = async (event) => {
         rollout.acceptedForRollout(payload,"email",process.env)) {
       try {
         if (!getStoreSafe) throw new Error("netlify_blobs_not_available");
-        const saved=await ownerCertificate.storeCustomerCertificate(
-          submission.bookingId,termsPdfAttachment,
-          getStoreSafe(ownerCertificate.STORE,"strong"));
+        const saved=await timed("ownerPdfStore", () =>
+          ownerCertificate.storeCustomerCertificate(
+            submission.bookingId,termsPdfAttachment,
+            getStoreSafe(ownerCertificate.STORE,"strong")));
         stagedOwnerPdfSha=saved.sha256;
       } catch (error) {
         console.error("Preview 77 owner certificate staging failed:",error?.message||"unavailable");
@@ -313,7 +322,8 @@ exports.handler = async (event) => {
         };
       }
     }
-    const claim = await claimBookingSubmission({ ...submission, channel: "email" });
+    const claim = await timed("claim", () =>
+      claimBookingSubmission({ ...submission, channel: "email" }));
     if (!claim.ok) return submissionErrorResponse({ ...submission, duplicate: true });
 
     // Both immediate customer and owner emails share this generated PDF.
@@ -447,11 +457,11 @@ exports.handler = async (event) => {
       createdAt: new Date().toISOString(),
     });
 
-    const [adminResult, customerResult] = await Promise.all([
+    const [adminResult, customerResult] = await timed("receiptsAndAudit", () => Promise.all([
       adminEmailPromise,
       customerEmailPromise,
       auditPromise,
-    ]);
+    ]));
 
     if (adminResult?.error) {
       console.error("Resend admin error:", adminResult.error);
@@ -477,12 +487,12 @@ exports.handler = async (event) => {
     try {
       // The booking email has already succeeded. Never hold its response
       // hostage to slow leaderboard storage or snapshot rebuilding.
-      arcadeEntry = await Promise.race([
+      arcadeEntry = await timed("leaderboard", () => Promise.race([
         autoEnrollBooking(payload),
         new Promise((resolve) => {
           arcadeDeadline = setTimeout(() => resolve({ registered: false }), 1800);
         }),
-      ]);
+      ]));
     } catch (error) {
       // An accepted booking must never fail because global XP is unavailable.
       // The browser will automatically retry with its signed booking proof.
@@ -494,7 +504,8 @@ exports.handler = async (event) => {
     // Shadow-mode Squeegee integration: read-only preparation after an
     // accepted booking. It must not change email, XP or confirmation results.
     try {
-      await stageWithoutBlockingBooking(payload, { channel: "email" });
+      await timed("readOnlyStage", () =>
+        stageWithoutBlockingBooking(payload, { channel: "email" }));
     } catch (_) {
       console.warn("Read-only Squeegee booking preparation unavailable");
     }
@@ -509,10 +520,10 @@ exports.handler = async (event) => {
     let deferredDispatchAccepted=false;
     let dispatchFailureReason="dispatch_unavailable";
     try {
-      const dispatched=await dispatchAcceptedBooking(payload,{
+      const dispatched=await timed("squeegeeQueue", () => dispatchAcceptedBooking(payload,{
         channel:"email",eventHost:syncHost,
         ownerReceipt:deferAdminForPreview?ownerReceipt:null,
-      });
+      }));
       deferredDispatchAccepted=dispatched.queued===true;
       dispatchFailureReason=dispatched.reason||"dispatch_unavailable";
       if(isPreview1) {
@@ -546,7 +557,8 @@ exports.handler = async (event) => {
             "automatic_sync_not_enabled":
             "dispatch_unavailable");
         const fallbackMessage=reviewOwnerMessage(problem,dispatchFailureReason);
-        const fallback=await resend.emails.send(fallbackMessage||adminEmailMessage);
+        const fallback=await timed("ownerReviewFallback", () =>
+          resend.emails.send(fallbackMessage||adminEmailMessage));
         if(fallback?.error)
           console.error("Preview 1 owner review email fallback failed",fallback.error);
         else console.info("Preview 1 owner manual review email sent after Squeegee handoff failed",{
@@ -558,13 +570,23 @@ exports.handler = async (event) => {
     }
 
     const durationMs = Date.now() - startedAt;
-    console.log(`Booking email completed in ${durationMs}ms`);
+    // A per-stage log allows comparison before/after caching without
+    // exposing customer records, booking identifiers or proof details.
+    console.info("Booking stage timings (ms)", JSON.stringify({
+      total: durationMs, ...timings,
+    }));
+    const serverTiming = [
+      `booking;dur=${durationMs}`,
+      ...Object.entries(timings)
+        .filter(([, ms]) => Number.isFinite(ms))
+        .map(([name, ms]) => `${name};dur=${ms}`),
+    ].join(", ");
 
     return {
       statusCode: 200,
       headers: {
         "Content-Type": "application/json",
-        "Server-Timing": `booking;dur=${durationMs}`,
+        "Server-Timing": serverTiming,
       },
       body: JSON.stringify({
         success: true,
