@@ -30,6 +30,10 @@ jobs:
         run: node --test tests/squeegee-prepared-terms-pdf.test.cjs
       - name: Benchmark old renderer against prebuilt fill-only renderer
         run: node scripts/benchmarkPreparedTermsPdf.cjs
+      - name: Install PDF visual-review utilities
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
       - name: Text and visual PDF inspection
         shell: bash
         run: |
@@ -41,7 +45,8 @@ jobs:
             grep -F "September 2026" qa-extracted.txt | head -n 2
             grep -F "Customer Rewards" qa-extracted.txt
             grep -F "SHA-256" qa-extracted.txt
-            grep -F "Terms agreed to" qa-extracted.txt || true
+            grep -F "1) Service & Contracts" qa-extracted.txt
+            grep -F "10) Customer Rewards" qa-extracted.txt
             if command -v pdftoppm >/dev/null; then
               mkdir -p pdf-preview
               pdftoppm -f 1 -l 2 -scale-to 900 -png prepared-terms-qa-example.pdf pdf-preview/certificate
