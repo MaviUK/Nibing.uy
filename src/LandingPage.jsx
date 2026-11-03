@@ -1592,8 +1592,8 @@ export default function NiBinGuyLandingPage() {
   <main id="main-content" tabIndex="-1" className="n64-world min-h-screen bg-black text-white font-sans relative">
       <Hero onBook={openBooking} onContact={() => {window.n64Score?.awardAction("contact");setShowContact(true);}} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} onCoverage={() => setShowCoverageChecker(true)} />
 
-      {/* Fixed, compact arcade actions sit together beside the site menu. */}
-      <div className="n64-top-actions fixed left-[14px] top-[14px] z-40 flex max-w-[calc(100vw-94px)] items-center gap-2" role="group" aria-label="Quick actions">
+      {/* Page-anchored quick actions scroll with the hero; only the menu remains floating. */}
+      <div className="n64-top-actions absolute left-[14px] top-[14px] z-40 flex max-w-[calc(100vw-94px)] items-center gap-2" role="group" aria-label="Quick actions">
         <button
           type="button"
           onClick={() => setShowCoverageChecker(true)}
