@@ -5,6 +5,7 @@ import owner from "./lib/squeegeePreviewTestSession.js";
 import auto from "./lib/squeegeeAutomaticBooking.js";
 import rollout from "./lib/squeegeePreviewAutoRollout.js";
 import alerts from "./lib/squeegeeSyncOwnerAlert.js";
+import reviewInbox from "./lib/squeegeeOwnerReviewInbox.js";
 import {getStore} from "@netlify/blobs";
 
 const style='<style>body{font:16px/1.5 system-ui;background:#10121c;color:#fafafa;padding:18px}'+
@@ -60,9 +61,34 @@ export default async function handler(request,context) {
   let content='<div class="notice">Automatic Preview 1 Squeegee sync: <strong>'+
     safe(description)+'</strong></div>'+
     '<p><a href="/api/squeegee-preview-test">Owner test page</a></p>'+
+    '<p><a href="/api/squeegee-preview-auto-status?review=1"><strong>View outstanding booking reviews (READ ONLY)</strong></a></p>'+
     '<form method="get"><label for="bookingId">Booking reference</label>'+
     '<input id="bookingId" name="bookingId" value="'+safe(id)+'" placeholder="NBG-..." required>'+
     '<button type="submit">Check automatic sync status (READ ONLY)</button></form>';
+  if(new URL(request.url).searchParams.get("review")==="1") {
+    try {
+      const {items,truncated,scanned}=await reviewInbox.findOwnerReviewItems({
+        statusStore:getStore({name:auto.STATUS_STORE,consistency:"strong"}),
+        claimStore:getStore({name:"booking-submission-ids",consistency:"strong"}),
+      });
+      content+='<div class="notice"><strong>Outstanding bookings: '+
+        items.length+'</strong><p>Held imports, unconfirmed bookings and failed owner emails. '+
+        'Read-only; check Squeegee before making any manual change.</p>'+
+        '<p><small>Checked '+scanned+' booking references.'+
+        (truncated?' More records may exist; use the search below.':"")+'</small></p>';
+      for(const row of items) {
+        content+='<p style="border-top:1px solid #666;padding-top:10px"><a href="/api/squeegee-preview-auto-status?bookingId='+
+          encodeURIComponent(row.bookingId)+'">'+safe(row.bookingId)+'</a>'+
+          '<br>Stage: '+safe(row.stage)+' | Reason: '+safe(row.reason)+
+          '<br>Owner notification: '+safe(row.ownerAlertDelivery)+
+          '<br>Updated: '+safe(row.updatedAt||"unknown")+'</p>';
+      }
+      if(!items.length)content+='<p>No unresolved bookings found in the checked records.</p>';
+      content+='</div>';
+    }catch {
+      content+='<div class="notice">Review list unavailable. Search for an individual booking reference instead.</div>';
+    }
+  }
   if(id) {
     if(!bookingRe.test(id))return page(content+'<div class="notice">Invalid booking reference.</div>',400);
     let status;

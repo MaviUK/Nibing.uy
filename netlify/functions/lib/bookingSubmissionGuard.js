@@ -42,7 +42,7 @@ function validateBookingSubmission(payload, { now = Date.now() } = {}) {
   return { ok: true, bookingId, submittedAt: new Date(submittedMs).toISOString(), serverReceivedAt };
 }
 
-async function claimBookingSubmission({ bookingId, submittedAt, serverReceivedAt, channel }, { store } = {}) {
+async function claimBookingSubmission({ bookingId, submittedAt, serverReceivedAt, channel, sourceHost }, { store } = {}) {
   // An unavailable replay guard must NEVER fail open. Every accepted
   // submission needs one atomic reservation before emails, XP or Squeegee.
   if (!store && !getStoreSafe) {
@@ -56,6 +56,8 @@ async function claimBookingSubmission({ bookingId, submittedAt, serverReceivedAt
       submittedAt,
       serverReceivedAt,
       channel: channel || "unknown",
+      sourceHost: sourceHost === "deploy-preview-77--nibinguy.netlify.app" ?
+        sourceHost : "other",
       claimedAt: new Date().toISOString(),
     }, { onlyIfNew: true });
     if (claimed?.modified === false)
