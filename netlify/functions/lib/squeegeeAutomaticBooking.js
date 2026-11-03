@@ -388,6 +388,14 @@ async function executeAutomaticPreviewBooking(payload,{
     // only after matching full name + email + phone across all pages.
     duplicateFlags=Array.isArray(customerMatch.duplicateFlags)?
       customerMatch.duplicateFlags:[];
+    // Another registered full name at this service address needs owner
+    // confirmation even if a different matching contact/ref was found.
+    // Do not silently attach jobs to one of several possible residents.
+    if(duplicateFlags.includes("address_registered_to_other_name") ||
+       duplicateFlags.includes("multiple_records_at_address"))
+      return await held("customer_match_ambiguous_or_incomplete",{
+        matchReason:"another_customer_registered_at_service_address",
+      });
     if(!["matched","not_found","reactivation_required"].includes(customerMatch.status))
       return await held("customer_match_ambiguous_or_incomplete",{
         matchReason:customerMatch.reason||"unspecified_match_reason",
