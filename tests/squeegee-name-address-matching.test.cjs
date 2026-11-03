@@ -126,3 +126,12 @@ test("full pagination can find matching name/address with changed contacts on fi
   assert.equal(match.pagesScanned,19);
   assert.equal(match.customerId,A);
 });
+
+
+test("same address + email and phone is NOT sufficient when the registered full name differs",()=>{
+  const other={...existing,name:"Different Registered Customer",
+    email:booking.email,phoneNumber:booking.phone};
+  const found=matchCustomers(booking,[other]);
+  assert.equal(found.status,"needs_review");
+  assert.equal(found.reason,"same_address_contact_name_conflict");
+});
