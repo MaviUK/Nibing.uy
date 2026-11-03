@@ -99,6 +99,7 @@ function buildHash(data) {
     address: data.address || "",
     binsText: data.binsText || "",
     pricingText: data.pricingText || "",
+    annualBreakdownText: data.annualBreakdownText || "",
     termsAccepted: !!data.termsAccepted,
     termsVersion: data.termsVersion || "",
     termsAcceptanceText: data.termsAcceptanceText || "",
@@ -281,6 +282,11 @@ async function buildTermsAcceptancePdfAttachmentLegacy(data) {
   drawWrapped(data.binsText || "(none provided)", { size: 10, bold: true });
   y -= 6;
   drawWrapped(data.pricingText || "Pricing not provided.", { size: 10 });
+  if (data.annualBreakdownText) {
+    y -= 4;
+    section("Annual cost breakdown - 13 cleans");
+    drawWrapped(data.annualBreakdownText, { size: 9, lineGap: 13 });
+  }
 
   if (y < 220) addPage(false);
   section("Verification");

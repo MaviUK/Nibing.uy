@@ -1,6 +1,7 @@
 const BOOKING_TERMS = require("../../src/data/bookingTerms.json");
 const { Resend } = require("resend");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
+const { annualBookingBreakdown } = require("./lib/annualBookingBreakdown");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_DEFAULT = process.env.RESEND_FROM || "Ni Bin Guy <noreply@nibing.uy>";
@@ -171,6 +172,7 @@ exports.handler = async (event) => {
       address,
       binsText,
       pricingText: `Total: ${total}`,
+      annualBreakdownText: annualBookingBreakdown(pricing),
       termsAccepted,
       termsVersion,
       termsAcceptanceText,

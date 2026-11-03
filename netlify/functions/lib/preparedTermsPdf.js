@@ -8,7 +8,7 @@ const path = require("node:path");
 const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
 const TERMS = require("../../../src/data/bookingTerms.json");
 
-const REVISION = "prepared-terms-v1";
+const REVISION = "prepared-terms-v2-annual-summary";
 const MASTER_RELATIVE = "netlify/functions/lib/assets/terms-september-2026-master.pdf";
 const FINGERPRINT = "Ni Bin Guy prepared Terms " +
   crypto.createHash("sha256").update(JSON.stringify({
@@ -153,6 +153,8 @@ function createSummary(page, regular, bold, logo) {
   section(page, "BOOKING SUMMARY", 693, bold);
   text(page, "Selected bins", MARGIN + 12, 667, bold, 11);
   text(page, "Pricing breakdown", MARGIN + 12, 441, bold, 11);
+  // Space below is reserved for a personalised 13-clean cost illustration.
+  // Draw the heading only for bookings containing four-weekly plans.
   page.drawRectangle({
     x: MARGIN, y: 77, width: CONTENT_WIDTH, height: 51, color: COLOURS.black,
   });
@@ -271,7 +273,13 @@ async function fillPreparedTermsMaster(data, hash, { masterBytes } = {}) {
     {page:summary, value:data.binsText || "(none provided)", x:MARGIN+12, y:644,
       max:15, spacing:13, bold:true, size:10, width:CONTENT_WIDTH-24},
     {page:summary, value:data.pricingText || "Pricing not provided.",
-      x:MARGIN+12, y:417, max:23, spacing:13, size:10, width:CONTENT_WIDTH-24},
+      x:MARGIN+12, y:417, max:data.annualBreakdownText ? 9 : 23,
+      spacing:13, size:10, width:CONTENT_WIDTH-24},
+    ...(data.annualBreakdownText ? [{
+      page:summary, value:data.annualBreakdownText,
+      x:MARGIN+12, y:246, max:8, spacing:14, size:9.5,
+      width:CONTENT_WIDTH-24,
+    }] : []),
   ];
   const prepared = fields.map(field => {
     const font = field.bold ? bold : regular;
@@ -284,6 +292,9 @@ async function fillPreparedTermsMaster(data, hash, { masterBytes } = {}) {
   if (prepared.some(field => field.lines.length > field.max)) return null;
 
   text(cover, status, MARGIN + 18, 646, bold, 18);
+  if (data.annualBreakdownText) {
+    section(summary, "ANNUAL COST BREAKDOWN - 13 CLEANS", 276, bold);
+  }
   for (const field of prepared) {
     let y = field.y;
     for (const line of field.lines) {

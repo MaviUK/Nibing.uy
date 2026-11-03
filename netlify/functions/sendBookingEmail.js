@@ -5,6 +5,7 @@ const { signBooking } = require("./lib/arcadeBookingProof");
 const { autoEnrollBooking } = require("./arcadeLeaderboard");
 const { verifyPreviewBooking } = require("./previewBookingChallenge");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
+const { annualBookingBreakdown } = require("./lib/annualBookingBreakdown");
 const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
 const { buildOwnerTermsSummary } = require("./lib/ownerBookingTermsSummary");
 const ownerCertificate=require("./lib/squeegeeOwnerCertificate");
@@ -265,6 +266,7 @@ exports.handler = async (event) => {
         address,
         binsText,
         pricingText: pricingBlocks.text,
+        annualBreakdownText: annualBookingBreakdown(pricing),
         termsAccepted,
         termsVersion,
         termsAcceptanceText,

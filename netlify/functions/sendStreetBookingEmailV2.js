@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const { Resend } = require("resend");
 const { getStore } = require("@netlify/blobs");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
+const { annualBookingBreakdown } = require("./lib/annualBookingBreakdown");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_DEFAULT = process.env.RESEND_FROM || "Ni Bin Guy <noreply@nibing.uy>";
@@ -99,7 +100,8 @@ exports.handler = async (event) => {
     const termsVersion = TERMS_VERSION_DEFAULT;
     const termsAcceptanceText = `I confirm I've read and agree to the Ni Bin Guy Terms of Service (v${TERMS_VERSION_DEFAULT})`;
     const termsPdfAttachment = await buildTermsAcceptancePdfAttachment({
-      name, email, phone, address, binsText, pricingText, termsAccepted: true,
+      name, email, phone, address, binsText, pricingText,
+      annualBreakdownText: annualBookingBreakdown(pricing), termsAccepted: true,
       termsVersion, termsAcceptanceText, termsTimestamp, termsBody: TERMS_BODY, source: "street-signup",
     });
 

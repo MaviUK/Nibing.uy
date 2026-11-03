@@ -7,11 +7,18 @@ const {PDFDocument}=require("pdf-lib");
 const {buildTermsAcceptancePdfAttachmentLegacy,
   buildTermsAcceptancePdfAttachment}=require("../netlify/functions/lib/termsPdf");
 const TERMS=require("../src/data/bookingTerms.json");
+const {annualBookingBreakdown}=require("../netlify/functions/lib/annualBookingBreakdown");
 const fixture={
   name:"EXAMPLE CUSTOMER",email:"example.customer@example.org",
   phone:"02890000000",address:"17 Test Road, Bangor BT20 4AA",
-  binsText:"1 x Black Bin (4 Weekly)",
-  pricingText:"Pricing:\n1 x Black Bin: GBP 5\n\nSubtotal: GBP 5\nTotal: GBP 5\n\nDiscount Code: None",
+  binsText:"1 x Black Bin (4 Weekly)\n1 x Blue Bin (4 Weekly)",
+  pricingText:"Pricing:\n1 x Black Bin: GBP 5\n1 x Blue Bin: GBP 5\n\nSubtotal: GBP 10\nTotal: GBP 10\n\nDiscount Code: None",
+  annualBreakdownText:annualBookingBreakdown({
+    lines:[
+      {planId:"domestic_4w",type:"Black Bin",count:1,unitPrice:5,lineTotal:5},
+      {planId:"domestic_4w",type:"Blue Bin",count:1,unitPrice:5,lineTotal:5},
+    ],
+  }),
   termsAccepted:true,termsVersion:TERMS.version,
   termsAcceptanceText:"I confirm that I have read and agree to the September 2026 Terms of Service, including the public leaderboard acknowledgement.",
   termsTimestamp:"2026-11-03T17:00:00.000Z",

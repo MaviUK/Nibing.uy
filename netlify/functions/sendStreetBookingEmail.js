@@ -2,6 +2,7 @@ const BOOKING_TERMS = require("../../src/data/bookingTerms.json");
 const { Resend } = require("resend");
 const { signBooking } = require("./lib/arcadeBookingProof");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
+const { annualBookingBreakdown } = require("./lib/annualBookingBreakdown");
 const { validateCommercialBinSizes } = require("./lib/squeegeeBookingPricing");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -188,6 +189,7 @@ exports.handler = async (event) => {
       address,
       binsText,
       pricingText,
+      annualBreakdownText: annualBookingBreakdown(pricing),
       termsAccepted,
       termsVersion,
       termsAcceptanceText,
