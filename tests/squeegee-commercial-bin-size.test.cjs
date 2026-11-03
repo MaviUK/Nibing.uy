@@ -31,7 +31,7 @@ const date="2026-11-16";
 const postcode="BT20 4AA";
 
 function booking(planId="comm_gt660_4w",sizeLitres=660,type="Blue Bin") {
-  const price=planId.endsWith("oneoff")?35:15;
+  const price=planId.endsWith("oneoff")?45:15;
   const bin={type,count:1,planId,sizeLitres};
   const line={idx:0,type,count:1,planId,sizeLitres,
     baseUnit:price,unitPrice:price,lineTotal:price,
@@ -83,7 +83,7 @@ test("1100L commercial Green one-off uses the exact Squeegee 1100L one-off servi
   assert.equal(prepared.privatePlan.jobs[0].input.services[0],G1100);
   assert.equal(prepared.privatePlan.jobs[0].input.frequencyType,"adhoc");
   assert.equal(prepared.privatePlan.jobs[0].input.frequencyInterval,undefined);
-  assert.equal(prepared.privatePlan.jobs[0].input.price,35);
+  assert.equal(prepared.privatePlan.jobs[0].input.price,45);
   assert.equal(prepared.privatePlan.jobs[0].sizeLitres,1100);
   assert.match(prepared.privatePlan.jobs[0].input.notes,/Commercial bin size: 1100L/);
 });
@@ -168,7 +168,7 @@ test("customer and owner email templates show large-bin capacity",()=>{
     unmappedServices:[{
       binType:"green",planId:"comm_gt660_oneoff",sizeLitres:1100,
     }],
-    bookingTotal:35,
+    bookingTotal:45,
   });
   assert.match(owner.text,/Requested: 1 x Green Bin \(1100L\)/);
   assert.match(owner.text,/Missing Squeegee service: Green \(1100L\)/);
@@ -219,7 +219,7 @@ test("all sixteen 660L/1100L Squeegee services match exact colour, size and freq
     const p=prepareReadOnlyBooking(b,schedule(b.bins[0].type),squeegeeServices,{jobGroups});
     assert.equal(p.status,"prepared_read_only",label);
     assert.equal(p.privatePlan.jobs[0].input.services[0],row.id,label);
-    assert.equal(p.privatePlan.jobs[0].input.price,planId.endsWith("oneoff")?35:15,label);
+    assert.equal(p.privatePlan.jobs[0].input.price,planId.endsWith("oneoff")?45:15,label);
     assert.match(p.privatePlan.jobs[0].input.notes,
       new RegExp("Commercial bin size: "+size+"L"));
   }

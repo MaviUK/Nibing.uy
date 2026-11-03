@@ -110,27 +110,27 @@ test("rejects unrecognised plans or an unrecognised bin", () => {
 test("commercial bin price is verified but still needs separate Squeegee service mapping", () => {
   const bins = [{ type: "Brown Bin", count: 2, planId: "comm_gt660_oneoff", sizeLitres: 1100 }];
   const quote = posted([{ idx: 0, type: "Brown Bin", count: 2,
-    planId: "comm_gt660_oneoff", sizeLitres: 1100, baseUnit: 35, unitPrice: 35,
-    lineTotal: 70, freeCount: 0, multiBuyDiscount: 0, discounted: false,
-  }], { total: 70, subtotal: 70 });
+    planId: "comm_gt660_oneoff", sizeLitres: 1100, baseUnit: 45, unitPrice: 45,
+    lineTotal: 90, freeCount: 0, multiBuyDiscount: 0, discounted: false,
+  }], { total: 90, subtotal: 90 });
   const result = verifyAndPriceBooking(bins, "", quote);
   assert.equal(result.ok, true);
-  assert.equal(result.canonical.lines[0].lineTotal, 70);
+  assert.equal(result.canonical.lines[0].lineTotal, 90);
 });
 
 // Protect UI/API parity: an accepted large commercial quote must use the
 // same price shown to the customer, not a build-time-only Vite override.
-test("large commercial 4-weekly £15 and one-off £35 agree with both booking forms", () => {
+test("large commercial 4-weekly £15 and one-off £45 agree with both booking forms", () => {
   const fs=require("node:fs");
   const path=require("node:path");
   for(const page of ["src/LandingPage.jsx","src/pages/StreetBookingPage.jsx"]){
     const content=fs.readFileSync(path.join(__dirname,"..",page),"utf8");
-    assert.match(content,/id: "comm_gt660_4w", label: "Commercial >660L 4 Weekly", price: 15/);
-    assert.match(content,/id: "comm_gt660_oneoff", label: "Commercial >660L One-Off", price: 35/);
+    assert.match(content,/id: "comm_gt660_4w", label: "Commercial 660L+ 4 Weekly", price: 15/);
+    assert.match(content,/id: "comm_gt660_oneoff", label: "Commercial 660L+ One-Off", price: 45/);
   }
   for(const [planId,price,previousPrice] of [
     ["comm_gt660_4w",15,12.5],
-    ["comm_gt660_oneoff",35,45],
+    ["comm_gt660_oneoff",45,35],
   ]){
     const sizeLitres=planId.endsWith("oneoff")?1100:660;
     const bins=[{type:"Blue Bin",count:1,planId,sizeLitres}];
@@ -147,14 +147,4 @@ test("large commercial 4-weekly £15 and one-off £35 agree with both booking fo
     assert.equal(verifyAndPriceBooking(bins,"",oldQuote).reason,
       "client_price_mismatch",planId);
   }
-});
-
-test("explicit historical recovery preserves a prior accepted commercial GBP45 price without changing GBP35 new-booking validation",()=>{
-  const bin={type:"Green Bin",count:1,planId:"comm_gt660_oneoff",sizeLitres:1100};
-  const oldLine={idx:0,type:bin.type,count:1,planId:bin.planId,sizeLitres:1100,
-    planLabel:"Commercial >660L One-Off — 1100L",baseUnit:45,unitPrice:45,
-    freeCount:0,multiBuyDiscount:0,lineTotal:45,discounted:false};
-  const quote=posted([oldLine],{total:45,subtotal:45});
-  assert.equal(verifyAndPriceBooking([bin],"",quote).reason,"client_price_mismatch");
-  assert.equal(verifyAndPriceBooking([bin],"",quote,{legacyLargeCommercialPrice:true}).ok,true);
 });

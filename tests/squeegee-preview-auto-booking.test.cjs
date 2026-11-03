@@ -2226,7 +2226,7 @@ test("five different bin types and sizes import without false same-colour confli
     {type:"Blue Bin",planId:"comm_gt660_4w",count:1,sizeLitres:660},
   ];
   const b=sampleBooking({bins,dates:Array(5).fill("2026-11-16")});
-  assert.equal(b.pricing.total,115);
+  assert.equal(b.pricing.total,135);
   const h=makeHarness(b,{services:[
     ...accountServices,
     {id:largeIds.black1100,description:"Black 1100L (one-off)"},
@@ -2239,9 +2239,9 @@ test("five different bin types and sizes import without false same-colour confli
   assert.equal(result.createdJobs,2);
   assert.equal(result.physicalBins,5);
   const jobs=h.posts.filter(p=>p.kind==="job").map(p=>p.job);
-  assert.equal(jobs.reduce((n,j)=>n+j.price,0),115);
+  assert.equal(jobs.reduce((n,j)=>n+j.price,0),135);
   assert.equal(jobs[0].frequencyType,"adhoc");
-  assert.equal(jobs[0].price,85);
+  assert.equal(jobs[0].price,105);
   assert.deepEqual(jobs[0].services,[
     brownOneOffService,largeIds.black1100,largeIds.brown1100,
   ]);

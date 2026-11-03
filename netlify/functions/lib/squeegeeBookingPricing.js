@@ -14,8 +14,8 @@ const PLANS = Object.freeze({
   domestic_oneoff: { label: "One-off", price: 15 },
   comm_lt360_4w: { label: "Commercial <360L 4 Weekly", price: 5 },
   comm_lt360_oneoff: { label: "Commercial <360L One-Off", price: 15 },
-  comm_gt660_4w: { label: "Commercial >660L 4 Weekly", price: 15 },
-  comm_gt660_oneoff: { label: "Commercial >660L One-Off", price: 35 },
+  comm_gt660_4w: { label: "Commercial 660L+ 4 Weekly", price: 15 },
+  comm_gt660_oneoff: { label: "Commercial 660L+ One-Off", price: 45 },
 });
 const DISCOUNTS = Object.freeze({
   FRESH20: {
@@ -60,12 +60,7 @@ function discountFor(planId, code, now) {
   return { valid: true, applied: true, rule };
 }
 
-// Legacy prices are allowed ONLY when a trusted owner-only recovery validates
-// an immutable, previously accepted audit. Customer booking handlers never
-// pass this option, so all NEW commercial one-offs cost GBP 35.
-function verifyAndPriceBooking(bins, discountCode, postedPricing, {
-  now = Date.now(), legacyLargeCommercialPrice = false,
-} = {}) {
+function verifyAndPriceBooking(bins, discountCode, postedPricing, { now = Date.now() } = {}) {
   if (!Array.isArray(bins) || bins.length === 0 || bins.length > 20) {
     return { ok: false, reason: "invalid_bin_count" };
   }
@@ -99,13 +94,11 @@ function verifyAndPriceBooking(bins, discountCode, postedPricing, {
     }
     const discount = discountFor(bin.planId, code, nowMs);
     if (!discount.valid) return { ok: false, reason: discount.reason };
-    const baseUnit = legacyLargeCommercialPrice && bin.planId === "comm_gt660_oneoff"
-      ? 45 : plan.price;
-    let unitPrice = baseUnit;
+    let unitPrice = plan.price;
     if (discount.applied) {
       const rule = discount.rule;
-      if (rule.type === "percent") unitPrice = roundMoney(baseUnit * (1 - rule.value / 100));
-      else if (rule.type === "fixed") unitPrice = Math.max(0, roundMoney(baseUnit - rule.value));
+      if (rule.type === "percent") unitPrice = roundMoney(plan.price * (1 - rule.value / 100));
+      else if (rule.type === "fixed") unitPrice = Math.max(0, roundMoney(plan.price - rule.value));
       else if (rule.type === "free") unitPrice = 0;
     }
     lines.push({
@@ -113,7 +106,7 @@ function verifyAndPriceBooking(bins, discountCode, postedPricing, {
       sizeLitres: LARGE_PLANS.has(bin.planId) ? bin.sizeLitres : null,
       planLabel: plan.label +
         (LARGE_PLANS.has(bin.planId) ? " — " + bin.sizeLitres + "L" : ""),
-      baseUnit, unitPrice, discounted: discount.applied,
+      baseUnit: plan.price, unitPrice, discounted: discount.applied,
       freeCount: 0, multiBuyDiscount: 0,
       lineTotal: roundMoney(unitPrice * count),
     });

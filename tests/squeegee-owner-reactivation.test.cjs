@@ -9,7 +9,7 @@ function sample(){
     {type:"Brown Bin",planId:"domestic_4w",count:1},
     {type:"Green Bin",planId:"comm_gt660_oneoff",sizeLitres:1100,count:1},
   ];
-  const pricing=verifyAndPriceBooking(bins,"",{}, {legacyLargeCommercialPrice:true}).canonical;
+  const pricing=verifyAndPriceBooking(bins,"",{}).canonical;
   return{
     bookingId:"NBG-4QUNP343",channel:"email",
     createdAt:"2026-10-31T21:24:07.000Z",

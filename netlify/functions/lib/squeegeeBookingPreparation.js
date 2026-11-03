@@ -17,11 +17,9 @@ const {
  * Missing/duplicate account group labels and bank-holiday recurring anchors
  * hold the affected job. No Squeegee POST is performed here.
  */
-function prepareReadOnlyBooking(booking, serverSchedule, services, {
-  jobGroups, legacyLargeCommercialPrice = false,
-} = {}) {
+function prepareReadOnlyBooking(booking, serverSchedule, services, { jobGroups } = {}) {
   const price = verifyAndPriceBooking(booking?.bins, booking?.discountCode,
-    booking?.pricing,{legacyLargeCommercialPrice});
+    booking?.pricing);
   const dates = compareDisplayedSchedule(booking, serverSchedule,
     booking?.bookingScheduleSnapshot);
   const mapped = resolveSqueegeeServiceIds(Array.isArray(services) ? services : []);

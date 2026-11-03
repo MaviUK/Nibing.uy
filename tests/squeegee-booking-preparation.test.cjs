@@ -279,10 +279,10 @@ test("missing 660L one-off service in Squeegee list cannot be replaced by 660L r
   b.bins[1].sizeLitres = 660;
   b.pricing.lines[1] = {
     ...b.pricing.lines[1], planId: "comm_gt660_oneoff", sizeLitres: 660,
-    baseUnit: 35, unitPrice: 35, lineTotal: 35,
+    baseUnit: 45, unitPrice: 45, lineTotal: 45,
   };
-  b.pricing.subtotal = 45;
-  b.pricing.total = 45;
+  b.pricing.subtotal = 55;
+  b.pricing.total = 55;
   const service660 = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
   const service1100 = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   const result = prepareReadOnlyBooking(b, serverSchedule(), [

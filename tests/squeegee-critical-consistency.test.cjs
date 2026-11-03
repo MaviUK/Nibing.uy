@@ -5,7 +5,7 @@ const fs=require("node:fs");
 const path=require("node:path");
 const terms=require("../src/data/bookingTerms.json");
 const {DEFAULT_TERMS_BODY}=require("../netlify/functions/lib/termsPdf");
-const {PLANS}=require("../netlify/functions/lib/squeegeeBookingPricing");
+const {PLANS,verifyAndPriceBooking}=require("../netlify/functions/lib/squeegeeBookingPricing");
 const source=(p)=>fs.readFileSync(path.join(__dirname,"..",p),"utf8");
 
 test("September 2026 terms and leaderboard acknowledgement appear identically on the forms and in the PDF",()=>{
@@ -24,10 +24,19 @@ test("September 2026 terms and leaderboard acknowledgement appear identically on
     assert.match(source(file),/TERMS_VERSION_DEFAULT = BOOKING_TERMS\.version/);
   }
 });
-test("GBP35 is the canonical large-bin one-off price and visible in both forms",()=>{
-  assert.equal(PLANS.comm_gt660_oneoff.price,35);
+test("GBP45 is the one-off price for both 660L and 1100L commercial bins",()=>{
+  assert.equal(PLANS.comm_gt660_oneoff.price,45);
   for(const file of ["src/LandingPage.jsx","src/pages/StreetBookingPage.jsx"]){
-    assert.match(source(file),/comm_gt660_oneoff", label: "Commercial >660L One-Off", price: 35/);
+    assert.match(source(file),/comm_gt660_oneoff", label: "Commercial 660L\+ One-Off", price: 45/);
+    assert.match(source(file),/comm_gt660_4w", label: "Commercial 660L\+ 4 Weekly", price: 15/);
+  }
+  for(const sizeLitres of [660,1100]){
+    const bins=[{type:"Black Bin",count:1,planId:"comm_gt660_oneoff",sizeLitres}];
+    const initial=verifyAndPriceBooking(bins,"",null);
+    assert.equal(initial.canonical.total,45);
+    const verified=verifyAndPriceBooking(bins,"",initial.canonical);
+    assert.equal(verified.ok,true);
+    assert.equal(verified.canonical.total,45);
   }
 });
 test("verified completed bins never include estimated daily progress or animation increments",()=>{
