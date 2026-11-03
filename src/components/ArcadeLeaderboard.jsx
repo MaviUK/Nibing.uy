@@ -103,7 +103,6 @@ export default function ArcadeLeaderboard() {
   // this device's arcade cookie or a clicked public leaderboard entry.
   const [customerSummary,setCustomerSummary]=useState(null);
   const [customerSummaryStatus,setCustomerSummaryStatus]=useState("checking");
-  const [customerPeriod,setCustomerPeriod]=useState("overall");
 
   function showPublicRankings(){
     setRankingMode("public");
@@ -219,6 +218,10 @@ export default function ArcadeLeaderboard() {
           points:sum.points,
           rank:Number.isSafeInteger(sum.rank)&&sum.rank>0?sum.rank:null,
           rankingAvailable:sum.rankingAvailable===true,
+          firstRecordedServiceYear:Number.isSafeInteger(sum.firstRecordedServiceYear) &&
+            sum.firstRecordedServiceYear>=2000 &&
+            sum.firstRecordedServiceYear<=new Date().getFullYear()
+              ?sum.firstRecordedServiceYear:null,
           yearly
         });
         setCustomerSummaryStatus("ready");
@@ -235,7 +238,6 @@ export default function ArcadeLeaderboard() {
         // another person signs in on the same phone.
         requestId++;
         setCustomerSummary(null);
-        setCustomerPeriod("overall");
         setCustomerSummaryStatus("signed-out");
       }else void refreshCustomer();
     };
@@ -257,14 +259,17 @@ export default function ArcadeLeaderboard() {
       document.removeEventListener("visibilitychange",onVisible);
     };
   },[]);
-  const customerPeriods=["overall",...Object.keys(customerSummary?.yearly||{})
-    .filter(year=>customerSummary.yearly[year].points>0)
-    .sort((a,b)=>Number(a)-Number(b))];
-  const shownCustomerPeriod=customerPeriods.includes(customerPeriod)
-    ?customerPeriod:"overall";
-  const shownCustomerStats=shownCustomerPeriod==="overall"
+  // The top public leaderboard year buttons are the single selector for the
+  // signed-in customer's verified XP and position too. Missing annual points
+  // are zero, never the Overall balance or a stale selection.
+  const shownCustomerStats=selectedYear==="overall"
     ?{points:customerSummary?.points??0,rank:customerSummary?.rank??null}
-    :customerSummary?.yearly?.[shownCustomerPeriod];
+    :customerSummary?.yearly?.[selectedYear]??{points:0,rank:null};
+  const noCustomerXpInYear=Boolean(customerSummary &&
+    selectedYear!=="overall" && shownCustomerStats.points===0);
+  const noRecordedCustomerHistoryInYear=noCustomerXpInYear &&
+    Number.isSafeInteger(customerSummary.firstRecordedServiceYear) &&
+    Number(selectedYear)<customerSummary.firstRecordedServiceYear;
 
   useEffect(() => {
     let mounted = true;
@@ -414,9 +419,11 @@ export default function ArcadeLeaderboard() {
         </div>
 
         <div className="n64-your-score n64-personal-score"
-          aria-label="Your verified total XP and leaderboard position">
+          aria-label={selectedYear==="overall"
+            ?"Your verified overall XP and leaderboard position"
+            :"Your verified "+selectedYear+" XP and leaderboard position"}>
           <div className="n64-personal-total">
-            <strong>★ {shownCustomerPeriod==="overall"?"TOTAL XP":shownCustomerPeriod+" XP"}</strong>
+            <strong>★ {selectedYear==="overall"?"TOTAL XP":selectedYear+" XP"}</strong>
             <span>{customerSummary
               ?shownCustomerStats.points.toLocaleString("en-GB")+" XP"
               :customerSummaryStatus==="checking"?"CHECKING…":"—"}</span>
@@ -424,23 +431,18 @@ export default function ArcadeLeaderboard() {
           {customerSummary ? <>
             <div className="n64-personal-position">
               <strong>LEADERBOARD POSITION</strong>
-              <span>{shownCustomerStats.rank
+              <span>{noCustomerXpInYear?"—":shownCustomerStats.rank
                 ?"#"+shownCustomerStats.rank.toLocaleString("en-GB")
                 :customerSummary.rankingAvailable
                   ?"NOT PUBLICLY RANKED":"UNAVAILABLE"}</span>
             </div>
-            <div className="n64-personal-years" role="group"
-              aria-label="Your yearly leaderboard results">
-              {customerPeriods.map(period=>
-                <button type="button" key={period}
-                  className={period===shownCustomerPeriod?"n64-personal-year-active":""}
-                  aria-pressed={period===shownCustomerPeriod}
-                  onClick={()=>setCustomerPeriod(period)}>
-                  {period==="overall"?"OVERALL":period}
-                </button>
-              )}
-            </div>
-            {customerSummary.rankingAvailable===false &&
+            {noCustomerXpInYear &&
+              <p className="n64-personal-period-note" role="status">
+                {noRecordedCustomerHistoryInYear
+                  ?"No customer history recorded for "+selectedYear+"."
+                  :"No verified XP recorded for "+selectedYear+"."}
+              </p>}
+            {customerSummary.rankingAvailable===false && !noCustomerXpInYear &&
               <small>Your verified XP is available, but the public ranking is temporarily unavailable.</small>}
           </> : <small>
             {customerSummaryStatus==="checking"

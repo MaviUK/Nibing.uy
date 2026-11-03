@@ -27,6 +27,19 @@ function visibleRank({privateCustomers,eligibleAliases,consentSnapshot,
   const row=shown?.entries?.find(entry=>entry.customerRef===ref);
   return Number.isSafeInteger(row?.rank)&&row.rank>0?row.rank:null;
 }
+// The imported history has verified service dates, not the original sign-up
+// date. Report the FIRST RECORDED SERVICE year (including skipped or unpaid
+// visits), rather than inventing a customer registration date.
+function firstRecordedServiceYear(events,asOf){
+  let first=null;
+  for(const event of Array.isArray(events)?events:[]){
+    const date=String(event?.date||"");
+    if(!/^20\d{2}-\d{2}-\d{2}$/.test(date)||date>asOf)continue;
+    const year=Number(date.slice(0,4));
+    if(!first || year<first)first=year;
+  }
+  return first;
+}
 function fromBoards({customerId,privateCustomers,eligibleAliases,
                      consentSnapshot,secretKey,overallBoard,yearlyBoards=[],
                      allowPublicRanks=true}){
@@ -71,6 +84,8 @@ function fromBoards({customerId,privateCustomers,eligibleAliases,
       board:overallBoard,customerAlias:alias
     }):null,
     yearly,rankingAvailable:eligible&&hasPublicBoard,
+    firstRecordedServiceYear:firstRecordedServiceYear(
+      account.events,privateCustomers.asOf),
     yearlyXpTotal:yearlyTotal
   };
 }
@@ -109,7 +124,9 @@ async function getPersonalSummary({stores,privateCustomers,customerId,
     if(points>100000||!Number.isSafeInteger(points))
       throw new Error("personal_dated_total_needs_review");
     return {points,cleaningPoints,websiteXp:points-cleaningPoints,
-      rank:null,yearly,yearlyXpTotal:points,rankingAvailable:false};
+      rank:null,yearly,yearlyXpTotal:points,rankingAvailable:false,
+      firstRecordedServiceYear:firstRecordedServiceYear(
+        account.events,privateCustomers.asOf)};
   }
   const [mode,published]=await Promise.all([
     stores.history.get(historical.MODE_KEY,{type:"json",consistency:"strong"}),
@@ -122,4 +139,6 @@ async function getPersonalSummary({stores,privateCustomers,customerId,
     eligibleAliases:eligible.aliases,consentSnapshot,secretKey,
     overallBoard,yearlyBoards,allowPublicRanks});
 }
-module.exports={publicRef,visibleRank,fromBoards,getPersonalSummary};
+module.exports={
+  publicRef,visibleRank,fromBoards,getPersonalSummary,firstRecordedServiceYear
+};

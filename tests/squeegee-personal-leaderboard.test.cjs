@@ -54,6 +54,7 @@ test("known 2025/26 XP sums to 447, and 60 legacy XP never enters any total",()=
     points:447,cleaningPoints:22,websiteXp:425,
     rank:2,rankingAvailable:true,
     yearly:{"2025":{points:22,rank:1},"2026":{points:425,rank:2}},
+    firstRecordedServiceYear:2025,
     yearlyXpTotal:447
   });
   assert.equal(summary.yearly["2024"],undefined);
@@ -113,7 +114,8 @@ test("signed-in customers outside public rankings retain dated website XP, but n
       "2025":{points:22,rank:null},
       "2026":{points:25,rank:null}
     },
-    yearlyXpTotal:47,rankingAvailable:false
+    yearlyXpTotal:47,rankingAvailable:false,
+    firstRecordedServiceYear:2025
   });
 });
 test("homepage and Customer HQ use the same verified totals and never show unknown XP",()=>{
@@ -132,12 +134,25 @@ test("homepage and Customer HQ use the same verified totals and never show unkno
   assert.match(ui,/CUSTOMER_SUMMARY_ENDPOINT="\/api\/customer-hq\?view=rank-summary"/);
   assert.match(ui,/credentials:"same-origin"/);
   assert.match(ui,/verifiedYearTotal!==sum\.points/);
-  assert.match(ui,/★ \{shownCustomerPeriod==="overall"\?"TOTAL XP"/);
+  assert.match(ui,/★ \{selectedYear==="overall"\?"TOTAL XP"/);
   assert.match(ui,/LEADERBOARD POSITION/);
-  assert.match(ui,/customerPeriods=\["overall",\.\.\.Object\.keys\(customerSummary\?\.yearly\|\|\{\}\)/);
-  assert.match(ui,/onClick=\{\(\)=>setCustomerPeriod\(period\)\}/);
+  assert.match(ui,/selectedYear==="overall"/);
+  assert.match(ui,/customerSummary\?\.yearly\?\.\[selectedYear\]/);
+  assert.doesNotMatch(ui,/customerPeriods|customerPeriod|setCustomerPeriod|n64-personal-years/);
+  assert.match(ui,/No customer history recorded for/);
+  assert.match(ui,/No verified XP recorded for/);
   assert.doesNotMatch(ui,/ARCADE XP ON THIS PHONE|localScore\.points|unassignedXp|YEAR UNKNOWN XP/);
   assert.match(ui,/Sign in to see your total XP, leaderboard position and years with points/);
-  assert.match(style,/n64-personal-year-active/);
+  assert.match(style,/n64-personal-period-note/);
+  assert.doesNotMatch(style,/n64-personal-year-active|n64-personal-years/);
   assert.doesNotMatch(style,/n64-personal-reconciliation/);
+});
+
+test("known first recorded service year includes zero-XP visit records and cannot invent a signup date",()=>{
+  const year=personal.firstRecordedServiceYear;
+  assert.equal(year([{event:"recorded_skip",date:"2024-11-05",points:0},
+    CLEAN("2025-01-16",20)],"2026-10-31"),2024);
+  assert.equal(year([CLEAN("2025-05-21",22),CLEAN("2026-03-12",30)],"2026-10-31"),2025);
+  assert.equal(year([CLEAN("2027-01-02",20)],"2026-10-31"),null);
+  assert.equal(year([],"2026-10-31"),null);
 });

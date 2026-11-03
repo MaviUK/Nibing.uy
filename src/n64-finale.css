@@ -330,8 +330,8 @@
  .n64-public-leaderboard .n64-your-score > div {font-size:.95rem}
  .n64-public-leaderboard .n64-your-score small {font-size:.75rem}
 }
-/* A customer's private yearly card sits below the public leaderboard year
-   selector. It only offers periods with securely verified positive XP. */
+/* The single top-level Overall / year selector controls the private score
+   card and public leaderboard together. */
 .n64-public-leaderboard .n64-personal-score .n64-personal-position {
   display:flex;
   align-items:center;
@@ -352,36 +352,15 @@
   font-variant-numeric:tabular-nums;
   overflow-wrap:anywhere;
 }
-.n64-public-leaderboard .n64-personal-score .n64-personal-years {
-  display:flex;
-  flex-wrap:wrap;
-  gap:7px;
-  padding-top:12px;
-  margin-top:11px;
+.n64-public-leaderboard .n64-personal-period-note {
+  display:block;
+  margin:14px 0 1px;
+  padding:11px 12px;
   border-top:2px dashed #d6c88a;
-}
-.n64-public-leaderboard .n64-personal-years button {
-  flex:1 1 64px;
-  min-width:0;
-  padding:10px 7px;
-  border:2px solid #3c5478;
-  border-radius:0;
-  background:#e0effc;
-  box-shadow:3px 4px 0 #637b9c;
-  color:#20345c;
-  font:900 .8rem/1.25 "Trebuchet MS",sans-serif;
-  cursor:pointer;
-  touch-action:manipulation;
-}
-.n64-public-leaderboard .n64-personal-years button.n64-personal-year-active {
-  background:#ffe266;
-  color:#1a3055;
-  border-color:#9c7b1f;
-  box-shadow:3px 4px 0 #32785d;
-}
-.n64-public-leaderboard .n64-personal-years button:focus-visible {
-  outline:3px solid #1a7259;
-  outline-offset:3px;
+  color:#334868;
+  background:#fdf3c8;
+  font:900 .85rem/1.45 "Trebuchet MS",Verdana,sans-serif;
+  text-align:center;
 }
 /* ── SECURE POST-BOOKING SCORE CLAIM ──────────────────────────────────────
  * Customers can claim a confirmed booking without submitting a second clean.
