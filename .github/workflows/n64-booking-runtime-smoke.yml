@@ -33,3 +33,38 @@ jobs:
           probe "/api/squeegee-preview-auto-sync" "405"
           probe "/api/squeegee-preview-auto-status?review=1" "403"
           echo "PASS: booking function runs, Squeegee worker rejects GET, owner review requires login."
+      - name: Read-only address suggestions and BT postcode selection probe
+        shell: bash
+        run: |
+          node <<'NODE'
+          const origin="https://deploy-preview-77--nibinguy.netlify.app";
+          async function request(path) {
+            const res=await fetch(origin+path,{signal:AbortSignal.timeout(13000),redirect:"error"});
+            let data=null;
+            try{data=await res.json()}catch{}
+            return{status:res.status,data};
+          }
+          async function main(){
+            const council=await request("/.netlify/functions/binAddresses?postcode="+encodeURIComponent("BT23 4AA"));
+            const addresses=Array.isArray(council.data?.data?.addresses)?
+              council.data.data.addresses:[];
+            console.log("Council BT23 4AA: HTTP "+council.status+"; addresses "+addresses.length);
+            if(council.status!==200||!addresses.length)throw Error("Council postcode suggestions failed");
+            const google=await request("/.netlify/functions/bookingAddressSuggestions?q="+
+              encodeURIComponent("High Street Bangor Northern Ireland"));
+            const entries=Array.isArray(google.data?.addresses)?google.data.addresses:[];
+            console.log("Google protected suggestions: HTTP "+google.status+"; predictions "+entries.length);
+            if(google.status!==200||!entries.length) {
+              console.warn("Google unavailable or returned no predictions; council and manual BT postcode entry remain available.");
+              return;
+            }
+            const placeId=entries[0]?.id;
+            if(!placeId)throw Error("Google returned missing place reference");
+            const details=await request("/.netlify/functions/bookingAddressDetails?placeId="+encodeURIComponent(placeId));
+            console.log("Protected place details HTTP "+details.status+
+              "; BT postcode confirmed: "+Boolean(details.data?.postcode));
+            if(details.status!==200)
+              console.warn("Google Place Details unavailable; customer must supply a BT postcode.");
+          }
+          main().catch(error=>{console.error("Address lookup failed:",error.message);process.exitCode=1;});
+          NODE
