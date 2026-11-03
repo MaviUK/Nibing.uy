@@ -30,7 +30,7 @@ test("a Google suggestion without postcode can be completed manually, without gu
   assert.match(form,/We won't guess one/);
   const component=read("src/components/BookingAddressAutocomplete.jsx");
   assert.match(component,/aria-invalid=\{invalid\}/);
-  assert.match(component,/postcode_required/);
+  assert.match(component,/setAddressNotice\(postal/);
 });
 test("security proof begins concurrently with council date lookup, before the one booking POST",()=>{
   const challenge=form.indexOf("const securityWork =");

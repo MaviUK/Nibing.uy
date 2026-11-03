@@ -44,6 +44,15 @@ on:
       - netlify/functions/lib/squeegeeJobGrouping.js
       - netlify/functions/lib/ukBookingPhone.js
       - netlify/functions/lib/squeegeeSyncOwnerAlert.js
+      - netlify/functions/lib/squeegeeBookingReviewTrace.js
+      - netlify/functions/lib/squeegeeOwnerReviewInbox.js
+      - netlify/functions/lib/bookingSubmissionGuard.js
+      - src/bookingFormValidation.mjs
+      - src/components/BookingAddressAutocomplete.jsx
+      - tests/squeegee-booking-replay-atomic.test.cjs
+      - tests/squeegee-owner-review-inbox.test.cjs
+      - tests/squeegee-booking-field-errors.test.cjs
+      - tests/squeegee-n64-booking-phase2-regressions.test.cjs
       - tests/squeegee-sync-owner-alert.test.cjs
       - tests/squeegee-booking-phone-validation.test.cjs
       - netlify/functions/squeegeePreviewAutoSync.mjs
