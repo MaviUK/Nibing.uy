@@ -195,3 +195,26 @@ test("31 Oct Squeegee quantity-aware plan counts physical bins instead of jobs",
   assert.match(stats,/scheduled physical BIN QUANTITIES/);
   assert.match(stats,/CYCLE_SNAPSHOT\.weekOneMonday/);
 });
+
+
+test("owner confirmed current week revenue records 399 physical bins without inventing a route", async () => {
+  const { OWNER_CONFIRMED_WEEK, getOwnerConfirmedWeekReconciliation, FOUR_WEEK_PLAN } =
+    await import("../src/data/cleaningCycleData.mjs");
+  assert.equal(OWNER_CONFIRMED_WEEK.monday, "2026-11-02");
+  assert.equal(OWNER_CONFIRMED_WEEK.cycleWeek, 3);
+  assert.equal(OWNER_CONFIRMED_WEEK.perBinGBP, 5);
+  assert.equal(OWNER_CONFIRMED_WEEK.scheduledValueGBP, 1995);
+  assert.equal(OWNER_CONFIRMED_WEEK.scheduledPhysicalBins, 399);
+  assert.equal(OWNER_CONFIRMED_WEEK.scheduledValueGBP / OWNER_CONFIRMED_WEEK.perBinGBP,
+    OWNER_CONFIRMED_WEEK.scheduledPhysicalBins);
+  const result = getOwnerConfirmedWeekReconciliation();
+  assert.equal(result.allocatedBinsFromBackup, 392);
+  assert.equal(result.unallocatedBins, 7);
+  assert.equal(FOUR_WEEK_PLAN[2].Mon.bins, 102);
+  assert.equal(FOUR_WEEK_PLAN[2].Tue.bins, 67);
+  assert.equal(FOUR_WEEK_PLAN[2].Wed.bins, 98);
+  assert.equal(FOUR_WEEK_PLAN[2].Thu.bins, 125);
+  // No daily fabrication or addition to the historic completed-wash total.
+  const { CYCLE_SNAPSHOT } = await import("../src/data/cleaningCycleData.mjs");
+  assert.equal(CYCLE_SNAPSHOT.completedBinsThroughBackup, 30803);
+});

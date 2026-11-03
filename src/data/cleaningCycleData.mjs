@@ -27,6 +27,24 @@ export const CYCLE_SNAPSHOT = Object.freeze({
   "exclusions": "Active 4-weekly in serviced towns only: exclude inactive/deleted jobs, one-offs, Ballywalter, Greyabbey, Cloughey, Portavogie, Ballyhalbert from current rota.",
   "note": "Round 04 had 89 physical bins washed Thu 22 Oct and 42 physical bins washed Fri 23 Oct as a one-off overflow, not a regular Friday round. Lifetime completed total includes one-offs and historical former areas."
 });
+/* Owner-provided current-week takings, 3 Nov 2026. This is independent
+ * of the historical 31 Oct Squeegee backup. The reported £1,995 at £5 per
+ * bin is 399 physical bins across Mon-Thu 2-5 Nov, Week 3.
+ *
+ * Do not distribute the unmatched seven bins to arbitrary days or assume
+ * they are completed. Update each route when the verified daily split
+ * becomes available; the historical washed counter must stay unchanged.
+ */
+export const OWNER_CONFIRMED_WEEK = Object.freeze({
+  monday: "2026-11-02",
+  thursday: "2026-11-05",
+  cycleWeek: 3,
+  perBinGBP: 5,
+  scheduledValueGBP: 1995,
+  scheduledPhysicalBins: 399,
+  source: "owner confirmed 3 November 2026",
+});
+
 export const FOUR_WEEK_PLAN = Object.freeze([
   {
     "Mon": {
@@ -181,3 +199,15 @@ export const FOUR_WEEK_PLAN = Object.freeze([
     }
   }
 ]);
+
+/** Returns the current-week reconciliation without inventing daily bins. */
+export function getOwnerConfirmedWeekReconciliation() {
+  const days = ["Mon", "Tue", "Wed", "Thu"];
+  const weeklyPlan = FOUR_WEEK_PLAN[OWNER_CONFIRMED_WEEK.cycleWeek - 1];
+  const allocatedBinsFromBackup = days.reduce((sum, day) => sum + weeklyPlan[day].bins, 0);
+  return {
+    ...OWNER_CONFIRMED_WEEK,
+    allocatedBinsFromBackup,
+    unallocatedBins: OWNER_CONFIRMED_WEEK.scheduledPhysicalBins - allocatedBinsFromBackup,
+  };
+}

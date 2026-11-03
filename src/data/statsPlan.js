@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 // The completed total is a real snapshot, not a retroactive replay of
 // estimated daily cleans. Future progress uses the current backup rota until
 // an updated Squeegee backup or completion feed is available.
-import { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN } from "./cleaningCycleData.mjs";
-export { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN };
+import { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN, OWNER_CONFIRMED_WEEK, getOwnerConfirmedWeekReconciliation } from "./cleaningCycleData.mjs";
+export { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN, OWNER_CONFIRMED_WEEK, getOwnerConfirmedWeekReconciliation };
 
 export const STATS_BASE = {
   totalBinsCleaned: CYCLE_SNAPSHOT.completedBinsThroughBackup,
