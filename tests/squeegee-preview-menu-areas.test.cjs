@@ -32,3 +32,11 @@ test("tapping an area menu link closes the menu like all other section links",()
   assert.match(html,/menu\.addEventListener\("click",[\s\S]*?if \(event\.target\.closest\("a"\)\) closeMenu\(\)/);
   assert.match(html,/#site-section-menu a,\s*#site-section-menu button/);
 });
+
+test("the menu includes one Leaderboards link after Customer Portal",()=>{
+  const link='<a href="#live-leaderboard">Leaderboards</a>';
+  assert.equal(menu.split(link).length-1,1);
+  assert.ok(menu.indexOf("Customer Portal")<menu.indexOf(link));
+  const board=fs.readFileSync(path.join(ROOT,"src/components/ArcadeLeaderboard.jsx"),"utf8");
+  assert.match(board,/id="live-leaderboard"/);
+});

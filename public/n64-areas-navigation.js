@@ -19,7 +19,8 @@
     "#wheelie-bin-cleaning-questions":"wheelie-bin-cleaning-questions",
     "#areas-we-cover":"areas-we-cover",
     "#customer-portal-login":"customer-portal-login",
-    "#customer-portal":"customer-portal"
+    "#customer-portal":"customer-portal",
+    "#live-leaderboard":"live-leaderboard"
   };
   var stopPrevious=function(){};
   function homepage(){
@@ -30,6 +31,10 @@
     if(!id)return null;
     var el=document.getElementById(id);
     if(!el)return null;
+    // The leaderboard tabs are the first useful controls after the section
+    // boundary. Scroll to them rather than the checkered line or title below.
+    if(hash==="#live-leaderboard")
+      return el.querySelector(".n64-board-tabs")||el.querySelector("h2,h1")||el;
     if(el.matches&&el.matches("h1,h2"))return el;
     return el.querySelector("h2,h1")||el;
   }

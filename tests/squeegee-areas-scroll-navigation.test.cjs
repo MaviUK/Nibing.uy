@@ -22,6 +22,7 @@ const targets={
  "#wheelie-bin-cleaning-questions":"wheelie-bin-cleaning-questions",
  "#areas-we-cover":"areas-we-cover",
  "#customer-portal-login":"customer-portal-login",
+ "#live-leaderboard":"live-leaderboard",
 };
 
 function browser({mounted=true,sectionTop=3800,headingTop=4020,hash="",
@@ -40,7 +41,10 @@ function browser({mounted=true,sectionTop=3800,headingTop=4020,hash="",
     getBoundingClientRect(){return {top:headingDocumentY-window.scrollY};}
   };
   const root={
-    querySelector(s){assert.equal(s,"h2,h1");return heading;},
+    querySelector(s){
+      assert.ok(["h2,h1",".n64-board-tabs"].includes(s));
+      return heading;
+    },
     getBoundingClientRect(){return section.getBoundingClientRect();}
   };
   const document={
@@ -125,7 +129,7 @@ function browser({mounted=true,sectionTop=3800,headingTop=4020,hash="",
   };
 }
 
-test("all nine menu sections are supported, with headings visible after their four-row checkers",()=>{
+test("all ten menu sections are supported, with targets visible below the floating menu",()=>{
   for(const [hash,id] of Object.entries(targets)){
     const x=browser();
     const click=x.click(hash);
@@ -210,7 +214,7 @@ test("direct hash URLs wait until their own destination exists and scroll below 
 
 test("non-home URLs and unrelated hash links remain untouched",()=>{
   const x=browser();
-  assert.equal(x.click("#live-leaderboard").prevented,false);
+  assert.equal(x.click("#unrelated-destination").prevented,false);
   assert.equal(x.scrollCount(),0);
   const y=browser({pathname:"/customer-hq"});
   assert.equal(y.click("#areas-we-cover").prevented,false);
@@ -222,7 +226,7 @@ test("menu and cache-busted assets preserve the real dynamic Areas section and n
   assert.match(areaMount,/var target=document\.getElementById\("customer-portal"\)/);
   assert.match(areaMount,/target\.parentNode\.insertBefore\(section,target\)/);
   assert.match(areaMount,/dispatchEvent\(new Event\("nbg:areas-mounted"\)\)/);
-  assert.match(html,/src="\/n64-areas-navigation\.js\?v=20261101-after-checker-all-sections-2"\s+defer/);
+  assert.match(html,/src="\/n64-areas-navigation\.js\?v=20261103-leaderboard-menu"\s+defer/);
   assert.match(html,/src="\/privacy-link\.js\?v=20261101-areas-after-portal"\s+defer/);
   assert.match(html,/#site-section-menu a,\s*#site-section-menu button/);
   assert.match(html,/if \(event\.target\.closest\("a"\)\) closeMenu\(\)/);
@@ -231,4 +235,25 @@ test("menu and cache-busted assets preserve the real dynamic Areas section and n
   const css=fs.readFileSync(path.join(ROOT,"src/n64-square.css"),"utf8");
   assert.match(css,/--n64-check-height:calc\(var\(--n64-check-tile\) \* 4\)/);
   assert.match(css,/repeating-conic-gradient\(/);
+});
+
+test("Leaderboards menu and shared deep link land on the leaderboard tabs rather than the section boundary",()=>{
+  const ui=fs.readFileSync(path.join(ROOT,"src/components/ArcadeLeaderboard.jsx"),"utf8");
+  assert.match(ui,/id="live-leaderboard"/);
+  assert.match(ui,/className="n64-board-tabs"/);
+  const mobile=browser({sectionTop:3800,headingTop:4020,width:390});
+  const clicked=mobile.click("#live-leaderboard");
+  assert.equal(clicked.prevented,true);
+  assert.equal(mobile.location.hash,"#live-leaderboard");
+  assert.equal(mobile.headingVisibleY(),122);
+  assert.ok(mobile.stripeVisibleBottom()<0);
+
+  const deepLink=browser({mounted:false,hash:"#live-leaderboard"});
+  deepLink.ready();
+  assert.equal(deepLink.scrollCount(),0);
+  deepLink.mount();
+  assert.equal(deepLink.headingVisibleY(),122);
+
+  const otherPage=browser({pathname:"/customer-hq"});
+  assert.equal(otherPage.click("#live-leaderboard").prevented,false);
 });
