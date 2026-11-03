@@ -33,7 +33,9 @@ test("homepage only unlocks its terms checkbox AFTER modal confirmation", () => 
   assert.match(homeForm, /onClick=\{\(\) => setShowTerms\(true\)\}/);
   assert.match(homeForm, /checked=\{agreeToTerms\}\s*disabled=\{!canToggleAgree\}/);
   assert.match(homeForm, /onConfirm=\{\(\) => \{[\s\S]*?setTermsConfirmed\(true\);\s*setAgreeToTerms\(true\)/);
-  assert.match(homeForm, /if \(!termsConfirmed \|\| !agreeToTerms\)/);
+  assert.match(homeForm, /validateArcadeBookingFields\(\{/);
+  const formValidation=read("src/bookingFormValidation.mjs");
+  assert.match(formValidation, /if\(!termsConfirmed\|\|!agreeToTerms\)/);
   assert.match(homeForm, /disabled=\{!termsConfirmed \|\| !agreeToTerms \|\| isEmailSubmitting/);
   assert.doesNotMatch(homeForm, /setTermsConfirmed\(true\)[\s\S]{0,100}setShowTerms\(true\)/);
   assert.equal((homeForm.match(/setTermsConfirmed\(true\)/g) || []).length, 1);
