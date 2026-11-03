@@ -4,11 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 // snapshot count as "Bins Cleaned". Never add scheduled rounds, estimated
 // progress, job counts or animation increments.
 import { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN, OWNER_CONFIRMED_WEEK, getOwnerConfirmedWeekReconciliation } from "./cleaningCycleData.mjs";
+import { OWNER_MONTHLY_PLAN, MONTHLY_CLEANING_TARGET } from "./ownerMonthlyPlan.mjs";
+export { OWNER_MONTHLY_PLAN, MONTHLY_CLEANING_TARGET } from "./ownerMonthlyPlan.mjs";
 export { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN, OWNER_CONFIRMED_WEEK, getOwnerConfirmedWeekReconciliation };
 
 export const STATS_BASE = {
   totalBinsCleaned: CYCLE_SNAPSHOT.completedBinsThroughBackup,
-  monthlyCustomers: CYCLE_SNAPSHOT.activeFourWeeklyCustomers,
+  // The new round is not yet in the 31 Oct Squeegee backup.
+  monthlyCustomers: OWNER_MONTHLY_PLAN.monthlyCustomers,
 };
 
 const ANCHOR_MONDAY = new Date(CYCLE_SNAPSHOT.weekOneMonday + "T00:00:00Z");
@@ -38,6 +41,12 @@ export function useLiveCounters() {
       day:"numeric",month:"short",year:"numeric",timeZone:"Europe/London"
     }),
     todaysArea,
-    totalMonthlyCustomers:CYCLE_SNAPSHOT.activeFourWeeklyCustomers,
+    totalMonthlyCustomers:OWNER_MONTHLY_PLAN.monthlyCustomers,
+    monthlyCleansTarget:MONTHLY_CLEANING_TARGET.monthlyCleans,
+    weeklyCleaningTargets:MONTHLY_CLEANING_TARGET.weekly,
+    weeklyAverageCleans:MONTHLY_CLEANING_TARGET.averageCleansPerWeek,
+    dailyAverageCleans:MONTHLY_CLEANING_TARGET.averageCleansPerWorkday,
+    monthlyRevenueTargetGBP:OWNER_MONTHLY_PLAN.monthlyRevenueTargetGBP,
+    pricePerPaidCleanGBP:OWNER_MONTHLY_PLAN.pricePerPaidCleanGBP,
   };
 }
