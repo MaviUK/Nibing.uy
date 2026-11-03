@@ -125,8 +125,8 @@ test("large commercial 4-weekly £15 and one-off £45 agree with both booking fo
   const path=require("node:path");
   for(const page of ["src/LandingPage.jsx","src/pages/StreetBookingPage.jsx"]){
     const content=fs.readFileSync(path.join(__dirname,"..",page),"utf8");
-    assert.match(content,/id: "comm_gt660_4w", label: "Commercial 660L+ 4 Weekly", price: 15/);
-    assert.match(content,/id: "comm_gt660_oneoff", label: "Commercial 660L+ One-Off", price: 45/);
+    assert.match(content,/id: "comm_gt660_4w", label: "Commercial 660L\+ 4 Weekly", price: 15/);
+    assert.match(content,/id: "comm_gt660_oneoff", label: "Commercial 660L\+ One-Off", price: 45/);
   }
   for(const [planId,price,previousPrice] of [
     ["comm_gt660_4w",15,12.5],
