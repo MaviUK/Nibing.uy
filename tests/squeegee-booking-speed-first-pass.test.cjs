@@ -90,11 +90,12 @@ test("signed PDF uses bundled original logo, even when outbound HTTP is unavaila
 test("booking server exposes independent, privacy-safe timing of major stages", () => {
   const booking = read("netlify/functions/sendBookingEmail.js");
   for (const stage of ["security", "pdf", "receiptsAndAudit",
-    "leaderboard", "readOnlyStage", "squeegeeQueue"]) {
+    "leaderboard", "readOnlyStage"]) {
     assert.match(booking, new RegExp('timed\\("' + stage + '"'));
   }
   assert.match(booking, /timings\.ownerPdfStore=Date\.now\(\)-ownerPdfStart/);
   assert.match(booking, /timings\.claim=Date\.now\(\)-claimStarted/);
+  assert.match(booking, /timings\.squeegeeQueue=Date\.now\(\)-handoffStarted/);
   assert.match(booking, /"Server-Timing": serverTiming/);
   assert.match(booking, /Booking stage timings \(ms\)/);
   assert.doesNotMatch(booking, /Booking stage timings \(ms\).*bookingId:/);

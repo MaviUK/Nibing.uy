@@ -522,10 +522,12 @@ exports.handler = async (event) => {
     let deferredDispatchAccepted=false;
     let dispatchFailureReason="dispatch_unavailable";
     try {
-      const dispatched=await timed("squeegeeQueue", () => dispatchAcceptedBooking(payload,{
+      const handoffStarted=Date.now();
+      const dispatched=await dispatchAcceptedBooking(payload,{
         channel:"email",eventHost:syncHost,
         ownerReceipt:deferAdminForPreview?ownerReceipt:null,
-      }));
+      });
+      timings.squeegeeQueue=Date.now()-handoffStarted;
       deferredDispatchAccepted=dispatched.queued===true;
       dispatchFailureReason=dispatched.reason||"dispatch_unavailable";
       if(isPreview1) {
