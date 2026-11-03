@@ -592,6 +592,14 @@ exports.handler = async (event) => {
         ownerAlertDelivery:fallbackOwnerDelivery,
       });
     }
+    if(isPreview1 && !deferAdminForPreview && !deferredDispatchAccepted) {
+      // The normal owner warning was sent, but Squeegee wasn't queued.
+      // Retain a queryable record even when the owner missed that email.
+      await recordNoDispatch(submission.bookingId,{
+        reason:dispatchFailureReason,
+        ownerAlertDelivery:"sent",
+      });
+    }
 
     const durationMs = Date.now() - startedAt;
     // A per-stage log allows comparison before/after caching without
