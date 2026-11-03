@@ -25,7 +25,6 @@ export default function ArcadeLeaderboard() {
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [connection, setConnection] = useState("connecting");
   const [updatedAt, setUpdatedAt] = useState(null);
-  const [sourceAsOf, setSourceAsOf] = useState(null);
   const [historyStatus, setHistoryStatus] = useState(null);
   const [nameConsentMode, setNameConsentMode] = useState(false);
   const [eligibilityPending, setEligibilityPending] = useState(false);
@@ -324,7 +323,6 @@ export default function ArcadeLeaderboard() {
         setTotalPlayers(Number.isFinite(Number(data.totalPlayers))
           ? Math.max(0, Number(data.totalPlayers)) : next.length);
         setUpdatedAt(new Date());
-        setSourceAsOf(/^\d{4}-\d{2}-\d{2}$/.test(data.sourceAsOf || "") ? data.sourceAsOf : null);
         setHistoryStatus(data.status === "active_status_refresh_required" ? data.status : null);
         setNameConsentMode(data.status === "consent_only" || data.status === "consent_pending" ||
           data.status === "public_eligible_scores" ||
@@ -386,14 +384,6 @@ export default function ArcadeLeaderboard() {
             aria-pressed={activePanel==="hq"} onClick={openHQ}>★ MY CUSTOMER HQ</button>
         </div>
         <div className="n64-board-tab-content" hidden={activePanel!=="leaderboard"}>
-        <div className="n64-live-board-head">
-          <span className="n64-board-eyebrow">★ HIGH SCORES ★</span>
-          <span className={"n64-live-indicator" + (connection !== "live" ? " n64-live-indicator--offline" : "")}
-            role="status" aria-live="polite">
-            <span className="n64-live-indicator-dot" aria-hidden="true" />
-            {connection === "live" ? (sourceAsOf ? "BACKUP SNAPSHOT" : "LIVE") : connection === "connecting" ? "CONNECTING" : "RECONNECTING"}
-          </span>
-        </div>
         <h2 id="n64-board-title">{rankingMode==="owner"?"Verified Customer Rankings":
           selectedYear==="overall"?"Global Leaderboard":selectedYear+" Leaderboard"}</h2>
         {showOwnerControls && <div className="n64-rank-visibility" role="group" aria-label="Ranking visibility">

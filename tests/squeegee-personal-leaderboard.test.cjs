@@ -156,3 +156,11 @@ test("known first recorded service year includes zero-XP visit records and canno
   assert.equal(year([CLEAN("2027-01-02",20)],"2026-10-31"),null);
   assert.equal(year([],"2026-10-31"),null);
 });
+
+test("leaderboard keeps its title and year selection but omits the redundant header badges",()=>{
+  const component=fs.readFileSync(path.join(__dirname,"../src/components/ArcadeLeaderboard.jsx"),"utf8");
+  assert.doesNotMatch(component,/HIGH SCORES|BACKUP SNAPSHOT|n64-live-board-head|n64-live-indicator/);
+  assert.match(component,/id="n64-board-title"/);
+  assert.match(component,/n64-leaderboard-years/);
+  assert.match(component,/aria-label="Your verified overall XP and leaderboard position"/);
+});
