@@ -93,6 +93,10 @@ test("authorised towns and retired towns come from one reviewed policy",async()=
   assert.equal(policy.matchesCouncilProperty(
     "17 Example Rd, Bangor BT20 4AA","17 Example Road, Bangor, BT20 4AA"),true);
   assert.equal(policy.matchesCouncilProperty("17 Wrong Road, Bangor","17 Example Road, Bangor"),false);
+  assert.equal(policy.matchesCouncilProperty("Example Community Hall, Bangor, BT20 4AA",
+    "Example Community Hall, Bangor, BT20 4AA"),true);
+  assert.equal(policy.matchesCouncilProperty("Another Community Hall, Bangor, BT20 4AA",
+    "Example Community Hall, Bangor, BT20 4AA"),false);
 });
 
 test("verified Bangor postcode needs actual active council-town evidence",async()=>{
@@ -219,6 +223,10 @@ test("frontend uses address+UPRN and square N64 visuals; removed areas do not au
   assert.match(coverage,/disabled=\{!selectedActive\}/);
   assert.match(coverage,/if\(!selectedActive\)return/);
   assert.match(coverage,/LEVEL 03/);
+  assert.match(coverage,/home-coverage-address-search/);
+  assert.match(coverage,/filteredAddresses\.slice\(0,70\)/);
+  assert.match(coverage,/addressCollator\.compare\(a\.label,b\.label\)/);
+  assert.match(coverage,/onChange=\{\(event\)=>filterAddresses\(event\.target\.value\)\}/);
   assert.doesNotMatch(coverage,/rounded-xl|rounded-lg|rounded-2xl/);
   assert.doesNotMatch(coverage,/Yes! We cover/);
   assert.match(guard,/matchesCouncilProperty\(address,row\.label\)/);

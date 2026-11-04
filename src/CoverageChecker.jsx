@@ -354,7 +354,9 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
             }>
               {selectedActive
                 ? "✓ Your council address is in our current "+selectedTown+" service area."
-                : "Postcode checked — select your council address to verify coverage."}
+                : chosenAddress
+                  ? "We haven't confirmed an active cleaning round for this property."
+                  : "Postcode checked — select your council address to verify coverage."}
             </p>
 
             {addresses.length > 1 && (
