@@ -12,6 +12,9 @@ const crypto=require("node:crypto");
 const PRODUCTION_HOST="nibing.uy";
 const SITE_ID="d63c829f-3ed7-48e9-9633-a042de3f2e84";
 const CLAIM_PREFIX="claim-v1/production/auto-bookings/";
+const STATUS_STORE="nibinguy-production-squeegee-status";
+const CLAIM_STORE="nibinguy-production-squeegee-claims";
+const CERT_STORE="nibinguy-production-owner-pdfs";
 const BOOKING_RE=/^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i;
 const SIGNING_DOMAIN="nibinguy-production-booking-event-v1";
 const MAX_AGE_MS=90*1000;
@@ -83,6 +86,7 @@ function verifyProductionEvent(body,timestamp,signature,{
 
 module.exports={
   PRODUCTION_HOST,SITE_ID,CLAIM_PREFIX,SIGNING_DOMAIN,
+  STATUS_STORE,CLAIM_STORE,CERT_STORE,
   isVerifiedProductionScope,productionConfigured,
   admittedClaim,productionWriteAdmission,
   signProductionEvent,verifyProductionEvent,
