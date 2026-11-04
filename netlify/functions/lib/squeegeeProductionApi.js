@@ -15,9 +15,17 @@ const PREFIX="/api/v3/public";
 const writer=new AsyncLocalStorage();
 
 function createProductionClient({env=process.env,scope=null,fetchImpl=globalThis.fetch}={}) {
-  const allowed=()=>production.productionConfigured(env,scope);
+  // Customer sign-in needs a read-only API even while automatic booking
+  // writes are paused. This separately approved flag NEVER enables POST.
+  const canRead=()=>production.isVerifiedProductionScope(scope) &&
+    typeof env?.SQUEEGEE_PRODUCTION_API_KEY==="string" &&
+    env.SQUEEGEE_PRODUCTION_API_KEY.trim().length>=20 &&
+    (env?.SQUEEGEE_PRODUCTION_READ_ENABLED==="true" ||
+      production.productionConfigured(env,scope));
+  const canWrite=()=>production.productionConfigured(env,scope);
   const request=async(method,path,{query,body,timeoutMs=15000}={})=>{
-    if(!allowed())throw new Error("Production Squeegee API disabled");
+    if(!(method==="GET"?canRead():canWrite()))
+      throw new Error("Production Squeegee API disabled");
     if(!["GET","POST"].includes(method) ||
        typeof path!=="string" || !path.startsWith(PREFIX+"/") ||
        path.includes("..") || /[?#]/.test(path))
@@ -25,7 +33,7 @@ function createProductionClient({env=process.env,scope=null,fetchImpl=globalThis
     if(method==="POST" &&
        !(writer.getStore()?.authorized===true &&
          writer.getStore().scope===scope &&
-         allowed()))
+         canWrite()))
       throw new Error("Production Squeegee write not authorised");
     const url=new URL(path,API_ORIGIN);
     for(const [key,value] of Object.entries(query||{})){
