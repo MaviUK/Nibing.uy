@@ -168,6 +168,7 @@ on:
       - netlify/functions/arcadeLeaderboard.js
       - src/pages/CustomerHQ.jsx
       - tests/squeegee-production-customer-data.test.cjs
+      - tests/squeegee-production-hq-routes.test.cjs
       - tests/squeegee-release-preflight.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
 
