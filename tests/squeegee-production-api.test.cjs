@@ -109,3 +109,25 @@ test("production engine is disabled by default and requires injected dependencie
   assert.equal(canAutoSync(env,scope,"not-a-mode"),false);
   assert.equal(canAutoSync(env,{...scope,deployContext:"deploy-preview"},"production"),false);
 });
+
+test("production customer login permits independently approved read-only GET during emergency write pause",async()=>{
+  const readEnv={
+    SQUEEGEE_PRODUCTION_API_KEY:"synthetic-read-only-key-with-safe-length",
+    SQUEEGEE_PRODUCTION_READ_ENABLED:"true",
+    SQUEEGEE_PRODUCTION_WRITES_PAUSED:"true",
+  };
+  let calls=0;
+  const client=createProductionClient({env:readEnv,scope,
+    fetchImpl:async(url,options)=>{
+      calls++;
+      assert.equal(options.method,"GET");
+      return {ok:true,status:200,json:async()=>({
+        success:true,data:{_id:fakeUUID,status:"active",email:"customer@example.test"}
+      })};
+    }});
+  const record=await client.getCustomer(fakeUUID);
+  assert.equal(record._id,fakeUUID);
+  await assert.rejects(client.createCustomer({name:"must not POST"}),/disabled/);
+  await assert.rejects(client.addJobToCustomer(fakeUUID,{price:5}),/disabled/);
+  assert.equal(calls,1);
+});
