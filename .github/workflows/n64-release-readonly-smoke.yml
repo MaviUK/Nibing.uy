@@ -9,6 +9,12 @@ on:
       - netlify.toml
       - netlify/functions/customerHQ.mjs
       - netlify/functions/squeegeePreviewAutoSync.mjs
+      - netlify/functions/squeegeeProductionAutoSync.mjs
+      - netlify/functions/squeegeeProductionAutoStatus.mjs
+      - netlify/functions/lib/squeegeeProductionGuard.js
+      - netlify/functions/lib/squeegeeProductionOwnerAuth.js
+      - netlify/functions/lib/squeegeeProductionApi.js
+      - netlify/functions/lib/squeegeeProductionDispatch.js
       - netlify/functions/lib/squeegeeApiV3.js
       - src/App.jsx
       - public/_redirects
