@@ -26,5 +26,5 @@ test("SEO service area and FAQ do not promise Millisle or Portaferry until owner
   assert.doesNotMatch(html,/["]name["]: ["](Millisle|Portaferry)["]/);
   assert.match(html,/"name": "Conlig"/);
   assert.match(html,/Exact property availability is checked/);
-  assert.match(html,/privacy-link\\.js\\?v=20261104-covered-towns/);
+  assert.ok(html.includes("privacy-link.js?v=20261104-covered-towns"));
 });
