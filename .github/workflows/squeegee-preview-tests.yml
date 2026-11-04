@@ -161,6 +161,13 @@ on:
       - netlify/functions/lib/squeegeeProductionOwnerAuth.js
       - netlify/functions/squeegeeProductionAutoStatus.mjs
       - tests/squeegee-production-owner-status.test.cjs
+      - netlify/functions/lib/squeegeeProductionCustomerData.js
+      - netlify/functions/customerHQ.mjs
+      - netlify/functions/customerHQProduction.mjs
+      - netlify/functions/squeegeeProductionCustomerHQImport.mjs
+      - netlify/functions/arcadeLeaderboard.js
+      - src/pages/CustomerHQ.jsx
+      - tests/squeegee-production-customer-data.test.cjs
       - tests/squeegee-release-preflight.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
 
