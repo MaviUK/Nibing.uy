@@ -94,6 +94,7 @@ function validateSource(raw,{now=Date.now()}={}){
     let paid=0,score=0,skips=0,previous="";
     for(const event of original.events){
       if(!event||dateValue(event.date)===null||
+         event.date<"2000-01-01"||
          event.date>raw.asOf||event.date<previous||
          !TYPES.has(event.event)||
          !Number.isSafeInteger(event.streak)||
