@@ -8,7 +8,9 @@ const COVERED_TOWNS = [
   { name: "Donaghadee", lat: 54.6414, lon: -5.5354, radiusKm: 5.0 },
   { name: "Carrowdore", lat: 54.575347, lon: -5.556056, radiusKm: 3.0 },
   { name: "Comber", lat: 54.5494, lon: -5.7441, radiusKm: 5.0 },
-;
+  { name: "Groomsport", lat: 54.6772, lon: -5.6180, radiusKm: 2.2 },
+  { name: "Conlig", lat: 54.6213, lon: -5.7124, radiusKm: 2.5 },
+];
 
 function distanceKm(lat1, lon1, lat2, lon2) {
   const toRad = (value) => (value * Math.PI) / 180;
