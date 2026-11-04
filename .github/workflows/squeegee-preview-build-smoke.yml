@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - preview/n64-retro-site
+      - release/n64-go-live-prep
     paths:
       - src/serviceAreaLinks.js
       - public/privacy-link.js
