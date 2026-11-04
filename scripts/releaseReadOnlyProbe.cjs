@@ -39,6 +39,7 @@ async function get(path,expected,type){
   await get("/api/squeegee-preview-auto-sync",404,"blocked");
   await get("/api/squeegee-production-auto-sync",404,"blocked");
   await get("/api/squeegee-production-auto-status",404,"blocked");
+  await get("/api/squeegee-production-hq-import",404,"blocked");
   console.log("PASS: release preview is accessible, protected APIs remain fail-closed");
 })().catch(err=>{
   console.error("Release read-only smoke FAILED:",err.message);
