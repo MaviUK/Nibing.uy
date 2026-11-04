@@ -40,11 +40,12 @@ export default async function handler(req) {
   try{
     // In parallel: short geographical sanity check and the council's real
     // postcode-specific addresses (the latter is already cached by Netlify).
+    const canonicalPostcode=postcode.slice(0,-3)+" "+postcode.slice(-3);
     const [geoResult,addressResult]=await Promise.allSettled([
       fetch("https://api.postcodes.io/postcodes/"+encodeURIComponent(postcode),
         {headers:{"User-Agent":"nibing-service-area/2.0"},signal:AbortSignal.timeout(7500)}),
       fetch(new URL("/.netlify/functions/binAddresses?postcode="+
-        encodeURIComponent(postcode),req.url),{signal:AbortSignal.timeout(7500)}),
+        encodeURIComponent(canonicalPostcode),req.url),{signal:AbortSignal.timeout(7500)}),
     ]);
     const geo=geoResult.status==="fulfilled"?geoResult.value:null;
     if(!geo?.ok) return json({valid:geo?.status!==404,covered:false,
@@ -68,10 +69,13 @@ export default async function handler(req) {
     const rows=classifications?.addresses||[];
     const active=classifications?.active||[];
     const nonactive=rows.length-active.length;
-    const possible=near && (!rows.length||active.length>0||
-      (classifications?.review?.length||0)>0);
-    const confirmed=near&&active.length>0&&nonactive===0;
-    const reason=!near?"outside_current_round_zone":
+    const mixedTowns=new Set(active.map(x=>x.town)).size>1;
+    const possible=Boolean((near&&(!rows.length||active.length>0||
+      (classifications?.review?.length||0)>0))||
+      (!near&&active.length>0));
+    const confirmed=near&&active.length>0&&nonactive===0&&!mixedTowns;
+    const reason=!near?
+        (active.length?"postcode_edge_requires_review":"outside_current_round_zone"):
       !rows.length?"council_address_lookup_unavailable":
       confirmed?"council_town_verified":
       active.length?"select_address_for_confirmation":
