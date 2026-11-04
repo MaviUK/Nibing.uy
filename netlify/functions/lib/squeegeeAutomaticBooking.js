@@ -602,8 +602,12 @@ async function executeAutomaticPreviewBooking(payload,{
           const response=await use.createCustomer({
             ...plan.customerInput,
             notes:anotherProperty
-              ? "NI Bin Guy website booking ("+mode+"). Additional service property for an existing contact. Separate service/billing account; do not merge without review."
-              : "NI Bin Guy website booking ("+mode+") - verify before operational launch.",
+              ?(mode==="production"
+                ? "NI Bin Guy website booking. Additional service property for existing contact. Keep service/billing accounts separate until reviewed."
+                : "NI Bin Guy website booking (Preview 1). Additional service property for an existing contact. Separate service/billing account; do not merge without review.")
+              :(mode==="production"
+                ? "NI Bin Guy website booking - automatically imported; check quantity notes if applicable."
+                : "NI Bin Guy website booking (Preview 1) - verify before operational launch."),
           });
           customerCreated=true;
           failureStage="validating_customer_result";
