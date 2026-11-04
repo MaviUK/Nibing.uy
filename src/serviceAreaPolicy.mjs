@@ -51,6 +51,8 @@ export function matchesCouncilProperty(entered,councilLabel) {
     .replace(/\bST\b/g,"STREET").replace(/\bAVE\b/g,"AVENUE")
     .replace(/[^A-Z0-9]+/g," ").trim().replace(/\s+/g," ");
   const a=norm(entered),b=norm(councilLabel);
-  const number=/^\d+[A-Z]?\b/.test(a)&&/^\d+[A-Z]?\b/.test(b);
-  return Boolean(number && a && a===b);
+  // Exact council-selected business/property names are valid too; the
+  // strict full street identity prevents accepting another property just
+  // because it shares a postcode or a similar town label.
+  return Boolean(a&&b&&a===b);
 }
