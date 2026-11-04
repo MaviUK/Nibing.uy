@@ -63,7 +63,6 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
   const [checkedPostcode, setCheckedPostcode] = useState("");
   const [town, setTown] = useState("");
   const [addresses, setAddresses] = useState([]);
-  const [addressFilter,setAddressFilter]=useState("");
   const [selectedUprn, setSelectedUprn] = useState("");
   const [dates, setDates] = useState(null);
   const [checkingDates, setCheckingDates] = useState(false);
@@ -84,7 +83,6 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
     setCheckedPostcode("");
     setTown("");
     setAddresses([]);
-    setAddressFilter("");
     setSelectedUprn("");
     setDates(null);
     setCheckingDates(false);
@@ -196,7 +194,6 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
     setCheckedPostcode("");
     setTown("");
     setAddresses([]);
-    setAddressFilter("");
     setSelectedUprn("");
     setDates(null);
     setCheckingDates(false);
@@ -243,16 +240,6 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
     }
   }
 
-  function filterAddresses(value) {
-    sequenceRef.current+=1;
-    controllerRef.current?.abort();
-    setAddressFilter(String(value||""));
-    setSelectedUprn("");
-    setDates(null);
-    setCheckingDates(false);
-    setMessage("Choose an exact council address to check the cleaning dates.");
-  }
-
   function chooseAddress(uprn) {
     controllerRef.current?.abort();
     const sequence = ++sequenceRef.current;
@@ -266,13 +253,10 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
     if (chosen) void fetchDates(chosen, checkedPostcode, sequence, controller.signal);
   }
 
-  const filteredAddresses=useMemo(()=>{
-    const filter=addressFilter.trim().toLocaleLowerCase("en-GB");
-    return addresses.filter(item=>!filter||
-      item.label.toLocaleLowerCase("en-GB").includes(filter))
-      .sort((a,b)=>addressCollator.compare(a.label,b.label));
-  },[addresses,addressFilter]);
-  const visibleAddresses=filteredAddresses.slice(0,70);
+  const sortedAddresses=useMemo(
+    ()=>[...addresses].sort((a,b)=>addressCollator.compare(a.label,b.label)),
+    [addresses]
+  );
   const chosenAddress = addresses.find((address) => address.uprn === selectedUprn);
   const selectedTown=townFromAddress(chosenAddress?.label);
   const selectedActive=Boolean(chosenAddress &&
@@ -361,27 +345,6 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
 
             {addresses.length > 1 && (
               <div className="space-y-2">
-                {addresses.length > 6 && (
-                  <div>
-                    <label htmlFor="home-coverage-address-search" className="mb-1 block text-sm font-bold text-white">
-                      Find your property — house number or street
-                    </label>
-                    <input id="home-coverage-address-search" type="search"
-                      value={addressFilter}
-                      onChange={(event)=>filterAddresses(event.target.value)}
-                      placeholder="e.g. 17 or Example Road"
-                      autoComplete="off" enterKeyHint="search"
-                      className="w-full rounded-none border-2 border-zinc-500 bg-white px-3 py-3 text-base text-zinc-900 focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                    />
-                    <p className="mt-1 text-xs text-zinc-300" role="status">
-                      {filteredAddresses.length===0
-                        ? "No matching council addresses. Try a house number or road name."
-                        : visibleAddresses.length+" of "+filteredAddresses.length+
-                          " matching addresses shown"+(filteredAddresses.length>70?
-                          " — narrow your search to see more.":"")}
-                    </p>
-                  </div>
-                )}
                 <label htmlFor="home-coverage-address" className="mb-2 block text-sm font-semibold text-white">
                   Select your address for accurate clean dates
                 </label>
@@ -392,7 +355,7 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
                   className="w-full min-w-0 rounded-none border border-zinc-500 bg-white px-3 py-3 text-base text-zinc-900 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="">Choose your address...</option>
-                  {visibleAddresses.map((address) => <option key={address.uprn} value={address.uprn}>{address.label}</option>)}
+                  {sortedAddresses.map((address) => <option key={address.uprn} value={address.uprn}>{address.label}</option>)}
                 </select>
               </div>
             )}
