@@ -11,11 +11,9 @@
     { name: 'Holywood', href: '/bin-cleaning-holywood/' },
     { name: 'Carrowdore', href: '/bin-cleaning-carrowdore/' },
     { name: 'Comber', href: '/bin-cleaning-comber' },
-    { name: 'Millisle', href: '/bin-cleaning-millisle' },
-    { name: 'Portaferry', href: '/bin-cleaning-portaferry' },
   ];
 
-  const linkStyle = 'display:inline-block;color:#ffd400;background:rgba(255,212,0,.12);border:1px solid rgba(255,212,0,.42);border-radius:999px;padding:9px 13px;text-decoration:none;font-weight:800;';
+  const linkStyle = 'display:inline-block;color:#ffd400;background:rgba(255,212,0,.12);border:1px solid rgba(255,212,0,.42);border-radius:0;padding:9px 13px;text-decoration:none;font-weight:800;';
 
   function sync() {
     const section = document.getElementById('areas-we-cover');
