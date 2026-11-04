@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - preview/n64-retro-site
+      - release/n64-go-live-prep
     paths:
       - netlify/functions/lib/squeegeeApiV3.js
       - netlify/functions/lib/squeegeeOwnerReactivation.js
@@ -150,6 +151,7 @@ on:
       - src/serviceAreaLinks.js
       - public/town-page.js
       - tests/squeegee-preview-coverage-marketing.test.cjs
+      - tests/squeegee-release-preflight.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
 
 permissions:
