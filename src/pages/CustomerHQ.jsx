@@ -213,9 +213,12 @@ export default function CustomerHQ({embedded=false}){
         "We couldn't complete sign-in. Please try again.");
       const merged=await syncWebsiteAchievements().catch(()=>false);
       await refresh();
-      setMessage(merged?
-        "You're signed in. Your website XP has joined your cleaning rewards.":
-        "You're securely signed in. Your rewards are shown together.");
+      const snapshot=verifiedSnapshotRef.current;
+      setMessage(snapshot?.websiteXpStatus==="pending_verified_migration"?
+        "You're securely signed in. Your cleaning points are verified; earlier website XP is being prepared for migration.":
+        merged?
+          "You're signed in. Your website XP has joined your cleaning rewards.":
+          "You're securely signed in. Your rewards are shown together.");
     }catch(err){setError(err.message);}
     finally{setBusy(false);}
   }
@@ -336,8 +339,12 @@ export default function CustomerHQ({embedded=false}){
             <span className="hq-profile-icon" aria-hidden="true">★</span>
           </section>
           <div className="hq-stats">
-            <Score label="TOTAL REWARDS" value={number(account.points)+" XP"}
-              highlight sub="Historical cleans + website XP"/>
+            <Score label={account.websiteXpStatus==="pending_verified_migration"?
+                "VERIFIED CLEANING XP":"TOTAL REWARDS"}
+              value={number(account.points)+" XP"} highlight
+              sub={account.websiteXpStatus==="pending_verified_migration"?
+                "Website rewards awaiting verified migration":
+                "Historical cleans + website XP"}/>
             <Score label="CURRENT STREAK" value={number(account.currentStreak)}
               sub={account.streakExpired?
                 "Last recorded clean: "+formatDate(account.lastCompletedOn):
@@ -352,12 +359,17 @@ export default function CustomerHQ({embedded=false}){
           <GamePanel label="YOUR XP EXPLAINED">
             <div className="hq-balance-line"><span>Cleaning streak rewards</span>
               <strong>{number(account.cleaningPoints)} XP</strong></div>
-            <div className="hq-balance-line"><span>Website rewards (levels and bookings)</span>
-              <strong>+{number(account.websiteXp)} XP</strong></div>
+            <div className="hq-balance-line"><span>{account.websiteXpStatus==="pending_verified_migration"?
+                "Website rewards (awaiting verified migration)":
+                "Website rewards (levels and bookings)"}</span>
+              <strong>{account.websiteXpStatus==="pending_verified_migration"?
+                "PENDING":"+"+number(account.websiteXp)+" XP"}</strong></div>
             <div className="hq-balance-line hq-total"><span>Total XP</span>
               <strong>{number(account.points)} XP</strong></div>
             <p className="hq-small">Cleans start at 20 points, rising by 2 per consecutive four-weekly visit. A recorded skip or more than 35 days without a completed clean resets the next bonus to 20 (allowing seven extra days for schedule changes). Points already earned are never removed.</p>
             <p className="hq-small">Source: Squeegee backup of {formatDate(account.historyAsOf)}. New payments and cleans are not automatically added until the next verified import.</p>
+            {account.websiteXpStatus==="pending_verified_migration"&&
+              <p className="hq-small">Earlier website levels and booking points are being verified for the production account. They are excluded from the total until the migration is checked.</p>}
           </GamePanel>
           <div className="hq-account-tabs" role="group" aria-label="Customer account sections">
             <button className={tab==="history"?"hq-selected":""}
