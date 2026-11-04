@@ -191,8 +191,16 @@ export default async function handler(req){
   if(!councilAddressLookup.addresses.length)return new Response(JSON.stringify({matched:false,reason:"council_address_not_found",postcode,addressSource:councilAddressLookup.source}),{status:200,headers:{"Content-Type":"application/json"}});
   const requestedNumber=propertyNumber(address);
   const numberMatches=requestedNumber?councilAddressLookup.addresses.filter((candidate)=>propertyNumber(candidate.label)===requestedNumber):[];
+  const exact=councilAddressLookup.addresses.filter(candidate=>
+    normAddress(candidate.label)===normAddress(address));
   let ranked=[];let chosen=null;let confidentMatch=false;let addressMatchMethod="fuzzy_address";
-  if(numberMatches.length===1){
+  // The exact, unmodified council UPRN address is authoritative even for
+  // non-numeric buildings. Check this FIRST; house numbers are merely the
+  // secondary fallback for typed/Google address variants.
+  if(exact.length===1){
+    chosen={...exact[0],score:100};
+    ranked=[chosen];confidentMatch=true;addressMatchMethod="exact_council_address";
+  }else if(numberMatches.length===1){
     chosen={...numberMatches[0],score:100};
     ranked=[chosen];
     confidentMatch=streetMatches(address,chosen.label);
