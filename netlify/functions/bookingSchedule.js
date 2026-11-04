@@ -1,4 +1,5 @@
 import townSchedule from "./data/townScheduleData.js";
+import {townFromAddress,areaStatusForTown} from "../../src/serviceAreaPolicy.mjs";
 
 function normalizePostcode(value) {
   const compact = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -30,6 +31,16 @@ function normAddress(value) {
 
 function propertyNumber(value) {
   return String(value || "").trim().toUpperCase().match(/^(\d+[A-Z]?)(?:\b|\s)/)?.[1] || "";
+}
+// A house number is NOT a complete property identity. A postcode can
+// contain two streets with the same number; never choose the wrong one.
+function streetIdentity(value) {
+  const street=String(value||"").split(",")[0];
+  return normAddress(street).replace(/^\d+[A-Z]?\s*/,"").trim();
+}
+function streetMatches(wanted,candidate) {
+  const a=streetIdentity(wanted),b=streetIdentity(candidate);
+  return Boolean(a&&b&&(a===b||a.startsWith(b+" ")||b.startsWith(a+" ")));
 }
 
 function addressScore(wanted, candidate) {
@@ -148,6 +159,9 @@ function scheduledTownCount(town,date){
   const scheduledDate=new Date(scheduledTarget);
   const scheduledWeekday=scheduledDate.getUTCDay();
   if(bankHolidayShift&&(targetDate.getUTCDay()<2||targetDate.getUTCDay()>5||scheduledWeekday<1||scheduledWeekday>4))return 0;
+  // No ordinary Friday route. A Thursday shifted to Friday on a Monday
+  // bank-holiday week is a different, explicitly approved exception.
+  if(!bankHolidayShift&&targetDate.getUTCDay()===5)return 0;
   let total=0;
   for(const [anchorDate,frequencyWeeks,support] of rows){
     const anchor=new Date(`${anchorDate}T12:00:00Z`).getTime();
@@ -164,22 +178,57 @@ async function getCouncilAddresses(origin,postcode){const directRes=await fetch(
 export default async function handler(req){
  try{
   const body=req.method==="POST"?await req.json():{};const url=new URL(req.url);const address=String(body.address||url.searchParams.get("address")||"").trim();const postcode=normalizePostcode(body.postcode||url.searchParams.get("postcode")||address.match(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i)?.[0]);const bins=(Array.isArray(body.bins)?body.bins:[url.searchParams.get("bin")]).filter(Boolean);
-  if(!address||!postcode||!bins.length)return new Response(JSON.stringify({error:"address, postcode and bins are required"}),{status:400,headers:{"Content-Type":"application/json"}});
+  const addressPostcode=normalizePostcode(address.match(/\bBT\d{1,2}[A-Z0-9]?\s*\d[A-Z]{2}\b/i)?.[0]);
+  if(!address||!postcode||!bins.length||
+     !/^BT\d{1,2}[A-Z0-9]?\s\d[A-Z]{2}$/.test(postcode))
+    return new Response(JSON.stringify({error:"A full BT postcode, address and bins are required"}),{
+      status:400,headers:{"Content-Type":"application/json"}});
+  // Mismatched form fields can otherwise select another property's calendar.
+  if(addressPostcode&&addressPostcode!==postcode)
+    return new Response(JSON.stringify({matched:false,reason:"address_postcode_mismatch",postcode}),{
+      status:200,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
   const origin=new URL(req.url).origin;const councilAddressLookup=await getCouncilAddresses(origin,postcode);
   if(!councilAddressLookup.addresses.length)return new Response(JSON.stringify({matched:false,reason:"council_address_not_found",postcode,addressSource:councilAddressLookup.source}),{status:200,headers:{"Content-Type":"application/json"}});
   const requestedNumber=propertyNumber(address);
   const numberMatches=requestedNumber?councilAddressLookup.addresses.filter((candidate)=>propertyNumber(candidate.label)===requestedNumber):[];
   let ranked=[];let chosen=null;let confidentMatch=false;let addressMatchMethod="fuzzy_address";
-  if(numberMatches.length===1){chosen={...numberMatches[0],score:100};ranked=[chosen];confidentMatch=true;addressMatchMethod="house_number_plus_postcode";}else{
-    const pool=numberMatches.length>1?numberMatches:councilAddressLookup.addresses;ranked=pool.map((candidate)=>({...candidate,score:addressScore(address,candidate.label)})).sort((a,b)=>b.score-a.score);chosen=ranked[0];const runnerUp=ranked[1];confidentMatch=Boolean(chosen&&(chosen.score>=20||(chosen.score>=5&&(!runnerUp||chosen.score>runnerUp.score))));addressMatchMethod=numberMatches.length>1?"house_number_postcode_then_street_tiebreak":"fuzzy_address";
+  if(numberMatches.length===1){
+    chosen={...numberMatches[0],score:100};
+    ranked=[chosen];
+    confidentMatch=streetMatches(address,chosen.label);
+    addressMatchMethod="house_number_postcode_and_street";
+  }else{
+    const pool=numberMatches.length>1?numberMatches:councilAddressLookup.addresses;
+    ranked=pool.map((candidate)=>({...candidate,score:addressScore(address,candidate.label)}))
+      .sort((a,b)=>b.score-a.score);
+    chosen=ranked[0];
+    const runnerUp=ranked[1];
+    // Never infer a property from postcode, shared number, or fuzzy
+    // locality alone. The same house number and street must match.
+    confidentMatch=Boolean(requestedNumber&&chosen&&
+      propertyNumber(chosen.label)===requestedNumber&&
+      streetMatches(address,chosen.label)&&
+      (!runnerUp||!streetMatches(address,runnerUp.label)));
+    addressMatchMethod="house_number_postcode_and_street";
   }
   if(!confidentMatch)return new Response(JSON.stringify({matched:false,reason:"council_address_ambiguous",postcode,addressSource:councilAddressLookup.source,requestedPropertyNumber:requestedNumber,addressMatchMethod,candidates:ranked.slice(0,5)}),{status:200,headers:{"Content-Type":"application/json"}});
+  const councilTown=townFromAddress(chosen.label);
+  const areaStatus=areaStatusForTown(councilTown);
+  if(areaStatus!=="active")
+    return new Response(JSON.stringify({
+      matched:false,
+      reason:areaStatus==="removed"?"service_area_not_covered":"service_area_requires_confirmation",
+      postcode,councilAddress:chosen.label,town:councilTown||null,
+      addressSource:councilAddressLookup.source,
+    }),{headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
   const calRes=await fetch(new URL(`/.netlify/functions/binCalendar?uprn=${encodeURIComponent(chosen.uprn)}`,origin));const calData=await calRes.json().catch(()=>({}));
   if(!calRes.ok||!calData.html)return new Response(JSON.stringify({matched:false,reason:"council_calendar_failed",addressSource:councilAddressLookup.source,councilAddress:chosen.label,uprn:chosen.uprn}),{status:200,headers:{"Content-Type":"application/json"}});
-  const postcodeTown=inferTownFromPostcodeAddresses(councilAddressLookup.addresses);const enteredTown=extractTown(address);const operationalTown=(enteredTown&&townSchedule[enteredTown])?enteredTown:"";const councilTown=extractTown(chosen.label);const town=operationalTown||councilTown||postcodeTown||enteredTown;const results=[];
+  // Never prefer the customer-entered town over the selected council UPRN.
+  // An old area name in townSchedule is historical, not coverage approval.
+  const town=councilTown;const results=[];
   for(const bin of bins){const binName=bin.type||bin;const councilBin=normalizeBin(binName);const councilDates=parseCouncilDates(calData.html,councilBin);const nextTwo=nextTwoCouncilDates(councilDates);const resolved=chooseTownWorkloadMatch(town,councilDates);const assigned=resolved?.assignedCleanDate||null;results.push({bin:binName,councilBin,councilDates,nextTwoCouncilDates:nextTwo,town,round:resolved?.round||{matched:false,resolvedBy:"no_exact_town_work_on_next_two_council_dates",town,townDateSupport:nextTwo.map((date)=>({date,support:scheduledTownCount(town,date)}))},assignedCleanDate:assigned,automatic:Boolean(assigned)});}
-  const townSource=operationalTown?"entered_operational_town":councilTown?"matched_council_address":"postcode_council_addresses";
+  const townSource="matched_council_address";
   return new Response(JSON.stringify({matched:results.every((r)=>r.automatic),postcode,addressSource:councilAddressLookup.source,addressMatchMethod,requestedPropertyNumber:requestedNumber,councilAddress:chosen.label,town,townSource,uprn:chosen.uprn,results}),{headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
- }catch(error){return new Response(JSON.stringify({error:error?.message||"Booking schedule failed"}),{status:500,headers:{"Content-Type":"application/json"}});}
+ }catch(error){console.warn("Preview booking date lookup failed:",error?.name||"unknown");return new Response(JSON.stringify({error:"Booking schedule temporarily unavailable"}),{status:503,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});}
 }
 export const config={path:"/api/booking-schedule"};
