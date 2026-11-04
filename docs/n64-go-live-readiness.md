@@ -12,6 +12,13 @@ Live production is `https://nibing.uy`; the working API integration remains on p
 - Release CI must independently pass the fake-only Squeegee suite and the Vite website build on every release change.
 - This release includes 200+ modified/additional files, so test complete booking, portal, navigation and legacy admin routes before accepting the PR.
 
+## Production admission groundwork (4 November, 22:00 UTC)
+
+- Added `netlify/functions/lib/squeegeeProductionGuard.js` with a **separate** exact-production host/context/site gate, production-only API and event secret requirements, owner approval, CAS ledger readiness and an independent emergency pause switch.
+- Each production setting must be explicitly enabled: `SQUEEGEE_PRODUCTION_AUTO_SYNC_ENABLED=true`, `SQUEEGEE_PRODUCTION_OWNER_APPROVED_WRITES=true`, `SQUEEGEE_PRODUCTION_ATOMIC_LEDGER_READY=true`, `SQUEEGEE_PRODUCTION_WRITES_PAUSED=false`, with properly scoped `SQUEEGEE_PRODUCTION_API_KEY` and `SQUEEGEE_PRODUCTION_EVENT_SECRET`. Their **absence keeps production OFF**. These variables have **not** been configured.
+- Added fake-only tests for production/preview hostname isolation, missing switches and secrets, immutable production booking claims, signed-event tampering/expiry and emergency pause. Automated build gate runs them with all other `squeegee-*.test.cjs` tests.
+- **This is only the safety foundation.** No production Squeegee event receiver, durable status storage, owner review/inbox or approved POST capability has been deployed. Never treat the guard alone as completed wiring; production live imports remain **disabled**.
+
 ## Blocker: production Squeegee automatic booking
 
 - Netlify's existing **production** context currently has **no Squeegee API key**. The Preview 1 branch has its own branch-scoped key. This separation must remain until owner-approved activation.
