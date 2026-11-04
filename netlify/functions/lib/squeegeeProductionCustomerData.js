@@ -25,10 +25,20 @@ function dateValue(value){
   const ms=Date.parse(value+"T12:00:00.000Z");
   return Number.isFinite(ms)&&new Date(ms).toISOString().slice(0,10)===value?ms:null;
 }
+function ukDay(now){
+  if(!Number.isFinite(now))return null;
+  const parts=new Intl.DateTimeFormat("en-GB",{
+    timeZone:"Europe/London",year:"numeric",month:"2-digit",day:"2-digit",
+  }).formatToParts(new Date(now));
+  const row=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+  return [row.year,row.month,row.day].join("-");
+}
 function validSourceDay(asOf,now=Date.now()){
-  const day=dateValue(asOf);
-  if(day===null)return false;
-  return day<=now+86400000&&now-day<=FRESH_MS;
+  const day=dateValue(asOf),today=ukDay(now);
+  if(day===null||dateValue(today)===null||
+     asOf>today)return false;
+  const days=(dateValue(today)-day)/86400000;
+  return Number.isInteger(days)&&days>=0&&days<=7;
 }
 function snapshotFresh(snapshot,now=Date.now()){
   return snapshot?.version===SCHEMA_VERSION&&
