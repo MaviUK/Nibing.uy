@@ -151,6 +151,8 @@ on:
       - src/serviceAreaLinks.js
       - public/town-page.js
       - tests/squeegee-preview-coverage-marketing.test.cjs
+      - netlify/functions/lib/squeegeeProductionGuard.js
+      - tests/squeegee-production-guard.test.cjs
       - tests/squeegee-release-preflight.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
 
