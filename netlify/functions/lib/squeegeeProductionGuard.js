@@ -1,9 +1,9 @@
 "use strict";
 
 /**
- * Production release admission policy for a FUTURE isolated Squeegee writer.
- * The preview booking worker must not call this policy to extend its rights.
- * There is deliberately no production POST caller yet.
+ * Production release admission policy for the isolated Squeegee writer.
+ * Preview-only workers must never use these rights. All production secrets and
+ * write switches remain unset while release work is in a draft PR.
  *
  * Every secret and switch is independent of Preview #77. All switches default
  * to OFF; reading env flags never creates a Netlify variable or an API key.
@@ -82,7 +82,7 @@ function verifyProductionEvent(body,timestamp,signature,{
 }
 
 module.exports={
-  PRODUCTION_HOST,SITE_ID,CLAIM_PREFIX,
+  PRODUCTION_HOST,SITE_ID,CLAIM_PREFIX,SIGNING_DOMAIN,
   isVerifiedProductionScope,productionConfigured,
   admittedClaim,productionWriteAdmission,
   signProductionEvent,verifyProductionEvent,
