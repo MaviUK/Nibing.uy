@@ -357,7 +357,8 @@ export default function ArcadeLeaderboard() {
     };
 
     void refresh();
-    if(new URLSearchParams(window.location.search).get("owner-board")==="1")
+    if(isOwnerTestPreview &&
+       new URLSearchParams(window.location.search).get("owner-board")==="1")
       void showOwnerRankings();
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
