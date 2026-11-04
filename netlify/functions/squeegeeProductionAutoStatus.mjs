@@ -16,7 +16,7 @@ const HEADERS={
   "Referrer-Policy":"no-referrer",
   "Content-Security-Policy":"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
 };
-const esc=x=>String(x??"").replace(/&/g,"&amp")
+const esc=x=>String(x??"").replace(/&/g,"&amp;")
   .replace(/</g,"&lt;").replace(/>/g,"&gt;")
   .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 const style='<style>body{background:#11141e;color:#f7f7f7;font:16px/1.5 system-ui;padding:16px;margin:0}'+
