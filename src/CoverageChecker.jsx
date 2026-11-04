@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {areaStatusForTown,townFromAddress} from "./serviceAreaPolicy.mjs";
 
 const BINS = [
@@ -253,10 +253,7 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
     if (chosen) void fetchDates(chosen, checkedPostcode, sequence, controller.signal);
   }
 
-  const sortedAddresses=useMemo(
-    ()=>[...addresses].sort((a,b)=>addressCollator.compare(a.label,b.label)),
-    [addresses]
-  );
+  const sortedAddresses=[...addresses].sort((a,b)=>addressCollator.compare(a.label,b.label));
   const chosenAddress = addresses.find((address) => address.uprn === selectedUprn);
   const selectedTown=townFromAddress(chosenAddress?.label);
   const selectedActive=Boolean(chosenAddress &&
