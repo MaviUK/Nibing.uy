@@ -11,6 +11,10 @@ on:
       - netlify/functions/squeegeePreviewAutoSync.mjs
       - netlify/functions/squeegeeProductionAutoSync.mjs
       - netlify/functions/squeegeeProductionAutoStatus.mjs
+      - netlify/functions/squeegeeProductionCustomerHQImport.mjs
+      - netlify/functions/customerHQ.mjs
+      - netlify/functions/customerHQProduction.mjs
+      - netlify/functions/lib/squeegeeProductionCustomerData.js
       - netlify/functions/lib/squeegeeProductionGuard.js
       - netlify/functions/lib/squeegeeProductionOwnerAuth.js
       - netlify/functions/lib/squeegeeProductionApi.js
