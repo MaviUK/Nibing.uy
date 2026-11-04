@@ -1,4 +1,5 @@
 const crypto = require("node:crypto");
+const prodData = require("./lib/squeegeeProductionCustomerData");
 const { getStore } = require("@netlify/blobs");
 const historical = require("./lib/squeegeeActiveLeaderboardImport");
 const historicalPreview = require("./lib/squeegeeActivePreviewBoard");
@@ -404,11 +405,39 @@ exports.autoEnrollBooking = async function autoEnrollBooking(payload) {
   };
 };
 
+async function productionPublicScores(event) {
+  // Dedicated private production history, never the frozen preview seed.
+  // Consent and freshness are checked on EVERY request, including all years.
+  const historyStore=getStore({name:prodData.DATA_STORE,consistency:"strong"});
+  const consentStore=getStore({name:prodData.CONSENT_STORE,consistency:"strong"});
+  const [snapshot,consent]=await Promise.all([
+    historyStore.get(prodData.DATA_KEY,{type:"json",consistency:"strong"}),
+    consentStore.get(prodData.CONSENT_KEY,{type:"json",consistency:"strong"}),
+  ]);
+  const rawYear=event.queryStringParameters?.year;
+  let year=null;
+  if(rawYear!==undefined && rawYear!==null){
+    if(typeof rawYear!=="string" || !/^\d{4}$/.test(rawYear))
+      return out(400,{error:"invalid_leaderboard_year"});
+    year=Number(rawYear);
+    if(!prodData.availableYears(snapshot).includes(year))
+      return out(400,{error:"invalid_leaderboard_year"});
+  }
+  const board=prodData.scores(snapshot,consent,process.env,{year});
+  return out(200,board);
+}
+
 exports.handler = async (event) => {
   if (!["GET", "POST"].includes(event.httpMethod)) {
     return out(405, { error: "Method not allowed" });
   }
   try {
+    // Legacy Netlify Lambda receives CDN host; only the exact public
+    // production domain may serve the consent-controlled private snapshot.
+    // The preview retains its existing isolated route and behaviour.
+    const host=String(event?.headers?.host||event?.headers?.Host||"").toLowerCase();
+    if(event.httpMethod==="GET" && host==="nibing.uy")
+      return await productionPublicScores(event);
     const stores = storePair();
     if (event.httpMethod === "GET") {
       if(isExactN64PreviewRequest(event)){
