@@ -1,4 +1,4 @@
-import {ACTIVE_TOWNS,REMOVED_TOWNS,townFromAddress} from "./serviceAreaPolicy.mjs";
+import {ACTIVE_TOWNS,REMOVED_TOWNS,townFromAddress,matchesCouncilProperty} from "./serviceAreaPolicy.mjs";
 const COVERED_TOWNS=[...ACTIVE_TOWNS];
 const EXPLICIT_UNCOVERED_TOWNS=[...REMOVED_TOWNS];
 
@@ -66,7 +66,7 @@ function showInvalidAddress(root) {
   renderGuardPanel(
     root,
     "invalid",
-    "mt-3 rounded-xl border px-4 py-3 text-sm border-amber-400 bg-amber-50 text-amber-900",
+    "mt-3 rounded-none border px-4 py-3 text-sm border-amber-400 bg-amber-50 text-amber-900",
     '<div class="font-bold">Please enter your full address including postcode.</div><div class="mt-1 text-xs leading-5">Google suggestions are optional — you can type your address manually as long as the postcode is included.</div>'
   );
 }
@@ -75,8 +75,8 @@ function showAreaUnverified(root) {
   renderGuardPanel(
     root,
     "invalid",
-    "mt-3 rounded-xl border px-4 py-3 text-sm border-amber-400 bg-amber-50 text-amber-900",
-    '<div class="font-bold">We couldn’t verify your service area.</div><div class="mt-1 text-xs leading-5">Please check the full postcode and try again.</div>'
+    "mt-3 rounded-none border px-4 py-3 text-sm border-amber-400 bg-amber-50 text-amber-900",
+    '<div class="font-bold">This address needs a coverage check.</div><div class="mt-1 text-xs leading-5">We could not match the exact property to a confirmed current round. You can request a booking, but the date and service area will need manual approval.</div>'
   );
 }
 
@@ -84,7 +84,7 @@ function showOutOfArea(root) {
   renderGuardPanel(
     root,
     "outside",
-    "mt-3 rounded-xl border px-4 py-3 text-sm border-red-400 bg-red-50 text-red-900",
+    "mt-3 rounded-none border px-4 py-3 text-sm border-red-400 bg-red-50 text-red-900",
     '<div class="font-bold">Sorry, we do not cover your area yet.</div><div class="mt-1 text-xs leading-5">Please check back with us in future as our service area expands.</div>'
   );
 }
@@ -93,7 +93,7 @@ function showAreaChecking(root) {
   renderGuardPanel(
     root,
     "checking",
-    "mt-3 rounded-xl border px-4 py-3 text-sm border-gray-300 bg-gray-50 text-gray-800",
+    "mt-3 rounded-none border px-4 py-3 text-sm border-gray-300 bg-gray-50 text-gray-800",
     '<div style="display:flex;align-items:center;justify-content:center;min-height:74px;"><div aria-label="Checking service area" role="status" style="width:34px;height:34px;border:4px solid #d1d5db;border-top-color:#16a34a;border-radius:9999px;animation:nbgAreaSpin .8s linear infinite;"></div></div><style>@keyframes nbgAreaSpin{to{transform:rotate(360deg)}}</style>'
   );
 }
@@ -102,7 +102,7 @@ function clearGuardWarning(root) {
   const panel = getPanel(root);
   if (!panel || !panel.dataset.serviceAreaView) return;
   delete panel.dataset.serviceAreaView;
-  panel.className = "mt-3 rounded-xl border px-4 py-3 text-sm border-gray-200 bg-gray-50 text-gray-800";
+  panel.className = "mt-3 rounded-none border px-4 py-3 text-sm border-gray-200 bg-gray-50 text-gray-800";
   panel.innerHTML = '<div class="font-bold">Next Clean Date</div><div class="mt-1 text-xs leading-5">Please fill in the above to show date.</div>';
 }
 
@@ -192,21 +192,23 @@ function validateAddress(root, forceMessage = false) {
     const current=String(getAddressInput(root)?.value||"").trim();
     if(current!==address)return;
     if(!resolved?.resolved) {
-      setState(root,"invalid",{address,postcode});
+      setState(root,"unverified",{address,postcode});
       showAreaUnverified(root);
-    }else if(!resolved.covered) {
-      setState(root,resolved.possible?"unverified":"outside",{
-        address,postcode,town:resolved.town||"",
-      });
-      if(resolved.possible)showAreaUnverified(root);
-      else showOutOfArea(root);
-    }else if(enteredTown && enteredTown!==resolved.town) {
-      // A user-entered locality that disagrees with the council's current
-      // postcode-level locality is NOT proof this property is covered.
-      setState(root,"unverified",{address,postcode,town:enteredTown});
-      showAreaUnverified(root);
-    }else {
-      finishCovered(root,address,postcode,resolved.town||"",false);
+    }else{
+      const exact=(resolved.addresses||[]).find(row=>
+        row?.status==="active" &&
+        matchesCouncilProperty(address,row.label) &&
+        (!enteredTown||enteredTown===townFromAddress(row.label)));
+      if(exact)finishCovered(root,address,postcode,townFromAddress(exact.label),false);
+      else if(!resolved.possible&&!resolved.covered) {
+        setState(root,"outside",{address,postcode,town:resolved.town||""});
+        showOutOfArea(root);
+      }else{
+        // Permit a customer to request manual review when the council
+        // address list is missing; NEVER label the property verified.
+        setState(root,"unverified",{address,postcode,town:enteredTown||""});
+        showAreaUnverified(root);
+      }
     }
     root.dispatchEvent(new CustomEvent("nbg-address-value-changed",{
       bubbles:false,
@@ -214,7 +216,7 @@ function validateAddress(root, forceMessage = false) {
   };
   if(cached?.resolved){
     apply(cached);
-    return cached.covered;
+    return validationState.get(root)?.status==="covered";
   }
   const sequence=++validationSequence;
   setState(root,"checking",{address,postcode});
@@ -252,15 +254,18 @@ function bind(root) {
   }, true);
 
   root.addEventListener("click", (event) => {
-    const button = event.target?.closest?.("button");
-    if (!button || !/send via whatsapp|send via email/i.test(String(button.textContent || ""))) return;
-
-    const state = validationState.get(root);
-    if (state?.status === "covered" || validateAddress(root, true)) return;
-
+    const button=event.target?.closest?.("button");
+    if(!button || !/submit booking|send via email|send via whatsapp/i.test(
+      String(button.textContent||"")))return;
+    const current=validationState.get(root);
+    // Explicitly removed/out-of-zone areas cannot be submitted; an
+    // unverified council property is allowed only as a manual-review
+    // booking. Squeegee's independent server checks must still hold it.
+    if(current?.status!=="outside" && current?.status!=="invalid")return;
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation?.();
+    validateAddress(root,true);
     getAddressInput(root)?.focus();
   }, true);
 

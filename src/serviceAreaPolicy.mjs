@@ -42,3 +42,15 @@ export function classifyCouncilAddresses(addresses) {
     review:results.filter(x=>x.status==="review"),
   };
 }
+
+// Match a real council property by house number AND street, not by locality
+// text or postcode alone. An unmatched manual entry requires owner review.
+export function matchesCouncilProperty(entered,councilLabel) {
+  const norm=(value)=>String(value||"").split(",")[0].toUpperCase()
+    .replace(/[.'’]/g," ").replace(/\bRD\b/g,"ROAD")
+    .replace(/\bST\b/g,"STREET").replace(/\bAVE\b/g,"AVENUE")
+    .replace(/[^A-Z0-9]+/g," ").trim().replace(/\s+/g," ");
+  const a=norm(entered),b=norm(councilLabel);
+  const number=/^\d+[A-Z]?\b/.test(a)&&/^\d+[A-Z]?\b/.test(b);
+  return Boolean(number && a && a===b);
+}
