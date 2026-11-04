@@ -158,6 +158,9 @@ on:
       - netlify/functions/squeegeeProductionAutoSync.mjs
       - tests/squeegee-production-api.test.cjs
       - tests/squeegee-production-dispatch.test.cjs
+      - netlify/functions/lib/squeegeeProductionOwnerAuth.js
+      - netlify/functions/squeegeeProductionAutoStatus.mjs
+      - tests/squeegee-production-owner-status.test.cjs
       - tests/squeegee-release-preflight.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
 
