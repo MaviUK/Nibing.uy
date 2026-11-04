@@ -144,6 +144,18 @@ test("booking date uses the exact council property and preserves its town",async
   assert.equal(result.observed.filter(x=>x.includes("binCalendar?")).length,1);
 });
 
+test("the exact council UPRN address is valid even without a numbered property",async()=>{
+  const townHall={uprn:"100020",addressText:"Example Community Hall, Bangor, BT20 4AA"};
+  const result=await bookingFunction({rows:[townHall]})({
+    address:townHall.addressText,
+  });
+  assert.equal(result.status,200);
+  assert.equal(result.body.addressMatchMethod,"exact_council_address");
+  assert.equal(result.body.town,"BANGOR");
+  assert.equal(result.body.matched,true);
+  assert.equal(result.body.results[0].automatic,true);
+});
+
 test("same house number and postcode but WRONG street never fetches a calendar",async()=>{
   const result=await bookingFunction({rows:[bangor]})({
     address:"17 Other Street, Bangor, BT20 4AA",
