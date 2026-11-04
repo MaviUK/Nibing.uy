@@ -213,6 +213,14 @@ export default async function handler(req){
   }
   if(!confidentMatch)return new Response(JSON.stringify({matched:false,reason:"council_address_ambiguous",postcode,addressSource:councilAddressLookup.source,requestedPropertyNumber:requestedNumber,addressMatchMethod,candidates:ranked.slice(0,5)}),{status:200,headers:{"Content-Type":"application/json"}});
   const councilTown=townFromAddress(chosen.label);
+  const typedTown=townFromAddress(address);
+  // Never assign a visit when the postcode+street match a council property
+  // but the customer has entered a DIFFERENT town or village.
+  if(typedTown&&typedTown!==councilTown)
+    return new Response(JSON.stringify({
+      matched:false,reason:"address_town_mismatch",postcode,
+      councilAddress:chosen.label,town:councilTown||null,
+    }),{headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
   const areaStatus=areaStatusForTown(councilTown);
   if(areaStatus!=="active")
     return new Response(JSON.stringify({
