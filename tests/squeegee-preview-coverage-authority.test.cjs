@@ -213,7 +213,7 @@ test("ordinary Friday routes stay disabled, but bank-holiday Thursday shifts may
   assert.equal(holiday.countFor("BANGOR","2027-05-07"),1);
 });
 
-test("frontend uses address+UPRN and square N64 visuals; removed areas do not autobook",()=>{
+test("frontend retains the full council address dropdown with square N64 visuals; removed areas do not autobook",()=>{
   const coverage=read("src/CoverageChecker.jsx");
   const guard=read("src/serviceAreaGuard.js");
   const worker=read("netlify/functions/lib/squeegeeScheduleCheck.js");
@@ -223,10 +223,12 @@ test("frontend uses address+UPRN and square N64 visuals; removed areas do not au
   assert.match(coverage,/disabled=\{!selectedActive\}/);
   assert.match(coverage,/if\(!selectedActive\)return/);
   assert.match(coverage,/LEVEL 03/);
-  assert.match(coverage,/home-coverage-address-search/);
-  assert.match(coverage,/filteredAddresses\.slice\(0,70\)/);
+  assert.doesNotMatch(coverage,/home-coverage-address-search/);
+  assert.doesNotMatch(coverage,/matching addresses shown/);
+  assert.doesNotMatch(coverage,/filterAddresses\(/);
+  assert.match(coverage,/const sortedAddresses=\[\.\.\.addresses\]\.sort\(/);
   assert.match(coverage,/addressCollator\.compare\(a\.label,b\.label\)/);
-  assert.match(coverage,/onChange=\{\(event\)=>filterAddresses\(event\.target\.value\)\}/);
+  assert.match(coverage,/sortedAddresses\.map\(\(address\) =>/);
   assert.doesNotMatch(coverage,/rounded-xl|rounded-lg|rounded-2xl/);
   assert.doesNotMatch(coverage,/Yes! We cover/);
   assert.match(guard,/matchesCouncilProperty\(address,row\.label\)/);
