@@ -125,7 +125,8 @@ test("failure to save cannot claim the attachment is available for owner send",a
     saved.sha256);
   const sender=fs.readFileSync(path.join(root,"netlify/functions/sendBookingEmail.js"),"utf8");
   const worker=fs.readFileSync(path.join(root,"netlify/functions/squeegeePreviewAutoSync.mjs"),"utf8");
-  assert.ok(sender.includes('getStoreSafe(ownerCertificate.STORE,"strong")'));
+  assert.match(sender,/getStoreSafe\(productionSyncEnabled\?/);
+  assert.match(sender,/productionGuard\.CERT_STORE:ownerCertificate\.STORE/);
   assert.ok(sender.includes("ownerReceipt.ownerPdfSha256=stagedOwnerPdfSha"));
   assert.ok(sender.indexOf("ownerCertificate.storeCustomerCertificate") <
     sender.indexOf("const claim = await claimBookingSubmission"));
