@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 // ✅ Change these anytime
 export const STATS_BASE = {
   totalBinsCleaned: 27886,  // total before the last 4 months were added
-  monthlyCustomers: 1078,   // your starting total monthly customers
+  monthlyCustomers: 1734,   // owner's confirmed monthly customer count
 };
 
 // ✅ Your real 4-week rota (Mon–Thu only)
@@ -132,6 +132,6 @@ export function useLiveCounters() {
   return {
     totalBinsCleaned: STATS_BASE.totalBinsCleaned + completedRoutes.bins + Math.floor(today.bins * progress),
     todaysArea: today.area,
-    totalMonthlyCustomers: STATS_BASE.monthlyCustomers, // ✅ always 1078
+    totalMonthlyCustomers: STATS_BASE.monthlyCustomers, // owner-confirmed count
   };
 }
