@@ -140,6 +140,13 @@ on:
       - tests/squeegee-leaderboard-privacy.test.cjs
       - src/components/ArcadeLeaderboard.jsx
       - public/n64-scoreboard.js
+      - src/data/activeServiceAreas.json
+      - src/serviceAreaPolicy.mjs
+      - src/serviceAreaGuard.js
+      - src/CoverageChecker.jsx
+      - netlify/functions/serviceAreaPostcode.js
+      - netlify/functions/bookingSchedule.js
+      - tests/squeegee-preview-coverage-authority.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
 
 permissions:

@@ -5,6 +5,13 @@ on:
       - preview/n64-retro-site
     paths:
       - .github/workflows/squeegee-preview-build-smoke.yml
+      - src/data/activeServiceAreas.json
+      - src/serviceAreaPolicy.mjs
+      - src/serviceAreaGuard.js
+      - src/CoverageChecker.jsx
+      - netlify/functions/serviceAreaPostcode.js
+      - netlify/functions/bookingSchedule.js
+      - tests/squeegee-preview-coverage-authority.test.cjs
       - src/LandingPage.jsx
       - src/bookingReference.mjs
       - netlify/functions/lib/bookingEmailTemplate.js
