@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import productionHQ from "./customerHQProduction.mjs";
+import productionGate from "./lib/squeegeeProductionGuard.js";
 // Preview 1: private NI Bin Guy Customer HQ. Passwordless email OTP tied to
 // an existing, currently active Squeegee customer, with a private points ledger.
 // Never exposes a customer by selecting a public leaderboard row.
@@ -239,6 +241,10 @@ async function sendLoginCode(email,code){
   if(result?.error)throw new Error("customer_hq_email_failed");
 }
 export default async function handler(request,context) {
+  // This deployment may serve EITHER exact Preview 77 or the live domain.
+  // No preview stores, tokens or Squeegee keys cross that environment gate.
+  if(productionGate.isVerifiedProductionScope(scope(request,context)))
+    return productionHQ(request,context);
   if(!api.isExactPreview1(process.env,scope(request,context)))
     return respond(404,{error:"not_found"});
   if(!["GET","POST"].includes(request.method))
