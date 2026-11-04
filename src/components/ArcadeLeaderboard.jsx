@@ -10,6 +10,8 @@ const OWNER_LOGIN_URL="/api/squeegee-preview-test?returnTo="+encodeURIComponent(
 const CustomerHQ=React.lazy(()=>import("../pages/CustomerHQ"));
 
 export default function ArcadeLeaderboard() {
+  const isOwnerTestPreview=window.location.hostname===
+    "deploy-preview-77--nibinguy.netlify.app";
   const [players, setPlayers] = useState([]);
   const [selectedYear,setSelectedYear] = useState("overall");
   const [availableYears,setAvailableYears] = useState(() =>
@@ -20,6 +22,7 @@ export default function ArcadeLeaderboard() {
   // The owner-only view is accessible via a deliberate deep link, not a
   // visible sign-in requirement on the public leaderboard.
   const [showOwnerControls] = useState(()=>
+    isOwnerTestPreview &&
     new URLSearchParams(window.location.search).get("owner-board")==="1"
   );
   const [totalPlayers, setTotalPlayers] = useState(0);
@@ -36,6 +39,7 @@ export default function ArcadeLeaderboard() {
   // A requested owner test starts on the private test panel, not the public
   // anonymous leaderboard while the owner session is being checked.
   const [rankingMode,setRankingMode]=useState(()=>
+    isOwnerTestPreview &&
     new URLSearchParams(window.location.search).get("owner-board")==="1"
       ? "owner" : "public"
   );
@@ -290,7 +294,7 @@ export default function ArcadeLeaderboard() {
         if(selectedYear!=="overall" && data.period!==selectedYear)
           throw new Error("Unexpected leaderboard year");
         if(Array.isArray(data.availableYears)&&
-           data.availableYears.every(y=>Number.isInteger(y)&&y>=2024&&y<=2099))
+           data.availableYears.every(y=>Number.isInteger(y)&&y>=2000&&y<=2099))
           setAvailableYears(data.availableYears);
         const publicScores=data.status==="public_eligible_scores" ||
           data.status==="preview_public_first_names";
