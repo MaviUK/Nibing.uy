@@ -1,4 +1,4 @@
-import config from "./data/activeServiceAreas.json";
+import config from "./data/activeServiceAreas.json" with { type: "json" };
 
 export const ACTIVE_TOWNS = new Set(config.activeTowns.map(x=>x.toUpperCase()));
 export const REMOVED_TOWNS = new Set(config.removedTowns.map(x=>x.toUpperCase()));
