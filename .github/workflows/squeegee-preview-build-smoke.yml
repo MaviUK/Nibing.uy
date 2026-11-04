@@ -4,6 +4,11 @@ on:
     branches:
       - preview/n64-retro-site
     paths:
+      - src/serviceAreaLinks.js
+      - public/privacy-link.js
+      - public/town-page.js
+      - index.html
+      - tests/squeegee-preview-coverage-marketing.test.cjs
       - .github/workflows/squeegee-preview-build-smoke.yml
       - src/data/activeServiceAreas.json
       - src/serviceAreaPolicy.mjs

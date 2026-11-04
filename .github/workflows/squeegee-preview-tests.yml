@@ -147,6 +147,9 @@ on:
       - netlify/functions/serviceAreaPostcode.js
       - netlify/functions/bookingSchedule.js
       - tests/squeegee-preview-coverage-authority.test.cjs
+      - src/serviceAreaLinks.js
+      - public/town-page.js
+      - tests/squeegee-preview-coverage-marketing.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
 
 permissions:
