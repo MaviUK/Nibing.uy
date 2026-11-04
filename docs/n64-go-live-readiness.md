@@ -17,13 +17,15 @@ Live production is `https://nibing.uy`; the working API integration remains on p
 - Added `netlify/functions/lib/squeegeeProductionGuard.js` with a **separate** exact-production host/context/site gate, production-only API and event secret requirements, owner approval, CAS ledger readiness and an independent emergency pause switch.
 - Each production setting must be explicitly enabled: `SQUEEGEE_PRODUCTION_AUTO_SYNC_ENABLED=true`, `SQUEEGEE_PRODUCTION_OWNER_APPROVED_WRITES=true`, `SQUEEGEE_PRODUCTION_ATOMIC_LEDGER_READY=true`, `SQUEEGEE_PRODUCTION_WRITES_PAUSED=false`, with properly scoped `SQUEEGEE_PRODUCTION_API_KEY` and `SQUEEGEE_PRODUCTION_EVENT_SECRET`. Their **absence keeps production OFF**. These variables have **not** been configured.
 - Added fake-only tests for production/preview hostname isolation, missing switches and secrets, immutable production booking claims, signed-event tampering/expiry and emergency pause. Automated build gate runs them with all other `squeegee-*.test.cjs` tests.
-- **This is only the safety foundation.** No production Squeegee event receiver, durable status storage, owner review/inbox or approved POST capability has been deployed. Never treat the guard alone as completed wiring; production live imports remain **disabled**.
+- **Progress (4 Nov):** An isolated production API adapter, HMAC-signed email dispatcher, Netlify receiver, durable status/claims storage, owner outcome notifications and dedicated owner OTP status page are now implemented **only on draft release PR #80**. The same real booking validation engine is reused with explicitly injected production credentials and separate production CAS booking claims. The Preview 77 writer remains preview-only.
+- An additional independent Functions-scoped `SQUEEGEE_PRODUCTION_OWNER_AUTH_SECRET` is required to open the owner-only read-only status page, even while writes are paused. That secret is not configured yet. Owner-code emails always go to `info@nibing.uy`.
+- The owner status routes are `/api/squeegee-production-auto-status` (GET/POST OTP, read-only) and `/api/squeegee-production-auto-sync` (signed POST only). Neither accepts requests from Deploy Preview #80 or Preview #77. Production live imports are still **disabled** until all flags and secrets are deliberately configured by the owner.
 
 ## Blocker: production Squeegee automatic booking
 
 - Netlify's existing **production** context currently has **no Squeegee API key**. The Preview 1 branch has its own branch-scoped key. This separation must remain until owner-approved activation.
 - `lib/squeegeeApiV3.js`, `lib/squeegeeAutomaticBooking.js`, `lib/squeegeePreviewAutoDispatch.js`, and `squeegeePreviewAutoSync.mjs` are intentionally hard-gated to the **exact Preview 1 host/context/site**. Merging them unchanged would NOT make live automatic booking operational.
-- Before cutover, implement **separate production-specific** origin, runtime-context/site verification, production-scoped HMAC signing, independent durable idempotency claims/status storage, a rollback/kill switch, and an owner-visible production reconciliation/status page. Production writes must be OFF by default; enabling must require explicit owner sign-off and Functions-scoped secret.
+- The **code** for isolated production origin/runtime verification, separate signing, durable booking claims/status, the emergency pause switch and the owner-only OTP review page is now on PR #80. It is unmerged and disabled. A live deployment, Functions-scoped secrets, an owner-verified actual booking, and an explicit production cutover authorisation remain outstanding.
 - Do **not** remove the preview-only guard to make production work. Do **not** turn on a generic deploy-preview write flag. Do **not** copy or expose keys in the repository.
 - Verify using a controlled real booking: new customer, existing customer/new bin, duplicate and ambiguous address, inactive customer, 2+ same-colour bin quantity, 660/1100L if supported, correct first clean/round/recurrence, and one correct owner email with signed PDF. Never automatically replay uncertain or partially created jobs. Reconcile legacy held test records manually.
 
@@ -36,7 +38,7 @@ Live production is `https://nibing.uy`; the working API integration remains on p
 
 ## Confirmed / remaining infrastructure checks
 
-- Netlify preview build and 635 fake-only integration tests passed on 4 November for the previous preview head; **rerun on this release branch**.
+- Release PR #80 runs the full fake-only Squeegee test suite, Vite build and GET-only release-preview isolation smoke tests on GitHub Actions/Netlify. Check the **latest** passing commit and deploy before any merge; earlier preview-only tests are not production acceptance.
 - Resend recent customer and internal owner receipts have matching signed Terms PDF attachments. Repeat one controlled complete booking and one held-booking review check on final production build before changing DNS/serving live.
 - Google Places has server-side configuration for production; check actual API-key restrictions and postcode suggestions against `nibing.uy`, including addresses missing their postcode.
 - Review Netlify secrets for least-privilege scopes and secret marking. The Squeegee key is context-scoped; do not put any secret into `VITE_*` or client code. Some unrelated service credentials are stored as non-secret environment variables and should be audited separately before launch.
@@ -51,4 +53,4 @@ Live production is `https://nibing.uy`; the working API integration remains on p
 3. Owner explicitly approves the final release candidate, exact customer-consent policy, test booking, and live Squeegee key deployment.
 4. Publish only after a controlled acceptance test passes; keep a genuine operational stop switch for automatic jobs. If a new deploy fails, the previous live deploy stays published. For a bad published deploy, fix forward after switching off job creation rather than replaying bookings.
 
-**Current decision:** merger prepared; production integration, fresh customer data/permissions, and live end-to-end verification are still outstanding. This document is a safety gate, not a claim that launch is already safe.
+**Current decision:** merge resolved and production booking *code prepared*, but **nothing is live**. Production secrets, owner approval, Customer HQ/leaderboard migration, real end-to-end Squeegee verification and a release cutover remain outstanding. This document is a safety gate, not a claim that launch is already safe.
