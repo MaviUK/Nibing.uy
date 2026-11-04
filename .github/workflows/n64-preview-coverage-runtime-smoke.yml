@@ -17,7 +17,7 @@ jobs:
         run: |
           node <<'NODE'
           const assert=require("node:assert/strict");
-          const origin="https://6aeaee05898285de9c1f51ed--nibinguy.netlify.app";
+          const origin="https://6aeaeec732a32e410616baa0--nibinguy.netlify.app";
           const {performance}=require("node:perf_hooks");
           const observed=[];
           async function ask(name,pathname,opts={}) {
