@@ -1,0 +1,24 @@
+{
+  "activeTowns": [
+    "Bangor",
+    "Holywood",
+    "Newtownards",
+    "Donaghadee",
+    "Carrowdore",
+    "Comber",
+    "Groomsport",
+    "Conlig"
+  ],
+  "removedTowns": [
+    "Greyabbey",
+    "Ballywalter",
+    "Portavogie",
+    "Cloughey",
+    "Ballyhalbert"
+  ],
+  "reviewTowns": [
+    "Millisle",
+    "Portaferry"
+  ],
+  "note": "Current NI Bin Guy active towns; Groomsport and Conlig remain Bangor-area routes. Millisle and Portaferry require owner verification before they can be advertised as covered. Historical removed towns must never be auto-booked."
+}

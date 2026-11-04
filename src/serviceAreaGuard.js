@@ -1,30 +1,6 @@
-const COVERED_TOWNS = [
-  "Bangor",
-  "Holywood",
-  "Newtownards",
-  "Donaghadee",
-  "Carrowdore",
-  "Comber",
-  "Millisle",
-  "Portaferry",
-];
-
-const EXPLICIT_UNCOVERED_TOWNS = [
-  "Greyabbey",
-  "Ballywalter",
-  "Portavogie",
-  "Cloughey",
-  "Ballyhalbert",
-  "Belfast",
-  "Lisburn",
-  "Dundonald",
-  "Carryduff",
-  "Ballynahinch",
-  "Downpatrick",
-  "Newcastle",
-  "Hillsborough",
-  "Moira",
-];
+import {ACTIVE_TOWNS,REMOVED_TOWNS,townFromAddress} from "./serviceAreaPolicy.mjs";
+const COVERED_TOWNS=[...ACTIVE_TOWNS];
+const EXPLICIT_UNCOVERED_TOWNS=[...REMOVED_TOWNS];
 
 const UK_POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/i;
 const UK_OUTWARD_RE = /\b([A-Z]{1,2}\d[A-Z\d]?)\b/i;
@@ -156,8 +132,11 @@ async function resolvePostcodeTown(postcode) {
     const resolved = {
       resolved: true,
       covered: data.covered === true,
+      possible: data.possible === true,
       town: data.town || "",
-      locality: data.adminDistrict || data.nearestTown || "",
+      locality: data.nearestTown || "",
+      reason: data.reason || "",
+      addresses: Array.isArray(data.addresses) ? data.addresses : [],
     };
     postcodeTownCache.set(postcode, resolved);
     return resolved;
@@ -202,61 +181,47 @@ function validateAddress(root, forceMessage = false) {
     return false;
   }
 
-  const townInText = findCoveredTown(address);
-  const uncoveredTownInText = findExplicitUncoveredTown(address);
-  const googleFormattedAddress = /,\s*UK\s*$/i.test(address);
-
-  if (!townInText && uncoveredTownInText) {
-    setState(root, "outside", { address, postcode, town: uncoveredTownInText });
+  const enteredTown=townFromAddress(address);
+  if(enteredTown && REMOVED_TOWNS.has(enteredTown)) {
+    setState(root,"outside",{address,postcode,town:enteredTown});
     showOutOfArea(root);
     return false;
   }
-
-  if (googleFormattedAddress) {
-    if (!townInText) {
-      setState(root, "outside", { address, postcode });
-      showOutOfArea(root);
-      return false;
-    }
-    return finishCovered(root, address, postcode, townInText, false);
-  }
-
-  // Keep new developments usable: if the customer explicitly types one of the
-  // towns we cover and supplies a valid full postcode, do not require Google to
-  // know the street. Otherwise verify the exact postcode server-side.
-  if (townInText) {
-    return finishCovered(root, address, postcode, townInText, true);
-  }
-
-  const cached = postcodeTownCache.get(postcode);
-  if (cached?.resolved) {
-    if (!cached.covered) {
-      setState(root, "outside", { address, postcode, town: cached.locality || "" });
-      showOutOfArea(root);
-      return false;
-    }
-    return finishCovered(root, address, postcode, cached.town || "", true);
-  }
-
-  const sequence = ++validationSequence;
-  setState(root, "checking", { address, postcode });
-  showAreaChecking(root);
-
-  resolvePostcodeTown(postcode).then((resolved) => {
-    if (sequence !== validationSequence) return;
-    const currentAddress = String(getAddressInput(root)?.value || "").trim();
-    if (currentAddress !== address) return;
-
-    if (!resolved.resolved) {
-      setState(root, "invalid", { address, postcode });
+  const cached=postcodeTownCache.get(postcode);
+  const apply=(resolved)=>{
+    const current=String(getAddressInput(root)?.value||"").trim();
+    if(current!==address)return;
+    if(!resolved?.resolved) {
+      setState(root,"invalid",{address,postcode});
       showAreaUnverified(root);
-    } else if (!resolved.covered) {
-      setState(root, "outside", { address, postcode, town: resolved.locality || "" });
-      showOutOfArea(root);
-    } else {
-      finishCovered(root, address, postcode, resolved.town || "", true);
+    }else if(!resolved.covered) {
+      setState(root,resolved.possible?"unverified":"outside",{
+        address,postcode,town:resolved.town||"",
+      });
+      if(resolved.possible)showAreaUnverified(root);
+      else showOutOfArea(root);
+    }else if(enteredTown && enteredTown!==resolved.town) {
+      // A user-entered locality that disagrees with the council's current
+      // postcode-level locality is NOT proof this property is covered.
+      setState(root,"unverified",{address,postcode,town:enteredTown});
+      showAreaUnverified(root);
+    }else {
+      finishCovered(root,address,postcode,resolved.town||"",false);
     }
-    root.dispatchEvent(new CustomEvent("nbg-address-value-changed", { bubbles: false }));
+    root.dispatchEvent(new CustomEvent("nbg-address-value-changed",{
+      bubbles:false,
+    }));
+  };
+  if(cached?.resolved){
+    apply(cached);
+    return cached.covered;
+  }
+  const sequence=++validationSequence;
+  setState(root,"checking",{address,postcode});
+  showAreaChecking(root);
+  resolvePostcodeTown(postcode).then((resolved)=>{
+    if(sequence!==validationSequence)return;
+    apply(resolved);
   });
 
   return false;

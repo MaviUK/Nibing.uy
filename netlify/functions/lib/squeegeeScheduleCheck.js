@@ -2,10 +2,8 @@
 
 const { normalizedPostcode, normalizedBinType, validDate } = require("./squeegeeBookingPlan");
 
-const COVERED_TOWNS = new Set([
-  "BANGOR", "HOLYWOOD", "NEWTOWNARDS", "DONAGHADEE",
-  "CARROWDORE", "COMBER", "MILLISLE", "PORTAFERRY",
-]);
+const {activeTowns}=require("../../../src/data/activeServiceAreas.json");
+const COVERED_TOWNS = new Set(activeTowns.map(town=>town.toUpperCase()));
 
 /**
  * Never silently replace the date the customer saw with a newly computed one.
