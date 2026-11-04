@@ -1,0 +1,28 @@
+name: N64 release candidate GET-only route safety
+on:
+  push:
+    branches:
+      - release/n64-go-live-prep
+    paths:
+      - .github/workflows/n64-release-readonly-smoke.yml
+      - scripts/releaseReadOnlyProbe.cjs
+      - netlify.toml
+      - netlify/functions/customerHQ.mjs
+      - netlify/functions/squeegeePreviewAutoSync.mjs
+      - netlify/functions/lib/squeegeeApiV3.js
+      - src/App.jsx
+      - public/_redirects
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  release-read-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify public pages and fail-closed Preview-1-only functions (GET only)
+        run: node scripts/releaseReadOnlyProbe.cjs
