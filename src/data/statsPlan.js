@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { LIFETIME_COMPLETED_BINS } from "./verifiedCompletedServices.mjs";
 
-// ✅ Change these anytime
+// Lifetime bins are verified physical service quantities through 5 Nov 2026;
+// do not add future planned routes or simulate cleans during the day.
 export const STATS_BASE = {
-  totalBinsCleaned: 27886,  // total before the last 4 months were added
+  totalBinsCleaned: LIFETIME_COMPLETED_BINS,
   monthlyCustomers: 1734,   // owner's confirmed monthly customer count
 };
 
@@ -125,12 +127,9 @@ export function useLiveCounters() {
 
   const now = useMemo(() => new Date(), [tick]);
   const today = useMemo(() => getPlanForDate(now), [now]);
-  const completedRoutes = useMemo(() => computeCompletedRouteTotals(now), [now]);
-
-  const progress = today.active ? getDayProgress(now) : 0;
-
+  // Completed totals refresh with a verified Squeegee data import, not a clock.
   return {
-    totalBinsCleaned: STATS_BASE.totalBinsCleaned + completedRoutes.bins + Math.floor(today.bins * progress),
+    totalBinsCleaned: STATS_BASE.totalBinsCleaned,
     todaysArea: today.area,
     totalMonthlyCustomers: STATS_BASE.monthlyCustomers, // owner-confirmed count
   };
