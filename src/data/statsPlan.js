@@ -1,23 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 
-// Lifetime cleans combine two non-overlapping sources:
-// 1) Owner-reported completed cleans before migrating to Squeegee (14,000).
-// 2) Completed physical-bin quantities in the Squeegee backup (30,803).
-// Never add planned round totals, jobs or animation-driven increments.
+// Verified completed bins to 5 Nov 2026, independent of the historic
+// 31 Oct cycle-planning snapshot. Never add planned jobs or daily estimates.
 import { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN, OWNER_CONFIRMED_WEEK, getOwnerConfirmedWeekReconciliation } from "./cleaningCycleData.mjs";
+import { VERIFIED_COMPLETED_SERVICES, LIFETIME_COMPLETED_BINS } from "./verifiedCompletedServices.mjs";
 import { OWNER_MONTHLY_PLAN, MONTHLY_CLEANING_TARGET } from "./ownerMonthlyPlan.mjs";
 export { OWNER_MONTHLY_PLAN, MONTHLY_CLEANING_TARGET } from "./ownerMonthlyPlan.mjs";
 export { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN, OWNER_CONFIRMED_WEEK, getOwnerConfirmedWeekReconciliation };
 
-// Historical cleans entered by the owner on 3 November 2026. Not contained
-// in the 31 October Squeegee backup; do not alter the Squeegee audit figure.
-export const PRE_SQUEEGEE_COMPLETED_BINS = 14000;
-export const TOTAL_COMPLETED_BINS =
-  PRE_SQUEEGEE_COMPLETED_BINS + CYCLE_SNAPSHOT.completedBinsThroughBackup;
+// Keep the previous 14,000 cleans separate from Squeegee's 31,212 bins.
+export const PRE_SQUEEGEE_COMPLETED_BINS = VERIFIED_COMPLETED_SERVICES.beforeSqueegeeBins;
+export const TOTAL_COMPLETED_BINS = LIFETIME_COMPLETED_BINS;
 
 export const STATS_BASE = {
   totalBinsCleaned: TOTAL_COMPLETED_BINS,
-  // The new round is not yet in the 31 Oct Squeegee backup.
+  // Monthly customer figure is owner-reported, not derived from this snapshot.
   monthlyCustomers: OWNER_MONTHLY_PLAN.monthlyCustomers,
 };
 
@@ -45,7 +42,7 @@ export function useLiveCounters() {
   return {
     totalBinsCleaned:TOTAL_COMPLETED_BINS,
     preSqueegeeCompletedBins:PRE_SQUEEGEE_COMPLETED_BINS,
-    verifiedThrough:new Date(CYCLE_SNAPSHOT.backupDate+"T12:00:00Z").toLocaleDateString("en-GB",{
+    verifiedThrough:new Date(VERIFIED_COMPLETED_SERVICES.asOf+"T12:00:00Z").toLocaleDateString("en-GB",{
       day:"numeric",month:"short",year:"numeric",timeZone:"Europe/London"
     }),
     todaysArea,
