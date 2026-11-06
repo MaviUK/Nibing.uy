@@ -153,6 +153,17 @@ on:
       - public/town-page.js
       - tests/squeegee-preview-coverage-marketing.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
+      - netlify/functions/lib/squeegeeProductionApi.js
+      - netlify/functions/lib/squeegeeProductionDispatch.js
+      - netlify/functions/lib/squeegeeProductionGuard.js
+      - netlify/functions/lib/squeegeeProductionOwnerAuth.js
+      - netlify/functions/squeegeeProductionAutoSync.mjs
+      - netlify/functions/squeegeeProductionAutoStatus.mjs
+      - tests/squeegee-production-api.test.cjs
+      - tests/squeegee-production-dispatch.test.cjs
+      - tests/squeegee-production-guard.test.cjs
+      - tests/squeegee-production-owner-status.test.cjs
+      - docs/preview77-production-booking-readiness.md
 
 permissions:
   contents: read

@@ -15,6 +15,8 @@ const {
   dispatchAcceptedBooking,autoDispatchConfigured,normalOwnerReceipt,
 }=require("./lib/squeegeePreviewAutoDispatch");
 const rollout=require("./lib/squeegeePreviewAutoRollout");
+const productionGuard=require("./lib/squeegeeProductionGuard");
+const productionDispatch=require("./lib/squeegeeProductionDispatch");
 const {emailContent:buildOwnerReviewEmail}=
   require("./lib/squeegeeSyncOwnerAlert");
 const { normaliseUkBookingPhone } = require("./lib/ukBookingPhone");
@@ -306,19 +308,24 @@ exports.handler = async (event) => {
     // the customer. Stage those exact bytes BEFORE accepting the booking.
     const syncHost=String(event?.headers?.host||event?.headers?.Host||"").toLowerCase();
     const isPreview1=syncHost==="deploy-preview-77--nibinguy.netlify.app";
+    const productionSyncEnabled=productionDispatch.issuerConfigured(
+      process.env,syncHost);
+    const previewSyncEnabled=isPreview1 &&
+      autoDispatchConfigured(process.env) &&
+      rollout.acceptedForRollout(payload,"email",process.env);
     let stagedOwnerPdfSha=null;
-    if (isPreview1 && autoDispatchConfigured(process.env) &&
-        rollout.acceptedForRollout(payload,"email",process.env)) {
+    if (previewSyncEnabled || productionSyncEnabled) {
       try {
         if (!getStoreSafe) throw new Error("netlify_blobs_not_available");
         const ownerPdfStart=Date.now();
         const saved=await ownerCertificate.storeCustomerCertificate(
           submission.bookingId,termsPdfAttachment,
-          getStoreSafe(ownerCertificate.STORE,"strong"));
+          getStoreSafe(productionSyncEnabled?
+            productionGuard.CERT_STORE:ownerCertificate.STORE,"strong"));
         timings.ownerPdfStore=Date.now()-ownerPdfStart;
         stagedOwnerPdfSha=saved.sha256;
       } catch (error) {
-        console.error("Preview 77 owner certificate staging failed:",error?.message||"unavailable");
+        console.error("Automatic booking owner certificate staging failed:",error?.message||"unavailable");
         return {
           statusCode: 424,
           headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
@@ -363,17 +370,31 @@ exports.handler = async (event) => {
       replyTo:email||null,termsBody:TERMS_BODY,
       binsText,pricingText:pricingBlocks.text,
     };
-    // Preview 1 only: wait for the signed Squeegee worker to decide which
-    // ONE owner email is appropriate. Held bookings get their review email;
-    // successfully imported bookings get this normal booking email instead.
-    // All production/other previews preserve their existing immediate email.
-    const deferAdminForPreview=isPreview1 &&
-      autoDispatchConfigured(process.env) &&
-      rollout.acceptedForRollout(payload,"email",process.env) &&
+    // A signed and separately approved worker sends ONE owner email.
+    // Disabled production and all unrelated previews preserve original flow.
+    const deferAdminForPreview=previewSyncEnabled &&
       Boolean(normalOwnerReceipt(ownerReceipt));
-    if (deferAdminForPreview && stagedOwnerPdfSha) {
+    const deferAdminForProduction=productionSyncEnabled &&
+      Boolean(normalOwnerReceipt(ownerReceipt));
+    const deferAdminForAuto=deferAdminForPreview||deferAdminForProduction;
+    if (deferAdminForAuto && stagedOwnerPdfSha) {
       ownerReceipt.ownerPdfSha256=stagedOwnerPdfSha;
     }
+    const recordAutoNoDispatch=async(details)=>{
+      if(!productionSyncEnabled)return recordNoDispatch(
+        submission.bookingId,details);
+      if(!getStoreSafe)return;
+      try{
+        await getStoreSafe(productionGuard.STATUS_STORE,"strong").setJSON(
+          submission.bookingId,{
+            bookingId:submission.bookingId,
+            stage:"requires_reconciliation",
+            reason:String(details?.reason||"handoff_uncertain").slice(0,90),
+            ownerAlertDelivery:details?.ownerAlertDelivery||"not_sent",
+            updatedAt:new Date().toISOString(),
+          },{onlyIfNew:true});
+      }catch{console.error("Production booking review status unavailable");}
+    };
     const adminEmailMessage={
       from:FROM_DEFAULT,to:TO_ADMIN,subject:subjectAdmin,
       text:textAdmin,html:htmlAdmin,
@@ -401,7 +422,7 @@ exports.handler = async (event) => {
       };
     };
     const previewSyncUnavailable=isPreview1 && !deferAdminForPreview;
-    const adminEmailPromise=deferAdminForPreview?
+    const adminEmailPromise=deferAdminForAuto?
       Promise.resolve({error:null,deferred:true}):
       resend.emails.send(previewSyncUnavailable?
         reviewOwnerMessage(!autoDispatchConfigured(process.env)?
@@ -469,12 +490,16 @@ exports.handler = async (event) => {
     // normal audit has finished. Run that handoff in parallel with Resend
     // instead of waiting for emails, leaderboard and shadow analysis.
     // This NEVER makes a second dispatch; the final block awaits this one.
-    const squeegeeDispatchTask = deferAdminForPreview
+    const dispatchToApprovedWorker=()=>productionSyncEnabled?
+      productionDispatch.dispatchAcceptedProductionBooking(payload,{
+        channel:"email",eventHost:syncHost,ownerReceipt,
+      }):
+      dispatchAcceptedBooking(payload,{
+        channel:"email",eventHost:syncHost,ownerReceipt,
+      });
+    const squeegeeDispatchTask = deferAdminForAuto
       ? Promise.resolve(auditPromise)
-          .then(() => timed("squeegeeQueue", () =>
-            dispatchAcceptedBooking(payload,{
-              channel:"email",eventHost:syncHost,ownerReceipt,
-            })))
+          .then(() => timed("squeegeeQueue",dispatchToApprovedWorker))
           .catch(() => ({queued:false,reason:"dispatch_unavailable"}))
       : null;
 
@@ -486,7 +511,7 @@ exports.handler = async (event) => {
 
     if (adminResult?.error) {
       console.error("Resend admin error:", adminResult.error);
-      if(isPreview1) await recordNoDispatch(submission.bookingId,{
+      if(isPreview1||productionSyncEnabled) await recordAutoNoDispatch({
         reason:"owner_receipt_delivery_failed_before_squeegee_dispatch",
         ownerAlertDelivery:"not_sent",
       });
@@ -550,7 +575,7 @@ exports.handler = async (event) => {
         ? await squeegeeDispatchTask
         : await dispatchAcceptedBooking(payload,{
             channel:"email",eventHost:syncHost,
-            ownerReceipt:deferAdminForPreview?ownerReceipt:null,
+            ownerReceipt:deferAdminForAuto?ownerReceipt:null,
           });
       if(!squeegeeDispatchTask)
         timings.squeegeeQueue=Date.now()-handoffStarted;
@@ -574,7 +599,7 @@ exports.handler = async (event) => {
       if(isPreview1) squeegeePilot={queued:false,reason:"dispatch_unavailable"};
       console.warn("Preview 1 Squeegee dispatch unavailable");
     }
-    if(deferAdminForPreview && !deferredDispatchAccepted) {
+    if(deferAdminForAuto && !deferredDispatchAccepted) {
       // No accepted worker means no authoritative Squeegee outcome.
       // Send ONE urgent/manual-review email with full booking details,
       // never a normal "import succeeded" owner email. For a timeout the
@@ -604,12 +629,12 @@ exports.handler = async (event) => {
       // The owner-only status page must still show the booking when the
       // Resend review email failed or the worker handoff never succeeded.
       // onlyIfNew prevents an uncertain dispatch from overwriting a worker.
-      await recordNoDispatch(submission.bookingId,{
+      await recordAutoNoDispatch({
         reason:dispatchFailureReason,
         ownerAlertDelivery:fallbackOwnerDelivery,
       });
     }
-    if(isPreview1 && !deferAdminForPreview && !deferredDispatchAccepted) {
+    if(isPreview1 && !deferAdminForAuto && !deferredDispatchAccepted) {
       // The normal owner warning was sent, but Squeegee wasn't queued.
       // Retain a queryable record even when the owner missed that email.
       await recordNoDispatch(submission.bookingId,{

@@ -12,6 +12,7 @@
  */
 const api=require("./squeegeeApiV3");
 const rollout=require("./squeegeePreviewAutoRollout");
+const production=require("./squeegeeProductionGuard");
 const {prepareReadOnlyBooking}=require("./squeegeeBookingPreparation");
 const {groupedSqueegeeJobs}=require("./squeegeeJobGrouping");
 const jobReadback=require("./squeegeeCreatedJobVerification");
@@ -154,7 +155,10 @@ async function saveAutoStatus(bookingId,stage,extra={}, {store}={}) {
 function outcome(status,reason,extra={}) {
   return {status,reason,...extra};
 }
-function canAutoSync(env,runtimeScope) {
+function canAutoSync(env,runtimeScope,mode="preview") {
+  if(mode==="production")
+    return production.productionConfigured(env,runtimeScope);
+  if(mode!=="preview")return false;
   return api.isExactPreview1(env,runtimeScope) &&
     rollout.automaticEnabled(env) &&
     typeof env?.SQUEEGEE_API_KEY==="string" &&
@@ -168,13 +172,25 @@ function canAutoSync(env,runtimeScope) {
  */
 async function executeAutomaticPreviewBooking(payload,{
   channel,env=process.env,runtimeScope=null,now=Date.now(),deps={},
+  mode="preview",
 }={}) {
-  if(!canAutoSync(env,runtimeScope))
-    return outcome("not_started","automatic_preview_writes_disabled");
+  if(!canAutoSync(env,runtimeScope,mode))
+    return outcome("not_started",mode==="production"?
+      "automatic_production_writes_disabled":"automatic_preview_writes_disabled");
   if(!["email","whatsapp"].includes(channel))
     return outcome("not_started","unsupported_booking_channel");
-  if(!rollout.acceptedForRollout(payload,channel,env))
+  if(mode==="production" && channel!=="email")
+    return outcome("not_started","production_whatsapp_not_approved");
+  if(mode==="preview" && !rollout.acceptedForRollout(payload,channel,env))
     return outcome("not_started","outside_approved_preview_email_pilot");
+  // The production client, private ledger and owner notification transport
+  // must be explicitly injected by the trusted production handler. Never
+  // accidentally fall back to preview credentials, stores or write grants.
+  if(mode==="production" &&
+     ["getServices","getJobGroups","listCustomers","getCustomer",
+      "createCustomer","addJob","withWrite","claim","changeState",
+      "save","alert"].some(key=>typeof deps[key]!=="function"))
+    return outcome("not_started","production_dependencies_not_configured");
   const valid=validateBookingSubmission(payload,{now});
   if(!valid.ok)return outcome("not_started","invalid_or_expired_booking");
   const bookingId=valid.bookingId;
@@ -231,7 +247,8 @@ async function executeAutomaticPreviewBooking(payload,{
     // PII-free operational trace to distinguish accepted dispatch, held
     // validation, and confirmed job creation without exposing customer data.
     const saved=await use.save(bookingId,stage,{...extra,duplicateFlags});
-    console.info("Preview 1 Squeegee worker status",{
+    console.info(mode==="production"?"Production Squeegee worker status":
+      "Preview 1 Squeegee worker status",{
       bookingId,stage,
       ...(typeof extra?.reason==="string"?{reason:extra.reason}:{}),
     });
@@ -496,7 +513,7 @@ async function executeAutomaticPreviewBooking(payload,{
     // matching, but BEFORE any Squeegee customer/job POST. Never release it
     // automatically even if the worker is interrupted or a POST is uncertain.
     let pilotClaim=null;
-    if(rollout.autoMode(env)==="pilot") {
+    if(mode==="preview" && rollout.autoMode(env)==="pilot") {
       const reserved=await use.claim({
         key:rollout.PILOT_CLAIM_KEY,bookingId,channel,
       });
@@ -516,7 +533,8 @@ async function executeAutomaticPreviewBooking(payload,{
     // add a second Brown without clearing old protections. A failed claim
     // is never released or automatically retried.
     const bookingClaim=await use.claim({
-      key:BOOKING_CLAIM_PREFIX+bookingId,bookingId,channel});
+      key:(mode==="production"?production.CLAIM_PREFIX:
+        BOOKING_CLAIM_PREFIX)+bookingId,bookingId,channel});
     if(!bookingClaim.acquired)return await held("booking_already_claimed_or_uncertain");
     let propertyClaim=null;
     if(!existing) {
@@ -584,8 +602,12 @@ async function executeAutomaticPreviewBooking(payload,{
           const response=await use.createCustomer({
             ...plan.customerInput,
             notes:anotherProperty
-              ? "NI Bin Guy website booking (Preview 1). Additional service property for an existing contact. Separate service/billing account; do not merge without review."
-              : "NI Bin Guy website booking (Preview 1) - verify before operational launch.",
+              ?(mode==="production"
+                ? "NI Bin Guy website booking. Additional service property for existing contact. Keep service/billing accounts separate until reviewed."
+                : "NI Bin Guy website booking (Preview 1). Additional service property for an existing contact. Separate service/billing account; do not merge without review.")
+              :(mode==="production"
+                ? "NI Bin Guy website booking - automatically imported; check quantity notes if applicable."
+                : "NI Bin Guy website booking (Preview 1) - verify before operational launch."),
           });
           customerCreated=true;
           failureStage="validating_customer_result";
@@ -870,8 +892,12 @@ async function executeAutomaticPreviewBooking(payload,{
     return await uncertain("unexpected_auto_sync_failure");
   }
 }
+async function executeAutomaticProductionBooking(payload,options={}) {
+  return executeAutomaticPreviewBooking(payload,{...options,mode:"production"});
+}
 module.exports={
   STATUS_STORE,CLAIM_STORE,BOOKING_CLAIM_PREFIX,
   MAX_BOOKING_JOBS,ukToday,validUpcomingDate,overlappingJobs,
   saveAutoStatus,canAutoSync,executeAutomaticPreviewBooking,
+  executeAutomaticProductionBooking,
 };
