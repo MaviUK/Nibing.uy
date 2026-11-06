@@ -103,6 +103,9 @@ on:
       - tests/squeegee-preview-launch-checks.test.cjs
       - tests/squeegee-personal-leaderboard.test.cjs
       - tests/squeegee-production-n64-hq-board.test.cjs
+      - tests/squeegee-production-readonly-preflight.test.cjs
+      - scripts/preview77AndroidSmoke.cjs
+      - .github/workflows/preview77-android-readonly-smoke.yml
       - netlify/functions/n64ProductionLeaderboard.mjs
       - netlify/functions/lib/n64ProductionPublicBoard.js
       - netlify/functions/lib/squeegeeYearlyPreviewBoard.js

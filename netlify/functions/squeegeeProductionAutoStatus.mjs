@@ -4,6 +4,7 @@
 import guard from "./lib/squeegeeProductionGuard.js";
 import owner from "./lib/squeegeeProductionOwnerAuth.js";
 import {getStore} from "@netlify/blobs";
+import {createProductionClient} from "./lib/squeegeeProductionApi.js";
 import {Resend} from "resend";
 
 const RE=/^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i;
@@ -71,6 +72,27 @@ function sourceSummary(summary){
     (summary.duplicateFlags.length?
       line("Duplicate detail flags",summary.duplicateFlags.join(", ")):"")+
     '</div><p><strong>Never retry an uncertain or partially completed booking.</strong> Check Squeegee first.</p>';
+}
+
+const connectionForm=()=>'<section><h2>Read-only Squeegee connection check</h2>'+
+  '<p>Checks only services and job groups. No customer or booking is changed. The emergency stop must remain ON.</p>'+
+  '<form method="get"><input type="hidden" name="connectivity" value="1">'+
+  '<button type="submit">Check Squeegee connection (GET ONLY)</button></form></section>';
+async function connectivityCheck(scope,env=process.env,fetchImpl=globalThis.fetch){
+  if(!guard.isVerifiedProductionScope(scope) ||
+      env.SQUEEGEE_PRODUCTION_READ_ENABLED!=="true" ||
+      env.SQUEEGEE_PRODUCTION_AUTO_SYNC_ENABLED!=="false" ||
+      env.SQUEEGEE_PRODUCTION_OWNER_APPROVED_WRITES!=="false" ||
+      env.SQUEEGEE_PRODUCTION_ATOMIC_LEDGER_READY!=="false" ||
+      env.SQUEEGEE_PRODUCTION_WRITES_PAUSED!=="true")
+    return {ok:false,reason:"read_only_safety_gates_not_ready"};
+  try{
+    const api=createProductionClient({env,scope,fetchImpl});
+    await Promise.all([api.getServices(),api.getJobGroups()]);
+    return {ok:true,reason:"services_and_job_groups_readable"};
+  }catch{
+    return {ok:false,reason:"squeegee_read_only_connection_failed"};
+  }
 }
 const lookupForm=(ref="")=>'<form method="get">'+
   '<label for="bookingId">Booking reference</label>'+
@@ -195,9 +217,15 @@ export default async function handler(request,context){
   if(!owner.validCookie(owner.fromHeader(request.headers.get("cookie")),
       process.env,Date.now(),scope))
     return page(loginForm(ref),401);
-  let inner=lookupForm(ref)+
+  let inner=connectionForm()+lookupForm(ref)+
     '<form method="post"><input type="hidden" name="action" value="logout">'+
     '<button type="submit">Sign out</button></form>';
+  if(url.searchParams.get("connectivity")==="1"){
+    const checked=await connectivityCheck(scope);
+    inner+='<div class="notice"><strong>Read-only API check:</strong> '+
+      esc(checked.ok?"PASS - GET services and job groups":"NOT READY - "+checked.reason)+
+      '</div><p><small>This never performs a Squeegee POST. A PASS does not authorise automatic bookings.</small></p>';
+  }
   if(ref){
     try{
       const record=await statusStore().get(ref,{type:"json",consistency:"strong"});

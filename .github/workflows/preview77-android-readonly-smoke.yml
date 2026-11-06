@@ -1,0 +1,36 @@
+name: Preview 77 Android browser acceptance (NO BOOKINGS)
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/preview77-android-readonly-smoke.yml
+      - scripts/preview77AndroidSmoke.cjs
+permissions:
+  contents: read
+jobs:
+  mobile-safe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install locked project dependencies
+        run: npm ci
+      - name: Install headless browser (no website writes)
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Run simulated Android browser smoke — do not submit
+        run: |
+          mkdir -p mobile-qa
+          node scripts/preview77AndroidSmoke.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: preview77-android-safe-smoke
+          path: mobile-qa/
+          if-no-files-found: warn

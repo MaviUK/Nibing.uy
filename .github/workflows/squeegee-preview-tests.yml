@@ -190,6 +190,9 @@ on:
       - tests/squeegee-production-dispatch.test.cjs
       - tests/squeegee-production-guard.test.cjs
       - tests/squeegee-production-owner-status.test.cjs
+      - tests/squeegee-production-readonly-preflight.test.cjs
+      - scripts/preview77AndroidSmoke.cjs
+      - .github/workflows/preview77-android-readonly-smoke.yml
       - docs/preview77-production-booking-readiness.md
 
 permissions:
