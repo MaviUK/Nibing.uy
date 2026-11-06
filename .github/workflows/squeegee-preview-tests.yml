@@ -130,6 +130,12 @@ on:
       - netlify/functions/lib/squeegeePreviewHQImportCsrf.js
       - tests/squeegee-preview-hq-upload-csrf.test.cjs
       - tests/squeegee-preview-hq-upload-format.test.cjs
+      - public/customer-hq-sqg-import.mjs
+      - public/customer-hq-sqg-worker.mjs
+      - public/customer-hq-sqg-converter.mjs
+      - public/vendor/sqg-7zip/7zz.es6.js
+      - public/vendor/sqg-7zip/LICENSE.txt
+      - tests/squeegee-sqg-automatic-import.test.cjs
       - public/customer-hq-import-validation.js
       - src/pages/CustomerHQ.jsx
       - src/customer-hq.css

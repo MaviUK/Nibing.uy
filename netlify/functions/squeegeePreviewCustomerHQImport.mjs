@@ -20,13 +20,13 @@ const headers={
   "X-Robots-Tag":"noindex, nofollow, noarchive",
   "X-Content-Type-Options":"nosniff",
   "Referrer-Policy":"no-referrer",
-  "Content-Security-Policy":"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+  "Content-Security-Policy":"default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' https://raw.githubusercontent.com; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
 };
 function page(html,status=200){
   return new Response('<!doctype html><html lang="en"><meta charset="utf-8">'+
     '<meta name="viewport" content="width=device-width,initial-scale=1">'+
     '<title>Customer HQ • Private History Setup</title>'+
-    '<script src="/customer-hq-import-validation.js" defer></script>'+
+    '<script type="module" src="/customer-hq-sqg-import.mjs"></script>'+
     '<style>body{background:#121728;color:white;font:16px/1.5 system-ui;'+
     'margin:0;padding:18px}main{max-width:620px;margin:auto}h1{font-size:27px}'+
     'section{padding:16px;margin:16px 0;background:#28334c;border-left:4px solid #f7c948}'+
@@ -62,6 +62,20 @@ export default async function handler(request,ctx){
     let existing=null;
     try{existing=await store.get(hq.DATA_KEY,{type:"json",consistency:"strong"});}
     catch{return page("<section>Private storage temporarily unavailable. No changes made.</section>",503);}
+    if(new URL(request.url).searchParams.get("referenceMap")==="1"){
+      const records=Array.isArray(existing?.accounts)
+        ?existing.accounts.map(a=>({id:a.id,ref:a.ref,
+          firstName:a.firstName,town:a.town})): [];
+      return new Response(JSON.stringify({sourceAsOf:existing?.asOf||null,records}),{
+        status:200,headers:{
+          "Content-Type":"application/json; charset=utf-8",
+          "Cache-Control":"private, no-store, max-age=0",
+          "X-Robots-Tag":"noindex, nofollow",
+          "X-Content-Type-Options":"nosniff",
+          "Referrer-Policy":"no-referrer"
+        }
+      });
+    }
     const summary=existing?.summary;
     const eligible=hq.eligibleRankedEmailAccounts(existing);
     return page('<section><strong>'+(summary?"PRIVATE HISTORY IMPORTED":"NOT IMPORTED")+
@@ -76,15 +90,16 @@ export default async function handler(request,ctx){
         ' · Source: '+escape(existing.asOf):
         'Upload the latest private Customer HQ JSON prepared from the verified Squeegee backup. Only an owner can replace cleaning scores. No customer can sign in until history is privately imported.')+
       '</p></section>'+
-      '<section><h2>Upload private customer points history</h2>'+
+      '<section><h2>Upload your normal Squeegee backup</h2>'+
       '<form id="hq-history-upload-form" method="post" enctype="multipart/form-data" action="'+PATH+'">'+
       '<input type="hidden" name="csrf" value="'+escape(csrfToken)+'">'+
-      '<label for="hq-history-file">Choose your prepared Customer HQ JSON</label>'+
-      '<input id="hq-history-file" type="file" name="history" accept=".json,application/json" aria-describedby="hq-upload-help hq-upload-error" required>'+
-      '<p id="hq-upload-help"><small>Use NI_Bin_Guy_Customer_HQ_Secure_Import_PRIVATE_2026-11-05_PER_BIN.json (about 2.3 MB). This form does NOT accept a Squeegee .sqg backup (about 30 MB). The full .sqg archive needs to be converted and reconciled privately before uploading.</small></p>'+
+      '<label for="hq-history-file">Choose your latest Squeegee .sqg backup</label>'+
+      '<input id="hq-history-file" type="file" name="history" accept=".sqg,application/octet-stream,.json,application/json" aria-describedby="hq-upload-help hq-upload-error" required>'+
+      '<p id="hq-upload-help"><small>Select the manual backup downloaded from Squeegee (usually about 30 MB). Preview 77 unpacks and checks it on your phone, then privately uploads only the small verified customer-score history. No more JSON conversion or separate spreadsheet is needed. Keep this tab open during processing. The original backup is not uploaded.</small></p>'+
       '<p id="hq-upload-error" role="alert" aria-live="assertive"></p>'+
-      '<button type="submit">Import customer history privately</button></form>'+
-      '<p><small>Maximum 3 MB. Supports the new physical-bin streak scoring: Brown/Black/Blue/Green service quantities, one-offs and actual completion years. A fresh checked import replaces the private snapshot without duplicating points.</small></p></section>'+
+      '<progress id="hq-upload-progress" value="0" max="100" style="width:100%;display:none"></progress>'+
+      '<button id="hq-import-button" type="submit" disabled>Process Squeegee backup and update points</button></form>'+
+      '<p><small>The usual Squeegee archive can be up to 65 MB. The reduced private import must fit below 3 MB. Customer names, emails, invoices and raw backup files are never sent to the archive decoder. Updated scores replace the last verified snapshot without doubling points, and existing withdrawals are preserved.</small></p></section>'+
       '<p><a href="/customer-hq?ntl-drawer-state=hidden">Open Customer HQ</a></p>');
   }
   // Some Samsung/Android in-app browser uploads send Origin: null (or
