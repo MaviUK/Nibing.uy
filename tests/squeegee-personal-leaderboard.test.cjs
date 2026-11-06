@@ -124,7 +124,7 @@ test("homepage and Customer HQ use the same verified totals and never show unkno
   const api=fs.readFileSync(path.join(root,"netlify/functions/arcadeLeaderboard.js"),"utf8");
   const ui=fs.readFileSync(path.join(root,"src/components/ArcadeLeaderboard.jsx"),"utf8");
   const style=fs.readFileSync(path.join(root,"src/n64-finale.css"),"utf8");
-  const gate=server.indexOf("const session=await lookupVerifiedSession(request,ledger,Date.now(),snapshot);");
+  const gate=server.indexOf("const session=await lookupVerifiedSession(request,ledger,Date.now(),snapshot,access.reader);");
   const summary=server.indexOf('get("view")==="rank-summary"');
   assert.ok(gate>=0&&summary>gate,"email-code session must be checked first");
   assert.match(server,/const summary=await verifiedPersonalSummary\(session,snapshot\)/);

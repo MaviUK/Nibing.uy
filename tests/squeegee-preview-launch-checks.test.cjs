@@ -62,8 +62,8 @@ test("leaderboard reads consent fresh on each GET, and Customer HQ shares only r
   assert.match(board,/stores\.names\.get\(nameConsents\.KEY/);
   assert.match(board,/previewFirstNameScoreboard\(/);
   assert.doesNotMatch(board,/consentCache|cachedConsent|cachedPublicNames/);
-  assert.match(hq,/async function lookupVerifiedSession\(request,ledger,now=Date\.now\(\),sharedSnapshot=null\)/);
-  assert.match(hq,/lookupVerifiedSession\(request,ledger,Date\.now\(\),snapshot\)/);
+  assert.match(hq,/async function lookupVerifiedSession\(request,ledger,now=Date\.now\(\),sharedSnapshot=null,reader=api\)/);
+  assert.match(hq,/lookupVerifiedSession\(request,ledger,Date\.now\(\),snapshot,access\.reader\)/);
   assert.match(hq,/verifiedPersonalSummary\(session,snapshot,sharedConsent\)/);
   assert.match(hq,/consentChoice\(session\.account\.id,sharedConsent\)/);
   assert.match(hq,/Cache-Control":"private, no-store, max-age=0/);

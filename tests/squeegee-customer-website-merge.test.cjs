@@ -640,7 +640,7 @@ test("customer HQ returns private achievement state to the logged-in account onl
     require("node:path").join(__dirname,"../netlify/functions/customerHQ.mjs"),"utf8");
   assert.match(src,/merge\.achievementState\(record\)/);
   assert.match(src,/achievementState:rewards\.achievementState/);
-  assert.match(src,/lookupVerifiedSession\(request,ledger\)/);
+  assert.match(src,/lookupVerifiedSession\(request,ledger,Date\.now\(\),null,access\.reader\)/);
   assert.match(src,/readActivityRecord\(activityStore\(\),customerId\)/);
   assert.ok(!src.includes("merge.readActivityRecord(activityStore(),customerId).catch(()=>null)"));
 });

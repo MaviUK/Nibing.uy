@@ -262,7 +262,7 @@ test("mobile year selector has Overall, years, selection state and resets row pa
   assert.match(ui,/aria-pressed=\{selectedYear===String\(period\)\}/);
   assert.match(ui,/setPublicShownCount\(20\)/);
   assert.match(ui,/setSelectedYear\(period\)/);
-  assert.match(ui,/ENDPOINT\+"\?year="\+encodeURIComponent\(selectedYear\)/);
+  assert.match(ui,/currentEndpoint\+"\?year="\+encodeURIComponent\(selectedYear\)/);
   assert.match(ui,/data\.period!==selectedYear/);
   assert.match(ui,/selectedYear==="overall"\?"Global Leaderboard":selectedYear\+" Leaderboard"/);
   assert.doesNotMatch(ui,/Only verified cleaning XP and individually dated website rewards|Older undated website XP stays in Overall/);
