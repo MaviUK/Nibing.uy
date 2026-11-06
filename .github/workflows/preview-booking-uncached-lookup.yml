@@ -1,0 +1,118 @@
+name: Read-only uncached BT postcode speed test
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/preview-booking-uncached-lookup.yml
+permissions:
+  contents: read
+jobs:
+  cold-then-warm-council:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify cache miss and cache hit for a fresh postcode
+        shell: bash
+        run: |
+          node <<'NODE'
+          const {performance}=require('node:perf_hooks');
+          const origin='https://6aea0236e9117b7fa450f579--nibinguy.netlify.app';
+          const postcodes=['BT23 4AA','BT19 6AA','BT21 0AA','BT22 2AA','BT23 8AA'];
+          const samples=[];
+          function round(num){return Math.round(num)}
+          function cacheStatus(response){return response.headers.get('cache-status')||'not-provided'}
+          function miss(status){return /miss|uri-miss|bypass/i.test(status)&&!/;\s*hit\b/i.test(status)}
+          function hit(status){return /;\s*hit\b/i.test(status)}
+          async function request(stage,postcode,url,options){
+            const start=performance.now();
+            try{
+              const res=await fetch(origin+url,{...options,redirect:'error',signal:AbortSignal.timeout(18000)});
+              const body=await res.text();
+              const elapsed=round(performance.now()-start);
+              let json=null;
+              try{json=JSON.parse(body)}catch{}
+              const c=cacheStatus(res);
+              console.log('SAMPLE '+JSON.stringify({
+                step:stage,postcode,elapsedMs:elapsed,status:res.status,
+                cacheStatus:c,age:res.headers.get('age')||null,
+                addressCount:stage==='cold-address'? 
+                  (Array.isArray(json?.data?.addresses)?json.data.addresses.length:null) :undefined
+              }));
+              const sample={res,json,elapsed,c,ok:res.ok};
+              samples.push({stage,postcode,elapsedMs:elapsed,status:res.status,cacheStatus:c});
+              return sample;
+            }catch(error){
+              console.log('SAMPLE '+JSON.stringify({step:stage,postcode,error:String(error?.message||error)}));
+              return null;
+            }
+          }
+          const addresses=json=>{
+            const list=json?.data?.addresses||json?.addresses||[];
+            return Array.isArray(list)?list:Object.values(list);
+          };
+          async function main(){
+            console.log('SAFETY: Read-only council lookup endpoints; NO booking submission, user auth, or Squeegee writes.');
+            let postcode='',first=null,rows=[];
+            for(const candidate of postcodes){
+              const url='/.netlify/functions/binAddresses?postcode='+encodeURIComponent(candidate);
+              const result=await request('cold-address',candidate,url);
+              if(!result?.ok)continue;
+              const candidates=addresses(result.json);
+              if(!miss(result.c)){
+                console.log('SKIPPED '+candidate+' because first request was not a verifiable cache miss');
+                continue;
+              }
+              if(!candidates.some(x=>x?.uprn||x?.UPRN)){
+                console.log('SKIPPED '+candidate+' because council returned no property records');
+                continue;
+              }
+              postcode=candidate;first=result;rows=candidates;
+              break;
+            }
+            if(!postcode){
+              console.log('NO_VERIFIED_FRESH_POSTCODE: cannot claim a cold-cache speed');
+              process.exitCode=1;return;
+            }
+            const addrUrl='/.netlify/functions/binAddresses?postcode='+encodeURIComponent(postcode);
+            const warm1=await request('repeat-address-1',postcode,addrUrl);
+            const warm2=await request('repeat-address-2',postcode,addrUrl);
+            const house=rows.find(x=>(x?.uprn||x?.UPRN)&&(x?.addressText||x?.address||x?.label));
+            if(!house){console.log('No usable council address to test schedule');process.exitCode=1;return;}
+            const address=String(house.addressText||house.address||house.label);
+            const scheduleOpts={
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({address,postcode,bins:[{type:'Black Bin'}]})
+            };
+            const coldSchedule=await request('cold-schedule',postcode,'/api/booking-schedule',scheduleOpts);
+            const warmSchedule1=await request('repeat-schedule-1',postcode,'/api/booking-schedule',scheduleOpts);
+            const warmSchedule2=await request('repeat-schedule-2',postcode,'/api/booking-schedule',scheduleOpts);
+            // Second property avoids the one already fetched indirectly by the date lookup.
+            const other=rows.find(x=>x?.uprn && String(x.uprn)!==String(house.uprn));
+            let firstCalendar=null,warmCalendar=null;
+            if(other){
+              const calendar='/.netlify/functions/binCalendar?uprn='+encodeURIComponent(other.uprn);
+              firstCalendar=await request('cold-calendar',postcode,calendar);
+              warmCalendar=await request('repeat-calendar',postcode,calendar);
+            }
+            console.log('RESULT '+JSON.stringify({
+              postcode,cacheMissConfirmed:miss(first.c),
+              addressColdMs:first.elapsed,addressRepeatMs:[warm1?.elapsed,warm2?.elapsed],
+              addressRepeatCacheHits:[warm1&&hit(warm1.c),warm2&&hit(warm2.c)],
+              calendarColdMs:firstCalendar?.elapsed??null,
+              calendarColdCacheMiss:firstCalendar?miss(firstCalendar.c):null,
+              calendarRepeatMs:warmCalendar?.elapsed??null,
+              calendarRepeatCacheHit:warmCalendar?hit(warmCalendar.c):null,
+              dateLookupColdMs:coldSchedule?.elapsed??null,
+              dateLookupRepeatMs:[warmSchedule1?.elapsed,warmSchedule2?.elapsed],
+              councilReturnedScheduleDates:Boolean(coldSchedule?.json?.results?.length),
+              note:'Schedule POST is never CDN-cached; it can now use the cached address and calendar GET results. Timing from a GitHub runner, not a customer Android phone.'
+            }));
+            if(!warm1||!warm2||!hit(warm1.c)||!hit(warm2.c)||!coldSchedule?.ok){
+              console.log('FAIL: Could not verify cache hit and successful schedule lookup');
+              process.exitCode=1;
+            }
+          }
+          main().catch(error=>{console.error(error);process.exitCode=1});
+          NODE

@@ -1,10 +1,12 @@
+const BOOKING_TERMS = require("../../src/data/bookingTerms.json");
 const { Resend } = require("resend");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
+const { annualBookingBreakdown } = require("./lib/annualBookingBreakdown");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_DEFAULT = process.env.RESEND_FROM || "Ni Bin Guy <noreply@nibing.uy>";
 const TO_ADMIN = process.env.BOOKINGS_TO || "info@nibing.uy";
-const TERMS_VERSION_DEFAULT = "July 2026";
+const TERMS_VERSION_DEFAULT = BOOKING_TERMS.version;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -34,18 +36,7 @@ async function sendEmailWithRetry(message, label) {
   return lastResult;
 }
 
-const TERMS_BODY = `
-Ni Bin Guy – Terms of Service
-
-• Regular 4-weekly plans are based on a 13-clean minimum term, which is approximately 12 months, unless agreed otherwise.
-• One-off cleans have no minimum term and may be cancelled up to 24 hours before the scheduled clean day without charge.
-• Bins must be left out or made accessible on the scheduled cleaning day and must remain available until 8pm.
-• If your bin is not available when we attend, or access is blocked, the clean may still be charged.
-• If we are unable to attend on the scheduled day, we will notify you and rearrange the clean as soon as reasonably possible.
-• Payment is due within 7 days unless agreed otherwise. Accepted methods are Direct Debit, Bank Transfer, and Card. No cash.
-• Cancelling a Direct Debit does not cancel your service or contract.
-• You consent to us storing your details and contacting you about your booking, schedule, payment, and service.
-`;
+const TERMS_BODY = BOOKING_TERMS.body;
 
 const escapeHtml = (value) => String(value ?? "")
   .replace(/&/g, "&amp;")
@@ -181,6 +172,7 @@ exports.handler = async (event) => {
       address,
       binsText,
       pricingText: `Total: ${total}`,
+      annualBreakdownText: annualBookingBreakdown(pricing),
       termsAccepted,
       termsVersion,
       termsAcceptanceText,

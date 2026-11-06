@@ -1,0 +1,69 @@
+name: Preview 1 prebuilt Terms PDF regression and speed benchmark
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - netlify/functions/lib/preparedTermsPdf.js
+      - netlify/functions/lib/termsPdf.js
+      - src/data/bookingTerms.json
+      - scripts/buildPreparedTermsPdf.cjs
+      - scripts/benchmarkPreparedTermsPdf.cjs
+      - tests/squeegee-prepared-terms-pdf.test.cjs
+      - tests/squeegee-annual-pdf-breakdown.test.cjs
+      - netlify/functions/lib/annualBookingBreakdown.js
+      - .github/workflows/preview-booking-pdf-performance.yml
+permissions:
+  contents: read
+jobs:
+  safe-pdf-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Prebuild master September 2026 Terms PDF
+        run: node scripts/buildPreparedTermsPdf.cjs
+      - name: Verify uniqueness, fallback, annual pricing and safe terms fidelity
+        run: node --test tests/squeegee-prepared-terms-pdf.test.cjs tests/squeegee-annual-pdf-breakdown.test.cjs
+      - name: Benchmark old renderer against prebuilt fill-only renderer
+        run: node scripts/benchmarkPreparedTermsPdf.cjs
+      - name: Install PDF visual-review utilities
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq poppler-utils
+      - name: Text and visual PDF inspection
+        shell: bash
+        run: |
+          set -eu
+          if command -v pdfinfo >/dev/null && command -v pdftotext >/dev/null; then
+            pdfinfo prepared-terms-qa-example.pdf | grep -E '^(Pages|Page size|File size):'
+            pdftotext -layout prepared-terms-qa-example.pdf qa-extracted.txt
+            grep -F "EXAMPLE CUSTOMER" qa-extracted.txt
+            grep -F "September 2026" qa-extracted.txt | head -n 2
+            grep -F "Customer Rewards" qa-extracted.txt
+            grep -F "SHA-256" qa-extracted.txt
+            grep -F "ANNUAL COST BREAKDOWN" qa-extracted.txt
+            grep -F "TOTAL FOR 13 CLEANS" qa-extracted.txt
+            grep -F "GBP 130" qa-extracted.txt
+            grep -F "1) Service & Contracts" qa-extracted.txt
+            grep -F "10) Customer Rewards" qa-extracted.txt
+            if command -v pdftoppm >/dev/null; then
+              mkdir -p pdf-preview
+              pdftoppm -f 1 -l 2 -scale-to 900 -png prepared-terms-qa-example.pdf pdf-preview/certificate
+              file pdf-preview/*png
+            fi
+          else
+            echo "poppler utilities unavailable; structural tests already validated PDF"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preview-77-prebuilt-terms-example
+          path: |
+            prepared-terms-qa-example.pdf
+            pdf-preview/*.png
+          if-no-files-found: warn

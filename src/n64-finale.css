@@ -1,0 +1,878 @@
+/* Final bonus level after the customer portal, before the footer. */
+#level-08-final {
+  --n64-check-tile:20px;
+  --n64-check-height:calc(var(--n64-check-tile) * 4);
+  position:relative;
+  isolation:isolate;
+  overflow:hidden;
+  width:100%;
+  padding:calc(94px + var(--n64-check-height)) 20px 105px;
+  background:
+    radial-gradient(circle at 85% 20%,#fff2a4 0 45px,transparent 46px),
+    linear-gradient(160deg,#a8e5ff 0%,#ddf9e2 70%,#bce5a7 100%) !important;
+  color:#20345c;
+  border:0 !important;
+  text-align:center;
+}
+#level-08-final::before {
+  content:"";
+  position:absolute;
+  top:0;left:0;right:0;
+  height:var(--n64-check-height);
+  background:repeating-conic-gradient(#353f63 0% 25%,#fff7df 0% 50%) 0 0 / calc(var(--n64-check-tile) * 2) calc(var(--n64-check-tile) * 2);
+  z-index:1;
+  pointer-events:none;
+  box-shadow:0 4px 0 rgba(32,52,92,.16);
+}
+#level-08-final .n64-final-level-inner {
+  position:relative;
+  z-index:2;
+  max-width:860px;
+  margin:0 auto;
+}
+#level-08-final .n64-final-kicker {
+  display:table;
+  margin:0 auto 26px;
+  padding:9px 14px;
+  border:4px solid #20345c;
+  background:#f4cc6c;
+  color:#20345c;
+  box-shadow:5px 6px 0 #c59448;
+  font:1000 .75rem/1.3 Verdana,system-ui,sans-serif;
+  letter-spacing:.1em;
+}
+#level-08-final h2 {
+  margin:0;
+  color:#20345c;
+  font:1000 clamp(2.3rem,6vw,5.5rem)/1.07 "Arial Black","Trebuchet MS",sans-serif;
+  letter-spacing:-.075em;
+  text-shadow:3px 4px 0 #fff,7px 9px 0 #94acc1;
+  overflow-wrap:anywhere;
+}
+#level-08-final .n64-final-level-inner > p {
+  color:#304967;
+  font-size:clamp(1rem,2vw,1.24rem);
+  line-height:1.6;
+  font-weight:800;
+  margin:25px auto;
+  max-width:650px;
+}
+#level-08-final .n64-final-book {
+  display:block;
+  width:min(100%,620px);
+  min-height:70px;
+  margin:32px auto 18px;
+  border:5px solid #20345c !important;
+  border-radius:0 !important;
+  box-shadow:0 9px 0 #c49430,0 13px 0 #557493 !important;
+  background:#ffe054 !important;
+  color:#20345c !important;
+  font:1000 clamp(1.05rem,2.5vw,1.45rem)/1.2 "Arial Black","Trebuchet MS",sans-serif;
+  letter-spacing:-.03em;
+  cursor:pointer;
+  transition:transform .14s ease,filter .14s ease;
+}
+#level-08-final .n64-final-book:hover{transform:translateY(-3px);filter:brightness(1.04);}
+#level-08-final .n64-final-book:active{transform:translateY(6px);box-shadow:0 2px 0 #c49430 !important;}
+#level-08-final .n64-final-book:focus-visible{outline:4px solid #145b86;outline-offset:6px;}
+#level-08-final .n64-final-level-inner > p.n64-final-caption{font-size:.84rem;font-weight:750;color:#4d5b78;margin-top:17px;}
+@media(max-width:640px) {
+  #level-08-final {
+    --n64-check-tile:16px;
+    padding:calc(65px + var(--n64-check-height)) 17px 78px;
+  }
+  #level-08-final .n64-final-kicker{font-size:.65rem;margin-bottom:24px;}
+  #level-08-final .n64-final-book{min-height:63px;border-width:4px !important;box-shadow:0 7px 0 #c49430,0 10px 0 #557493 !important;}
+}
+@media(prefers-reduced-motion:reduce){
+  #level-08-final .n64-final-book{transition:none;}
+}
+
+.n64-public-leaderboard{background:#182d4f;color:#fff8de;padding:70px 16px 78px;border-top:9px solid #f5d164;font-family:"Trebuchet MS",Verdana,sans-serif;}
+.n64-public-board-inner{max-width:670px;margin:0 auto;text-align:center;}
+.n64-board-eyebrow{display:inline-block;background:#ffe05f;color:#20345c;border:3px solid #0c1835;padding:9px 15px;font-weight:1000;box-shadow:5px 5px 0 #6789b8;}
+.n64-public-leaderboard h2{font-size:clamp(1.8rem,5vw,3.3rem);line-height:1.12;text-shadow:4px 5px 0 #54779e;margin:23px 0 14px;font-weight:1000;}
+.n64-public-leaderboard p{line-height:1.65;font-size:.97rem;max-width:570px;margin:0 auto 27px;}
+.n64-public-leaderboard ol{list-style:none;padding:10px;border:5px solid #e8da93;box-shadow:8px 9px 0 #567ba5;background:#fcf8e7;color:#20345c;margin:0 0 24px;}
+.n64-public-leaderboard li{display:flex;align-items:center;justify-content:space-between;gap:13px;padding:14px 10px;border-bottom:2px solid #b8c3d1;font-weight:900;text-align:left;overflow-wrap:anywhere;}
+.n64-public-leaderboard li:last-child{border-bottom:0;}
+.n64-public-leaderboard li:nth-child(1){background:#ffe49b;}
+.n64-public-leaderboard li:nth-child(2){background:#dfecfb;}
+.n64-public-leaderboard li:nth-child(3){background:#ffdec4;}
+.n64-public-leaderboard li > strong{white-space:nowrap;color:#174f41;}
+.n64-public-leaderboard li span strong{display:inline-block;min-width:29px;color:#576890;}
+.n64-public-leaderboard small{color:#c7d9ef;font-size:.75rem;line-height:1.5;}
+@media(max-width:600px){.n64-public-leaderboard{padding:52px 12px 65px;}.n64-public-leaderboard ol{padding:6px;box-shadow:5px 6px 0 #567ba5;}.n64-public-leaderboard li{padding:13px 7px;font-size:.83rem;}}
+
+
+/* Overall / annual XP tabs sit above the public rankings. Four equal
+   columns fit narrow Android displays; keep the N64 square-button style. */
+.n64-public-leaderboard .n64-leaderboard-years {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+  margin:8px auto 16px;
+  max-width:660px;
+}
+.n64-public-leaderboard .n64-leaderboard-years button {
+  min-width:0;
+  padding:12px 3px;
+  border:3px solid #395276;
+  border-radius:0;
+  box-shadow:4px 5px 0 #0b1730;
+  background:#e0effc;
+  color:#20345c;
+  font:1000 clamp(.7rem,2.7vw,.96rem)/1.25 "Trebuchet MS",sans-serif;
+  cursor:pointer;
+  touch-action:manipulation;
+}
+.n64-public-leaderboard .n64-leaderboard-years .n64-year-selected {
+  border-color:#fff6ce;
+  background:#ffe266;
+  color:#1a3055;
+  box-shadow:4px 5px 0 #518a72;
+}
+.n64-public-leaderboard .n64-leaderboard-years button:focus-visible {
+  outline:3px solid #78f4c0;
+  outline-offset:3px;
+}
+.n64-public-leaderboard .n64-rank-public p.n64-leaderboard-year-note {
+  max-width:660px;
+  margin:8px auto 14px;
+  font-size:.82rem;
+  line-height:1.5;
+  color:#f6e6ae;
+  text-align:center;
+}
+@media(max-width:400px){
+  .n64-public-leaderboard .n64-leaderboard-years {gap:5px;}
+  .n64-public-leaderboard .n64-leaderboard-years button {
+    padding:11px 2px;
+    border-width:2px;
+    font-size:.69rem;
+    box-shadow:3px 4px 0 #0b1730;
+  }
+}
+
+/* ── LIVE GLOBAL SCOREBOARD V2 ─────────────────────────────────────────────
+   Retro square edges, real connection state and subtle score-change motion.
+*/
+.n64-live-board-head {
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  align-items:center;
+  column-gap:19px;
+  row-gap:13px;
+}
+.n64-live-indicator {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  box-sizing:border-box;
+  min-height:38px;
+  padding:8px 12px;
+  border:3px solid #183356;
+  border-radius:0;
+  box-shadow:4px 4px 0 #547798;
+  background:#b6ff9b;
+  color:#153d2e;
+  font:1000 .73rem/1 "Arial Black","Trebuchet MS",sans-serif;
+  letter-spacing:.08em;
+}
+.n64-live-indicator-dot {
+  display:block;
+  flex:none;
+  width:9px;
+  height:9px;
+  border:2px solid #153d2e;
+  background:#219c52;
+  box-shadow:0 0 0 2px #d5ffc6;
+  animation:n64-live-beat 1.9s steps(2,end) infinite;
+}
+.n64-live-indicator--offline {
+  background:#d6e1f4;
+  color:#344968;
+}
+.n64-live-indicator--offline .n64-live-indicator-dot {
+  animation:none;
+  background:#9b8f75;
+  border-color:#344968;
+  box-shadow:none;
+}
+.n64-live-board-stats {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:9px;
+  margin:0 4px 12px;
+  color:#fff9de;
+  text-align:left;
+  font-size:.76rem;
+  font-weight:800;
+}
+.n64-live-board-stats strong {
+  color:#ffe264;
+  font-weight:1000;
+  letter-spacing:.045em;
+}
+.n64-live-board-stats span {
+  color:#cad7e9;
+  font-variant-numeric:tabular-nums;
+}
+.n64-public-leaderboard .n64-board-score {
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:5px;
+  flex:none;
+  max-width:44%;
+  font-variant-numeric:tabular-nums;
+}
+.n64-public-leaderboard .n64-board-score strong {
+  color:#174f41;
+  white-space:nowrap;
+}
+.n64-rank-change {
+  display:inline-block;
+  min-width:22px;
+  padding:3px 4px;
+  border:2px solid #20345c;
+  border-radius:0;
+  background:#b6ff9b;
+  color:#154b37;
+  font:1000 .66rem/1 "Trebuchet MS",sans-serif;
+  text-align:center;
+  font-style:normal;
+}
+.n64-board-row--new,
+.n64-board-row--up,
+.n64-board-row--points {
+  animation:n64-rank-glow 1.3s steps(3,end) 1;
+}
+.n64-board-row--down .n64-rank-change {
+  background:#ffe0b0;
+  color:#78422a;
+}
+.n64-public-leaderboard p.n64-board-error {
+  color:#ffebbb;
+  background:#34496b;
+  border:2px solid #e7bb74;
+  padding:9px 10px;
+  font-size:.82rem;
+  margin:2px auto 19px;
+}
+@keyframes n64-live-beat {
+  0%,75%,100% {opacity:1}
+  76%,90% {opacity:.35}
+}
+@keyframes n64-rank-glow {
+  0%,100% {filter:none}
+  25%,75% {filter:brightness(1.14)}
+}
+@media(max-width:600px) {
+  .n64-live-board-head {column-gap:12px;row-gap:10px}
+  .n64-live-indicator {font-size:.67rem;min-height:34px;padding:6px 9px}
+  .n64-live-board-stats {font-size:.69rem}
+  .n64-public-leaderboard .n64-board-score {gap:4px;max-width:48%}
+  .n64-rank-change {min-width:19px;padding:3px;font-size:.6rem}
+}
+@media(prefers-reduced-motion:reduce){
+  .n64-live-indicator-dot,.n64-board-row--new,.n64-board-row--up,.n64-board-row--points{
+    animation:none !important;
+  }
+}
+
+
+/* ── VERIFIED PERSONAL XP VS PUBLIC GLOBAL RANKINGS ────────────────────────
+   A private rank is shown only after the email-code customer login.
+*/
+.n64-public-leaderboard .n64-your-score {
+  box-sizing:border-box;
+  width:100%;
+  padding:11px 14px;
+  margin:0 0 22px;
+  text-align:left;
+  color:#20345c;
+  background:#fff9df;
+  border:4px solid #e8da93;
+  border-radius:0;
+  box-shadow:5px 5px 0 #6683ac;
+}
+.n64-public-leaderboard .n64-your-score > div {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:12px;
+  font-weight:1000;
+  font-size:1.05rem;
+  line-height:1.3;
+}
+.n64-public-leaderboard .n64-your-score > div span {
+  font:1000 clamp(1.15rem,3.4vw,1.5rem)/1.15 "Arial Black","Trebuchet MS",sans-serif;
+  color:#15574c;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.n64-public-leaderboard .n64-your-score small {
+  display:block;
+  margin-top:6px;
+  color:#4d5c75;
+  font-size:.8rem;
+  line-height:1.5;
+  text-align:left;
+}
+@media(max-width:600px){
+ .n64-public-leaderboard .n64-your-score {padding:10px 11px;margin-bottom:20px}
+ .n64-public-leaderboard .n64-your-score > div {font-size:.95rem}
+ .n64-public-leaderboard .n64-your-score small {font-size:.75rem}
+}
+/* The single top-level Overall / year selector controls the private score
+   card and public leaderboard together. */
+.n64-public-leaderboard .n64-personal-score .n64-personal-position {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px 14px;
+  border-top:2px solid #d6c88a;
+  padding-top:10px;
+  margin-top:10px;
+  flex-wrap:wrap;
+  font-size:.93rem;
+}
+.n64-public-leaderboard .n64-personal-score .n64-personal-position strong {
+  font:900 .9rem/1.3 "Trebuchet MS",sans-serif;
+}
+.n64-public-leaderboard .n64-personal-score .n64-personal-position span {
+  color:#135b50;
+  font:1000 clamp(1.05rem,3.4vw,1.45rem)/1.25 "Arial Black","Trebuchet MS",sans-serif;
+  font-variant-numeric:tabular-nums;
+  overflow-wrap:anywhere;
+}
+.n64-public-leaderboard .n64-personal-period-note {
+  display:block;
+  margin:14px 0 1px;
+  padding:11px 12px;
+  border-top:2px dashed #d6c88a;
+  color:#334868;
+  background:#fdf3c8;
+  font:900 .85rem/1.45 "Trebuchet MS",Verdana,sans-serif;
+  text-align:center;
+}
+/* ── SECURE POST-BOOKING SCORE CLAIM ──────────────────────────────────────
+ * Customers can claim a confirmed booking without submitting a second clean.
+ * The public leaderboard remains name/XP only; private contact is opt-in.
+ */
+.n64-public-leaderboard .n64-claim-booking {
+  box-sizing:border-box;
+  background:#fff6d3;
+  border:4px solid #e4c965;
+  border-radius:0;
+  box-shadow:6px 7px 0 #5b7da2;
+  color:#20345c;
+  padding:17px;
+  margin:0 0 26px;
+  text-align:left;
+}
+.n64-public-leaderboard .n64-claim-booking h3 {
+  font:1000 clamp(1.02rem, 2.4vw, 1.26rem)/1.22 "Arial Black","Trebuchet MS",sans-serif;
+  letter-spacing:-.035em;
+  color:#1e355c;
+  margin:0 0 14px;
+  text-shadow:none;
+}
+.n64-public-leaderboard .n64-claim-booking form {
+  margin:0;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:10px;
+}
+.n64-public-leaderboard .n64-claim-booking label {
+  display:block;
+  color:#20345c;
+  font:800 .85rem/1.45 "Trebuchet MS",Verdana,sans-serif;
+}
+.n64-public-leaderboard .n64-claim-booking input:not([type="checkbox"]) {
+  appearance:none;
+  width:100%;
+  min-height:52px;
+  background:#fff;
+  color:#20345c;
+  border:3px solid #24395d;
+  border-radius:0;
+  box-sizing:border-box;
+  font:700 1rem/1.4 "Trebuchet MS",sans-serif;
+  padding:9px 12px;
+}
+.n64-public-leaderboard .n64-claim-booking button {
+  appearance:none;
+  cursor:pointer;
+  width:100%;
+  min-height:49px;
+  border:3px solid #20345c;
+  border-radius:0;
+  color:#20345c;
+  background:#ffdb47;
+  box-shadow:3px 4px 0 #af9043;
+  font:1000 .95rem/1.2 "Trebuchet MS",sans-serif;
+  padding:10px;
+}
+.n64-public-leaderboard .n64-claim-booking button:disabled {
+  cursor:not-allowed;
+  opacity:.65;
+}
+.n64-public-leaderboard .n64-claim-booking button.n64-claim-secondary {
+  background:#e9f3ff;
+  box-shadow:3px 4px 0 #93a9c1;
+}
+.n64-public-leaderboard .n64-claim-booking small {
+  display:block;
+  color:#435677;
+  line-height:1.55;
+  font-size:.77rem;
+  margin:12px 0 0;
+}
+.n64-public-leaderboard .n64-claim-consent label {
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  margin:0 0 15px;
+}
+.n64-public-leaderboard .n64-claim-consent input[type="checkbox"] {
+  accent-color:#14764c;
+  width:23px;
+  height:23px;
+  min-width:23px;
+  margin:1px 0 0;
+}
+.n64-public-leaderboard .n64-claim-messages:not(:empty) {
+  margin:13px 0 0;
+  line-height:1.55;
+  font-size:.85rem;
+}
+.n64-public-leaderboard .n64-claim-messages span {
+  display:block;
+  padding:8px 10px;
+  border:2px solid #6981a2;
+}
+.n64-public-leaderboard .n64-claim-messages .n64-claim-error {
+  color:#7c2d23;
+  background:#ffe0d6;
+  border-color:#cb7259;
+  margin-top:5px;
+}
+.n64-public-leaderboard .n64-claim-messages .n64-claim-success {
+  color:#16573c;
+  background:#e4ffe9;
+  border-color:#77b68a;
+}
+.n64-public-leaderboard .n64-claim-booking :focus-visible {
+  outline:3px solid #3a85de;
+  outline-offset:3px;
+}
+@media(max-width:600px) {
+  .n64-public-leaderboard .n64-claim-booking {
+    padding:13px;
+    margin-bottom:24px;
+    box-shadow:4px 5px 0 #5b7da2;
+  }
+}
+
+
+/* ── PUBLIC LEADERBOARD + INLINE CUSTOMER HQ ────────────────────────────────
+   Both views share the same N64 section; the sign-in never navigates away.
+   Private names remain permission gated by the server, not these tabs.
+*/
+.n64-public-leaderboard .n64-board-tabs {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+  margin:0 auto 29px;
+  max-width:660px;
+}
+.n64-public-leaderboard .n64-board-tab {
+  appearance:none;
+  cursor:pointer;
+  min-height:54px;
+  padding:11px 9px;
+  border:3px solid #1b2e52;
+  border-radius:0;
+  background:#d9eafa;
+  color:#213554;
+  box-shadow:4px 5px 0 #52759d;
+  font:1000 .88rem/1.2 "Trebuchet MS",sans-serif;
+  text-transform:uppercase;
+  letter-spacing:.025em;
+}
+.n64-public-leaderboard .n64-board-tab--selected {
+  background:#ffe062;
+  box-shadow:4px 5px 0 #846d35;
+}
+.n64-public-leaderboard .n64-board-tab:focus-visible,
+.n64-public-leaderboard .n64-board-join-cta button:focus-visible,
+.n64-public-leaderboard .n64-board-player-button:focus-visible {
+  outline:3px solid #88f8cb;
+  outline-offset:3px;
+}
+.n64-public-leaderboard .n64-board-tab-content[hidden] {display:none !important;}
+.n64-public-leaderboard .n64-public-board-inner--hq {max-width:850px;}
+.n64-public-leaderboard .n64-board-hq-tab {text-align:left;}
+/* Customer HQ is loaded via React.lazy and its initial fallback is short.
+   Keep at least a viewport of content under the tabs during that transition,
+   otherwise mobile browsers clamp scrollTo and show Book a Clean above them. */
+.n64-public-leaderboard .n64-board-hq-tab:not([hidden]) {
+  min-height:100svh;
+  min-height:100dvh;
+}
+
+.n64-public-leaderboard .n64-board-join-cta {margin:15px auto 20px;max-width:570px;}
+.n64-public-leaderboard .n64-board-join-cta button {
+  appearance:none;
+  display:block;
+  cursor:pointer;
+  width:100%;
+  padding:13px 11px;
+  min-height:55px;
+  border:3px solid #101f3a;
+  background:#ffe062;
+  color:#20345c;
+  box-shadow:5px 5px 0 #9e7f31;
+  font:1000 1rem/1.3 "Trebuchet MS",sans-serif;
+  text-transform:uppercase;
+}
+.n64-public-leaderboard li.n64-board-empty {
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  gap:11px;
+  padding:24px 18px;
+  text-align:center;
+  background:#fff0bd;
+}
+.n64-public-leaderboard li.n64-board-empty span {
+  font-size:clamp(.9rem,3vw,1.12rem);
+  line-height:1.35;
+}
+.n64-public-leaderboard li.n64-board-empty small {
+  color:#485974;
+  max-width:520px;
+  font-size:.82rem;
+  font-weight:700;
+  line-height:1.55;
+}
+.n64-public-leaderboard .n64-board-player-button {
+  appearance:none;
+  background:transparent;
+  color:#25395c;
+  padding:0;
+  border:0;
+  font:inherit;
+  text-align:left;
+  cursor:pointer;
+  overflow-wrap:anywhere;
+  min-width:0;
+}
+.n64-public-leaderboard .n64-board-player-button:hover {text-decoration:underline;}
+.n64-public-leaderboard .n64-board-player-button strong {
+  display:inline-block;
+  min-width:29px;
+  color:#576890;
+}
+@media(max-width:600px) {
+  .n64-public-leaderboard .n64-board-tabs {gap:7px;margin-bottom:25px;}
+  .n64-public-leaderboard .n64-board-tab {
+    min-height:51px;
+    padding:10px 5px;
+    font-size:clamp(.68rem,3vw,.82rem);
+    box-shadow:3px 4px 0 #547798;
+  }
+  .n64-public-leaderboard .n64-board-join-cta button {font-size:.85rem;}
+}
+
+
+/* Owner-only full historical rankings inside the existing public section.
+   All 662 names arrive ONLY after the emailed owner session is verified
+   on the server. This does NOT change public leaderboard consent. */
+.n64-public-leaderboard .n64-rank-public[hidden],
+.n64-public-leaderboard .n64-owner-ranking[hidden] {
+  display:none!important;
+}
+.n64-public-leaderboard .n64-rank-visibility {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin:15px 0 22px;
+}
+.n64-public-leaderboard .n64-rank-visibility button {
+  appearance:none;
+  border:3px solid #b9cce1;
+  border-radius:0;
+  background:#d4e0ed;
+  box-shadow:3px 4px #3a5071;
+  color:#1d3653;
+  font:1000 .83rem/1.2 "Trebuchet MS",sans-serif;
+  cursor:pointer;
+  min-height:48px;
+  padding:11px 6px;
+  text-transform:uppercase;
+}
+.n64-public-leaderboard .n64-rank-visibility button.n64-rank-visibility--active {
+  background:#ffe273;
+  border-color:#fff5c0;
+  box-shadow:3px 4px #876b31;
+}
+.n64-public-leaderboard .n64-rank-visibility button:focus-visible,
+.n64-public-leaderboard .n64-owner-login button:focus-visible,
+.n64-public-leaderboard .n64-owner-list-footer button:focus-visible {
+  outline:3px solid #66e4b0;
+  outline-offset:3px;
+}
+.n64-public-leaderboard .n64-owner-ranking {
+  margin:0 auto;
+  text-align:left;
+  max-width:800px;
+}
+.n64-public-leaderboard .n64-owner-private-notice {
+  font-size:.9rem;
+  line-height:1.55;
+  margin:0 0 18px;
+  background:#182c40;
+  border-left:5px solid #ffe273;
+  padding:13px 15px;
+  color:#e3edf6;
+}
+.n64-public-leaderboard .n64-owner-private-notice strong {color:#ffe273;}
+.n64-public-leaderboard .n64-owner-summary {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin:18px 0 14px;
+}
+.n64-public-leaderboard .n64-owner-summary > div {
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:13px 9px;
+  background:#fff3c6;
+  border:3px solid #ffd96e;
+  box-shadow:3px 4px #233451;
+  color:#1d3552;
+}
+.n64-public-leaderboard .n64-owner-summary strong {
+  font-size:clamp(1.15rem,3vw,1.75rem);
+  line-height:1.1;
+  font-weight:1000;
+  overflow-wrap:anywhere;
+}
+.n64-public-leaderboard .n64-owner-summary span {
+  font-size:.66rem;
+  line-height:1.3;
+  letter-spacing:.025em;
+  font-weight:900;
+}
+.n64-public-leaderboard .n64-owner-source {
+  color:#dce7f5;
+  font-size:.78rem;
+  line-height:1.5;
+  text-align:left;
+  margin:0 0 18px;
+}
+.n64-public-leaderboard .n64-owner-search {
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+  margin:0 0 17px;
+  font-weight:900;
+  font-size:.73rem;
+  letter-spacing:.025em;
+  color:#fff2b3;
+}
+.n64-public-leaderboard .n64-owner-search input {
+  width:100%;
+  min-height:48px;
+  padding:10px 13px;
+  background:#fff7e1;
+  border:3px solid #24466e;
+  box-shadow:4px 4px #10243f;
+  border-radius:0;
+  color:#182a46;
+  font:700 1rem/1.3 system-ui,sans-serif;
+}
+.n64-public-leaderboard .n64-owner-ranking ol {
+  list-style:none;
+  padding:0;
+  margin:0;
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+}
+.n64-public-leaderboard .n64-owner-score-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:14px;
+  padding:13px 12px;
+  background:#ffefb4;
+  border:3px solid #fff7d5;
+  box-shadow:3px 4px #30496d;
+  color:#233b5b;
+}
+.n64-public-leaderboard .n64-owner-score-row > div {
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  min-width:0;
+}
+.n64-public-leaderboard .n64-owner-score-row > div strong {
+  font:1000 clamp(.84rem,3vw,1rem)/1.3 "Trebuchet MS",sans-serif;
+  overflow-wrap:anywhere;
+}
+.n64-public-leaderboard .n64-owner-score-row small {
+  font-size:.68rem;
+  line-height:1.25;
+  font-weight:900;
+  color:#68778b;
+}
+.n64-public-leaderboard .n64-owner-score-row .n64-owner-points {
+  font:1000 clamp(.86rem,3vw,1.07rem)/1.3 "Trebuchet MS",sans-serif;
+  color:#176d53;
+  white-space:nowrap;
+}
+.n64-public-leaderboard .n64-owner-list-footer {
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+  flex-wrap:wrap;
+  padding:15px 0;
+  color:#f6e0a4;
+  font-size:.77rem;
+  font-weight:900;
+}
+.n64-public-leaderboard .n64-owner-list-footer button,
+.n64-public-leaderboard .n64-owner-login button,
+.n64-public-leaderboard .n64-owner-login a {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:11px 13px;
+  min-height:44px;
+  background:#ffe273;
+  color:#1e3551;
+  border:3px solid #273f59;
+  box-shadow:3px 3px #0d213a;
+  border-radius:0;
+  cursor:pointer;
+  font:900 .8rem/1.25 "Trebuchet MS",sans-serif;
+  text-decoration:none;
+  text-align:center;
+}
+.n64-public-leaderboard .n64-owner-login {
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:15px;
+  padding:20px;
+  border:3px solid #ffdd77;
+  background:#243956;
+  color:#f5ebd9;
+}
+.n64-public-leaderboard .n64-owner-login p {
+  margin:0;
+  font-size:.87rem;
+  text-align:left;
+  line-height:1.5;
+}
+@media(max-width:550px) {
+  .n64-public-leaderboard .n64-rank-visibility button {font-size:.67rem;padding:10px 4px;}
+  .n64-public-leaderboard .n64-owner-summary {gap:5px;}
+  .n64-public-leaderboard .n64-owner-summary > div {padding:10px 6px;}
+  .n64-public-leaderboard .n64-owner-summary strong {font-size:clamp(1rem,4.3vw,1.4rem);}
+  .n64-public-leaderboard .n64-owner-summary span {font-size:.57rem;}
+  .n64-public-leaderboard .n64-owner-score-row {padding:10px 8px;gap:7px;}
+  .n64-public-leaderboard .n64-owner-score-row > div strong {font-size:.77rem;}
+  .n64-public-leaderboard .n64-owner-score-row small {font-size:.6rem;}
+  .n64-public-leaderboard .n64-owner-score-row .n64-owner-points {font-size:.87rem;}
+}
+
+
+/* Owner-only simulated all-permissions scoreboard; real consents remain intact. */
+.n64-public-leaderboard .n64-owner-mode-select {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin:8px 0 19px;
+}
+.n64-public-leaderboard .n64-owner-mode-select button {
+  background:#d9eafa;
+  color:#172f50;
+  border:3px solid #a7bbd5;
+  box-shadow:4px 4px #243f60;
+  font:1000 .78rem/1.3 "Trebuchet MS",sans-serif;
+  padding:12px 7px;
+  min-height:55px;
+  border-radius:0;
+  cursor:pointer;
+}
+.n64-public-leaderboard .n64-owner-mode-select button.n64-owner-mode-active {
+  background:#ffe36b;
+  border-color:#fff8c9;
+  box-shadow:4px 4px #9b7a34;
+}
+.n64-public-leaderboard .n64-owner-mode-select button:focus-visible {
+  outline:3px solid #72efb9;
+  outline-offset:3px;
+}
+.n64-public-leaderboard .n64-owner-ranking .n64-owner-simulation-label {
+  background:#1a3448;
+  border-left:5px solid #6ce2ad;
+  padding:12px 15px;
+  max-width:100%;
+  text-align:left;
+  font-size:.83rem;
+  margin:5px 0 19px;
+  line-height:1.55;
+  color:#dff5e9;
+}
+.n64-public-leaderboard .n64-owner-simulation-label strong {color:#8bf3c0;}
+/* Re-use the actual public leaderboard list appearance, not the owner
+   verification table, so this is an accurate phone-size visual test. */
+.n64-public-leaderboard .n64-owner-ranking ol.n64-simulated-scoreboard {
+  display:block;
+  gap:0;
+  margin:0 0 18px;
+  padding:10px;
+  border:5px solid #e8da93;
+  background:#fcf8e7;
+  box-shadow:8px 9px #567ba5;
+}
+.n64-public-leaderboard .n64-owner-ranking .n64-simulated-scoreboard li.n64-board-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:13px;
+  padding:14px 10px;
+  border:0;
+  border-bottom:2px solid #b8c3d1;
+  background:transparent;
+  color:#20345c;
+  box-shadow:none;
+  font-weight:900;
+  text-align:left;
+  font-size:.96rem;
+}
+.n64-public-leaderboard .n64-owner-ranking .n64-simulated-scoreboard li.n64-board-row:nth-child(1) {background:#ffe49b;}
+.n64-public-leaderboard .n64-owner-ranking .n64-simulated-scoreboard li.n64-board-row:nth-child(2) {background:#dfecfb;}
+.n64-public-leaderboard .n64-owner-ranking .n64-simulated-scoreboard li.n64-board-row:nth-child(3) {background:#ffdec4;}
+.n64-public-leaderboard .n64-owner-ranking .n64-simulated-scoreboard li.n64-board-row:last-child {border-bottom:0;}
+@media(max-width:600px) {
+  .n64-public-leaderboard .n64-owner-mode-select button {font-size:.65rem;min-height:56px;padding:9px 5px;}
+  .n64-public-leaderboard .n64-owner-ranking ol.n64-simulated-scoreboard {padding:6px;box-shadow:5px 6px #567ba5;}
+  .n64-public-leaderboard .n64-owner-ranking .n64-simulated-scoreboard li.n64-board-row {font-size:.83rem;padding:13px 7px;gap:9px;}
+}

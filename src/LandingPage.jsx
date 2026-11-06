@@ -1,28 +1,29 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import BOOKING_TERMS from "./data/bookingTerms.json";
 import { useLiveCounters } from "./data/statsPlan";
 import CoverageChecker from "./CoverageChecker.jsx";
+import N64GameBin from "./N64GameBin.jsx";
+import LevelWasher from "./components/LevelWasher.jsx";
+import { CustomerReviews, CustomerQuestions } from "./components/CustomerTrustSections.jsx";
+import BookingAddressAutocomplete, { findNiPostcode } from "./components/BookingAddressAutocomplete.jsx";
+import { createFriendlyBookingReference } from "./bookingReference.mjs";
+import { validateArcadeBookingFields, bookingFieldTarget } from "./bookingFormValidation.mjs";
 
 const TenSecondChallenge = lazy(() => import("./TenSecondChallenge.jsx"));
 const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
 
 /**
  * Ni Bin Guy — Landing Page
- * - WhatsApp + Email booking
+ * - Single Submit Booking action (automated email confirmation + preview sync)
  * - ToS gating + modal (Confirm & Agree)
  * - Google Places Autocomplete
  * - 10-Second Challenge modal
- * - WhatsApp bookings now send a ToS receipt via Netlify function
  *
  * UPDATED:
  * - Discount code field
  * - Discount validation (client-side)
  * - Discounted prices shown in dropdown
  * - Total + breakdown included in WhatsApp + Email payload/message
- *
- * UPDATED (Snow):
- * - Canvas snowfall (constant, natural)
- * - Snow accumulates at the bottom
- * - On/Off toggle + persisted in localStorage
  *
  * UPDATED (reCAPTCHA v3):
  * - Dynamically inject reCAPTCHA v3 script on this page
@@ -35,67 +36,9 @@ const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
 const PHONE_E164 = "+447555178484";
 const PHONE_DISPLAY = "07555 178484";
 
-const TERMS_VERSION = "September 2025";
-const TERMS_TITLE = "Ni Bin Guy – Terms of Service";
-const TERMS_BODY = `We keep our Terms of Service simple and transparent. By booking or receiving a bin clean from Ni Bin Guy, you agree to:
-
-1) Service & Contracts
-• Regular plans have a minimum 12-month term (unless agreed otherwise).
-• One-off cleans have no minimum term.
-• Each bin is a separate contract; adding a bin starts a new term for that bin.
-• Contracts aren’t transferable without our agreement.
-
-2) Bin Availability (8 AM rule)
-• Put bins out or make them accessible by **8 AM** on the scheduled day.
-• If your bin isn’t available and you haven’t told us **before 8 AM that day**, the clean **will still be charged**.
-• We may still charge if access is blocked, refuse wasn’t collected, there’s excessive/unsafe waste, or conditions are unsafe.
-
-3) Cleaning Process
-• Inside & outside cleaned (where safe) using pressurised water and detergent.
-• Some stains may take multiple visits or may not fully remove.
-• Loosened waste may be bagged and left in your bin for disposal.
-• Keep at least 5 m away during cleaning.
-
-4) Payments
-• Payment due within 7 days of each clean.
-• Accepted: Direct Debit, Bank Transfer, Card (no cash).
-• Cancelling a Direct Debit does **not** cancel service — give at least 48 hours’ notice to cancel.
-• Overdue accounts may incur fees and be referred to collections.
-
-5) Customer Responsibilities
-• Keep contact & payment details up to date.
-• Tell us in advance if your bin won’t be available.
-• Zero tolerance for abuse toward staff (including online).
-
-6) Other Terms
-• We may place a small sticker/service tag on your bin.
-• Discounts are discretionary; prices may change outside a fixed term.
-• After the minimum term, plans continue on a rolling 30-day basis (30 days’ notice to cancel).
-
-7) Data & Communication
-• You consent to us storing your details and contacting you about your service.
-• Text reminders are a courtesy; you’re responsible for knowing your schedule.`;
-
-// Load Google Places once
-function loadGooglePlaces(apiKey) {
-  return new Promise((resolve, reject) => {
-    if (window.google?.maps?.places) return resolve(window.google);
-    const existing = document.querySelector("script[data-gmaps]");
-    if (existing) {
-      existing.addEventListener("load", () => resolve(window.google));
-      existing.addEventListener("error", reject);
-      return;
-    }
-    const s = document.createElement("script");
-    s.dataset.gmaps = "1";
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-    s.async = true;
-    s.defer = true;
-    s.onload = () => resolve(window.google);
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
+const TERMS_VERSION = BOOKING_TERMS.version;
+const TERMS_TITLE = BOOKING_TERMS.title;
+const TERMS_BODY = BOOKING_TERMS.body;
 
 /* ────────────────────────────────────────────────────────────────────────────
    reCAPTCHA v3 (dynamic inject + token helper)
@@ -153,6 +96,53 @@ async function getRecaptchaToken(action) {
   });
 }
 
+/*
+ * Preview 1 uses a server-signed browser work challenge, rate-limited by
+ * Netlify, rather than the production-domain reCAPTCHA key. No extra customer
+ * form, name field or checkbox is needed; the live website keeps reCAPTCHA.
+ */
+const N64_BOOKING_PREVIEW_HOST = "deploy-preview-77--nibinguy.netlify.app";
+
+async function getPreviewBookingProof() {
+  if (!window.crypto?.subtle) {
+    throw new Error("Secure browser verification is unavailable");
+  }
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 8000);
+  let challenge;
+  try {
+    const response = await fetch("/.netlify/functions/previewBookingChallenge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    challenge = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(challenge?.error || "Unable to start preview verification");
+    }
+  } finally {
+    window.clearTimeout(timer);
+  }
+  if (typeof challenge.ticket !== "string" || challenge.ticket.length > 800 ||
+      challenge.difficulty !== 12) {
+    throw new Error("Invalid preview security challenge");
+  }
+
+  // A small, responsive SHA-256 work check, averaging ~4,096 attempts on
+  // Android. The API verifies the same work and accepts each ticket once.
+  const encoder = new TextEncoder();
+  for (let counter = 0; counter <= 200000; counter++) {
+    const work = encoder.encode(challenge.ticket + ":" + counter);
+    const digest = new Uint8Array(await window.crypto.subtle.digest("SHA-256", work));
+    if (digest[0] === 0 && (digest[1] & 0xf0) === 0) {
+      return { ticket: challenge.ticket, work: counter };
+    }
+  }
+  throw new Error("Preview security check took too long");
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
    Discount + Plans
    ──────────────────────────────────────────────────────────────────────────── */
@@ -165,8 +155,8 @@ const PLANS = [
   { id: "comm_lt360_4w", label: "Commercial <360L 4 Weekly", price: 5 },
   { id: "comm_lt360_oneoff", label: "Commercial <360L One-Off", price: 15 },
 
-  { id: "comm_gt660_4w", label: "Commercial >660L 4 Weekly", price: 12.5 },
-  { id: "comm_gt660_oneoff", label: "Commercial >660L One-Off", price: 35 },
+  { id: "comm_gt660_4w", label: "Commercial 660L+ 4 Weekly", price: 15 },
+  { id: "comm_gt660_oneoff", label: "Commercial 660L+ One-Off", price: 45 },
 ];
 
 // Discount rules (edit these whenever you want)
@@ -253,245 +243,6 @@ function validateCodeAgainstSelection(bins, code) {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
-   Snow (Canvas) + Toggle
-   ──────────────────────────────────────────────────────────────────────────── */
-const SNOW_STORAGE_KEY = "nbg_snow_enabled";
-
-function SnowCanvas({ enabled = true }) {
-  const canvasRef = useRef(null);
-  const rafRef = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    // Respect reduced motion
-    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-    if (reduceMotion) return;
-
-    const ctx = canvas.getContext("2d", { alpha: true });
-    let running = true;
-
-    const DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-
-    let W = 0;
-    let H = 0;
-
-    // Flakes
-    let flakes = [];
-    let targetFlakeCount = 0;
-
-    // Bank (accumulation)
-    let bank = [];
-    let bankStep = 3;
-    let maxBankRise = 150; // how high the buildup can get
-    let baseBank = 18; // starting drift height
-
-    // Wind
-    let wind = 0;
-    let windTarget = 0;
-
-    const rand = (min, max) => min + Math.random() * (max - min);
-
-    function resize() {
-      const parent = canvas.parentElement;
-      W = Math.floor(parent?.clientWidth || window.innerWidth);
-      H = Math.floor(parent?.clientHeight || window.innerHeight);
-
-      canvas.width = Math.floor(W * DPR);
-      canvas.height = Math.floor(H * DPR);
-      canvas.style.width = `${W}px`;
-      canvas.style.height = `${H}px`;
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-
-      bankStep = Math.max(2, Math.floor(W / 520));
-      const cols = Math.ceil(W / bankStep) + 3;
-      bank = new Array(cols).fill(baseBank);
-
-      const area = W * H;
-      targetFlakeCount = Math.round(Math.min(1500, Math.max(450, area / 1900)));
-      flakes = makeFlakes(targetFlakeCount);
-    }
-
-    function newFlake(spawnAnywhere = false) {
-      const r = Math.pow(Math.random(), 2) * 2.4 + 0.55; // 0.55..~3
-      const vy = 26 + r * 42 + rand(0, 28);
-      return {
-        x: rand(0, W),
-        y: spawnAnywhere ? rand(0, H) : rand(-H * 0.25, -10),
-        r,
-        vy,
-        vx: rand(-10, 10),
-        drift: rand(0.6, 1.65),
-        wobble: rand(0, Math.PI * 2),
-        wobbleSpeed: rand(0.9, 2.0),
-        alpha: Math.min(1, 0.25 + r / 2.9),
-      };
-    }
-
-    function makeFlakes(n) {
-      const arr = [];
-      for (let i = 0; i < n; i++) arr.push(newFlake(true));
-      return arr;
-    }
-
-    function bankHeightAt(x) {
-      const i = Math.max(0, Math.min(bank.length - 2, Math.floor(x / bankStep)));
-      const t = x / bankStep - i;
-      const a = bank[i] ?? baseBank;
-      const b = bank[i + 1] ?? baseBank;
-      return a + (b - a) * t;
-    }
-
-    function depositAt(x, amount) {
-      const i = Math.max(0, Math.min(bank.length - 1, Math.floor(x / bankStep)));
-      const cap = baseBank + maxBankRise;
-
-      const addTo = (idx, v) => {
-        if (idx < 0 || idx >= bank.length) return;
-        bank[idx] = Math.min(cap, bank[idx] + v);
-      };
-
-      addTo(i, amount * 0.6);
-      addTo(i - 1, amount * 0.26);
-      addTo(i + 1, amount * 0.26);
-      addTo(i - 2, amount * 0.12);
-      addTo(i + 2, amount * 0.12);
-    }
-
-    function smoothBank() {
-      const next = bank.slice();
-      for (let i = 1; i < bank.length - 1; i++) {
-        next[i] = (bank[i - 1] + bank[i] * 2 + bank[i + 1]) / 4;
-      }
-      bank = next;
-    }
-
-    function drawBank() {
-      ctx.save();
-
-      // Powdery fill
-      ctx.fillStyle = "rgba(255,255,255,0.82)";
-      ctx.shadowColor = "rgba(255,255,255,0.28)";
-      ctx.shadowBlur = 14;
-
-      ctx.beginPath();
-      ctx.moveTo(0, H);
-      for (let i = 0; i < bank.length; i++) {
-        const x = i * bankStep;
-        const y = H - bank[i];
-        ctx.lineTo(x, y);
-      }
-      ctx.lineTo(W, H);
-      ctx.closePath();
-      ctx.fill();
-
-      // Soft top edge highlight
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = "rgba(255,255,255,0.28)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let i = 0; i < bank.length; i++) {
-        const x = i * bankStep;
-        const y = H - bank[i];
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
-      ctx.restore();
-    }
-
-    let last = performance.now();
-
-    function tick(now) {
-      if (!running) return;
-      const dt = Math.min(0.033, (now - last) / 1000);
-      last = now;
-
-      ctx.clearRect(0, 0, W, H);
-
-      // Wind slowly meanders
-      windTarget += rand(-0.14, 0.14);
-      windTarget = Math.max(-22, Math.min(22, windTarget));
-      wind += (windTarget - wind) * 0.012;
-
-      // Keep density stable
-      if (flakes.length < targetFlakeCount) flakes.push(newFlake(false));
-      if (flakes.length > targetFlakeCount) flakes.pop();
-
-      // Draw flakes (behind accumulation)
-      for (let i = 0; i < flakes.length; i++) {
-        const f = flakes[i];
-
-        f.wobble += f.wobbleSpeed * dt;
-        const wob = Math.sin(f.wobble) * (0.7 + f.r * 0.7);
-
-        const vx = (f.vx + wind) * f.drift;
-        f.x += (vx + wob) * dt;
-        f.y += f.vy * dt;
-
-        // Wrap x
-        if (f.x < -30) f.x = W + 30;
-        if (f.x > W + 30) f.x = -30;
-
-        // Collision with snow bank
-        const bankH = bankHeightAt(f.x);
-        const floorY = H - bankH;
-
-        if (f.y + f.r >= floorY) {
-          // Deposit: larger flakes add slightly more
-          const deposit = Math.min(1.55, 0.4 + f.r * 0.42);
-          depositAt(f.x, deposit);
-          flakes[i] = newFlake(false);
-          continue;
-        }
-
-        // Flake draw
-        ctx.beginPath();
-        ctx.fillStyle = `rgba(255,255,255,${f.alpha})`;
-        ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Smooth & draw bank so it looks like “landing”
-      smoothBank();
-      drawBank();
-
-      rafRef.current = requestAnimationFrame(tick);
-    }
-
-    const onResize = () => resize();
-
-    resize();
-    window.addEventListener("resize", onResize);
-
-    if (enabled) {
-      cancelAnimationFrame(rafRef.current);
-      last = performance.now();
-      rafRef.current = requestAnimationFrame(tick);
-    } else {
-      cancelAnimationFrame(rafRef.current);
-      ctx.clearRect(0, 0, W, H);
-    }
-
-    return () => {
-      running = false;
-      cancelAnimationFrame(rafRef.current);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [enabled]);
-
-  if (!enabled) return null;
-
-  return (
-    <div className="pointer-events-none fixed inset-0 z-[5]" aria-hidden="true">
-      <canvas ref={canvasRef} className="absolute inset-0" />
-    </div>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────────
    Generic UI (Modal shell)
    ──────────────────────────────────────────────────────────────────────────── */
 function Modal({ open, onClose, children, maxWidth = "max-w-md", labelledBy, dark = false }) {
@@ -527,8 +278,11 @@ function TermsModal({ open, onClose, onConfirm, version, title, body }) {
 
   useEffect(() => {
     if (!open) return;
+    // Reopening the agreement must never reuse a prior scrolled-to-end state.
+    setScrolledToEnd(false);
     const el = scrollRef.current;
     if (!el) return;
+    el.scrollTop = 0;
     const onScroll = () => {
       const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 8;
       if (atEnd) setScrolledToEnd(true);
@@ -587,15 +341,29 @@ function TermsModal({ open, onClose, onConfirm, version, title, body }) {
    ──────────────────────────────────────────────────────────────────────────── */
 function createBookingSubmissionMeta() {
   const now = new Date();
-  const randomSource = globalThis.crypto?.randomUUID?.().replace(/-/g, "") || Math.random().toString(36).slice(2);
-  const randomPart = String(randomSource).replace(/[^a-z0-9]/gi, "").slice(0, 10).padEnd(8, "0").toUpperCase();
   return {
-    bookingId: `NBG-${Date.now().toString(36).toUpperCase()}-${randomPart}`,
+    bookingId: createFriendlyBookingReference(),
     submittedAt: now.toISOString(),
   };
 }
 
-const DEFAULT_BIN = { type: "", count: 1, planId: "domestic_4w" };
+const DEFAULT_BIN = { type: "", count: 1, planId: "domestic_4w", sizeLitres: null };
+
+function isLargeCommercialPlan(planId) {
+  return planId === "comm_gt660_4w" || planId === "comm_gt660_oneoff";
+}
+function hasRequiredBinSize(bin) {
+  return !isLargeCommercialPlan(bin?.planId) ||
+    bin.sizeLitres === 660 || bin.sizeLitres === 1100;
+}
+
+function normaliseBookingContactNumber(input) {
+  const compact = String(input || "").trim().replace(/[\s().-]/g, "");
+  if (/^0[1-9]\d{9}$/.test(compact)) return compact;
+  if (/^\+44[1-9]\d{9}$/.test(compact)) return "0" + compact.slice(3);
+  if (/^0044[1-9]\d{9}$/.test(compact)) return "0" + compact.slice(4);
+  return null;
+}
 
 function BookingForm({ onClose, initialAddress = "" }) {
   const [bins, setBins] = useState([DEFAULT_BIN]);
@@ -604,52 +372,61 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [placeId, setPlaceId] = useState(null);
+  const [manualPostcode, setManualPostcode] = useState("");
 
   // Discount state
   const [discountCode, setDiscountCode] = useState("");
   const [discountStatus, setDiscountStatus] = useState({ state: "empty", message: "" });
 
-  const addressInputRef = useRef(null);
   const selectedPlaceRef = useRef(null);
 
   // Terms gating state
   const [showTerms, setShowTerms] = useState(false);
-  const [termsViewed, setTermsViewed] = useState(false);
+  const [termsConfirmed, setTermsConfirmed] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
-  const [whatsAppBookingStatus, setWhatsAppBookingStatus] = useState("idle");
-  const [whatsAppConfirmation, setWhatsAppConfirmation] = useState(null);
-  const [whatsAppBookingId, setWhatsAppBookingId] = useState("");
+  // Lock immediately on the first tap, before schedule/CAPTCHA/email awaits.
+  // Keep the same random booking reference for this attempt to avoid duplicates.
+  const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);
+  const [emailSendingStage, setEmailSendingStage] = useState("checking");
+  const [emailBookingError, setEmailBookingError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [emailBookingUncertain, setEmailBookingUncertain] = useState(false);
+  const emailSubmissionInFlightRef = useRef(false);
+  const emailSubmissionRef = useRef(null);
+  const [bookingStatus, setBookingStatus] = useState("idle");
+  const [bookingConfirmation, setBookingConfirmation] = useState(null);
+  const [referenceCopied, setReferenceCopied] = useState("idle");
+  // Preview 1: leaderboard disclosure will move into the Terms of Service.
+  // Do not add a second form or leaderboard checkbox to booking.
+  const arcadeOptOut = false;
 
 
-  const canToggleAgree = termsViewed;
-
-  // Attach Google Places autocomplete when modal opens
-  useEffect(() => {
-    const key = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY;
-    if (!key || !addressInputRef.current) return;
-
-    let cleanup = () => {};
-
-    loadGooglePlaces(key)
-      .then((google) => {
-        const ac = new google.maps.places.Autocomplete(addressInputRef.current, {
-          componentRestrictions: { country: ["gb"] },
-          fields: ["place_id", "formatted_address", "address_components", "name", "geometry"],
-          types: ["address"],
-        });
-        const listener = ac.addListener("place_changed", () => {
-          const place = ac.getPlace();
-          selectedPlaceRef.current = place;
-          setPlaceId(place.place_id || null);
-          const formatted = place.formatted_address || place.name || "";
-          setAddress(formatted);
-        });
-        cleanup = () => listener.remove();
-      })
-      .catch((e) => console.warn("Places failed to load (booking):", e));
-
-    return () => cleanup();
-  }, []);
+  const canToggleAgree = termsConfirmed;
+  const addSelectedPostcode = () => {
+    const postcode=findNiPostcode(manualPostcode);
+    if (!postcode) return;
+    setAddress(current => {
+      const base=String(current||"").trim()
+        .replace(/,\s*(?:UK|United Kingdom)\s*$/i,"")
+        .replace(/,\s*$/,"");
+      return base ? base+", "+postcode : postcode;
+    });
+    setManualPostcode("");
+    setPlaceId(null); // Street-only Google location isn't a verified house.
+    selectedPlaceRef.current=null;
+    clearFieldError("address");
+  };
+  const clearFieldError = (key) => setFieldErrors((current) => {
+    if (!current[key]) return current;
+    const copy = { ...current };
+    delete copy[key];
+    return copy;
+  });
+  const renderFieldError = (key) => fieldErrors[key] ? (
+    <p id={"booking-error-" + key} className="mt-1 text-sm font-bold text-red-800" role="alert">
+      {fieldErrors[key]}
+    </p>
+  ) : null;
 
   // Re-validate discount whenever selection changes
   useEffect(() => {
@@ -659,82 +436,36 @@ function BookingForm({ onClose, initialAddress = "" }) {
   useEffect(() => {
     const panel = document.querySelector("[data-auto-schedule-panel]");
     if (!panel) return;
-    panel.style.display = whatsAppBookingStatus === "idle" ? "" : "none";
+    panel.style.display = bookingStatus === "idle" ? "" : "none";
     return () => {
       panel.style.display = "";
     };
-  }, [whatsAppBookingStatus]);
+  }, [bookingStatus]);
 
-  useEffect(() => {
-    if (!whatsAppBookingId || whatsAppBookingStatus !== "sending") return;
 
-    let cancelled = false;
-    let attempts = 0;
-    let timer = null;
+  const missingFields = useMemo(() => !name || !email || !address || !phone ||
+    bins.some((b) => !b.type || !hasRequiredBinSize(b)), [name, email, address, phone, bins]);
 
-    const checkStatus = async () => {
-      if (cancelled) return;
-      attempts += 1;
-      try {
-        const response = await fetch(`/.netlify/functions/bookingStatus?bookingId=${encodeURIComponent(whatsAppBookingId)}`, {
-          cache: "no-store",
-        });
-        const result = await response.json().catch(() => ({}));
-
-        if (response.ok && result?.status === "confirmed") {
-          setWhatsAppConfirmation(result);
-          setWhatsAppBookingStatus("confirmed");
-          return;
-        }
-
-        if (response.ok && result?.status === "error") {
-          setWhatsAppConfirmation(result);
-          setWhatsAppBookingStatus("error");
-          return;
-        }
-      } catch (error) {
-        console.warn("Booking status check failed:", error);
-      }
-
-      if (!cancelled && attempts < 12) {
-        timer = window.setTimeout(checkStatus, 1500);
-      }
-    };
-
-    const onReturn = () => {
-      if (document.visibilityState === "visible") {
-        attempts = 0;
-        window.clearTimeout(timer);
-        checkStatus();
-      }
-    };
-
-    document.addEventListener("visibilitychange", onReturn);
-    window.addEventListener("focus", onReturn);
-    timer = window.setTimeout(checkStatus, 1200);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onReturn);
-      window.removeEventListener("focus", onReturn);
-    };
-  }, [whatsAppBookingId, whatsAppBookingStatus]);
-
-  const missingFields = useMemo(() => !name || !email || !address || !phone || bins.some((b) => !b.type), [name, email, address, phone, bins]);
-
-  const TOS_PREFIX = useMemo(() => `I confirm I’ve read and agree to the Ni Bin Guy Terms of Service (v${TERMS_VERSION})`, []);
+  const TOS_PREFIX = useMemo(() => `I confirm I’ve read and agree to the Ni Bin Guy Terms of Service (v${TERMS_VERSION}), including the optional leaderboard acknowledgement`, []);
 
   const addBinRow = () => setBins((prev) => [...prev, { ...DEFAULT_BIN }]);
   const removeLastBin = () => setBins((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
 
   const handleBinChange = (index, field, value) => {
+    clearFieldError("binType" + index);
+    clearFieldError("binCount" + index);
+    clearFieldError("binSize" + index);
     setBins((prev) => {
       const next = [...prev];
-      next[index] = {
+      const updated = {
         ...next[index],
-        [field]: field === "count" ? parseInt(value || 0, 10) : value,
+        [field]: field === "count" ? parseInt(value || 0, 10) :
+          field === "sizeLitres" ? (value ? Number(value) : null) : value,
       };
+      if (field === "planId" && !isLargeCommercialPlan(value)) {
+        updated.sizeLitres = null;
+      }
+      next[index] = updated;
       return next;
     });
   };
@@ -747,7 +478,8 @@ function BookingForm({ onClose, initialAddress = "" }) {
       .map((b, idx) => {
         const plan = getPlanById(b.planId);
         const baseUnit = plan?.price ?? 0;
-        const planLabel = plan?.label ?? "Unknown";
+        const planLabel = (plan?.label ?? "Unknown") +
+          (isLargeCommercialPlan(b.planId) && b.sizeLitres ? ` — ${b.sizeLitres}L` : "");
         const { unitPrice, discounted } = computeDiscountedUnitPrice(baseUnit, b.planId, discountCode);
 
         const qty = Math.max(1, Number(b.count) || 1);
@@ -758,6 +490,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
           type: b.type,
           count: qty,
           planId: b.planId,
+          sizeLitres: isLargeCommercialPlan(b.planId) ? b.sizeLitres : null,
           planLabel,
           baseUnit,
           unitPrice,
@@ -805,210 +538,200 @@ function BookingForm({ onClose, initialAddress = "" }) {
     };
   }, [bins, discountCode]);
 
-  const buildBinDetails = () => {
-    return pricing.lines
-      .map((l) => {
-        const typeName = l.type.replace(" Bin", "");
-        const unitText = `£${money(l.unitPrice)}`;
-        const planText = `${l.planLabel} (${unitText})`;
-        return `${l.count}x ${typeName} — ${planText} = £${money(l.lineTotal)}`;
-      })
-      .join("%0A");
-  };
+  const handleSubmitBooking = async () => {
+    // A React state update is not synchronous; the ref blocks a second tap
+    // even before the disabled button has had time to render.
+    if (emailSubmissionInFlightRef.current || emailBookingUncertain ||
+        bookingStatus !== "idle") return;
 
-  const buildPricingSummary = () => {
-    const code = normalizeCode(discountCode);
-    const codeLine =
-      code && discountStatus.state === "valid" ? `Discount Code: ${code} (applied)` : code ? `Discount Code: ${code} (not applied)` : `Discount Code: None`;
-
-    return `${codeLine}%0A` + `Subtotal: £${money(pricing.subtotal)}%0A` + `Total: £${money(pricing.total)}`;
-  };
-
-  const handleSendWhatsApp = async () => {
-    if (missingFields) {
-      alert("Please complete all fields before sending.");
+    const validContactNumber=normaliseBookingContactNumber(phone);
+    const errors=validateArcadeBookingFields({
+      name,email,phone,address,bins,
+      hasNiPostcode:Boolean(findNiPostcode(address)),
+      validPhone:Boolean(validContactNumber),
+      discountCode,discountValid:discountStatus.state==="valid",
+      termsConfirmed,agreeToTerms,
+    });
+    if (Object.keys(errors).length) {
+      setFieldErrors(errors);
+      const target=bookingFieldTarget(Object.keys(errors)[0]);
+      window.requestAnimationFrame(() => {
+        const field=document.getElementById(target);
+        field?.focus?.();
+        field?.scrollIntoView?.({ behavior:"smooth",block:"center" });
+      });
       return;
     }
-    if (!agreeToTerms) {
-      alert("Please view and agree to the Terms of Service before booking.");
+    setFieldErrors({});
+
+    // Preserve one reference for this booking. If the request reaches Netlify
+    // twice, the server's replay guard rejects the second delivery.
+    let emailSubmissionMeta;
+    try {
+      emailSubmissionMeta = emailSubmissionRef.current || createBookingSubmissionMeta();
+    } catch {
+      setEmailBookingError(
+        "Couldn't create a secure booking reference. Please refresh and try again."
+      );
       return;
     }
-    if (normalizeCode(discountCode) && discountStatus.state !== "valid") {
-      alert("That discount code isn’t valid for your selected clean(s).");
-      return;
-    }
-
-    const submissionMeta = createBookingSubmissionMeta();
-    setWhatsAppBookingStatus("sending");
-    setWhatsAppConfirmation(null);
-    setWhatsAppBookingId(submissionMeta.bookingId);
-
-    const payload = {
-      ...submissionMeta,
-      source: "whatsapp",
-      name,
-      email,
-      phone,
-      address,
-      bins,
-      discountCode: normalizeCode(discountCode) || null,
-      pricing,
-      termsAccepted: true,
-      termsVersion: TERMS_VERSION,
-      termsAcceptanceText: TOS_PREFIX,
-      termsTimestamp: new Date().toISOString(),
-    };
-
-    // Hand the request to the browser without waiting for the response. Chrome
-    // may suspend this tab while WhatsApp is open, so confirmation is checked
-    // separately from the server when the customer returns.
-    const backgroundUrl = "/.netlify/functions/sendTosReceipt";
-    const backgroundBody = JSON.stringify(payload);
-    let queued = false;
+    emailSubmissionInFlightRef.current = true;
+    emailSubmissionRef.current = emailSubmissionMeta;
+    setIsEmailSubmitting(true);
+    setEmailSendingStage("checking");
+    setEmailBookingError("");
+    let safeToRetry = false;
+    let requestTimer = null;
 
     try {
-      if (navigator.sendBeacon) {
-        const blob = new Blob([backgroundBody], { type: "application/json" });
-        queued = navigator.sendBeacon(backgroundUrl, blob);
-      }
-    } catch (_) {}
+      // Begin the preview security proof while the independent council
+      // calendar is still loading. Both complete before any booking POST.
+      // Catch promptly so an early security failure never becomes unhandled.
+      const recaptchaAction = "booking_submit";
+      const previewHost = window.location.hostname === N64_BOOKING_PREVIEW_HOST;
+      const securityWork = (previewHost
+        ? getPreviewBookingProof().then(previewProof => ({ previewProof }))
+        : getRecaptchaToken(recaptchaAction).then(recaptchaToken => ({ recaptchaToken }))
+      ).then(value => ({ value }), error => ({ error }));
 
-    if (!queued) {
-      fetch(backgroundUrl, {
+      // The booking schedule is informative and must not leave a customer
+      // staring at an unresponsive Send button if its lookup hangs.
+      if (typeof window.nbgEnsureBookingSchedule === "function") {
+        try {
+          // Preview 1 must allow the slow council calendar to finish.
+          // Production retains the existing short non-blocking deadline.
+          const previewScheduleWait=window.location.hostname===N64_BOOKING_PREVIEW_HOST
+            ? 22000 : 5500;
+          await Promise.race([
+            Promise.resolve().then(() => window.nbgEnsureBookingSchedule()),
+            new Promise((resolve) => window.setTimeout(resolve, previewScheduleWait)),
+          ]);
+        } catch (_) {
+          console.warn("Booking schedule unavailable; date will be confirmed separately.");
+        }
+      }
+
+      setEmailSendingStage("verifying");
+      const verified = await securityWork;
+      if (verified.error) throw verified.error;
+      const previewProof = verified.value.previewProof || null;
+      const recaptchaToken = verified.value.recaptchaToken || null;
+      if (!previewHost && !recaptchaToken) throw new Error("security_not_ready");
+
+      const loc = selectedPlaceRef.current?.geometry?.location;
+      const lat = loc ? loc.lat() : null;
+      const lng = loc ? loc.lng() : null;
+
+      setEmailSendingStage("sending");
+      const requestController = new AbortController();
+      requestTimer = window.setTimeout(() => requestController.abort(), 45000);
+      // The existing confirmation endpoint sends customer/owner emails and
+      // securely dispatches the accepted booking to Preview 1 Squeegee sync.
+      // Customers need only tap Submit Booking; never trigger a second POST.
+      const emailBookingPayload = {
+          ...emailSubmissionMeta,
+          name,
+          email,
+          phone: validContactNumber,
+          address,
+          bins,
+          // Client-side snapshot only; future job creation must verify it.
+          bookingScheduleSnapshot: window.nbgGetBookingScheduleSnapshot?.() || null,
+          arcadeClaimed: window.n64Score?.activityKeys?.() || [],
+          arcadeOptOut,
+          placeId,
+          lat,
+          lng,
+          discountCode: normalizeCode(discountCode) || null,
+          pricing,
+          termsAccepted: true,
+          termsVersion: TERMS_VERSION,
+          termsAcceptanceText: TOS_PREFIX,
+          recaptchaToken,
+          previewProof,
+          recaptchaAction,
+      };
+      const res = await fetch("/.netlify/functions/sendBookingEmail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: backgroundBody,
-        keepalive: true,
-      }).catch((error) => console.error("WhatsApp booking request failed to queue:", error));
+        signal: requestController.signal,
+        body: JSON.stringify(emailBookingPayload),
+      });
+
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // These failures are rejected before any email send, so it's safe
+        // to create a new security ticket and let the visitor try again.
+        safeToRetry = [400, 401, 403, 422, 424, 428, 429].includes(res.status) ||
+          (res.status === 503 && result?.reason === "booking_guard_not_ready" && result?.safeToRetry === true);
+        if (res.status === 424) emailSubmissionRef.current = null;
+        const message = res.status === 503 && result?.reason === "booking_guard_not_ready"
+          ? "Booking security is temporarily unavailable. Nothing was submitted; please try again shortly."
+          : res.status === 503 && result?.reason === "booking_reservation_uncertain"
+          ? "Your booking may already be recorded. Do not book again; contact NI Bin Guy with your booking reference."
+          : res.status === 424
+          ? "The Terms PDF could not be prepared. Nothing was submitted; please try again."
+          : res.status === 428
+            ? "Our Terms of Service have been updated. Refresh the page, review them and try again."
+          : res.status === 403
+          ? "The booking security check was not accepted. Nothing was sent; please try again."
+          : res.status === 429
+            ? "Too many booking attempts. Please leave a little time before trying again."
+            : res.status === 409
+              ? "This booking reference was already submitted. Check your confirmation email before trying again."
+              : safeToRetry
+                ? "Your booking wasn't submitted. Please check the details and try again."
+                : "We couldn't confirm the booking. Please check your email before trying again, to avoid a duplicate.";
+        setEmailBookingError(message);
+        if (!safeToRetry) setEmailBookingUncertain(true);
+        return;
+      }
+
+      // One accepted booking ID earns leaderboard points once. The server
+      // manages Squeegee delivery independently; do not call the retired
+      // supervised one-booking endpoint from the customer-facing form.
+      try {
+        window.n64Score?.awardBooking(emailSubmissionMeta.bookingId, bins);
+        window.n64Score?.onBookingConfirmed(result, arcadeOptOut, emailSubmissionMeta.bookingId);
+      } catch (scoreError) {
+        console.warn("Arcade score sync deferred; booking succeeded:", scoreError);
+      }
+      setBookingConfirmation({
+        ...result,
+        bookingId: result.bookingId || emailSubmissionMeta.bookingId,
+        source: "website",
+        schedule: null,
+      });
+      setBookingStatus("confirmed");
+      // Intentionally keep the submission ref locked after a successful send.
+    } catch (error) {
+      console.warn("Booking email request was not completed:", error?.name || "unknown");
+      if (error?.message === "security_not_ready" ||
+          /preview security|security challenge|security check|security verification/i.test(error?.message || "")) {
+        safeToRetry = true;
+        setEmailBookingError("The security check could not be completed. No email was sent; please try again.");
+      } else {
+        setEmailBookingUncertain(true);
+        setEmailBookingError(
+          "We couldn't confirm whether the email was sent. Check your inbox before booking again, or contact NI Bin Guy."
+        );
+      }
+    } finally {
+      if (requestTimer) window.clearTimeout(requestTimer);
+      setIsEmailSubmitting(false);
+      if (safeToRetry) emailSubmissionInFlightRef.current = false;
     }
-
-    const schedulePanel = document.querySelector("[data-auto-schedule-panel]");
-    const scheduleLines = Array.from(schedulePanel?.querySelectorAll(".mt-1") || [])
-      .map((node) => String(node.textContent || "").trim())
-      .filter(Boolean);
-    const scheduleSummary = scheduleLines.length
-      ? scheduleLines.join("\n")
-      : "Clean date: To be confirmed";
-
-    const messageText = [
-      "✅ BOOKING CONFIRMED",
-      "",
-      `Hi, my name is ${name}. I'd like to book the following bin clean:`,
-      "",
-      buildBinDetails().replace(/%0A/g, "\n"),
-      "",
-      "NEXT CLEAN DATE",
-      scheduleSummary,
-      "",
-      buildPricingSummary().replace(/%0A/g, "\n"),
-      "",
-      `Address: ${address}`,
-      `Email: ${email}`,
-      `Phone: ${phone}`,
-      "",
-      TOS_PREFIX,
-    ].join("\n");
-
-    const encodedText = encodeURIComponent(messageText);
-    const phoneDigits = String(PHONE_E164).replace(/\D/g, "");
-    const fallbackUrl = `https://wa.me/${phoneDigits}?text=${encodedText}`;
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-    const launchUrl = isAndroid
-      ? `intent://send?phone=${phoneDigits}&text=${encodedText}#Intent;scheme=whatsapp;package=com.whatsapp;S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`
-      : isIOS
-        ? `whatsapp://send?phone=${phoneDigits}&text=${encodedText}`
-        : fallbackUrl;
-
-    // Open WhatsApp in a separate browsing context so the booking form stays
-    // exactly where it is in the original tab. Because this happens directly
-    // inside the customer's tap, Chrome treats it as a user-initiated launch.
-    const whatsappLink = document.createElement("a");
-    whatsappLink.href = launchUrl;
-    whatsappLink.target = "_blank";
-    whatsappLink.rel = "noopener noreferrer";
-    whatsappLink.style.display = "none";
-    document.body.appendChild(whatsappLink);
-    whatsappLink.click();
-    whatsappLink.remove();
   };
 
-  const handleSendEmail = async () => {
-    if (missingFields) {
-      alert("Please complete all fields before sending.");
-      return;
-    }
-    if (!agreeToTerms) {
-      alert("Please view and agree to the Terms of Service before booking.");
-      return;
-    }
-    if (normalizeCode(discountCode) && discountStatus.state !== "valid") {
-      alert("That discount code isn’t valid for your selected clean(s).");
-      return;
-    }
+  const bookingSendingText = emailSendingStage === "sending"
+    ? "Submitting your booking…"
+    : emailSendingStage === "verifying"
+      ? "Verifying your booking…"
+      : "Preparing your booking…";
 
-    if (typeof window.nbgEnsureBookingSchedule === "function") {
-      await window.nbgEnsureBookingSchedule();
-    }
-
-    // ✅ reCAPTCHA token (v3)
-    const recaptchaAction = "booking_submit";
-    const recaptchaToken = await getRecaptchaToken(recaptchaAction);
-    if (!recaptchaToken) {
-      alert("Anti-bot check not ready. Please try again in a moment.");
-      return;
-    }
-
-    const loc = selectedPlaceRef.current?.geometry?.location;
-    const lat = loc ? loc.lat() : null;
-    const lng = loc ? loc.lng() : null;
-
-   try {
-  // 1) Send your original booking email first
-  const res = await fetch("/.netlify/functions/sendBookingEmail", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name,
-      email,
-      phone,
-      address,
-      bins,
-      placeId,
-      lat,
-      lng,
-      discountCode: normalizeCode(discountCode) || null,
-      pricing,
-      termsAccepted: true,
-      termsVersion: TERMS_VERSION,
-      termsAcceptanceText: TOS_PREFIX,
-      recaptchaToken,
-      recaptchaAction,
-    }),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    console.error("Email failed:", errorText);
-    alert("Failed to send booking email: " + errorText);
-    return;
-  }
-
-  // Booking database/Squeegee save removed by request.
-  // The form now only sends the booking email.
-
-  alert("Booking received! We’ll prepare your quote.");
-  onClose?.();
-} catch (err) {
-  console.error(err);
-  alert("Error sending booking.");
-}
-  };
-
-  if (whatsAppBookingStatus === "confirmed") {
-    const scheduleResults = Array.isArray(whatsAppConfirmation?.schedule?.results)
-      ? whatsAppConfirmation.schedule.results
+  if (bookingStatus === "confirmed") {
+    const scheduleResults = Array.isArray(bookingConfirmation?.schedule?.results)
+      ? bookingConfirmation.schedule.results
       : [];
 
     const cleanDateRows = scheduleResults
@@ -1036,11 +759,64 @@ function BookingForm({ onClose, initialAddress = "" }) {
         </div>
 
         <div>
-          <h2 className="text-2xl font-extrabold text-gray-900">Booking confirmed</h2>
+          <h2 className="text-2xl font-extrabold text-gray-900">
+            {bookingConfirmation?.squeegeePilot ? "Booking received" : "Booking confirmed"}
+          </h2>
           <p className="mt-2 text-gray-600">
-            Your booking has been received and the confirmation has been emailed to <strong>{email}</strong>.
+            {bookingConfirmation?.customerConfirmationSent === false ? (
+              <>Your booking has been received, but the confirmation email could not be delivered to <strong>{email}</strong>. Please contact us so we can resend it.</>
+            ) : (
+              <>Your booking has been received and the confirmation has been emailed to <strong>{email}</strong>.</>
+            )}
           </p>
+          {bookingConfirmation?.bookingId && (
+            <div className="mt-4 border-2 border-[#20345c] bg-[#fff4c2] p-4">
+              <p className="text-xs font-black uppercase tracking-wider text-[#20345c]">
+                Booking reference:
+              </p>
+              <p className="mt-2 break-all font-mono text-lg font-black tracking-wide text-[#20345c]">
+                {bookingConfirmation.bookingId}
+              </p>
+              <button
+                type="button"
+                aria-label="Copy booking reference"
+                className="mt-3 w-full border-2 border-[#20345c] bg-[#20345c] px-3 py-2 text-sm font-extrabold text-white"
+                onClick={async () => {
+                  try {
+                    await window.navigator.clipboard.writeText(bookingConfirmation.bookingId);
+                    setReferenceCopied("copied");
+                  } catch {
+                    setReferenceCopied("unavailable");
+                  }
+                }}
+              >
+                {referenceCopied === "copied" ? "Copied ✓" : "Copy reference"}
+              </button>
+              {referenceCopied === "unavailable" && (
+                <p className="mt-2 text-xs text-[#20345c]">
+                  Long-press the reference above to copy it.
+                </p>
+              )}
+            </div>
+          )}
         </div>
+
+        {bookingConfirmation?.squeegeePilot && (
+          <div role="status" className="border-2 border-[#20345c] bg-[#fff4c2] p-4 text-left text-sm text-[#101827]">
+            <p className="font-black">Preview 1 Squeegee test handoff</p>
+            {bookingConfirmation.squeegeePilot.queued === true ? (
+              <p className="mt-1">
+                Accepted for Squeegee validation. This does not yet confirm a customer or job was created. We will verify it in Squeegee.
+              </p>
+            ) : (
+              <p className="mt-1">
+                Your booking email was accepted, but Squeegee syncing was not confirmed
+                ({bookingConfirmation.squeegeePilot.reason || "unknown"}).
+                Do not submit another booking; we will check the existing reference.
+              </p>
+            )}
+          </div>
+        )}
 
         {cleanDateRows.length > 0 ? (
           <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-left">
@@ -1060,35 +836,29 @@ function BookingForm({ onClose, initialAddress = "" }) {
           </div>
         )}
 
-        <button onClick={onClose} className="w-full rounded-lg bg-neutral-900 px-5 py-3 font-bold text-white hover:bg-neutral-800">
+        <button onClick={onClose} className="w-full rounded-none bg-neutral-900 px-5 py-3 font-bold text-white hover:bg-neutral-800">
           Done
         </button>
       </div>
     );
   }
 
-  if (whatsAppBookingStatus === "error") {
-    return (
-      <div className="p-7 text-center space-y-5">
-        <button onClick={onClose} className="absolute top-3 right-4 text-gray-500 hover:text-red-500 text-2xl z-10" aria-label="Close booking">
-          &times;
-        </button>
-        <div className="mx-auto w-16 h-16 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-3xl font-black">!</div>
-        <div>
-          <h2 className="text-2xl font-extrabold text-gray-900">WhatsApp opened</h2>
-          <p className="mt-2 text-gray-600">
-            We couldn't complete the confirmation emails for this booking. Please contact us on WhatsApp and we'll check it for you.
-          </p>
-        </div>
-        <button onClick={onClose} className="w-full rounded-lg bg-neutral-900 px-5 py-3 font-bold text-white hover:bg-neutral-800">
-          Close
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4" aria-busy={isEmailSubmitting}>
+      {isEmailSubmitting && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0d1932]/80 p-4"
+          role="status" aria-live="polite" aria-label={bookingSendingText}
+        >
+          <div className="w-full max-w-sm border-4 border-[#20345c] bg-[#fff8df] px-5 py-7 text-center text-[#20345c] shadow-[7px_8px_0_#6e8ea9]">
+            <span className="mx-auto mb-5 block h-14 w-14 animate-spin rounded-full border-[7px] border-[#20345c] border-t-[#ffda43]" aria-hidden="true" />
+            <strong className="block text-xl font-black">{bookingSendingText}</strong>
+            <p className="mt-3 text-sm font-semibold leading-relaxed">
+              Please keep this page open. Your booking is being processed and only needs to be submitted once.
+            </p>
+          </div>
+        </div>
+      )}
       <button onClick={onClose} className="absolute top-3 right-4 text-gray-500 hover:text-red-500 text-2xl z-10" aria-label="Close booking">
         &times;
       </button>
@@ -1097,13 +867,27 @@ function BookingForm({ onClose, initialAddress = "" }) {
         Book a Bin Clean
       </h2>
 
-      <input type="text" placeholder="Your Name" value={name} onChange={(e) => setName(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2" />
+      {Object.keys(fieldErrors).length > 0 && (
+        <div id="booking-form-error-summary" className="border-2 border-red-800 bg-red-50 p-3 text-sm font-bold text-red-900" role="alert">
+          Please check the highlighted booking details below. Your entries have been kept.
+        </div>
+      )}
+      <label htmlFor="booking-customer-name" className="sr-only">Your name</label>
+      <input id="booking-customer-name" type="text" placeholder="Your Name" autoComplete="name"
+        value={name} onChange={(e) => { setName(e.target.value); clearFieldError("name"); }}
+        aria-invalid={Boolean(fieldErrors.name)}
+        aria-describedby={fieldErrors.name ? "booking-error-name" : undefined}
+        className="w-full border border-gray-500 rounded-none px-4 py-2" />
+      {renderFieldError("name")}
 
       {bins.map((bin, index) => {
         return (
           <div key={index} className="space-y-2 border-b border-gray-200 pb-4 mb-4">
             <div className="flex gap-4">
-              <select value={bin.type} onChange={(e) => handleBinChange(index, "type", e.target.value)} className="w-2/3 border border-gray-500 rounded-lg px-4 py-2">
+              <select id={`booking-bin-type-${index}`} aria-label={`Bin colour ${index+1}`}
+                aria-invalid={Boolean(fieldErrors["binType"+index])}
+                value={bin.type} onChange={(e) => handleBinChange(index, "type", e.target.value)}
+                className="w-2/3 border border-gray-500 rounded-none px-4 py-2">
                 <option value="">Select Bin</option>
                 <option value="Black Bin">Black</option>
                 <option value="Brown Bin">Brown</option>
@@ -1111,8 +895,14 @@ function BookingForm({ onClose, initialAddress = "" }) {
                 <option value="Blue Bin">Blue</option>
               </select>
 
-              <input type="number" min="1" value={bin.count} onChange={(e) => handleBinChange(index, "count", e.target.value)} className="w-1/3 border border-gray-500 rounded-lg px-4 py-2" />
+              <input id={`booking-bin-count-${index}`} type="number" min="1" max="200"
+                aria-label={`Quantity for bin ${index+1}`}
+                aria-invalid={Boolean(fieldErrors["binCount"+index])}
+                value={bin.count} onChange={(e) => handleBinChange(index, "count", e.target.value)}
+                className="w-1/3 border border-gray-500 rounded-none px-4 py-2" />
             </div>
+            {renderFieldError("binType"+index)}
+            {renderFieldError("binCount"+index)}
 
             <select value={bin.planId} onChange={(e) => handleBinChange(index, "planId", e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2">
               {PLANS.map((p) => {
@@ -1125,6 +915,30 @@ function BookingForm({ onClose, initialAddress = "" }) {
                 );
               })}
             </select>
+            {isLargeCommercialPlan(bin.planId) && (
+              <div className="space-y-1">
+                <label htmlFor={`large-bin-size-${index}`} className="block text-sm font-bold text-gray-800">
+                  Commercial bin size (required)
+                </label>
+                <select
+                  id={`large-bin-size-${index}`}
+                  value={bin.sizeLitres ?? ""}
+                  onChange={(e) => handleBinChange(index, "sizeLitres", e.target.value)}
+                  required
+                  aria-required="true"
+                  aria-invalid={Boolean(fieldErrors["binSize"+index])}
+                  className="w-full border border-gray-500 rounded-none px-4 py-2"
+                >
+                  <option value="">Select your bin size</option>
+                  <option value="660">660 litres (660L)</option>
+                  <option value="1100">1100 litres (1100L)</option>
+                </select>
+                {renderFieldError("binSize"+index)}
+                <p className="text-xs text-gray-600">
+                  Choose the bin capacity so we book the correct cleaning service.
+                </p>
+              </div>
+            )}
           </div>
         );
       })}
@@ -1142,7 +956,10 @@ function BookingForm({ onClose, initialAddress = "" }) {
 
       <div className="mt-2">
         <label className="block text-sm font-semibold text-gray-700 mb-1">Discount Code (optional)</label>
-        <input type="text" placeholder="Enter code" value={discountCode} onChange={(e) => setDiscountCode(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2" />
+        <input id="booking-discount-code" type="text" placeholder="Enter code"
+          value={discountCode} onChange={(e) => { setDiscountCode(e.target.value); clearFieldError("discount"); }}
+          aria-invalid={Boolean(fieldErrors.discount)} className="w-full border border-gray-500 rounded-none px-4 py-2" />
+        {renderFieldError("discount")}
 
         {discountStatus.state === "valid" && <p className="text-sm mt-2 text-green-700 font-semibold">{discountStatus.message}</p>}
         {discountStatus.state === "invalid" && <p className="text-sm mt-2 text-red-600 font-semibold">{discountStatus.message}</p>}
@@ -1176,35 +993,72 @@ function BookingForm({ onClose, initialAddress = "" }) {
         </div>
       </div>
 
-      <input
-        ref={addressInputRef}
-        type="text"
-        placeholder="Full Address"
+      <BookingAddressAutocomplete
+        invalid={Boolean(fieldErrors.address)}
         value={address}
-        onChange={(e) => {
-          setAddress(e.target.value);
+        onChange={(nextAddress) => {
+          setAddress(nextAddress);
+          clearFieldError("address");
           setPlaceId(null);
           selectedPlaceRef.current = null;
         }}
-        className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-4"
-        autoComplete="off"
-        inputMode="text"
+        onPlace={(place) => {
+          selectedPlaceRef.current = place;
+          setPlaceId(place?.place_id || null);
+          setAddress(place?.formatted_address || place?.name || "");
+          clearFieldError("address");
+        }}
       />
-      <p className="text-xs text-gray-500 -mt-2">Tip: pick from suggestions or just type your full address.</p>
+      {renderFieldError("address")}
+      <p className="text-xs text-gray-500 -mt-2">Select an address to fill its postcode automatically, or enter your full address and BT postcode manually.</p>
+      {address.trim() && !findNiPostcode(address) && (
+        <div className="border-2 border-amber-700 bg-amber-50 p-3 space-y-2">
+          <label htmlFor="booking-postcode-helper" className="block text-sm font-bold text-amber-950">
+            Add your BT postcode
+          </label>
+          <p className="text-xs text-amber-950">
+            Google couldn't confirm the postcode. Check your house number and street above,
+            then enter your postcode here. We won't guess one.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <input id="booking-postcode-helper" type="text" inputMode="text"
+              autoComplete="postal-code" placeholder="BT20 4AA" maxLength={9}
+              value={manualPostcode} onChange={(e) => setManualPostcode(e.target.value.toUpperCase())}
+              className="min-w-0 flex-1 border border-amber-800 bg-white rounded-none px-3 py-2"
+              aria-label="Full BT postcode"
+            />
+            <button type="button" onClick={addSelectedPostcode}
+              disabled={!findNiPostcode(manualPostcode)}
+              className="border-2 border-[#20345c] bg-[#ffda43] px-3 py-2 font-bold text-[#20345c] disabled:opacity-50">
+              Add postcode
+            </button>
+          </div>
+        </div>
+      )}
 
-      <input type="tel" placeholder="Contact Number" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
-      <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-2 mt-2" />
+      <label htmlFor="booking-contact-phone" className="sr-only">Contact number</label>
+      <input id="booking-contact-phone" type="tel" placeholder="Contact Number (11 digits)" inputMode="tel"
+        autoComplete="tel" maxLength={22} value={phone}
+        onChange={(e) => { setPhone(e.target.value); clearFieldError("phone"); }}
+        aria-invalid={Boolean(fieldErrors.phone)}
+        className="w-full border border-gray-500 rounded-none px-4 py-2 mt-2" />
+      {renderFieldError("phone")}
+      <p className="text-xs text-gray-600">Enter an 11-digit UK phone number, including 028 landlines or 07 mobiles. A postcode cannot be used as a phone number.</p>
+      <label htmlFor="booking-contact-email" className="sr-only">Email address</label>
+      <input id="booking-contact-email" type="email" placeholder="Email Address" autoComplete="email"
+        value={email} onChange={(e) => { setEmail(e.target.value); clearFieldError("email"); }}
+        aria-invalid={Boolean(fieldErrors.email)}
+        className="w-full border border-gray-500 rounded-none px-4 py-2 mt-2" />
+      {renderFieldError("email")}
 
       <div className="mt-4 p-3 rounded-lg border border-gray-500 bg-gray-50">
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm text-gray-700">
             You must view and agree to the{" "}
             <button
+              id="booking-terms-open"
               type="button"
-              onClick={() => {
-                setShowTerms(true);
-                setTermsViewed(true);
-              }}
+              onClick={() => setShowTerms(true)}
               className="underline font-semibold"
             >
               Terms of Service
@@ -1214,32 +1068,50 @@ function BookingForm({ onClose, initialAddress = "" }) {
           <span className="text-[10px] text-gray-500">v{TERMS_VERSION}</span>
         </div>
         <div className="mt-3 flex items-start gap-2">
-          <input id="agree" type="checkbox" className="mt-1" checked={agreeToTerms} disabled={!canToggleAgree} onChange={(e) => setAgreeToTerms(e.target.checked)} />
+          <input id="agree" type="checkbox" className="mt-1" checked={agreeToTerms}
+            disabled={!canToggleAgree} onChange={(e) => { setAgreeToTerms(e.target.checked); clearFieldError("terms"); }} />
           <label htmlFor="agree" className="text-sm text-gray-800">
-            I’ve read and agree to the Terms of Service.
-            {!canToggleAgree && <span className="block text-xs text-gray-500">(Open the Terms and scroll to the bottom to enable this.)</span>}
+            I’ve read and agree to the September 2026 Terms of Service, including the public leaderboard acknowledgement. This does not make my name public.
+            {!canToggleAgree && <span className="block text-xs text-gray-500">(Scroll to the bottom of the Terms and select Confirm & Agree to unlock this.)</span>}
           </label>
         </div>
+        {renderFieldError("terms")}
       </div>
 
-      <button onClick={handleSendWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms || whatsAppBookingStatus === "sending"}>
-        {whatsAppBookingStatus === "sending" ? "Confirming booking…" : "Send via WhatsApp"}
+      <button
+        type="button"
+        onClick={handleSubmitBooking}
+        className="w-full rounded-none border-2 border-[#20345c] bg-[#ffda43] px-6 py-3 text-lg font-black text-[#101827] shadow-[4px_4px_0_#20345c] hover:bg-[#ffe573] disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={!termsConfirmed || !agreeToTerms || isEmailSubmitting || bookingStatus !== "idle" || emailBookingUncertain}
+        aria-disabled={!termsConfirmed || !agreeToTerms || isEmailSubmitting || bookingStatus !== "idle" || emailBookingUncertain}
+      >
+        {isEmailSubmitting ? bookingSendingText : "Submit Booking"}
       </button>
-      <button onClick={handleSendEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full disabled:opacity-60" disabled={!agreeToTerms}>
-        Send via Email
-      </button>
+      <p className="text-center text-xs font-semibold text-[#20345c]">
+        We'll email your booking confirmation. If your clean date needs a manual check, we'll contact you.
+      </p>
+      {emailBookingError && !isEmailSubmitting && (
+        <div className="border-4 border-[#ad5344] bg-[#fff0db] p-3 text-sm font-semibold text-[#652c28]" role="alert">
+          {emailBookingError}
+        </div>
+      )}
 
-      <TermsModal
-        open={showTerms}
-        onClose={() => setShowTerms(false)}
-        onConfirm={() => {
-          setAgreeToTerms(true);
-          setShowTerms(false);
-        }}
-        version={TERMS_VERSION}
-        title={TERMS_TITLE}
-        body={TERMS_BODY}
-      />
+      {showTerms && (
+        <TermsModal
+          open={showTerms}
+          onClose={() => setShowTerms(false)}
+          onConfirm={() => {
+            // Only the modal's scrolled-to-bottom Confirm & Agree can unlock
+            // the separate checkbox. Dismissing the modal leaves it locked.
+            setTermsConfirmed(true);
+            setAgreeToTerms(true);
+            setShowTerms(false);
+          }}
+          version={TERMS_VERSION}
+          title={TERMS_TITLE}
+          body={TERMS_BODY}
+        />
+      )}
     </div>
   );
 }
@@ -1335,11 +1207,20 @@ function ContactForm({ onClose }) {
   const handleEmail = async () => {
     if (!validateOrAlert()) return;
 
-    // ✅ reCAPTCHA token (v3)
+    // This preview uses the existing signed, rate-limited challenge for
+    // contact messages too. Production continues to use reCAPTCHA v3.
     const recaptchaAction = "contact_submit";
-    const recaptchaToken = await getRecaptchaToken(recaptchaAction);
-    if (!recaptchaToken) {
-      alert("Anti-bot check not ready. Please try again in a moment.");
+    let recaptchaToken = null;
+    let previewProof = null;
+    try {
+      if (window.location.hostname === N64_BOOKING_PREVIEW_HOST) {
+        previewProof = await getPreviewBookingProof();
+      } else {
+        recaptchaToken = await getRecaptchaToken(recaptchaAction);
+        if (!recaptchaToken) throw new Error("Anti-bot verification unavailable");
+      }
+    } catch {
+      alert("The security check could not be completed. No message was sent; please try again.");
       return;
     }
 
@@ -1352,6 +1233,7 @@ function ContactForm({ onClose }) {
           email: cEmail.trim(),
           phone: cPhone.trim(),
           message: cMessage.trim(),
+          previewProof,
           recaptchaToken,
           recaptchaAction,
         }),
@@ -1464,23 +1346,28 @@ function ChallengeModal({ open, onClose }) {
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 bg-black/80 overflow-y-auto overscroll-contain z-50"
+      className="n64-challenge-overlay fixed inset-0 bg-black/80 overflow-y-auto overscroll-contain z-50"
       onClick={onClose}
       style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="challenge-title"
     >
-      <div className="min-h-[100svh] flex items-center justify-center p-3 sm:p-6">
+      <div className="n64-challenge-positioner min-h-[100svh] flex items-center justify-center px-3 py-3 sm:p-6">
         <div
-          className="bg-neutral-900 text-white w-11/12 max-w-3xl rounded-2xl shadow-2xl border border-neutral-800 p-4 md:p-6 relative overflow-auto"
+          className="n64-challenge-shell relative w-full max-w-[460px] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
-          style={{ maxHeight: "min(90dvh, 820px)" }}
+          style={{ maxHeight: "calc(100dvh - 24px)" }}
         >
-          <button onClick={onClose} className="absolute top-3 right-4 text-neutral-400 hover:text-white text-2xl" aria-label="Close">
+          <button
+            type="button"
+            onClick={onClose}
+            className="n64-challenge-close"
+            aria-label="Close stopwatch challenge"
+          >
             &times;
           </button>
-          <Suspense fallback={<p className="py-12 text-center text-neutral-300">Loading challenge…</p>}>
+          <Suspense fallback={<p className="p-8 text-center">Loading challenge…</p>}>
             <TenSecondChallenge />
           </Suspense>
         </div>
@@ -1492,118 +1379,106 @@ function ChallengeModal({ open, onClose }) {
 /* ────────────────────────────────────────────────────────────────────────────
    Page Sections
    ──────────────────────────────────────────────────────────────────────────── */
-function Hero({ onBook, onContact, onChallenge, onBinChecker }) {
+function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
   const { totalBinsCleaned, todaysArea, totalMonthlyCustomers } = useLiveCounters();
 
-  // Soft-live counter (display only)
-  const [displayTotal, setDisplayTotal] = useState(() => Number(totalBinsCleaned) || 0);
-  const sessionAddsRef = useRef(0);
-  const lastAddRef = useRef(0);
-
-  // When the real total changes (e.g. refresh/new data), reset display base + session add cap
-  useEffect(() => {
-    const base = Number(totalBinsCleaned) || 0;
-    setDisplayTotal(base);
-    sessionAddsRef.current = 0;
-    lastAddRef.current = Date.now();
-  }, [totalBinsCleaned]);
-
-  useEffect(() => {
-    // Tune these:
-    const EVERY_MS = 45000; // add 1 every 45s
-    const MAX_ADDS = 4; // cap to 4 per session so it never drifts too far
-
-    const tick = () => {
-      if (document.hidden) return; // pause when tab not visible
-      if (sessionAddsRef.current >= MAX_ADDS) return;
-
-      const now = Date.now();
-      if (now - lastAddRef.current < EVERY_MS) return;
-
-      lastAddRef.current = now;
-      sessionAddsRef.current += 1;
-      setDisplayTotal((v) => v + 1);
-    };
-
-    const interval = setInterval(tick, 1000); // check once per second
-    return () => clearInterval(interval);
-  }, []);
-
+  // Lifetime total adds the owner's pre-Squeegee history once to the verified backup.
   return (
-    <section className="relative overflow-hidden flex flex-col items-center justify-center text-center pt-10 pb-20 px-4 bg-black">
-      <div className="absolute top-[60%] left-1/2 transform -translate-x-1/2 w-[800px] h-[800px] bg-green-900 opacity-30 blur-3xl rounded-full z-0" />
-      <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-b from-transparent via-[#121212] to-[#18181b] z-10 pointer-events-none" />
+    <section className="n64-hero n64-hero-layout-v2" aria-labelledby="n64-hero-title">
+      <div className="n64-cloud n64-cloud--one" aria-hidden="true" />
+      <div className="n64-cloud n64-cloud--two" aria-hidden="true" />
+      <div className="n64-cloud n64-cloud--three" aria-hidden="true" />
 
-      <div className="relative z-20 flex flex-col items-center gap-4">
-        <img
-          src="/logo.webp"
-          alt="Ni Bin Guy wheelie bin cleaning service logo"
-          width="320"
-          height="320"
-          fetchPriority="high"
-          decoding="async"
-          className="w-64 h-64 md:w-80 md:h-80 rounded-xl shadow-lg"
-        />
-
-        {/* Stats under logo */}
-        <div className="w-full max-w-4xl mt-2 grid grid-cols-3 gap-2 sm:grid-cols-3 sm:gap-4">
-          <div className="rounded-xl bg-white/5 border border-white/30 p-3 sm:p-5 shadow-lg text-center">
-            <div className="text-[10px] sm:text-xs tracking-widest text-white/60 uppercase">Total Bins Cleaned</div>
-            <div className="mt-1 sm:mt-2 text-xl sm:text-3xl font-extrabold text-white">{Number(displayTotal).toLocaleString()}</div>
+      <div className="n64-hero-inner">
+        <div className="n64-hero-copy">
+          <div className="n64-brand">
+            <img
+              src="/logo.webp"
+              alt="Ni Bin Guy wheelie bin cleaning service logo"
+              width="64"
+              height="64"
+              fetchPriority="high"
+              decoding="async"
+            />
+            <div>
+              <strong>NI BIN GUY</strong>
+              <small>THE COUNTY DOWN CLEANING CREW</small>
+            </div>
           </div>
 
-          <div className="rounded-xl bg-white/5 border border-white/30 p-3 sm:p-5 shadow-lg text-center">
-            <div className="text-[10px] sm:text-xs tracking-widest text-white/60 uppercase">Today’s Area</div>
-            <div className="mt-1 sm:mt-2 text-xl sm:text-3xl font-extrabold text-white">{todaysArea}</div>
-          </div>
-
-          <div className="rounded-xl bg-white/5 border border-white/30 p-3 sm:p-5 shadow-lg text-center">
-            <div className="text-[10px] sm:text-xs tracking-widest text-white/60 uppercase">Monthly Customers</div>
-            <div className="mt-1 sm:mt-2 text-xl sm:text-3xl font-extrabold text-white">{Number(totalMonthlyCustomers).toLocaleString()}</div>
+          <div className="n64-kicker">★ THE 4-WEEKLY CLEANING ADVENTURE ★</div>
+          <h1 id="n64-hero-title" className="n64-headline">
+            BIN CLEANING<br />
+            <span>LEVELLED UP.</span>
+          </h1>
+          <p className="n64-lead">
+            Your bins deserve a power-up. Proper washing, sanitising and freshening
+            right outside your home — <strong>from just £5 per bin, every four weeks</strong>.
+            Serving Bangor and surrounding County Down areas.
+          </p>
+          <div className="n64-price-ticket" aria-label="Four-weekly cleaning from £5 per bin">
+            <strong>£5</strong>
+            <span>PER BIN<br />4-WEEKLY</span>
           </div>
         </div>
 
-        <h1 className="text-4xl md:text-6xl font-bold">
-          Bin Cleaning, <span className="text-green-400">Done Right</span>
-        </h1>
-
-        <p className="text-lg md:text-xl max-w-xl mt-4 text-center">
-          Professional wheelie bin cleaning at your home from <span className="text-green-400 font-bold text-xl">£5</span>, across{" "}
-          <span className="text-green-400">County Down</span>. Sparkling clean &amp; fresh smelling bins without any drama.
-        </p>
-
-      <div className="mt-6 flex flex-col sm:flex-row gap-4">
-          <button onClick={onBook} className="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition">
-            Book a Clean
-          </button>
-
-          <button onClick={onContact} className="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition">
-            Contact Us
-          </button>
-
-          <button
-            onClick={onChallenge}
-            className="bg-[#9b111e] hover:bg-[#7f0e19] text-white font-bold py-3 px-6 rounded-xl shadow-lg transition focus:outline-none focus:ring-2 focus:ring-[#9b111e]/50 active:scale-[0.99]"
-          >
-            Free Bin Clean
-          </button>
-
-          <a href="#customer-portal" className="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition text-center">
-            Customer Portal
-          </a>
-
-          <button onClick={onBinChecker} className="bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-xl shadow-lg transition">
-            Bin Day Checker
-          </button>
+        <div className="n64-scene" aria-hidden="true">
+          <span className="n64-star n64-star--one">★</span>
+          <span className="n64-star n64-star--two">★</span>
+          <span className="n64-star n64-star--three">★</span>
+          <div className="n64-bin n64-bin--left">
+            <N64GameBin front="#58b8ec" side="#2576ad" lid="#94e7ff" />
+          </div>
+          <div className="n64-bin n64-bin--centre">
+            <N64GameBin front="#68cf70" side="#359359" lid="#baf198" />
+          </div>
+          <div className="n64-bin n64-bin--right">
+            <N64GameBin front="#e49a55" side="#aa663a" lid="#ffd28b" />
+          </div>
+          <span className="n64-scene-label">3 BINS · 1 CLEAN MISSION</span>
         </div>
       </div>
+
+      <div className="n64-actions">
+        <button type="button" onClick={onBook} className="n64-btn n64-btn--start">
+          Book a Clean
+        </button>
+      </div>
+
+      <nav className="n64-extra-links" aria-label="More NI Bin Guy options">
+        <button type="button" className="n64-text-link n64-link--bonus" onClick={onChallenge}>
+          <span aria-hidden="true">★</span> Free Bin Clean
+        </button>
+        <button type="button" className="n64-text-link n64-link--contact" onClick={onContact}>Contact Us</button>
+        <a className="n64-text-link n64-link--portal" href="#customer-portal-login">Customer Portal</a>
+        <button type="button" className="n64-text-link n64-link--bin-day" onClick={onBinChecker}>Bin Day Checker</button>
+      </nav>
+
+      <div className="n64-scoreboard" aria-label="Our cleaning statistics">
+        <div className="n64-score">
+          <span className="n64-score-title">Bins Cleaned</span>
+          <strong className="n64-score-value">{Number(totalBinsCleaned).toLocaleString("en-GB")}</strong>
+        </div>
+        <div className="n64-score">
+          <span className="n64-score-title">Today's Area</span>
+          <strong className="n64-score-value">{todaysArea || "County Down"}</strong>
+        </div>
+        <div className="n64-score">
+          <span className="n64-score-title">Monthly Customers</span>
+          <strong className="n64-score-value">{Number(totalMonthlyCustomers).toLocaleString("en-GB")}</strong>
+        </div>
+      </div>
+
+
     </section>
   );
 }
 
+
 function WhatWeDo() {
   return (
-    <section className="relative py-16 px-6 bg-[#18181b]">
+    <section id="what-we-do" className="relative py-16 px-6 bg-[#18181b]">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-8 text-center">What We Do</h2>
       <div className="grid md:grid-cols-3 gap-6 text-center">
         <div className="bg-zinc-800/70 border border-white/30 p-6 rounded-2xl shadow-lg">
@@ -1626,6 +1501,7 @@ function WhatWeDo() {
 function TheProcess({ onBook }) {
   return (
     <section id="the-process" className="relative py-16 px-6 bg-[#18181b] text-white">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-10 text-center">The Process</h2>
       <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
         <div className="rounded-2xl bg-zinc-800/70 border border-white/30 p-6">
@@ -1673,7 +1549,8 @@ function BinsWeClean() {
   { src: "/bins/1100L.webp", alt: "1100 litre commercial waste container", size: "1100L", h: "h-48" },
 ];
   return (
-    <section className="relative py-16 px-6 bg-[#18181b] text-white text-center">
+    <section id="bins-we-clean" className="relative py-16 px-6 bg-[#18181b] text-white text-center">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-12">The Bins We Clean</h2>
       <div className="relative z-20 flex flex-wrap justify-center items-end gap-12 md:gap-20">
         {items.map((it) => (
@@ -1696,7 +1573,8 @@ function WhyCleanYourBin() {
     { icon: "/family.webp", title: "Protect Your Family", text: "A clean bin reduces exposure to germs and pathogens, helping keep your household healthier." },
   ];
   return (
-    <section className="py-16 px-6 bg-gradient-to-b from-black via-[#0a0a0a] to-zinc-900 text-white">
+    <section id="why-clean-your-bin" className="py-16 px-6 bg-gradient-to-b from-black via-[#0a0a0a] to-zinc-900 text-white">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-12 text-center">Why Clean Your Bin?</h2>
       <div className="grid md:grid-cols-2 gap-12 max-w-6xl mx-auto">
         {points.map((p) => (
@@ -1721,7 +1599,8 @@ function WhyNiBinGuy() {
     { title: "Fully Insured", text: "We’re fully insured and compliant — so you can rest easy." },
   ];
   return (
-    <section className="py-16 px-6 bg-gradient-to-b from-zinc-900 via-[#1a1a1a] to-black text-white">
+    <section id="why-ni-bin-guy" className="py-16 px-6 bg-gradient-to-b from-zinc-900 via-[#1a1a1a] to-black text-white">
+      <LevelWasher />
       <h2 className="text-3xl font-bold text-green-400 mb-8 text-center">Why Ni Bin Guy?</h2>
       <div className="grid md:grid-cols-2 gap-10 max-w-5xl mx-auto">
         {points.map((p) => (
@@ -1758,48 +1637,34 @@ export default function NiBinGuyLandingPage() {
     });
   };
 
-  // Snow toggle (persisted)
-  const [snowEnabled, setSnowEnabled] = useState(false);
+  return (
+  <main id="main-content" tabIndex="-1" className="n64-world min-h-screen bg-black text-white font-sans relative">
+      <Hero onBook={openBooking} onContact={() => {window.n64Score?.awardAction("contact");setShowContact(true);}} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} onCoverage={() => setShowCoverageChecker(true)} />
 
-  useEffect(() => {
-    try {
-      // Always force snow off (ignores saved setting)
-      localStorage.setItem(SNOW_STORAGE_KEY, "0");
-      setSnowEnabled(false);
-    } catch {}
-  }, []);
-
-  const toggleSnow = () => {
-    setSnowEnabled((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(SNOW_STORAGE_KEY, next ? "1" : "0");
-      } catch {}
-      return next;
-    });
-  };
-
- return (
-  <main id="main-content" tabIndex="-1" className="min-h-screen bg-black text-white font-sans relative">
-      {/* Snow overlay */}
-      <SnowCanvas enabled={snowEnabled} />
-
-      <Hero onBook={openBooking} onContact={() => setShowContact(true)} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} />
-
-      {/* Compact coverage control aligns with the existing fixed site menu. */}
-      <button
-        type="button"
-        onClick={() => setShowCoverageChecker(true)}
-        aria-label="Check whether we cover your postcode"
-        aria-haspopup="dialog"
-        className="fixed left-[14px] top-[14px] z-40 flex h-[46px] max-w-[calc(100vw-94px)] items-center justify-center gap-2 rounded-[14px] border border-white/30 bg-zinc-900/95 px-3 text-xs sm:text-sm font-bold text-white shadow-lg transition hover:border-green-400 hover:bg-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"
-      >
-        <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-          <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
-          <circle cx="12" cy="10" r="2.5" />
-        </svg>
-        <span className="whitespace-nowrap">Check Your Area</span>
-      </button>
+      {/* Page-anchored quick actions scroll with the hero; only the menu remains floating. */}
+      <div className="n64-top-actions absolute left-[14px] top-[14px] z-40 flex max-w-[calc(100vw-94px)] items-center gap-2" role="group" aria-label="Quick actions">
+        <button
+          type="button"
+          onClick={() => setShowCoverageChecker(true)}
+          aria-label="Check whether we cover your postcode"
+          aria-haspopup="dialog"
+          className="n64-top-action n64-top-action--area"
+        >
+          <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#236c85" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
+            <circle cx="12" cy="10" r="2.5" />
+          </svg>
+          <span>Check Your Area</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => openBooking()}
+          aria-haspopup="dialog"
+          className="n64-top-action n64-top-action--book"
+        >
+          Book a Clean
+        </button>
+      </div>
 
       <Modal
         open={showCoverageChecker}
@@ -1842,6 +1707,11 @@ export default function NiBinGuyLandingPage() {
       <BinsWeClean />
       <WhyCleanYourBin />
       <WhyNiBinGuy />
+      {/* Support sections are bonus content, not numbered arcade levels. */}
+      <div className="n64-support-sections">
+        <CustomerReviews />
+        <CustomerQuestions onBook={openBooking} />
+      </div>
     </main>
   );
 }

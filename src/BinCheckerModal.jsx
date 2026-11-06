@@ -120,6 +120,8 @@ export default function BinCheckerModal({ onClose }) {
 
     // ✅ Store ONLY the HTML string
     setCalendarHtml(html);
+    // Reward only after the council bin calendar has loaded successfully.
+    window.n64Score?.awardAction("bin-checker");
   } catch (e) {
     setError("Couldn’t load schedule for that address.");
   } finally {

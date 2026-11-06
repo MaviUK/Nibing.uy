@@ -3,6 +3,66 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- A normal refresh starts at the TOP instead of inheriting Android
+       scroll restoration or re-following an old #section link. Explicit
+       section links on fresh visits and button taps continue to work. -->
+  <script data-nbg-refresh-scroll>
+    (function () {
+      "use strict";
+      try {
+        var navigation = window.performance &&
+          window.performance.getEntriesByType &&
+          window.performance.getEntriesByType("navigation")[0];
+        var isReload = navigation
+          ? navigation.type === "reload"
+          : Boolean(window.performance && window.performance.navigation &&
+            window.performance.navigation.type === 1);
+        if (!isReload) return;
+        var route = window.location.pathname.replace(/\/+$/, "") || "/";
+        if (!["/", "/customer-hq", "/squeegee-portal", "/street-booking"].includes(route)) return;
+
+        // The hash may be left over from a previous click to the leaderboard
+        // or customer portal. On a REFRESH it must not drag the page down.
+        // On a fresh direct link the hash is left intact.
+        var browserHistory = window.history;
+        var previousRestoration = browserHistory.scrollRestoration;
+        if ("scrollRestoration" in browserHistory) {
+          browserHistory.scrollRestoration = "manual";
+        }
+        if (window.location.hash) {
+          browserHistory.replaceState(browserHistory.state, "",
+            window.location.pathname + window.location.search);
+        }
+
+        function toTop() {
+          var root = document.documentElement;
+          if (!root) return;
+          var priorBehavior = root.style.scrollBehavior;
+          root.style.scrollBehavior = "auto"; // override the site's smooth CSS
+          window.scrollTo(0, 0);
+          root.style.scrollBehavior = priorBehavior;
+        }
+        toTop();
+        document.addEventListener("DOMContentLoaded", function () {
+          toTop();
+          window.requestAnimationFrame(toTop);
+        }, {once: true});
+        window.addEventListener("pageshow", function () {
+          toTop();
+          window.requestAnimationFrame(function () {
+            toTop();
+            if ("scrollRestoration" in browserHistory) {
+              browserHistory.scrollRestoration = previousRestoration;
+            }
+          });
+        }, {once: true});
+      } catch (error) {
+        // Scrolling must never prevent the booking or customer site loading.
+      }
+    })();
+  </script>
+
   <meta name='probely-verification' content='d76ae31b-037c-448a-be43-3d84754f60ff' />
   <title>Ni Bin Guy | Wheelie Bin Cleaning in County Down</title>
 
@@ -13,6 +73,8 @@
   <link rel="canonical" href="https://nibing.uy/" />
   <link rel="icon" href="/favicon.ico" type="image/x-icon" />
   <link rel="preload" as="image" href="/logo.webp" type="image/webp" fetchpriority="high" />
+  <link rel="preload" as="image" href="/n64-pixel-bin-washer.svg" type="image/svg+xml" />
+  <!-- Arcade scoreboard styling now loads after the homepage instead of blocking first paint. -->
 
   <!-- OpenGraph -->
   <meta property="og:title" content="Ni Bin Guy | Wheelie Bin Cleaning in County Down">
@@ -67,9 +129,7 @@
       { "@type": "Place", "name": "Holywood" },
       { "@type": "Place", "name": "Carrowdore" },
       { "@type": "Place", "name": "Comber" },
-      { "@type": "Place", "name": "Millisle" },
-      { "@type": "Place", "name": "Portaferry" },
-      { "@type": "AdministrativeArea", "name": "County Down, Northern Ireland" }
+      { "@type": "Place", "name": "Conlig" }
     ],
     "contactPoint": [{
       "@type": "ContactPoint",
@@ -122,7 +182,7 @@
     "mainEntity": [
       { "@type": "Question", "name": "How much does wheelie bin cleaning cost?", "acceptedAnswer": { "@type": "Answer", "text": "Regular domestic wheelie bin cleaning with Ni Bin Guy starts from £5 per bin. One-off domestic cleans are available from £15, with commercial options depending on bin size and frequency." } },
       { "@type": "Question", "name": "Do you charge extra for first cleans?", "acceptedAnswer": { "@type": "Answer", "text": "No. Ni Bin Guy does not charge an extra first-clean fee. Regular cleans start from £5 per bin and one-off domestic cleans start from £15." } },
-      { "@type": "Question", "name": "What areas does Ni Bin Guy cover?", "acceptedAnswer": { "@type": "Answer", "text": "Ni Bin Guy is based in Bangor and provides wheelie bin cleaning in Bangor, Groomsport, Donaghadee, Newtownards, Holywood, Carrowdore, Comber, Millisle and Portaferry, plus nearby addresses that fall within our rounds." } },
+      { "@type": "Question", "name": "What areas does Ni Bin Guy cover?", "acceptedAnswer": { "@type": "Answer", "text": "Ni Bin Guy provides bin cleaning in Bangor, Groomsport, Conlig, Donaghadee, Newtownards, Holywood, Carrowdore and Comber. Exact property availability is checked against our current rounds. Other towns require confirmation." } },
       { "@type": "Question", "name": "How often should I clean my wheelie bin?", "acceptedAnswer": { "@type": "Answer", "text": "Many customers choose a 4-weekly wheelie bin clean so the bin is cleaned after collection before smells, bacteria and flies build up. One-off cleans are also available for bins that need a reset." } },
       { "@type": "Question", "name": "Can wheelie bin cleaning help with maggots and bad smells?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Professional bin cleaning removes leftover waste, washes the inside and outside of the bin, sanitises it and deodorises it to help reduce rotten smells, flies, maggots and bacteria." } },
       { "@type": "Question", "name": "Do you clean domestic and commercial bins?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Ni Bin Guy cleans domestic wheelie bins as well as commercial bins, including larger 360L, 660L and 1100L containers." } },
@@ -140,7 +200,7 @@
     #site-menu-toggle span, #site-menu-toggle span::before, #site-menu-toggle span::after { display: block; width: 22px; height: 2px; background: #4ade80; border-radius: 999px; content: ""; position: relative; }
     #site-menu-toggle span::before { position: absolute; top: -7px; left: 0; }
     #site-menu-toggle span::after { position: absolute; top: 7px; left: 0; }
-    #site-section-menu { position: fixed; top: 68px; right: 14px; z-index: 39; width: max-content; max-width: calc(100vw - 28px); min-width: 0; padding: 12px; border: 1px solid rgba(255,255,255,0.22); border-radius: 18px; background: rgba(24,24,27,0.97); box-shadow: 0 18px 42px rgba(0,0,0,0.44); box-sizing: border-box; text-align: right; display: none; }
+    #site-section-menu { position: fixed; top: 68px; right: 14px; z-index: 39; width: max-content; max-width: calc(100vw - 28px); max-height: calc(100vh - 82px); max-height: calc(100dvh - 82px); overflow-y: auto; overscroll-behavior: contain; min-width: 0; padding: 12px; border: 1px solid rgba(255,255,255,0.22); border-radius: 18px; background: rgba(24,24,27,0.97); box-shadow: 0 18px 42px rgba(0,0,0,0.44); box-sizing: border-box; text-align: right; display: none; }
     #site-section-menu[data-open="true"] { display: block; }
     #site-section-menu a, #site-section-menu button { display: block; width: 100%; padding: 12px 13px; border: 0; border-radius: 12px; background: transparent; color: white; cursor: pointer; font: inherit; text-decoration: none; font-weight: 700; text-align: right; white-space: nowrap; }
     #site-section-menu a:hover, #site-section-menu a:focus, #site-section-menu button:hover, #site-section-menu button:focus { background: rgba(74,222,128,0.16); color: #86efac; outline: none; }
@@ -162,7 +222,9 @@
     <a href="#why-ni-bin-guy">Why Ni Bin Guy</a>
     <a href="#customer-reviews">Customer Reviews</a>
     <a href="#wheelie-bin-cleaning-questions">Customer Questions</a>
-    <a href="#customer-portal">Customer Portal</a>
+    <a href="#areas-we-cover">Areas We Cover</a>
+    <a href="#customer-portal-login">Customer Portal</a>
+    <a href="#live-leaderboard">Leaderboards</a>
   </nav>
 
   <!-- Crawlable homepage fallback. React replaces this content when the app loads. -->
@@ -173,7 +235,10 @@
     </main>
   </div>
   <script type="module" src="/src/main.jsx"></script>
-  <script src="/privacy-link.js?v=20261009-carrowdore" defer></script>
+  <script src="/privacy-link.js?v=20261104-covered-towns" defer></script>
+  <script src="/n64-areas-navigation.js?v=20261103-leaderboard-top-fix" defer></script>
+  <script src="/n64-scoreboard.js?v=20261101-cross-device-progress-5" defer></script>
+  <script src="/n64-level-run.js?v=9-cross-device-progress" defer></script>
   <script>
     (function () {
       const logos = ["/logo.webp", "/logo2.webp", "/logo3.webp", "/logo4.webp", "/logo5.webp"];

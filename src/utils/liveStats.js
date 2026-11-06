@@ -1,6 +1,6 @@
 // src/utils/liveStats.js
 
-import { FOUR_WEEK_PLAN } from "../data/statsPlan";
+import { FOUR_WEEK_PLAN, CYCLE_SNAPSHOT } from "../data/cleaningCycleData.mjs";
 
 // 9:00 to 17:00 = 8 hours
 const START_HOUR = 9;
@@ -18,11 +18,11 @@ function dayKeyFromDate(d) {
 
 // Choose a fixed “anchor Monday” so weekIndex is stable.
 // Pick a real Monday date that you’re happy to anchor from.
-const ANCHOR_MONDAY = new Date("2026-01-05T00:00:00"); // Monday
+const ANCHOR_MONDAY = new Date(CYCLE_SNAPSHOT.weekOneMonday + "T00:00:00Z");
 
 function weeksBetween(a, b) {
-  const ms = b.getTime() - a.getTime();
-  return Math.floor(ms / (7 * 24 * 60 * 60 * 1000));
+  const utcDay = d => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.floor((utcDay(b) - utcDay(a)) / (7 * 24 * 60 * 60 * 1000));
 }
 
 export function getPlanForDate(date = new Date()) {
@@ -38,9 +38,10 @@ export function getPlanForDate(date = new Date()) {
 
   return {
     dayKey,
-    active: !!plan,
+    active: Boolean(plan && plan.bins > 0),
     weekIndex,
-    area: plan?.area ?? null,
+    round: plan?.round ?? null,
+    area: plan?.bins > 0 ? plan.area : null,
     bins: plan?.bins ?? 0,
     customers: plan?.customers ?? 0,
   };
