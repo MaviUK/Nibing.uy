@@ -221,6 +221,87 @@ function initialiseFromPrivateCustomerHQ(snapshot,previous=null,now=Date.now()){
     importedAt:new Date(now).toISOString(),records};
 }
 
+
+/**
+ * The owner has reviewed the replies in their mailbox and attests that
+ * every email-eligible customer expressly agreed to first name, town and XP.
+ * This is a ONE-TIME explicit owner-only ledger operation, not an automatic
+ * assumption derived from a Squeegee email field or page visit.
+ *
+ * Preserve prior withdrawals and the provenance of existing individual grants.
+ * Never publish customer email/UUID or change private cleaning points.
+ */
+function approveOwnerReviewedEmailReplies(snapshot,privateCustomers,eligibleAliases,{
+  confirm,evidenceRef
+}={},now=Date.now()){
+  const asOf=privateCustomers?.asOf;
+  if(snapshot?.version!==1 || !Array.isArray(snapshot.records) ||
+     privateCustomers?.version!==1 ||
+     !Array.isArray(privateCustomers.accounts) ||
+     snapshot.sourceAsOf!==asOf ||
+     !(asOf===staticHistory.AS_OF || binHistory.fresh(asOf,now)))
+    throw new Error("consent_dataset_missing");
+  if(!(eligibleAliases instanceof Set)||eligibleAliases.size===0)
+    throw new Error("email_eligibility_missing");
+  const evidence=typeof evidenceRef==="string"?evidenceRef.trim():"";
+  if(confirm!=="yes" || evidence.length<12 || evidence.length>120 ||
+     /[<>\u0000-\u001f]/.test(evidence))
+    throw new Error("owner_attestation_required");
+  const byAlias=new Map();
+  for(const account of privateCustomers.accounts){
+    const alias=canonicalLegacyRef(account?.id);
+    if(!eligibleAliases.has(alias))continue;
+    if(!account?.email || typeof account.email!=="string" ||
+       !account.email.includes("@") || byAlias.has(alias))
+      throw new Error("consent_customer_mismatch");
+    byAlias.set(alias,account);
+  }
+  if(byAlias.size!==eligibleAliases.size)
+    throw new Error("consent_customer_mismatch");
+  const used=new Set();
+  const counts={eligible:eligibleAliases.size,approved:0,alreadyApproved:0,
+    withdrawn:0,needsNameReview:0};
+  const stamped=new Date(now).toISOString();
+  const records=snapshot.records.map(row=>{
+    if(!eligibleAliases.has(row.alias))return row;
+    if(used.has(row.alias))throw new Error("consent_customer_mismatch");
+    used.add(row.alias);
+    const account=byAlias.get(row.alias);
+    if(!account || row.ref!==account.ref || row.town!==account.town)
+      throw new Error("consent_customer_mismatch");
+    if(row.consent==="withdrawn" || row.withdrawnAt){
+      counts.withdrawn++;
+      return row;
+    }
+    if(row.consent==="granted" && row.noticeVersion===NOTICE_VERSION &&
+       row.consentAt && row.method && row.evidenceRef){
+      counts.alreadyApproved++;
+      return row;
+    }
+    const firstName=safeFirstName(row.firstName);
+    if(!firstName || firstName!==safeFirstName(account.firstName) ||
+       safePublicTown(row.town)!==row.town){
+      counts.needsNameReview++;
+      return row;
+    }
+    counts.approved++;
+    return {...row,consent:"granted",consentAt:stamped,
+      withdrawnAt:null,method:"email_reply",evidenceRef:evidence,
+      noticeVersion:NOTICE_VERSION};
+  });
+  if(used.size!==eligibleAliases.size)
+    throw new Error("consent_customer_mismatch");
+  return {
+    snapshot:{...snapshot,updatedAt:stamped,
+      ownerEmailReplyAttestation:{
+        recordedAt:stamped,evidenceRef:evidence,sourceAsOf:asOf,
+        method:"owner_manually_checked_positive_email_replies",
+        ...counts},
+      records},
+    counts,
+  };
+}
+
 function consentStats(snapshot) {
   const rows=Array.isArray(snapshot?.records)?snapshot.records:[];
   return {
@@ -418,6 +499,7 @@ function publicConsentBoard(snapshot,fullBoard,emailEligibleAliases){
 module.exports={
   STORE_NAME,KEY,NOTICE_VERSION,EXPECTED,MAX_BYTES,
   safeFirstName,parseSimpleCsv,preparePrivateConsentImport,
-  changeConsent,initialiseFromPrivateCustomerHQ,consentStats,publicConsentBoard,
+  changeConsent,initialiseFromPrivateCustomerHQ,approveOwnerReviewedEmailReplies,
+  consentStats,publicConsentBoard,
   publicEligibleScoreboard,previewFirstNameScoreboard,
 };

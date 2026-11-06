@@ -89,6 +89,7 @@ on:
       - tests/squeegee-customer-hq.test.cjs
       - netlify/functions/squeegeePreviewLeaderboardNames.mjs
       - tests/squeegee-leaderboard-name-consent.test.cjs
+      - tests/squeegee-owner-verified-email-consent.test.cjs
       - tests/squeegee-active-preview-population.test.cjs
       - netlify/functions/lib/arcadeSqueegeeLink.js
       - tests/squeegee-active-leaderboard.test.cjs

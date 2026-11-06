@@ -94,6 +94,16 @@ function renderDashboard(snapshot,note="",emailEligibility=null,preview=null){
     ' When the first list is imported, customers without recorded consent '+ 
     'are hidden from the public leaderboard, but their XP is preserved.</p></section>'+
     ownerPreviewSection(preview)+
+    '<section><h2>Owner-verified positive email replies</h2>'+
+    '<p>You confirmed that every customer with a registered email expressly replied yes to publishing their first name, town and XP. Record that review against the existing imported accounts in one operation. This never approves missing-email accounts, overrides a withdrawal, changes Squeegee or sends new emails.</p>'+
+    '<form method="post" action="'+PATH+'">'+
+    '<input type="hidden" name="action" value="record-owner-reviewed-email-replies">'+
+    '<label for="bulkEvidence">Where the original replies can be checked</label>'+
+    '<input id="bulkEvidence" name="evidence" maxlength="120" minlength="12" '+
+    'value="Zoho Mail - owner manually verified positive replies on 6 Nov 2026" required>'+
+    '<label><input type="checkbox" name="confirm" value="yes" required> I individually checked the positive replies for these email-bearing customers. The replies explicitly covered public first name, town and XP. I will keep the replies as evidence, and customers may withdraw at any time.</label>'+
+    '<button>Record verified email permissions for eligible customers</button>'+
+    '</form></section>'+
     '<section><h2>1. Import the private first-name CSV</h2>'+
     '<p>Use the private 941-customer consent-tracking CSV; every record must '+ 
     'start with consent pending. Reimporting preserves approved or withdrawn '+ 
@@ -103,7 +113,7 @@ function renderDashboard(snapshot,note="",emailEligibility=null,preview=null){
     '<label for="file">Private consent list (.csv, max 250 KB)</label>'+
     '<input id="file" name="file" type="file" accept=".csv,text/csv" required>'+
     '<button>Save private consent list (no names published)</button></form></section>'+
-    '<section><h2>2. Record an individual customer’s permission</h2>'+
+    '<section><h2>2. Correct or record an individual customer’s permission</h2>'+
     '<p>Use the exact Squeegee customer reference (e.g. 3027 or CUS…). '+ 
     'Do not record permission without evidence from the customer.</p>'+
     '<form method="post" action="'+PATH+'">'+
@@ -176,6 +186,34 @@ export default async function handler(request,ctx){
       if(saved?.modified!==true)return page("<section>Import failed. No changes made.</section>",503);
       return page(renderDashboard(next,"Private names imported; no customer names published."));
     }
+    if(action==="record-owner-reviewed-email-replies"){
+      const current=await db.getWithMetadata(names.KEY,{
+        type:"json",consistency:"strong"
+      });
+      const privateSnapshot=await getStore({
+        name:customerHQ.DATA_STORE,consistency:"strong"
+      }).get(customerHQ.DATA_KEY,{type:"json",consistency:"strong"});
+      const eligible=customerHQ.eligibleRankedEmailAccounts(privateSnapshot);
+      if(!current?.data || !current?.etag || !eligible)
+        return page("<section>Import the private verified Customer HQ history and consent ledger first. Nothing changed.</section>",409);
+      const result=names.approveOwnerReviewedEmailReplies(
+        current.data,privateSnapshot,eligible.aliases,{
+          confirm:String(form.get("confirm")||""),
+          evidenceRef:String(form.get("evidence")||""),
+        }
+      );
+      const saved=await db.setJSON(names.KEY,result.snapshot,{
+        onlyIfMatch:current.etag
+      });
+      if(saved?.modified!==true)
+        return page("<section>Another permission update occurred. Nothing was overwritten; please refresh.</section>",409);
+      const n=result.counts;
+      const note="Owner-attested email replies recorded: "+n.approved+
+        " newly granted, "+n.alreadyApproved+" already granted, "+
+        n.withdrawn+" existing withdrawals preserved, "+
+        n.needsNameReview+" names requiring review. No missing-email accounts were granted.";
+      return page(renderDashboard(result.snapshot,note,eligible));
+    }
     if(action==="grant"||action==="withdraw"){
       const current=await db.getWithMetadata(names.KEY,{type:"json",consistency:"strong"});
       if(!current?.data || !current?.etag)
@@ -208,7 +246,8 @@ export default async function handler(request,ctx){
       "first_name_needs_verification","consent_reference_not_found",
       "consent_source_validation_failed","invalid_consent_csv_header",
       "invalid_private_consent_csv","consent_csv_overflow",
-      "email_required_for_leaderboard"]);
+      "email_required_for_leaderboard","email_eligibility_missing",
+      "owner_attestation_required","consent_customer_mismatch"]);
     const code=known.has(err?.message)?err.message:"invalid_or_conflicting_request";
     return page('<section><strong>Could not save the change.</strong>'+
       '<p>Reason: '+safe(code)+'. Please review the private file or account reference.</p></section>',422);
