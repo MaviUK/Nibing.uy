@@ -136,6 +136,7 @@ on:
       - tests/squeegee-leaderboard-name-consent.test.cjs
       - tests/squeegee-owner-verified-email-consent.test.cjs
       - tests/squeegee-preview-launch-checks.test.cjs
+      - tests/squeegee-personal-leaderboard.test.cjs
       - public/sitemap.xml
       - public/bin-cleaning-millisle
       - public/bin-cleaning-portaferry
