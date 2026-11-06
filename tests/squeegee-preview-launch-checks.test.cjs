@@ -42,6 +42,11 @@ test("homepage keyboard skip link is visible on focus and targets the real main 
   assert.match(css,/\.skip-link:focus/);
   assert.match(css,/\.skip-link:focus-visible/);
   assert.match(css,/\.skip-link \{[^}]*border-radius: 0/s);
+  // Hidden keyboard link must be fully offscreen regardless of its font height.
+  assert.match(css,/\.skip-link \{[^}]*position: fixed;[^}]*top: 0;[^}]*transform: translateY\(calc\(-100% - 8px\)\)/s);
+  assert.match(css,/\.skip-link:focus,[\s\S]*\.skip-link:focus-visible \{[^}]*transform: translateY\(10px\)/);
+  assert.doesNotMatch(css,/\.skip-link \{[^}]*top:\s*-\d+px/s);
+
 });
 
 test("Squeegee portal script is loaded only near portal or on direct portal route", () => {
