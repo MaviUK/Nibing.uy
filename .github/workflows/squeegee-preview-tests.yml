@@ -104,6 +104,8 @@ on:
       - netlify/functions/lib/arcadeCustomerMerge.js
       - tests/squeegee-customer-website-merge.test.cjs
       - netlify/functions/lib/squeegeeLeaderboardNameConsent.js
+      - netlify/functions/lib/squeegeePreviewBinHistory.js
+      - tests/squeegee-preview-per-bin.test.cjs
       - netlify/functions/lib/customerHQ.js
       - netlify/functions/customerHQ.mjs
       - netlify/functions/squeegeePreviewCustomerHQImport.mjs
