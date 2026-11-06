@@ -81,6 +81,8 @@ export default async function handler(request,ctx){
     return page('<section><strong>'+(summary?"PRIVATE HISTORY IMPORTED":"NOT IMPORTED")+
       '</strong><p>'+(summary?
         'Active customer records: '+summary.activeAccounts+
+        ' · Verified paid physical bins: '+(summary.verifiedPaidBins??'Not available')+
+        ' · Verified cleaning XP: '+(summary.allHistoricalPoints??'Not available')+
         ' · Ranked customers with an email: '+(eligible?.count??'Unverified')+
         ' · Email-eligible cleaning XP: '+(eligible?.historicalPoints??'Unverified')+
         ' · Unranked due to no email: '+(eligible?summary.rankedCustomers-eligible.count:'Unverified')+
@@ -150,7 +152,9 @@ export default async function handler(request,ctx){
     if(saved?.modified!==true)
       return page("<section>Unable to save private history. Public scoring is withheld until a successful retry.</section>",503);
     return page('<section><strong>PRIVATE CUSTOMER HQ HISTORY READY</strong>'+
-      '<p>Validated '+validated.summary.activeAccounts+' active customers and '+
+      '<p>Validated '+validated.summary.activeAccounts+' active customers, '+
+      validated.summary.verifiedPaidBins+' fully paid physical bins, '+
+      validated.summary.allHistoricalPoints+' cleaning XP and '+
       validated.summary.historyEvents+' clean history entries. '+
       validated.summary.rankedWithEmail+' ranking-eligible customers have an email, '+
       'representing '+validated.summary.rankedWithEmailPoints+' cleaning XP. '+
