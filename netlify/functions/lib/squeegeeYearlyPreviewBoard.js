@@ -11,6 +11,7 @@
  */
 const active=require("./squeegeeActiveLeaderboardImport");
 const snapshot=require("./squeegeeActivePreviewSnapshot");
+const binHistory=require("./squeegeePreviewBinHistory");
 const merge=require("./arcadeCustomerMerge");
 
 const FIRST_YEAR=2024;
@@ -20,6 +21,14 @@ const PLAYER=/^player:[a-f0-9]{64}$/;
 const MAX_KEYS=5000;
 const MAX_SCORE=100000;
 const batchSize=16;
+function supportedPrivateHistory(privateCustomers,now=Date.now()){
+  return privateCustomers?.version===1 &&
+    Array.isArray(privateCustomers.accounts) &&
+    (privateCustomers.asOf===snapshot.AS_OF ||
+      (binHistory.isBinSnapshot(privateCustomers) &&
+       binHistory.fresh(privateCustomers.asOf,now)));
+}
+
 
 function availableYears(now=Date.now()){
   const final=Math.min(2099,Number(merge.ukDay(now).slice(0,4)));
@@ -146,9 +155,7 @@ async function datedWebsiteXP(stores,eligibleAliases,now=Date.now()){
 }
 async function getAnnualPreviewBoard(stores,privateCustomers,eligibleAliases,year,now=Date.now(),precomputedWeb=null,allowEarlierVerifiedYears=false){
   if(!(allowEarlierVerifiedYears?validVerifiedYear(year,now):validYear(year,now)) ||
-     privateCustomers?.version!==1 ||
-     privateCustomers?.asOf!==snapshot.AS_OF ||
-     !Array.isArray(privateCustomers.accounts) ||
+     !supportedPrivateHistory(privateCustomers,now) ||
      !(eligibleAliases instanceof Set))
     throw new Error("invalid_yearly_leaderboard_input");
   const annualWeb=precomputedWeb instanceof Map?precomputedWeb:
@@ -180,9 +187,7 @@ async function getAnnualPreviewBoard(stores,privateCustomers,eligibleAliases,yea
  * intact for audit purposes; only the awarded scores change.
  */
 async function getDatedScoreBoards(stores,privateCustomers,eligibleAliases,now=Date.now()){
-  if(privateCustomers?.version!==1 ||
-     privateCustomers.asOf!==snapshot.AS_OF ||
-     !Array.isArray(privateCustomers.accounts) ||
+  if(!supportedPrivateHistory(privateCustomers,now) ||
      !(eligibleAliases instanceof Set))
     throw new Error("invalid_dated_leaderboard_input");
   const annualWeb=await datedWebsiteXP(stores,eligibleAliases,now);

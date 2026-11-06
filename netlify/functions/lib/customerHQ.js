@@ -3,6 +3,7 @@
 const crypto=require("node:crypto");
 const {canonicalLegacyRef}=require("./squeegeeActiveLeaderboardImport");
 const history=require("./squeegeeActivePreviewSnapshot");
+const binHistory=require("./squeegeePreviewBinHistory");
 const {safePublicTown}=require("./arcadePublicIdentity");
 const {RULE_VERSION,effectiveCleaningStreak}=require("./squeegeeCleaningStreak");
 
@@ -51,6 +52,8 @@ function clearCookie(){
 }
 function hashSessionId(id){return crypto.createHash("sha256").update("hq-session:"+id).digest("hex");}
 function validateSource(raw){
+  if(raw?.scoringVersion===binHistory.VERSION)
+    return binHistory.validateBinSource(raw);
   if(!raw || raw.version!==1 || raw.asOf!==history.AS_OF ||
      raw.scoringVersion!==RULE_VERSION ||
      !Array.isArray(raw.accounts)||raw.accounts.length!==1022)
@@ -127,6 +130,8 @@ function validateSource(raw){
  * Existing history is preserved in the private import when email is absent.
  */
 function eligibleRankedEmailAccounts(snapshot){
+  if(snapshot?.scoringVersion===binHistory.VERSION)
+    return binHistory.eligibleBinAccounts(snapshot);
   if(!snapshot || snapshot.version!==1 || snapshot.asOf!==history.AS_OF ||
      snapshot.scoringVersion!==RULE_VERSION ||
      !Array.isArray(snapshot.accounts) || snapshot.accounts.length!==1022)
@@ -191,7 +196,7 @@ function publicAccount(account,websiteXp=0,now=Date.now()){
     nextBonus:20+2*currentStreak,streakExpired:projected.expired,
     lastCompletedOn:projected.lastCompletedOn,
     recordedSkippedVisits:account.recordedSkips,
-    historyAsOf:history.AS_OF,
+    historyAsOf:account.historyAsOf||history.AS_OF,
     history:account.events.map(x=>({...x})).reverse()};
 }
 async function issueCode({env,now=Date.now(),authStore,account,send}){

@@ -98,13 +98,17 @@ function validateBinSource(raw,{now=Date.now()}={}){
      (accounts.length!==1020||points!==1008106||paidBins!==25921))
     throw Error("five_nov_audit_totals_mismatch");
   const countShared=[...emailCounts.values()].filter(n=>n>1).length;
+  const qualified=accounts.filter(a=>a.email && emailCounts.get(a.email)===1 &&
+    a.points>0 && a.town!=="Town unavailable");
+  const rankedWithEmail=qualified.length;
+  const rankedWithEmailPoints=qualified.reduce((s,a)=>s+a.points,0);
   return {version:1,asOf:raw.asOf,scoringVersion:VERSION,accounts,
     summary:{activeAccounts:accounts.length,rankedCustomers:ranked,
       rankedPoints:points,historyEvents,allHistoricalPoints:points,
       emailAvailable:accounts.filter(x=>x.email).length,
       duplicateEmailCount:countShared,verifiedPaidBins:paidBins,
-      verifiedPaidVisits:paidVisits,rankedWithEmail:0,
-      rankedWithEmailPoints:0}};
+      verifiedPaidVisits:paidVisits,rankedWithEmail,
+      rankedWithEmailPoints}};
 }
 function eligibleBinAccounts(snapshot){
   if(!isBinSnapshot(snapshot)||!fresh(snapshot.asOf))return null;
