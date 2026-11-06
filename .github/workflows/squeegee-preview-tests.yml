@@ -105,6 +105,8 @@ on:
       - netlify/functions/lib/arcadeCustomerMerge.js
       - tests/squeegee-customer-website-merge.test.cjs
       - netlify/functions/lib/squeegeeLeaderboardNameConsent.js
+      - netlify/functions/lib/squeegeePreviewBinHistory.js
+      - tests/squeegee-preview-per-bin.test.cjs
       - netlify/functions/lib/customerHQ.js
       - netlify/functions/customerHQ.mjs
       - netlify/functions/squeegeePreviewCustomerHQImport.mjs
@@ -170,6 +172,7 @@ on:
       - tests/squeegee-production-customer-data.test.cjs
       - tests/squeegee-production-hq-routes.test.cjs
       - tests/squeegee-release-preflight.test.cjs
+      - docs/preview77-production-booking-readiness.md
       - .github/workflows/squeegee-preview-tests.yml
 
 permissions:

@@ -2,6 +2,7 @@
 const crypto = require("node:crypto");
 const { canonicalLegacyRef } = require("./squeegeeActiveLeaderboardImport");
 const staticHistory = require("./squeegeeActivePreviewSnapshot");
+const binHistory = require("./squeegeePreviewBinHistory");
 const { safePublicTown } = require("./arcadePublicIdentity");
 
 const STORE_NAME = "n64-preview1-arcade-leaderboard-names-private";
@@ -117,7 +118,8 @@ function changeConsent(snapshot,{
   reference,action,method,evidenceRef,confirm,correctedFirstName
 },now=Date.now(),emailEligibleAliases=null){
   if(snapshot?.version!==1||!Array.isArray(snapshot.records)||
-     snapshot.sourceAsOf!==staticHistory.AS_OF)
+     !(snapshot.sourceAsOf===staticHistory.AS_OF||
+       binHistory.fresh(snapshot.sourceAsOf,now)))
     throw new Error("consent_dataset_missing");
   if(!SQUEEGEE_REF.test(String(reference||""))||
      !["grant","withdraw"].includes(action))
@@ -146,7 +148,43 @@ function changeConsent(snapshot,{
   return {...snapshot,updatedAt:new Date(now).toISOString(),records:next};
 }
 
+// Rebuild private first-name permissions for a NEW verified per-bin cohort.
+// Never grant permission just from a Squeegee upload. Keep every recorded
+// withdrawal across refreshes even if a town or first name was corrected.
+function perBinConsents(snapshot,previous=null,now=Date.now()){
+  if(!binHistory.isBinSnapshot(snapshot)||!binHistory.fresh(snapshot.asOf,now))
+    throw Error("unverified_per_bin_consent_source");
+  const prior=new Map((Array.isArray(previous?.records)?previous.records:[])
+    .map(x=>[x.alias,x]));
+  const records=[];
+  for(const account of snapshot.accounts){
+    const alias=canonicalLegacyRef(account.id);
+    if(!alias||account.points<=0||account.town==="Town unavailable")
+      continue;
+    const firstName=safeFirstName(account.firstName);
+    const old=prior.get(alias);
+    const same=old&&old.ref===account.ref &&
+      old.firstName===(firstName||null)&&old.town===account.town;
+    const withdrawn=old?.consent==="withdrawn"||!!old?.withdrawnAt;
+    records.push({alias,ref:account.ref,firstName:firstName||null,
+      town:account.town,
+      quality:firstName?"ready_for_consent":"needs_review_missing_name",
+      consent:withdrawn?"withdrawn":same&&old.consent==="granted"?"granted":"pending",
+      consentAt:withdrawn?null:same?old?.consentAt||null:null,
+      withdrawnAt:withdrawn?old?.withdrawnAt||new Date(now).toISOString():null,
+      method:withdrawn?null:same?old?.method||null:null,
+      evidenceRef:withdrawn?null:same?old?.evidenceRef||null:null,
+      noticeVersion:withdrawn?old?.noticeVersion||null:
+        same?old?.noticeVersion||null:null});
+  }
+  records.sort((a,b)=>a.alias.localeCompare(b.alias));
+  return {version:1,sourceAsOf:snapshot.asOf,
+    importedAt:new Date(now).toISOString(),records};
+}
+
 function initialiseFromPrivateCustomerHQ(snapshot,previous=null,now=Date.now()){
+  if(binHistory.isBinSnapshot(snapshot))
+    return perBinConsents(snapshot,previous,now);
   if(!snapshot || !Array.isArray(snapshot.accounts) ||
      snapshot.asOf!==staticHistory.AS_OF)
     throw new Error("invalid_portal_consents_source");
@@ -269,19 +307,29 @@ function previewFirstNameScoreboard(
   privateCustomers,fullBoard,eligibleAliases,consentSnapshot,secretKey
 ){
   if(privateCustomers?.version!==1 ||
-     privateCustomers.asOf!==staticHistory.AS_OF ||
+     !(privateCustomers.asOf===staticHistory.AS_OF||
+       (binHistory.isBinSnapshot(privateCustomers)&&
+        binHistory.fresh(privateCustomers.asOf))) ||
      !Array.isArray(privateCustomers.accounts) ||
      !(eligibleAliases instanceof Set) ||
      !Buffer.isBuffer(secretKey)||secretKey.length<16)return null;
   if(fullBoard?.status==="active_status_refresh_required"){
     return {entries:[],totalPlayers:0,
-      sourceAsOf:staticHistory.AS_OF,
+      sourceAsOf:privateCustomers.asOf,
       status:"active_status_refresh_required"};
   }
   if(!Array.isArray(fullBoard?.entries) ||
-     fullBoard.sourceAsOf!==staticHistory.AS_OF)return null;
+     fullBoard.sourceAsOf!==privateCustomers.asOf)return null;
+  // A refresh must never publish names against a consent ledger from a
+  // different imported cohort. Withhold ranking until permissions sync.
+  if(binHistory.isBinSnapshot(privateCustomers) &&
+     (consentSnapshot?.version!==1||
+      consentSnapshot?.sourceAsOf!==privateCustomers.asOf||
+      !Array.isArray(consentSnapshot.records)))
+    return {entries:[],totalPlayers:0,sourceAsOf:privateCustomers.asOf,
+      status:"consent_pending"};
   const permissions=consentSnapshot?.version===1 &&
-    consentSnapshot?.sourceAsOf===staticHistory.AS_OF &&
+    consentSnapshot?.sourceAsOf===privateCustomers.asOf &&
     Array.isArray(consentSnapshot.records)
     ?new Map(consentSnapshot.records.map(r=>[r.alias,r])):new Map();
   const byAlias=new Map();
@@ -333,7 +381,7 @@ function previewFirstNameScoreboard(
     })),
     totalPlayers:rows.length,
     namedCount:rows.filter(r=>r.usableName).length,
-    sourceAsOf:staticHistory.AS_OF,
+    sourceAsOf:privateCustomers.asOf,
     lastUpdatedAt:fullBoard.lastUpdatedAt||null,
     status:"preview_public_first_names",
   };

@@ -1,5 +1,7 @@
 # NI Bin Guy — N64 release candidate cutover gates
 
+**6 November 2026 reconciliation:** The candidate now incorporates the newest Preview 77 booking safety tests, per-bin cleaning history and year-by-year board changes, while retaining production-only Squeegee admission, owner OTP and fresh-consent rules. The production Squeegee key and independent owner/event secrets have since been stored in Netlify Functions in the production context, but **all production API writes are OFF**: automatic sync disabled, owner-approved writes false, atomic ledger ready false and emergency pause true. Production read-only access is also disabled. Previous notes dated 4 November below describe the earlier unconfigured state. No merge to live or real Squeegee booking has taken place.
+
 **Status: PREPARATION ONLY — DO NOT MERGE OR PUBLISH TO PRODUCTION YET.**  
 Review date: 4 November 2026. Release branch: `release/n64-go-live-prep`.  
 Live production is `https://nibing.uy`; the working API integration remains on preview PR #77.

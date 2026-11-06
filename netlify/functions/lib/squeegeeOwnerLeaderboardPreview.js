@@ -5,11 +5,13 @@
 // Never expose these rows in the public /arcadeLeaderboard response.
 const {canonicalLegacyRef}=require("./squeegeeActiveLeaderboardImport");
 const {safeFirstName}=require("./squeegeeLeaderboardNameConsent");
+const binHistory=require("./squeegeePreviewBinHistory");
 
 function ownerPrivateLeaderboardPreview(privateSnapshot,consentSnapshot,eligible,limit=20) {
   if(!privateSnapshot || !Array.isArray(privateSnapshot.accounts) ||
      !eligible || !(eligible.aliases instanceof Set) ||
-     !Number.isSafeInteger(limit) || limit<1 || limit>941)return null;
+     !Number.isSafeInteger(limit) || limit<1 || limit>5000 ||
+     (limit>941&&!binHistory.isBinSnapshot(privateSnapshot)))return null;
 
   const status=new Map(
     (Array.isArray(consentSnapshot?.records)?consentSnapshot.records:[])

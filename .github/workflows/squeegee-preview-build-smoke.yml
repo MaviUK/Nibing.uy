@@ -61,6 +61,8 @@ on:
       - netlify/functions/lib/squeegeeActivePreviewSnapshot.js
       - netlify/functions/lib/squeegeeActivePreviewBoard.js
       - netlify/functions/lib/squeegeeLeaderboardNameConsent.js
+      - netlify/functions/lib/squeegeePreviewBinHistory.js
+      - tests/squeegee-preview-per-bin.test.cjs
       - netlify/functions/lib/customerHQ.js
       - netlify/functions/customerHQ.mjs
       - netlify/functions/squeegeePreviewCustomerHQImport.mjs

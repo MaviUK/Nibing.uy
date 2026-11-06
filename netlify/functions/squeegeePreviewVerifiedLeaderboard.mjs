@@ -53,7 +53,7 @@ export default async function handler(request,context){
     const eligible=customerHQ.eligibleRankedEmailAccounts(history);
     if(!eligible) return json(409,{error:"verified_history_not_available"});
     const board=ranking.ownerPrivateLeaderboardPreview(
-      history,permissions,eligible,941);
+      history,permissions,eligible,Math.max(1,eligible.count));
     if(!board || board.count!==eligible.count ||
        board.rows.length!==eligible.count)
       return json(409,{error:"verified_rankings_not_ready"});
