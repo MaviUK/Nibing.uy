@@ -3,7 +3,7 @@ const {test}=require("node:test");
 const assert=require("node:assert/strict");
 const crypto=require("node:crypto");
 const model=require("../netlify/functions/lib/squeegeeProductionCustomerData.js");
-const {RULE_VERSION}=require("../netlify/functions/lib/squeegeeCleaningStreak.js");
+// Per-bin reward model is isolated from the older preview per-job streak rule.
 
 const now=Date.parse("2026-11-04T22:00:00Z");
 const env={SQUEEGEE_PRODUCTION_HQ_SECRET:
@@ -11,12 +11,12 @@ const env={SQUEEGEE_PRODUCTION_HQ_SECRET:
 const idA="11111111-1111-4111-8111-111111111111";
 const idB="22222222-2222-4222-8222-222222222222";
 const idC="33333333-3333-4333-8333-333333333333";
-const paid=(date,points,streak)=>({
-  date,event:"paid_completed_clean",points,streak,
+const paid=(date,points,streak,quantity=1)=>({
+  date,event:"paid_completed_clean",points,streak,quantity,
 });
-const skipped=date=>({date,event:"recorded_skip",points:0,streak:0});
+const skipped=date=>({date,event:"recorded_skip",points:0,streak:0,quantity:0});
 const source=()=>({
-  version:1,asOf:"2026-11-04",scoringVersion:RULE_VERSION,
+  version:1,asOf:"2026-11-04",scoringVersion:model.BIN_RULE_VERSION,
   accounts:[
     {id:idA,ref:"3024",email:"alpha@example.test",
       firstName:"Alice",town:"Bangor",points:66,paidCleans:3,
@@ -32,7 +32,7 @@ const source=()=>({
       firstName:"Clare",town:"Donaghadee",points:0,paidCleans:0,
       currentStreak:1,nextBonus:22,recordedSkips:0,
       events:[{date:"2024-02-01",event:"completed_payment_not_verified",
-        points:0,streak:1}]},
+        points:0,streak:1,quantity:1}]},
   ],
 });
 function validated(raw=source()){
@@ -53,6 +53,7 @@ test("private import validates changing account counts, years and verified paid 
   assert.equal(s.summary.activeAccounts,3);
   assert.equal(s.summary.historyEvents,7);
   assert.equal(s.summary.paidEvents,5);
+  assert.equal(s.summary.paidBins,5);
   assert.equal(s.summary.cleaningPoints,106);
   assert.equal(s.accounts[0].points,66);
   assert.deepEqual(model.availableYears(s,now),[2024,2025,2026]);
@@ -148,4 +149,43 @@ test("shared email accounts do not silently identify one of several customers",(
   assert.equal(s.summary.duplicateEmailCount,1);
   assert.equal(model.accountForEmail(s,"alpha@example.test"),null);
   assert.equal(model.accountForEmail(s,"shared@example.test").id,idC);
+});
+
+test("multiple paid physical bins earn the visit multiplier per bin without an extra streak step",()=>{
+  const raw=source();
+  const second=raw.accounts[0].events[1];
+  second.quantity=2;
+  second.points=44; // 2 bins * 22 XP; still visit streak 2
+  raw.accounts[0].paidCleans=4;
+  raw.accounts[0].points=88;
+  const snapshot=validated(raw);
+  assert.equal(snapshot.summary.paidEvents,5);
+  assert.equal(snapshot.summary.paidBins,6);
+  assert.equal(snapshot.summary.cleaningPoints,128);
+  assert.deepEqual([...model.tally(snapshot.accounts[0].events,snapshot.asOf)],
+    [[2024,20],[2025,44],[2026,24]]);
+  const c=consented(snapshot,snapshot.accounts[0]);
+  assert.equal(model.personalSummary(snapshot,c,snapshot.accounts[0],env,now).points,88);
+});
+
+test("zero-unit non-bin charges earn no points; missing or inflated bin quantity is refused",()=>{
+  const raw=source();
+  raw.accounts[2].events.push({date:"2026-04-01",
+    event:"completed_non_bin_service",points:0,streak:1,quantity:0});
+  const snapshot=validated(raw);
+  assert.equal(snapshot.summary.paidBins,5);
+  assert.equal(snapshot.summary.cleaningPoints,106);
+  for(const mutate of [
+    r=>{delete r.accounts[0].events[0].quantity;},
+    r=>{r.accounts[0].events[0].quantity=0;},
+    r=>{r.accounts[0].events[0].quantity=2;},
+    r=>{r.accounts[0].events[1].points=0;},
+    r=>{r.accounts[2].events[0].quantity=0;},
+    r=>{r.accounts[2].events[0].points=20;},
+    r=>{r.scoringVersion="2026-11-streak-20-plus-2-squeegee-skip-reset-v1";},
+  ]){
+    const bad=source();
+    mutate(bad);
+    assert.throws(()=>model.validateSource(bad,{now}));
+  }
 });

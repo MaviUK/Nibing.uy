@@ -354,7 +354,7 @@ export default function CustomerHQ({embedded=false}){
                 "Restarts at 20 XP when the next clean is completed and paid":
                 "If your next scheduled clean is completed and paid"}/>
             <Score label="PAID CLEANS" value={number(account.paidCleans)}
-              sub="Historical verified jobs"/>
+              sub="Verified paid individual bins"/>
           </div>
           <GamePanel label="YOUR XP EXPLAINED">
             <div className="hq-balance-line"><span>Cleaning streak rewards</span>

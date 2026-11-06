@@ -2,7 +2,8 @@
 // Production-only secure customer history, annual cleaning scores and opt-in.
 // Do not import the frozen Preview #77 customer cohort or public data seed.
 const crypto=require("node:crypto");
-const {RULE_VERSION}=require("./squeegeeCleaningStreak");
+// Production awards the visit multiplier to each verified physical bin unit. Preview scoring remains independent.
+const BIN_RULE_VERSION="2026-11-streak-20-plus-2-per-paid-bin-v1";
 const {safePublicTown}=require("./arcadePublicIdentity");
 
 const DATA_STORE="nibinguy-production-hq-history";
@@ -19,7 +20,7 @@ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL=/^[^\s@]{1,80}@[^\s@]{1,160}\.[^\s@]{2,24}$/;
 const REF=/^(?:[0-9]{1,12}|CUS[0-9]{1,15}|[Aa]{2}[0-9]{3,8})$/;
 const FIRST=/^[\p{L}][\p{L}'’\-]{0,39}$/u;
-const TYPES=new Set(["paid_completed_clean","completed_payment_not_verified","recorded_skip"]);
+const TYPES=new Set(["paid_completed_clean","completed_payment_not_verified","completed_non_bin_service","recorded_skip"]);
 function dateValue(value){
   if(typeof value!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(value))return null;
   const ms=Date.parse(value+"T12:00:00.000Z");
@@ -43,7 +44,7 @@ function validSourceDay(asOf,now=Date.now()){
 function snapshotFresh(snapshot,now=Date.now()){
   return snapshot?.version===SCHEMA_VERSION&&
     validSourceDay(snapshot.asOf,now)&&
-    snapshot.scoringVersion===RULE_VERSION&&
+    snapshot.scoringVersion===BIN_RULE_VERSION&&
     typeof snapshot.sourceHash==="string"&&/^[a-f0-9]{64}$/.test(snapshot.sourceHash)&&
     Array.isArray(snapshot.accounts)&&snapshot.accounts.length>0;
 }
@@ -55,13 +56,13 @@ function normalizeEmail(email){
 }
 function validateSource(raw,{now=Date.now()}={}){
   if(!raw||raw.version!==1||!validSourceDay(raw.asOf,now)||
-     raw.scoringVersion!==RULE_VERSION||
+     raw.scoringVersion!==BIN_RULE_VERSION||
      !Array.isArray(raw.accounts)||raw.accounts.length<1||
      raw.accounts.length>MAX_ACCOUNTS)
     throw Error("invalid_production_history_source");
   const usedId=new Set(),usedRef=new Set(),emailCounts=new Map();
   const accounts=[];
-  let events=0,paidEvents=0,points=0;
+  let events=0,paidEvents=0,paidBins=0,points=0;
   for(const original of raw.accounts){
     if(!original||!UUID.test(String(original.id||""))||
        !REF.test(String(original.ref||""))||
@@ -91,7 +92,7 @@ function validateSource(raw,{now=Date.now()}={}){
       throw Error("invalid_production_customer_email");
     if(email)emailCounts.set(email,(emailCounts.get(email)||0)+1);
     const cleanEvents=[];
-    let paid=0,score=0,skips=0,previous="";
+    let paid=0,paidUnits=0,score=0,skips=0,previous="";
     for(const event of original.events){
       if(!event||dateValue(event.date)===null||
          event.date<"2000-01-01"||
@@ -99,37 +100,46 @@ function validateSource(raw,{now=Date.now()}={}){
          !TYPES.has(event.event)||
          !Number.isSafeInteger(event.streak)||
          event.streak<0||event.streak>MAX_EVENTS||
+         !Number.isSafeInteger(event.quantity)||
+         event.quantity<0||event.quantity>20||
          !Number.isSafeInteger(event.points)||
          event.points<0||event.points>1000||
          (event.event==="paid_completed_clean" &&
-          (event.streak<1||event.points!==20+2*(event.streak-1)))||
+          (event.quantity<1||event.streak<1||
+           event.points!==(20+2*(event.streak-1))*event.quantity))||
+         (event.event==="completed_payment_not_verified"&&event.quantity<1)||
+         ((event.event==="completed_non_bin_service"||
+           event.event==="recorded_skip")&&event.quantity!==0)||
          (event.event!=="paid_completed_clean"&&event.points!==0))
         throw Error("production_history_event_unverified");
       previous=event.date;
       score+=event.points;
-      if(event.event==="paid_completed_clean")paid++;
+      if(event.event==="paid_completed_clean"){
+        paid++;
+        paidUnits+=event.quantity;
+      }
       if(event.event==="recorded_skip")skips++;
       cleanEvents.push({date:event.date,event:event.event,
-        points:event.points,streak:event.streak});
+        points:event.points,streak:event.streak,quantity:event.quantity});
     }
-    if(paid!==original.paidCleans||
+    if(paidUnits!==original.paidCleans||
        skips!==original.recordedSkips||
        score!==original.points)
       throw Error("production_history_totals_do_not_reconcile");
-    events+=cleanEvents.length;paidEvents+=paid;points+=score;
+    events+=cleanEvents.length;paidEvents+=paid;paidBins+=paidUnits;points+=score;
     accounts.push({
       id,ref,email,firstName:original.firstName,town:original.town,
-      points:score,paidCleans:paid,currentStreak:original.currentStreak,
+      points:score,paidCleans:paidUnits,currentStreak:original.currentStreak,
       nextBonus:original.nextBonus,recordedSkips:skips,events:cleanEvents,
     });
   }
   return {
-    version:SCHEMA_VERSION,asOf:raw.asOf,scoringVersion:RULE_VERSION,
+    version:SCHEMA_VERSION,asOf:raw.asOf,scoringVersion:BIN_RULE_VERSION,
     accounts,summary:{
       activeAccounts:accounts.length,
       emailAvailable:accounts.filter(a=>a.email).length,
       duplicateEmailCount:[...emailCounts.values()].filter(n=>n>1).length,
-      historyEvents:events,paidEvents,cleaningPoints:points,
+      historyEvents:events,paidEvents,paidBins,cleaningPoints:points,
     },
   };
 }
@@ -317,7 +327,7 @@ function personalSummary(snapshot,consents,account,env=process.env,now=Date.now(
   };
 }
 module.exports={
-  DATA_STORE,AUTH_STORE,CONSENT_STORE,DATA_KEY,CONSENT_KEY,NOTICE_VERSION,
+  DATA_STORE,AUTH_STORE,CONSENT_STORE,DATA_KEY,CONSENT_KEY,NOTICE_VERSION,BIN_RULE_VERSION,
   validSourceDay,snapshotFresh,validateSource,hashSource,accountForEmail,
   secret,portalEnv,publicRef,buildConsent,visibleConsent,updateConsent,
   tally,availableYears,scores,personalSummary,
