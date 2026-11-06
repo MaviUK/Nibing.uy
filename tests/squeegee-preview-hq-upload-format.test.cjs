@@ -56,8 +56,8 @@ test("private import keeps owner OTP and CSRF, caps multipart, and rejects non-J
   assert.match(handler,/3_000_000/);
   assert.match(handler,/if\(typeof file\.name!=="string"/);
   assert.match(handler,/status:404|status:405|415/);
-  assert.match(handler,/accept="\.json,application\/json"/);
-  assert.match(handler,/customer-hq-import-validation\.js/);
+  assert.ok(handler.includes('accept=".sqg,application/octet-stream,.json,application/json"'));
+  assert.ok(handler.includes("customer-hq-sqg-import.mjs"));
   assert.match(handler,/script-src 'self'/);
   assert.doesNotMatch(handler,/script-src 'unsafe-inline'/);
   assert.doesNotMatch(handler,/file\.arrayBuffer\(/);
