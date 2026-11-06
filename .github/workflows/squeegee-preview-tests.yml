@@ -150,6 +150,10 @@ on:
       - netlify/functions/bookingSchedule.js
       - tests/squeegee-preview-coverage-authority.test.cjs
       - src/serviceAreaLinks.js
+      - src/data/statsPlan.js
+      - src/data/verifiedCompletedServices.mjs
+      - tests/pre-squeegee-history.test.cjs
+      - tests/owner-monthly-plan.test.cjs
       - public/town-page.js
       - tests/squeegee-preview-coverage-marketing.test.cjs
       - .github/workflows/squeegee-preview-tests.yml
@@ -182,4 +186,4 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
       - name: Test dates, prices, customer matching and job mapping (no live API calls)
-        run: node --test tests/squeegee-*.test.cjs
+        run: node --test tests/squeegee-*.test.cjs tests/pre-squeegee-history.test.cjs tests/owner-monthly-plan.test.cjs

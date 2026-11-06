@@ -22,7 +22,7 @@ test("new business forecast never rewrites verified October backup or route assi
   assert.equal(FOUR_WEEK_PLAN[2].Mon.bins,102);
   const stats=fs.readFileSync(path.join(__dirname,"../src/data/statsPlan.js"),"utf8");
   assert.match(stats,/totalBinsCleaned:TOTAL_COMPLETED_BINS/);
-  assert.match(stats,/PRE_SQUEEGEE_COMPLETED_BINS = 14000/);
+  assert.match(stats,/PRE_SQUEEGEE_COMPLETED_BINS = VERIFIED_COMPLETED_SERVICES\.beforeSqueegeeBins/);
   assert.match(stats,/monthlyCustomers: OWNER_MONTHLY_PLAN\.monthlyCustomers/);
   assert.match(stats,/totalMonthlyCustomers:OWNER_MONTHLY_PLAN\.monthlyCustomers/);
 });

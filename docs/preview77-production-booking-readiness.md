@@ -1,5 +1,7 @@
 # Preview 77 — Production Squeegee booking readiness (6 November 2026)
 
+**Canonical N64 test/release branch:** Preview 77, not release PR #80. Preview 77 now incorporates the latest live `main` history and reconciled 5 November aggregate paid-service quantities while retaining its first-name, town and XP leaderboard. The separate PR #80 is an earlier production-hardening reference; its production Customer HQ and opt-in-gated live leaderboard features are not yet integrated into Preview 77. Before launching live, a production identity and consent release gate must be reviewed without altering Preview 77's test leaderboard. No merge to `main` is approved.
+
 This branch is a **Deploy Preview only**, not an approved production release. It retains Preview 77's current leaderboard/customer-facing code and its separate preview API integration. **Never merge or publish to `main` without owner approval.**
 
 ## What is now staged in code
@@ -22,11 +24,11 @@ These must be Netlify **production context only**, server-side Functions scope, 
 | `SQUEEGEE_PRODUCTION_OWNER_APPROVED_WRITES` | `false` |
 | `SQUEEGEE_PRODUCTION_ATOMIC_LEDGER_READY` | `false` until live CAS verified |
 | `SQUEEGEE_PRODUCTION_WRITES_PAUSED` | `true` |
-| `SQUEEGEE_PRODUCTION_API_KEY` | **Missing: obtain a separately scoped real production Squeegee key from the owner** |
+| `SQUEEGEE_PRODUCTION_API_KEY` | Configured as a production-only Functions secret; same Squeegee credential as preview by owner request |
 | `SQUEEGEE_PRODUCTION_EVENT_SECRET` | high-entropy independently generated Functions-only secret |
 | `SQUEEGEE_PRODUCTION_OWNER_AUTH_SECRET` | separate high-entropy Functions-only secret |
 
-Do not use the Preview 77 branch-specific Squeegee key in `SQUEEGEE_PRODUCTION_API_KEY`. The owner status sign-in can be activated independently while writes are OFF. Its one-time codes go only to `info@nibing.uy`.
+The owner has explicitly approved reuse of the same Squeegee credential in a separate production-only secret. This does not grant the preview production write rights. The owner status sign-in can be activated independently while writes are OFF. Its one-time codes go only to `info@nibing.uy`.
 
 ## Release acceptance: first WITHOUT Squeegee creation
 
@@ -38,4 +40,4 @@ Do not use the Preview 77 branch-specific Squeegee key in `SQUEEGEE_PRODUCTION_A
 6. **Only after explicit owner approval**, enable one controlled transaction and verify new customer, existing customer/new colour, duplicates/inactive holds, additional same-colour quantity, 660/1100L, valid round/first clean/4-week recurrence, signed owner PDF, no duplicate receipts and no retries after ambiguous POST. Compare Squeegee account directly and owner email.
 7. Set `WRITES_PAUSED=true` to prove the emergency kill switch works. Confirm an owner can find held/reconciliation references; do not automatically replay them. Explicitly approve any final go-live change.
 
-**Important:** Installing code on Preview 77 does NOT configure the live key, turn on automatic creation, perform a real booking, or publish to production. A Preview 77 form may still use its pre-existing *preview-specific* integration; do not mistake that separate pilot for a production-off test.
+**Important:** The production-only key is stored, but automatic creation is still disabled, production read-only access is OFF, no real production booking has been tested, and the live site has not been changed. A Preview 77 form may still use its pre-existing *preview-specific* integration; do not mistake that separate pilot for a production-off test.

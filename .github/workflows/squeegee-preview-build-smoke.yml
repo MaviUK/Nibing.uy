@@ -18,6 +18,10 @@ on:
       - netlify/functions/bookingSchedule.js
       - tests/squeegee-preview-coverage-authority.test.cjs
       - src/LandingPage.jsx
+      - src/data/statsPlan.js
+      - src/data/verifiedCompletedServices.mjs
+      - tests/pre-squeegee-history.test.cjs
+      - tests/owner-monthly-plan.test.cjs
       - src/bookingReference.mjs
       - netlify/functions/lib/bookingEmailTemplate.js
       - netlify/functions/lib/ownerBookingTermsSummary.js
