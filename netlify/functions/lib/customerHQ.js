@@ -21,10 +21,15 @@ function normalizeEmail(value){
   return EMAIL.test(s)?s:null;
 }
 function secret(env){
-  if(!env || typeof env.SQUEEGEE_API_KEY!=="string" ||
-    env.SQUEEGEE_API_KEY.length<20)return null;
-  return crypto.createHmac("sha256",env.SQUEEGEE_API_KEY)
-    .update("preview77:customer-hq:independent-from-owner-otp:v1").digest();
+  if(!env)return null;
+  // Never substitute the preview credential for a production sign-in key.
+  const isProduction=env.N64_PRODUCTION_CUSTOMER_HQ_ENABLED==="true";
+  const key=isProduction ? env.N64_PRODUCTION_CUSTOMER_HQ_SECRET : env.SQUEEGEE_API_KEY;
+  if(typeof key!=="string" || key.length<(isProduction?32:20))return null;
+  const domain=isProduction
+    ?"nibinguy:production:customer-hq:otp-and-session:v1"
+    :"preview77:customer-hq:independent-from-owner-otp:v1";
+  return crypto.createHmac("sha256",key).update(domain).digest();
 }
 function signature(env,tag,data){
   const root=secret(env);

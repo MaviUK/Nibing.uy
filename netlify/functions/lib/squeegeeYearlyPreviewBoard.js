@@ -26,7 +26,7 @@ function supportedPrivateHistory(privateCustomers,now=Date.now()){
     Array.isArray(privateCustomers.accounts) &&
     (privateCustomers.asOf===snapshot.AS_OF ||
       (binHistory.isBinSnapshot(privateCustomers) &&
-       binHistory.fresh(privateCustomers.asOf,now)));
+       binHistory.displayable(privateCustomers.asOf,now)));
 }
 
 

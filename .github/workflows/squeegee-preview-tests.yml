@@ -137,6 +137,10 @@ on:
       - tests/squeegee-owner-verified-email-consent.test.cjs
       - tests/squeegee-preview-launch-checks.test.cjs
       - tests/squeegee-personal-leaderboard.test.cjs
+      - tests/squeegee-production-n64-hq-board.test.cjs
+      - netlify/functions/n64ProductionLeaderboard.mjs
+      - netlify/functions/lib/n64ProductionPublicBoard.js
+      - public/privacy-policy.html
       - public/sitemap.xml
       - public/bin-cleaning-millisle
       - public/bin-cleaning-portaferry

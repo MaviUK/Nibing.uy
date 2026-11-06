@@ -117,9 +117,13 @@ function preparePrivateConsentImport(csv,prior=null,now=Date.now()){
 function changeConsent(snapshot,{
   reference,action,method,evidenceRef,confirm,correctedFirstName
 },now=Date.now(),emailEligibleAliases=null){
+  // A public entry remains withdrawable during the dated display grace
+  // period. New grants still require a fresh, independently checked import.
+  const eligibleDate=action==="withdraw"
+    ?binHistory.displayable(snapshot?.sourceAsOf,now)
+    :binHistory.fresh(snapshot?.sourceAsOf,now);
   if(snapshot?.version!==1||!Array.isArray(snapshot.records)||
-     !(snapshot.sourceAsOf===staticHistory.AS_OF||
-       binHistory.fresh(snapshot.sourceAsOf,now)))
+     !(snapshot.sourceAsOf===staticHistory.AS_OF||eligibleDate))
     throw new Error("consent_dataset_missing");
   if(!SQUEEGEE_REF.test(String(reference||""))||
      !["grant","withdraw"].includes(action))
@@ -390,7 +394,7 @@ function previewFirstNameScoreboard(
   if(privateCustomers?.version!==1 ||
      !(privateCustomers.asOf===staticHistory.AS_OF||
        (binHistory.isBinSnapshot(privateCustomers)&&
-        binHistory.fresh(privateCustomers.asOf))) ||
+        binHistory.displayable(privateCustomers.asOf))) ||
      !Array.isArray(privateCustomers.accounts) ||
      !(eligibleAliases instanceof Set) ||
      !Buffer.isBuffer(secretKey)||secretKey.length<16)return null;

@@ -3,6 +3,7 @@ import { scrollToArcadeTabs, stabilizeArcadeTabScroll } from "./scrollToArcadeBo
 
 const REFRESH_MS = 10000;
 const ENDPOINT = "/.netlify/functions/arcadeLeaderboard";
+const PRODUCTION_ENDPOINT="/api/n64-production-leaderboard";
 const CUSTOMER_SUMMARY_ENDPOINT="/api/customer-hq?view=rank-summary";
 const OWNER_ENDPOINT="/api/squeegee-preview-verified-leaderboard";
 const OWNER_LOGIN_RETURN="/?ntl-drawer-state=hidden&owner-board=1&owner-auth-complete=1#live-leaderboard";
@@ -280,8 +281,10 @@ export default function ArcadeLeaderboard() {
       if (busy) { refreshAgain = true; return; }
       busy = true;
       try {
-        const url=selectedYear==="overall"?ENDPOINT:
-          ENDPOINT+"?year="+encodeURIComponent(selectedYear);
+        const currentEndpoint=window.location.hostname==="nibing.uy"
+          ?PRODUCTION_ENDPOINT:ENDPOINT;
+        const url=selectedYear==="overall"?currentEndpoint:
+          currentEndpoint+"?year="+encodeURIComponent(selectedYear);
         const response = await fetch(url, { cache: "no-store" });
         if (!response.ok) throw new Error("Leaderboard temporarily unavailable");
         const data = await response.json();

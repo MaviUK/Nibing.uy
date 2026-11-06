@@ -28,6 +28,16 @@ function fresh(asOf,now=Date.now()){
   const days=(today-day)/86400000;
   return Number.isInteger(days)&&days>=0&&days<=7;
 }
+// A dated public scoreboard may remain readable briefly when a weekly import
+// runs late. This does not certify any new clean, reactivate customers, or
+// permit importing old data. The source as-of date must stay visible.
+const DISPLAY_GRACE_DAYS=35;
+function displayable(asOf,now=Date.now()){
+  const day=dateValue(asOf),today=dateValue(ukToday(now));
+  if(day===null||today===null||day>today)return false;
+  const days=(today-day)/86400000;
+  return Number.isInteger(days)&&days>=0&&days<=DISPLAY_GRACE_DAYS;
+}
 function isBinSnapshot(raw){
   return raw?.version===1&&raw.scoringVersion===VERSION &&
     typeof raw.asOf==="string"&&Array.isArray(raw.accounts)&&
@@ -111,7 +121,7 @@ function validateBinSource(raw,{now=Date.now()}={}){
       rankedWithEmailPoints}};
 }
 function eligibleBinAccounts(snapshot){
-  if(!isBinSnapshot(snapshot)||!fresh(snapshot.asOf))return null;
+  if(!isBinSnapshot(snapshot)||!displayable(snapshot.asOf))return null;
   const seen=new Set(),emails=new Map(),aliases=new Set();
   let verifiedActiveEmailAccounts=0,historicalPoints=0,verifiedPaidBins=0;
   for(const a of snapshot.accounts){
@@ -136,4 +146,4 @@ function eligibleBinAccounts(snapshot){
     verifiedActiveEmailAccounts,verificationAsOf:snapshot.asOf,
     verificationStatus:"verified_from_squeegee_backup"};
 }
-module.exports={VERSION,fresh,isBinSnapshot,validateBinSource,eligibleBinAccounts};
+module.exports={VERSION,fresh,displayable,DISPLAY_GRACE_DAYS,isBinSnapshot,validateBinSource,eligibleBinAccounts};

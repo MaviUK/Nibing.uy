@@ -5,6 +5,8 @@ import crypto from "node:crypto";
 import {getStore} from "@netlify/blobs";
 import {Resend} from "resend";
 import api from "./lib/squeegeeApiV3.js";
+import prodGuard from "./lib/squeegeeProductionGuard.js";
+import {createProductionClient} from "./lib/squeegeeProductionApi.js";
 import auth from "./lib/customerHQ.js";
 import nameConsents from "./lib/squeegeeLeaderboardNameConsent.js";
 import {canonicalLegacyRef} from "./lib/squeegeeActiveLeaderboardImport.js";
@@ -12,7 +14,8 @@ import historicalBoards from "./lib/squeegeeActiveLeaderboardImport.js";
 import personalRanks from "./lib/squeegeePersonalLeaderboard.js";
 import merge from "./lib/arcadeCustomerMerge.js";
 
-const ORIGIN="https://deploy-preview-77--nibinguy.netlify.app";
+const PREVIEW_ORIGIN="https://deploy-preview-77--nibinguy.netlify.app";
+const LIVE_ORIGIN="https://nibing.uy";
 const PATH="/api/customer-hq";
 const headers={
   "Content-Type":"application/json; charset=utf-8",
@@ -30,6 +33,17 @@ function scope(request,ctx) {
   return {hostname:new URL(request.url).hostname,
     deployContext:ctx?.deploy?.context,siteId:ctx?.site?.id};
 }
+function readContext(request,ctx,env=process.env) {
+  const runtime=scope(request,ctx);
+  if(api.isExactPreview1(env,runtime))
+    return {origin:PREVIEW_ORIGIN,reader:api,mode:"preview"};
+  if(!prodGuard.isVerifiedProductionScope(runtime) ||
+     env.N64_PRODUCTION_CUSTOMER_HQ_ENABLED!=="true" ||
+     env.SQUEEGEE_PRODUCTION_READ_ENABLED!=="true" ||
+     !auth.secret(env))return null;
+  return {origin:LIVE_ORIGIN,mode:"production",
+    reader:createProductionClient({env,scope:runtime})};
+}
 const dataStore=()=>getStore({name:auth.DATA_STORE,consistency:"strong"});
 const authStore=()=>getStore({name:auth.AUTH_STORE,consistency:"strong"});
 const consentStore=()=>getStore({name:nameConsents.STORE_NAME,consistency:"strong"});
@@ -45,8 +59,8 @@ const rankingStores=()=>{
     activity:activityStore(),
     history:getStore({name:historicalBoards.BLOB_STORE,consistency:"strong"})};
 };
-async function currentlyActive(id,email){
-  const row=await api.getCustomer(id);
+async function currentlyActive(id,email,reader=api){
+  const row=await reader.getCustomer(id);
   return auth.validateApiCustomer(row,{id,email});
 }
 async function linkedWebsiteXP(customerId) {
@@ -211,7 +225,7 @@ async function consentChoice(customerId,sharedConsentPromise=null) {
       choice.noticeVersion===nameConsents.NOTICE_VERSION,
     displayedFirstName:choice?.firstName||null};
 }
-async function lookupVerifiedSession(request,ledger,now=Date.now(),sharedSnapshot=null) {
+async function lookupVerifiedSession(request,ledger,now=Date.now(),sharedSnapshot=null,reader=api) {
   const token=auth.cookieFromHeader(request.headers.get("cookie"));
   const record=await auth.readSession({authStore:ledger,token,now});
   if(!record)return null;
@@ -220,7 +234,7 @@ async function lookupVerifiedSession(request,ledger,now=Date.now(),sharedSnapsho
   const account=snapshot?.accounts?.find(x=>x.id===record.customerId);
   if(!account || !account.email ||
      auth.accountForEmail(snapshot,account.email)?.id!==account.id)return null;
-  const liveCustomer=await api.getCustomer(account.id);
+  const liveCustomer=await reader.getCustomer(account.id);
   if(!auth.validateApiCustomer(liveCustomer,account))return null;
   return {account,token,liveCustomer};
 }
@@ -240,8 +254,8 @@ async function sendLoginCode(email,code){
   if(result?.error)throw new Error("customer_hq_email_failed");
 }
 export default async function handler(request,context) {
-  if(!api.isExactPreview1(process.env,scope(request,context)))
-    return respond(404,{error:"not_found"});
+  const access=readContext(request,context);
+  if(!access)return respond(404,{error:"not_found"});
   if(!["GET","POST"].includes(request.method))
     return respond(405,{error:"method_not_allowed"});
   const ledger=authStore();
@@ -250,7 +264,7 @@ export default async function handler(request,context) {
       const snapshot=await dataStore().get(auth.DATA_KEY,{type:"json",consistency:"strong"});
       if(!snapshot)return respond(200,{ready:false,authenticated:false,
         loginMethod:"email_code",requiresCustomerIdentityCheck:true});
-      const session=await lookupVerifiedSession(request,ledger,Date.now(),snapshot);
+      const session=await lookupVerifiedSession(request,ledger,Date.now(),snapshot,access.reader);
       if(!session)return respond(200,{ready:true,authenticated:false,
         loginMethod:"email_code",sourceAsOf:snapshot.asOf});
       await attachMatchedWebsiteBooking(session);
@@ -281,7 +295,7 @@ export default async function handler(request,context) {
           noticeVersion:nameConsents.NOTICE_VERSION},
       });
     }
-    if(request.headers.get("origin")!==ORIGIN)
+    if(request.headers.get("origin")!==access.origin)
       return respond(403,{error:"cross_site_request"});
     const raw=await request.text();
     if(raw.length>4500)return respond(400,{error:"invalid_request"});
@@ -305,7 +319,7 @@ export default async function handler(request,context) {
       // return the SAME public response. Never disclose who is a customer.
       if(account){
         try{
-          if(await currentlyActive(account.id,email)){
+          if(await currentlyActive(account.id,email,access.reader)){
             const sent=await auth.issueCode({env:process.env,authStore:ledger,
               account,send:sendLoginCode});
             if(sent.sent)challengeId=sent.challengeId;
@@ -327,7 +341,7 @@ export default async function handler(request,context) {
       if(!customerId)return respond(401,{error:"invalid_or_expired_code"});
       const snapshot=await dataStore().get(auth.DATA_KEY,{type:"json",consistency:"strong"});
       const account=snapshot?.accounts?.find(x=>x.id===customerId);
-      if(!account?.email||!await currentlyActive(customerId,account.email))
+      if(!account?.email||!await currentlyActive(customerId,account.email,access.reader))
         return respond(401,{error:"account_cannot_be_verified"});
       const session=await auth.createSession({authStore:ledger,customerId});
       return respond(200,{authenticated:true},{
@@ -335,7 +349,7 @@ export default async function handler(request,context) {
       });
     }
     if(action==="sync-website-xp"){
-      const session=await lookupVerifiedSession(request,ledger);
+      const session=await lookupVerifiedSession(request,ledger,Date.now(),null,access.reader);
       if(!session)return respond(401,{error:"sign_in_required"});
       if(!Array.isArray(body.claimed)||body.claimed.length>200 ||
          (body.events!==undefined&&(!Array.isArray(body.events)||body.events.length>100)))
@@ -356,7 +370,7 @@ export default async function handler(request,context) {
         achievementState:rewards.achievementState});
     }
     if(action==="leaderboard-opt-in"||action==="leaderboard-withdraw"){
-      const session=await lookupVerifiedSession(request,ledger);
+      const session=await lookupVerifiedSession(request,ledger,Date.now(),null,access.reader);
       if(!session)return respond(401,{error:"sign_in_required"});
       const store=consentStore();
       const existing=await store.getWithMetadata(nameConsents.KEY,{
