@@ -425,9 +425,15 @@ exports.handler = async (event) => {
         const period=annualYear===null?"overall":String(annualYear);
         // EMAIL REQUIRED: the ONLY trusted eligibility data is the private
         // owner-imported active Squeegee snapshot; no public seed fallback.
-        const privateCustomers=await stores.portal.get(customerHQ.DATA_KEY,{
-          type:"json",consistency:"strong"
-        });
+        // Read independent private snapshots concurrently to remove one
+        // network waterfall. Never cache the consent ledger: withdrawals
+        // must be checked on every public leaderboard request.
+        const [privateCustomers,privateNames,mode,published]=await Promise.all([
+          stores.portal.get(customerHQ.DATA_KEY,{type:"json",consistency:"strong"}),
+          stores.names.get(nameConsents.KEY,{type:"json",consistency:"strong"}),
+          stores.history.get(historical.MODE_KEY,{type:"json",consistency:"strong"}),
+          stores.history.get(historical.PUBLISHED_KEY,{type:"json",consistency:"strong"}),
+        ]);
         const eligible=customerHQ.eligibleRankedEmailAccounts(privateCustomers);
         if(!eligible){
           return out(200,{...publicLeaderboard({
@@ -439,11 +445,6 @@ exports.handler = async (event) => {
             eligible.aliases.has(historical.canonicalLegacyRef(account.id))
               ?sum+yearlyPreview.annualCleaningXP(
                 account.events,annualYear,privateCustomers.asOf):sum,0);
-        const [privateNames,mode,published]=await Promise.all([
-          stores.names.get(nameConsents.KEY,{type:"json",consistency:"strong"}),
-          stores.history.get(historical.MODE_KEY,{type:"json",consistency:"strong"}),
-          stores.history.get(historical.PUBLISHED_KEY,{type:"json",consistency:"strong"}),
-        ]);
         if(mode?.activeOnly===true && !published){
           // The owner's previous HIDE action is authoritative for every year.
           return out(200,{...publicLeaderboard({

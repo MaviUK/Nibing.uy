@@ -178,10 +178,10 @@ function personalRanksAnnualCleaning(events,year,asOf){
     event.date<=asOf && Number.isSafeInteger(event.points)
       ?sum+event.points:sum,0);
 }
-async function verifiedPersonalSummary(session,snapshot){
-  const consent=await consentStore().get(nameConsents.KEY,{
-    type:"json",consistency:"strong"
-  });
+async function verifiedPersonalSummary(session,snapshot,sharedConsentPromise=null){
+  const consent=sharedConsentPromise
+    ? await sharedConsentPromise
+    : await consentStore().get(nameConsents.KEY,{type:"json",consistency:"strong"});
   return personalRanks.getPersonalSummary({
     stores:rankingStores(),privateCustomers:snapshot,
     customerId:session.account.id,
@@ -200,10 +200,10 @@ async function attachMatchedWebsiteBooking(session){
   }catch{return {linked:false,reason:"link_temporarily_unavailable"};}
 }
 
-async function consentChoice(customerId) {
-  const saved=await consentStore().get(nameConsents.KEY,{
-    type:"json",consistency:"strong"
-  });
+async function consentChoice(customerId,sharedConsentPromise=null) {
+  const saved=sharedConsentPromise
+    ? await sharedConsentPromise
+    : await consentStore().get(nameConsents.KEY,{type:"json",consistency:"strong"});
   const alias=canonicalLegacyRef(customerId);
   const choice=saved?.records?.find(r=>r.alias===alias);
   return {ready:!!choice,
@@ -211,11 +211,12 @@ async function consentChoice(customerId) {
       choice.noticeVersion===nameConsents.NOTICE_VERSION,
     displayedFirstName:choice?.firstName||null};
 }
-async function lookupVerifiedSession(request,ledger,now=Date.now()) {
+async function lookupVerifiedSession(request,ledger,now=Date.now(),sharedSnapshot=null) {
   const token=auth.cookieFromHeader(request.headers.get("cookie"));
   const record=await auth.readSession({authStore:ledger,token,now});
   if(!record)return null;
-  const snapshot=await dataStore().get(auth.DATA_KEY,{type:"json",consistency:"strong"});
+  const snapshot=sharedSnapshot ||
+    await dataStore().get(auth.DATA_KEY,{type:"json",consistency:"strong"});
   const account=snapshot?.accounts?.find(x=>x.id===record.customerId);
   if(!account || !account.email ||
      auth.accountForEmail(snapshot,account.email)?.id!==account.id)return null;
@@ -249,7 +250,7 @@ export default async function handler(request,context) {
       const snapshot=await dataStore().get(auth.DATA_KEY,{type:"json",consistency:"strong"});
       if(!snapshot)return respond(200,{ready:false,authenticated:false,
         loginMethod:"email_code",requiresCustomerIdentityCheck:true});
-      const session=await lookupVerifiedSession(request,ledger);
+      const session=await lookupVerifiedSession(request,ledger,Date.now(),snapshot);
       if(!session)return respond(200,{ready:true,authenticated:false,
         loginMethod:"email_code",sourceAsOf:snapshot.asOf});
       await attachMatchedWebsiteBooking(session);
@@ -259,10 +260,13 @@ export default async function handler(request,context) {
         const summary=await verifiedPersonalSummary(session,snapshot);
         return respond(200,{ready:true,authenticated:true,summary});
       }
+      const sharedConsent=consentStore().get(nameConsents.KEY,{
+        type:"json",consistency:"strong"
+      });
       const [rewards,visibility,summary]=await Promise.all([
         customerWebsiteRewards(session.account.id),
-        consentChoice(session.account.id),
-        verifiedPersonalSummary(session,snapshot)
+        consentChoice(session.account.id,sharedConsent),
+        verifiedPersonalSummary(session,snapshot,sharedConsent)
       ]);
       const account=auth.publicAccount(session.account,0);
       return respond(200,{ready:true,authenticated:true,

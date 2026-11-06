@@ -41,3 +41,14 @@ The owner has explicitly approved reuse of the same Squeegee credential in a sep
 7. Set `WRITES_PAUSED=true` to prove the emergency kill switch works. Confirm an owner can find held/reconciliation references; do not automatically replay them. Explicitly approve any final go-live change.
 
 **Important:** The production-only key is stored, but automatic creation is still disabled, production read-only access is OFF, no real production booking has been tested, and the live site has not been changed. A Preview 77 form may still use its pre-existing *preview-specific* integration; do not mistake that separate pilot for a production-off test.
+
+## Pre-launch website findings — audit update 6 November 2026
+
+- **Coverage/SEO:** Millisle and Portaferry remain `review` in the canonical postcode policy and are **not** automatically bookable. Until the owner confirms service coverage, the search sitemap and homepage service JSON-LD exclude them; each existing town page is a noindex, clearly marked availability-check page. Do not silently move either town into `activeTowns`.
+- **Booking emails:** Recent historical customer/owner booking pairs in Resend show delivered status and a matching signed Terms PDF attachment. This does **not** substitute for an approved final production booking/email test.
+- **Stats:** The 1,734 monthly-customer count is owner-reported. The historical 5 November verified bin total remains separate from the owner-estimated 200-bin weekday display progression; do not misrepresent planning targets as audited records.
+- **Performance:** The sampled Preview 77 Netlify P90 was approximately 2.87 s for Customer HQ (32 requests) and 2.53 s for the public leaderboard (34 requests). The new release candidate reduces sequential Netlify Blob GETs and defers the external Squeegee widget until the portal section is near view. Re-measure after warm and cold traffic; do not claim a quantified speed-up from static tests.
+- **Accessibility:** A keyboard-focusable Skip to main content link targets the actual homepage landmark. The older accessibility PR's static embedded widget was already replaced, but a dynamically embedded third-party Squeegee portal remains further down the homepage. Test that widget and dialogs with a real mobile screen reader rather than assuming third-party accessibility is solved.
+- **Mobile:** A real Samsung/Android booking, postcode autocomplete, scrolling/anchors, stage animation, error recovery, Customer HQ email-code session and withdrawal flow still require hands-on testing. Automated unit tests and builds are not a replacement.
+- **404s:** Immutable Netlify deploy URLs may show 404s when copied between deployments. Check the canonical `deploy-preview-77--nibinguy.netlify.app` route independently before reporting an actual Customer HQ outage.
+- **Approval:** Remain on Preview 77. Do not merge into `main` or activate production Squeegee writes until the owner authorises it.

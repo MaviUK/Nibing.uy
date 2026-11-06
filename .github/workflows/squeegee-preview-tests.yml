@@ -135,6 +135,13 @@ on:
       - netlify/functions/squeegeePreviewLeaderboardNames.mjs
       - tests/squeegee-leaderboard-name-consent.test.cjs
       - tests/squeegee-owner-verified-email-consent.test.cjs
+      - tests/squeegee-preview-launch-checks.test.cjs
+      - public/sitemap.xml
+      - public/bin-cleaning-millisle
+      - public/bin-cleaning-portaferry
+      - public/_headers
+      - src/HomepageServiceSchema.jsx
+      - src/index.css
       - tests/squeegee-active-preview-population.test.cjs
       - netlify/functions/lib/arcadeSqueegeeLink.js
       - tests/squeegee-active-leaderboard.test.cjs

@@ -3,14 +3,32 @@ import LevelWasher from "./LevelWasher.jsx"
 
 export default function CustomerPortalLoader({ standalone = false }) {
   useEffect(() => {
-    if (document.getElementById("squeegee-widget-script")) return
-
-    const script = document.createElement("script")
-    script.id = "squeegee-widget-script"
-    script.src = "https://widgets.sqg.ee/main.js"
-    script.async = true
-    document.head.appendChild(script)
-  }, [])
+    // Defer the Squeegee portal widget until a visitor approaches the section.
+    // Customer HQ, booking and homepage interactions should paint first.
+    const loadPortal = () => {
+      if (document.getElementById("squeegee-widget-script")) return
+      const script = document.createElement("script")
+      script.id = "squeegee-widget-script"
+      script.src = "https://widgets.sqg.ee/main.js"
+      script.async = true
+      document.head.appendChild(script)
+    }
+    const section = document.getElementById("customer-portal")
+    if (standalone || !section || typeof IntersectionObserver !== "function") {
+      loadPortal()
+      return
+    }
+    if (["#customer-portal", "#customer-portal-login"].includes(window.location.hash))
+      loadPortal()
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        loadPortal()
+        observer.disconnect()
+      }
+    }, { rootMargin: "500px 0px" })
+    observer.observe(section)
+    return () => observer.disconnect()
+  }, [standalone])
 
   // A direct link from /customer-hq loads the homepage before React mounts
   // the anchor, so explicitly honour the hash once this section is present.

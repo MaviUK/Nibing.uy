@@ -15,7 +15,6 @@
 /town-page.js
   Cache-Control: no-cache, no-store, must-revalidate
 /bin-cleaning-*
-  X-Robots-Tag: index, follow
   Cache-Control: no-cache, max-age=0, must-revalidate
 /bin-cleaning-bangor/*
   X-Robots-Tag: index, follow
@@ -28,8 +27,10 @@
   Content-Type: text/html; charset=utf-8
 /bin-cleaning-millisle
   Content-Type: text/html; charset=utf-8
+  X-Robots-Tag: noindex, follow
 /bin-cleaning-portaferry
   Content-Type: text/html; charset=utf-8
+  X-Robots-Tag: noindex, follow
 /bin-cleaning-groomsport
   Content-Type: text/html; charset=utf-8
 /bin-cleaning-guides

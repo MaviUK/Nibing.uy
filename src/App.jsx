@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from "react"
-import { Routes, Route } from "react-router-dom"
+import { Routes, Route, useLocation } from "react-router-dom"
 import NiBinGuyLandingPage from "./LandingPage"
 import "./n64-theme.css"
 import "./n64-complete.css"
@@ -53,8 +53,11 @@ function HomePage() {
 }
 
 export default function App() {
+  const { pathname } = useLocation()
   return (
-    <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">Loading page…</div>}>
+    <>
+      {pathname === "/" && <a href="#main-content" className="skip-link">Skip to main content</a>}
+      <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">Loading page…</div>}>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/street-booking" element={<StreetBookingPage />} />
@@ -72,6 +75,7 @@ export default function App() {
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
       </Routes>
-    </Suspense>
+      </Suspense>
+    </>
   )
 }

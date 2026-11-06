@@ -74,7 +74,7 @@ body {
   color: #fff;
   padding: 10px 14px;
   z-index: 1000;
-  border-radius: 6px;
+  border-radius: 0;
   text-decoration: none;
   transition: top 0.2s;
 }
