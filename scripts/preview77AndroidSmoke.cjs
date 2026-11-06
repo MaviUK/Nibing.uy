@@ -12,6 +12,13 @@ const fs=require("node:fs");
  try{
   const response=await page.goto(origin+"/?weather=night",{waitUntil:"domcontentloaded",timeout:45000});
   if(!response||response.status()!==200)throw Error("Homepage HTTP "+response?.status());
+  const homeNavigation=await page.evaluate(()=>{
+   const entry=performance.getEntriesByType("navigation")[0];
+   const fcp=performance.getEntriesByName("first-contentful-paint")[0];
+   return {domContentLoadedMs:Math.round(entry?.domContentLoadedEventEnd||0),
+     responseEndMs:Math.round(entry?.responseEnd||0),
+     firstContentfulPaintMs:fcp?Math.round(fcp.startTime):null};
+  });
   await page.locator("#main-content").waitFor({state:"visible",timeout:20000});
   await page.locator(".n64-top-actions").waitFor({state:"visible",timeout:20000});
   const dimensions=await page.evaluate(()=>({
@@ -34,7 +41,8 @@ const fs=require("node:fs");
   await page.getByRole("dialog").first().waitFor({state:"visible",timeout:15000});
   await page.screenshot({path:"mobile-qa/coverage-dialog.png",fullPage:false});
   const timings={
-   homepageDomReadyMs:Date.now()-start,
+   homepageNavigation:homeNavigation,
+   safeTwoDialogJourneyMs:Date.now()-start,
    width:dimensions.width,
    documentWidth:dimensions.scrollWidth,
    hiddenSkipLinkBottom:dimensions.skip,
