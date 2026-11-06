@@ -23,7 +23,7 @@ const refs=ids.map(canonicalLegacyRef);
 function fixture(){
   const namesList=["Alice","Bob","Carol"];
   const towns=["Bangor","Comber","Holywood"];
-  const emails=["alice@example.test","bob@example.test",null];
+  const emails=["alice@example.test","bob@example.test",""];
   return hq.validateSource({
     version:1,asOf:today(),scoringVersion:bin.VERSION,
     accounts:ids.map((id,i)=>({
