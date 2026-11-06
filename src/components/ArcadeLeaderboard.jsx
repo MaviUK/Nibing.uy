@@ -4,6 +4,7 @@ import { scrollToArcadeTabs, stabilizeArcadeTabScroll } from "./scrollToArcadeBo
 const REFRESH_MS = 10000;
 const ENDPOINT = "/.netlify/functions/arcadeLeaderboard";
 const PRODUCTION_ENDPOINT="/api/n64-production-leaderboard";
+const LIVE_N64=typeof window!=="undefined"&&window.location.hostname==="nibing.uy";
 const CUSTOMER_SUMMARY_ENDPOINT="/api/customer-hq?view=rank-summary";
 const OWNER_ENDPOINT="/api/squeegee-preview-verified-leaderboard";
 const OWNER_LOGIN_RETURN="/?ntl-drawer-state=hidden&owner-board=1&owner-auth-complete=1#live-leaderboard";
@@ -454,7 +455,8 @@ export default function ArcadeLeaderboard() {
                 ? verifiedPlayers.toLocaleString("en-GB") + " verified from backup · "
                 : eligiblePlayers !== null
                   ? eligiblePlayers.toLocaleString("en-GB") + " email-eligible · " : "") +
-              "Updated " + updatedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+              (LIVE_N64 && verifiedAsOf ? "Verified history "+verifiedAsOf+" · " : "") +
+              "Checked " + updatedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
             : "Checking scores…"}
           </span>
         </div>
@@ -478,7 +480,7 @@ export default function ArcadeLeaderboard() {
                   : eligiblePlayers!==null
                     ? eligiblePlayers.toLocaleString("en-GB")+" customers are email-eligible. " : ""}
                 {eligibleCleaningXp!==null ? eligibleCleaningXp.toLocaleString("en-GB")+" cleaning XP are safely recorded. " : ""}
-                First name, town and cleaning points appear on the N64 test leaderboard. Sign in to My Customer HQ for your own private breakdown.
+                First name, town and cleaning points appear on the {LIVE_N64?"public leaderboard":"N64 test leaderboard"}. Sign in to My Customer HQ for your own private breakdown.
               </small>}
             </li>
           ) : players.slice(0,publicShownCount).map((player, i) => {
@@ -509,7 +511,7 @@ export default function ArcadeLeaderboard() {
           </button>
         </div>}
         {nameConsentMode && players.length>0 && <p className="n64-board-display-note">
-          {publicNamedCount.toLocaleString("en-GB")} customers are displayed by first name and town on this N64 preview.
+          {publicNamedCount.toLocaleString("en-GB")} customers are displayed by first name and town on {LIVE_N64?"the public leaderboard":"this N64 preview"}.
         </p>}
         {connection === "reconnecting" && (
           <p className="n64-board-error" role="status">
@@ -519,7 +521,7 @@ export default function ArcadeLeaderboard() {
         <small>
           {historyStatus ? "Active account-status verification is out of date; historical scores are temporarily hidden. " : ""}
           Tap a player or choose My Customer HQ above to open the email-code sign-in in this section. You can only see the account verified by your own email code. Public rankings refresh every 10 seconds; historical Squeegee scores change after a verified import.
-          {nameConsentMode || eligibilityPending ? "A registered email is required to qualify. First name, town and points are visible on this test leaderboard. Squeegee references and contact details remain private." : "Full cleaning histories require secure sign-in. Public scores never grant access to another customer's account."}
+          {nameConsentMode || eligibilityPending ? "A registered email is required to qualify. First name, town and points are visible on the "+(LIVE_N64?"public leaderboard.":"test leaderboard.")+" Squeegee references and contact details remain private." : "Full cleaning histories require secure sign-in. Public scores never grant access to another customer's account."}
         </small>
         </div>
         <div className="n64-owner-ranking" hidden={rankingMode!=="owner"}>

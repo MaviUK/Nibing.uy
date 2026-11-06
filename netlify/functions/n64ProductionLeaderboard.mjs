@@ -49,6 +49,8 @@ export default async function handler(request,context){
   if(!result)return send(503,{error:"verified_leaderboard_unavailable"});
   return send(200,{...result,period,availableYears,
     eligiblePlayers:eligible.count,verifiedPlayers:eligible.verifiedCount,
+    eligibleCleaningXp:eligible.historicalPoints,
+    publicNamedCount:result.entries.length,
     verifiedAsOf:eligible.verificationAsOf,
     sourceWarning:"Historical scores reflect the dated verified backup; they are not a live Squeegee balance."});
  }catch{return send(503,{error:"verified_leaderboard_temporarily_unavailable"});}

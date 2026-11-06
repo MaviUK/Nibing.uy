@@ -67,7 +67,7 @@ test("leaderboard reads consent fresh on each GET, and Customer HQ shares only r
   assert.match(hq,/verifiedPersonalSummary\(session,snapshot,sharedConsent\)/);
   assert.match(hq,/consentChoice\(session\.account\.id,sharedConsent\)/);
   assert.match(hq,/Cache-Control":"private, no-store, max-age=0/);
-  assert.match(hq,/api\.getCustomer\(account\.id\)/);
+  assert.match(hq,/reader\.getCustomer\(account\.id\)/);
   assert.match(hq,/onlyIfMatch:existing\.etag/);
 });
 
