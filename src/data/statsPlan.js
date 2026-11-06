@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 
-// Verified completed bins to 5 Nov 2026, independent of the historic
-// 31 Oct cycle-planning snapshot. Never add planned jobs or daily estimates.
+// Verified completed bins through the Squeegee audit remain immutable.
+// Since the last verified day, the owner has requested a separate public
+// running estimate of 200 bins per Mon–Thu workday, 08:00–18:00 UK time.
 import { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN, OWNER_CONFIRMED_WEEK, getOwnerConfirmedWeekReconciliation } from "./cleaningCycleData.mjs";
 import { VERIFIED_COMPLETED_SERVICES, LIFETIME_COMPLETED_BINS } from "./verifiedCompletedServices.mjs";
+import { ownerEstimatedBinsSince } from "./dailyBinCounter.mjs";
 import { OWNER_MONTHLY_PLAN, MONTHLY_CLEANING_TARGET } from "./ownerMonthlyPlan.mjs";
 export { OWNER_MONTHLY_PLAN, MONTHLY_CLEANING_TARGET } from "./ownerMonthlyPlan.mjs";
 export { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN, OWNER_CONFIRMED_WEEK, getOwnerConfirmedWeekReconciliation };
@@ -39,8 +41,13 @@ export function useLiveCounters() {
     return ()=>clearInterval(timer);
   },[]);
   const todaysArea=useMemo(()=>getPlanForDate(now),[now]);
+  // Start estimating the day AFTER the audit, avoiding any overlap with
+  // physically counted bin services in the latest verified snapshot.
+  const ownerPacedBins=useMemo(() =>
+    ownerEstimatedBinsSince(VERIFIED_COMPLETED_SERVICES.asOf,now),[now]);
   return {
-    totalBinsCleaned:TOTAL_COMPLETED_BINS,
+    totalBinsCleaned:TOTAL_COMPLETED_BINS+ownerPacedBins,
+    ownerEstimatedBinsSinceAudit:ownerPacedBins,
     preSqueegeeCompletedBins:PRE_SQUEEGEE_COMPLETED_BINS,
     verifiedThrough:new Date(VERIFIED_COMPLETED_SERVICES.asOf+"T12:00:00Z").toLocaleDateString("en-GB",{
       day:"numeric",month:"short",year:"numeric",timeZone:"Europe/London"

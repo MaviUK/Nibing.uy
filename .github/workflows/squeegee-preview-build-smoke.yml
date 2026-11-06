@@ -19,6 +19,8 @@ on:
       - tests/squeegee-preview-coverage-authority.test.cjs
       - src/LandingPage.jsx
       - src/data/statsPlan.js
+      - src/data/dailyBinCounter.mjs
+      - tests/daily-bin-counter.test.cjs
       - src/data/verifiedCompletedServices.mjs
       - tests/pre-squeegee-history.test.cjs
       - tests/owner-monthly-plan.test.cjs
