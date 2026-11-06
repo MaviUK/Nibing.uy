@@ -86,6 +86,8 @@ on:
       - netlify.toml
       - netlify/functions/lib/squeegeePreviewHQImportCsrf.js
       - tests/squeegee-preview-hq-upload-csrf.test.cjs
+      - tests/squeegee-preview-hq-upload-format.test.cjs
+      - public/customer-hq-import-validation.js
       - src/pages/CustomerHQ.jsx
       - src/customer-hq.css
       - tests/squeegee-customer-hq.test.cjs

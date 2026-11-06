@@ -68,3 +68,9 @@ The launch artifact remains **Preview 77 (PR #77)**. The live domain must use it
 - Preview-only functions providing owner imports or test sessions remain deliberately preview-only. Do not expose them under the production host.
 - Before launch: real Samsung booking/autocomplete/scroll/animation/OTP/withdrawal, cached and uncached performance benchmark, read-only production Squeegee check, final signed PDF + owner/customer email, one explicitly approved real booking test, and verification of the owner-review/kill-switch path.
 - Do **not** merge to `main` or enable the producer without explicit owner approval. No public customer consent or private history is stored in GitHub.
+
+## Owner upload HTTP 413 mitigation — 6 November 2026
+
+Two owner POST requests to `/api/squeegee-preview-hq-import` at 18:54 and 18:55 UTC returned HTTP 413. The user's 6 November `.sqg` backup is a ~30.9 MB 7z archive containing a ~349.9 MB JSON database, NOT the validated Customer HQ import format. The private owner form requires the already generated ~2.31 MB `NI_Bin_Guy_Customer_HQ_Secure_Import_PRIVATE_2026-11-05_PER_BIN.json` file, previously provided in the owner's private ChatGPT files. The 5 Nov file has not been reimported or replaced by this change.
+
+The owner form now constrains file selection to JSON, explains the difference, and uses a same-origin external script with strict CSP to stop oversized and `.sqg` submissions **before** the browser posts them. Server-side OTP, CSRF, JSON schema/reconciliation, 3 MB source cap, and 3.5 MB multipart cap remain in place. No raw customer backup was stored in the repository; Netlify imports are owner-initiated and private. A new backup can only be used after separately preparing and validating a new private Customer HQ JSON. The failure alone does not indicate that Customer HQ or the leaderboard API is broken.

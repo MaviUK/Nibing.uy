@@ -20,12 +20,13 @@ const headers={
   "X-Robots-Tag":"noindex, nofollow, noarchive",
   "X-Content-Type-Options":"nosniff",
   "Referrer-Policy":"no-referrer",
-  "Content-Security-Policy":"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+  "Content-Security-Policy":"default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
 };
 function page(html,status=200){
   return new Response('<!doctype html><html lang="en"><meta charset="utf-8">'+
     '<meta name="viewport" content="width=device-width,initial-scale=1">'+
     '<title>Customer HQ • Private History Setup</title>'+
+    '<script src="/customer-hq-import-validation.js" defer></script>'+
     '<style>body{background:#121728;color:white;font:16px/1.5 system-ui;'+
     'margin:0;padding:18px}main{max-width:620px;margin:auto}h1{font-size:27px}'+
     'section{padding:16px;margin:16px 0;background:#28334c;border-left:4px solid #f7c948}'+
@@ -76,10 +77,12 @@ export default async function handler(request,ctx){
         'Upload the latest private Customer HQ JSON prepared from the verified Squeegee backup. Only an owner can replace cleaning scores. No customer can sign in until history is privately imported.')+
       '</p></section>'+
       '<section><h2>Upload private customer points history</h2>'+
-      '<form method="post" enctype="multipart/form-data" action="'+PATH+'">'+
+      '<form id="hq-history-upload-form" method="post" enctype="multipart/form-data" action="'+PATH+'">'+
       '<input type="hidden" name="csrf" value="'+escape(csrfToken)+'">'+
-      '<input type="file" name="history" required>'+
-      '<p><small>On Android, select the NI_Bin_Guy_Customer_HQ_Secure_Import_PRIVATE_2026-11-05_PER_BIN.json file (about 2.2 MB). All file types can now be selected; the server checks the JSON content securely before importing.</small></p>'+
+      '<label for="hq-history-file">Choose your prepared Customer HQ JSON</label>'+
+      '<input id="hq-history-file" type="file" name="history" accept=".json,application/json" aria-describedby="hq-upload-help hq-upload-error" required>'+
+      '<p id="hq-upload-help"><small>Use NI_Bin_Guy_Customer_HQ_Secure_Import_PRIVATE_2026-11-05_PER_BIN.json (about 2.3 MB). This form does NOT accept a Squeegee .sqg backup (about 30 MB). The full .sqg archive needs to be converted and reconciled privately before uploading.</small></p>'+
+      '<p id="hq-upload-error" role="alert" aria-live="assertive"></p>'+
       '<button type="submit">Import customer history privately</button></form>'+
       '<p><small>Maximum 3 MB. Supports the new physical-bin streak scoring: Brown/Black/Blue/Green service quantities, one-offs and actual completion years. A fresh checked import replaces the private snapshot without duplicating points.</small></p></section>'+
       '<p><a href="/customer-hq?ntl-drawer-state=hidden">Open Customer HQ</a></p>');
@@ -99,7 +102,9 @@ export default async function handler(request,ctx){
     const file=form.get("history");
     if(!file||typeof file.text!=="function"||file.size<100||
        file.size>3_000_000)
-      return page("<section>Choose the private JSON file (under 3 MB).</section>",400);
+      return page("<section>Choose the prepared private Customer HQ JSON (under 3 MB). The original Squeegee .sqg backup is not supported by this form.</section>",400);
+    if(typeof file.name!=="string"||!/\.json$/i.test(file.name))
+      return page("<section>You selected a Squeegee backup or another unsupported file. Please select the prepared Customer HQ .json file instead. No customer records were changed.</section>",415);
     const source=await file.text();
     const validated=hq.validateSource(JSON.parse(source));
     const previous=await store.get(hq.DATA_KEY,{type:"json",consistency:"strong"});
