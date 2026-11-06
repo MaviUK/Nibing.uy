@@ -346,8 +346,8 @@ export default function CustomerHQ({embedded=false}){
               sub={account.streakExpired?
                 "Restarts at 20 XP when the next clean is completed and paid":
                 "If your next scheduled clean is completed and paid"}/>
-            <Score label="PAID CLEANS" value={number(account.paidCleans)}
-              sub="Historical verified jobs"/>
+            <Score label="PAID BINS" value={number(account.paidCleans)}
+              sub="Verified completed and paid individual bins"/>
           </div>
           <GamePanel label="YOUR XP EXPLAINED">
             <div className="hq-balance-line"><span>Cleaning streak rewards</span>
@@ -378,7 +378,7 @@ export default function CustomerHQ({embedded=false}){
                     <small>{entry.source==="website"?
                       "★ WEBSITE · "+entry.label+(entry.note?" · "+entry.note:""):
                       entry.event==="paid_completed_clean"?
-                        "♻ CLEANING · Completed and paid • streak "+entry.streak:
+                        "♻ CLEANING · Completed and paid"+(entry.quantity>1?" · "+entry.quantity+" bins":" · 1 bin")+" • streak "+entry.streak:
                       entry.event==="recorded_skip"?
                         "♻ CLEANING · Recorded skipped visit • streak reset":
                         "♻ CLEANING · Completed • payment not yet verified"}</small>

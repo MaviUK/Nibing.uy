@@ -73,15 +73,15 @@ export default async function handler(request,ctx){
         ' · Active accounts with registered email: '+summary.emailAvailable+
         ' · Shared-email conflicts held for review: '+summary.duplicateEmailCount+
         ' · Source: '+escape(existing.asOf):
-        'Upload the private Customer HQ JSON built from your 31 October Squeegee backup. No customer can sign in to see their points until that private file is imported.')+
+        'Upload the latest private Customer HQ JSON prepared from the verified Squeegee backup. Only an owner can replace cleaning scores. No customer can sign in until history is privately imported.')+
       '</p></section>'+
       '<section><h2>Upload private customer points history</h2>'+
       '<form method="post" enctype="multipart/form-data" action="'+PATH+'">'+
       '<input type="hidden" name="csrf" value="'+escape(csrfToken)+'">'+
       '<input type="file" name="history" required>'+
-      '<p><small>On Android, select the NI_Bin_Guy_Customer_HQ_Secure_Import_PRIVATE_2026-10-31.json file (about 2 MB). All file types can now be selected; the server checks the JSON content securely before importing.</small></p>'+
+      '<p><small>On Android, select the NI_Bin_Guy_Customer_HQ_Secure_Import_PRIVATE_2026-11-05_PER_BIN.json file (about 2.2 MB). All file types can now be selected; the server checks the JSON content securely before importing.</small></p>'+
       '<button type="submit">Import customer history privately</button></form>'+
-      '<p><small>Maximum 3 MB. A newer, checked import replaces the old private snapshot. Repeating the same file does not duplicate points.</small></p></section>'+
+      '<p><small>Maximum 3 MB. Supports the new physical-bin streak scoring: Brown/Black/Blue/Green service quantities, one-offs and actual completion years. A fresh checked import replaces the private snapshot without duplicating points.</small></p></section>'+
       '<p><a href="/customer-hq?ntl-drawer-state=hidden">Open Customer HQ</a></p>');
   }
   // Some Samsung/Android in-app browser uploads send Origin: null (or
@@ -109,25 +109,26 @@ export default async function handler(request,ctx){
     if(previous?.sourceHash===hash)
       return page("<section>Already imported — no duplicate points awarded.</section>"+
         '<p><a href="'+PATH+'">Return to setup</a></p>');
-    const pendingConsent=nameConsents.initialiseFromPrivateCustomerHQ(validated);
+    // Save the refreshed permissions before the refreshed history. Any
+    // mismatch of source dates hides public names, including withdrawals.
+    // A withheld or withdrawn customer never becomes public on refresh.
     const consentStore=getStore({name:nameConsents.STORE_NAME,consistency:"strong"});
+    const oldConsent=await consentStore.getWithMetadata(nameConsents.KEY,{
+      type:"json",consistency:"strong"
+    });
+    const nextConsent=nameConsents.initialiseFromPrivateCustomerHQ(
+      validated,oldConsent?.data||null);
+    const permissionsSaved=await consentStore.setJSON(
+      nameConsents.KEY,nextConsent,oldConsent?.etag
+        ?{onlyIfMatch:oldConsent.etag}:{onlyIfNew:true}
+    );
+    if(permissionsSaved?.modified!==true)
+      return page("<section>Leaderboard consent records changed elsewhere. No private history was replaced. Please try again.</section>",409);
     const saved=await store.setJSON(hq.DATA_KEY,{
       ...validated,sourceHash:hash,importedAt:new Date().toISOString()
     });
     if(saved?.modified!==true)
-      return page("<section>Unable to save private history. No public change made.</section>",503);
-    // First import creates 941 PENDING opt-ins, never automatically grants.
-    // Existing permission choices are not overwritten by later imports.
-    const existingConsent=await consentStore.get(nameConsents.KEY,{
-      type:"json",consistency:"strong"
-    });
-    if(!existingConsent){
-      const created=await consentStore.setJSON(nameConsents.KEY,pendingConsent,{
-        onlyIfNew:true
-      });
-      if(created?.modified!==true)
-        return page("<section>Customer history saved, but the optional leaderboard consent list needs owner review. No first names were published.</section>",503);
-    }
+      return page("<section>Unable to save private history. Public scoring is withheld until a successful retry.</section>",503);
     return page('<section><strong>PRIVATE CUSTOMER HQ HISTORY READY</strong>'+
       '<p>Validated '+validated.summary.activeAccounts+' active customers and '+
       validated.summary.historyEvents+' clean history entries. '+
@@ -136,7 +137,7 @@ export default async function handler(request,ctx){
       'No Squeegee customer/job/payment was changed.</p>'+
       '<p>Customer sign-ins can now be tested on the N64 preview. '+
       'No-email accounts are excluded from the public leaderboard but their historical XP is retained. '+
-      'Four customers with shared emails require manual identity verification for portal sign-in.</p></section>'+
+      validated.summary.duplicateEmailCount+' shared-email addresses require manual identity verification for portal sign-in.</p></section>'+
       '<p><a href="/customer-hq?ntl-drawer-state=hidden">Open Customer HQ</a></p>');
   }catch{
     return page("<section>Private history validation failed. No records were imported. Check that you selected the correct NI Bin Guy Customer HQ JSON.</section>",422);
