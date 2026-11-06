@@ -121,16 +121,18 @@ test("Preview 1 allows a slow date lookup to finish but never invents a confirme
 });
 
 
-test("only accepted Preview 1 bookings defer the normal owner booking email",()=>{
+test("only explicitly enabled preview or production bookings defer owner email",()=>{
   const server=fs.readFileSync(path.join(ROOT,"netlify/functions/sendBookingEmail.js"),"utf8");
   const transport=fs.readFileSync(path.join(ROOT,"netlify/functions/squeegeePreviewAutoSync.mjs"),"utf8");
   assert.match(server,/const isPreview1=syncHost===/);
-  assert.match(server,/const deferAdminForPreview=isPreview1 &&/);
+  assert.match(server,/const previewSyncEnabled=isPreview1 &&/);
+  assert.match(server,/const deferAdminForPreview=previewSyncEnabled &&/);
+  assert.match(server,/const deferAdminForProduction=productionSyncEnabled &&/);
   assert.match(server,/autoDispatchConfigured\(process\.env\)/);
   assert.match(server,/rollout\.acceptedForRollout\(payload,"email",process\.env\)/);
-  assert.match(server,/deferAdminForPreview\?\s*Promise\.resolve\(\{error:null,deferred:true\}\)/);
-  assert.match(server,/ownerReceipt:deferAdminForPreview\?ownerReceipt:null/);
-  assert.match(server,/if\(deferAdminForPreview && !deferredDispatchAccepted\)/);
+  assert.match(server,/deferAdminForAuto\?\s*Promise\.resolve\(\{error:null,deferred:true\}\)/);
+  assert.match(server,/ownerReceipt:deferAdminForAuto\?ownerReceipt:null/);
+  assert.match(server,/if\(deferAdminForAuto && !deferredDispatchAccepted\)/);
   assert.match(server,/resend\.emails\.send\(previewSyncUnavailable\?/);
   assert.match(server,/resend\.emails\.send\(fallbackMessage\|\|adminEmailMessage\)/);
   assert.match(server,/const customerEmailPromise = email/);
