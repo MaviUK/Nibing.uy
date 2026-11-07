@@ -228,9 +228,10 @@ function achievementsPanel(snapshot,selectedTown="",selectedYear="overall"){
      {colour,desc:annual?"Per-job streak at "+awarded.periodEnd:"Ongoing per-job cleans, as of last backup"})
  ).join("");
  const historicalColours=achievements.RECORD_CATEGORIES.map(colour=>
-   card((colour==="Green & Brown"?"Green & Brown bins":colour+" bin")+" · highest ever",
+   card((colour==="Green & Brown"?"Green & Brown bins":colour+" bin")+
+     (annual?" · highest in "+year:" · highest ever"),
      awarded.byColour[colour],"best",
-     {colour,desc:annual?"Highest streak reached in "+year+" (may have started earlier)":"Lifetime best, retained after skips"})
+     {colour,desc:annual?"Only recorded per-job visits during "+year+"; earlier years excluded":"Lifetime best, retained after skips"})
  ).join("");
  const currentOthers=[
    card("Current longest · any job",awarded.activeJob,"active",
@@ -258,6 +259,8 @@ function achievementsPanel(snapshot,selectedTown="",selectedYear="overall"){
    '<p><b>Current streaks</b> and <b>historical highest streaks</b> are separate '+
      'leaderboards. '+(town?'Showing <b>'+esc(town)+'</b> ('+
        fmt(subset.length)+' imported customers).':'Showing all imported towns.')+
+     (annual?' <b>'+esc(year)+' counts only cleans recorded in '+esc(year)+
+       '.</b> Earlier-year cleans do not carry into these totals.':'')+
      ' Tap a name to inspect the individual job.</p>'+yearPicker+townSelector+
    '<div class="record-group current" id="current-achievements">'+
      '<h3>⚡ '+(annual&&!viewingCurrent?"YEAR-END STREAKS":"CURRENT STREAKS")+'</h3>'+
@@ -267,9 +270,9 @@ function achievementsPanel(snapshot,selectedTown="",selectedYear="overall"){
      '<div class="award-grid">'+currentColours+'</div>'+
      '<div class="award-extra">'+currentOthers+'</div></div>'+
    '<div class="record-group alltime" id="historical-achievements">'+
-     '<h3>★ HISTORICAL HIGHEST STREAKS</h3>'+
-     '<p>'+(annual?"Highest streaks reached during "+year+
-       " (continuing streaks may have started in an earlier year). ":
+     '<h3>★ '+(annual?'HIGHEST IN '+esc(year):'HISTORICAL HIGHEST STREAKS')+'</h3>'+
+     '<p>'+(annual?"Only cleaning visits dated 1 January through "+awarded.periodEnd+
+       " count, so a multi-year streak is not credited to "+year+". ":
        "The longest streaks ever achieved in the imported history. ")+
        'Records remain after a later skip or expiry.</p>'+
      '<div class="award-grid">'+historicalColours+'</div>'+
