@@ -6,6 +6,18 @@ const path=require("node:path");
 const award=require("../netlify/functions/lib/squeegeePreviewOwnerAchievements");
 const pub=require("../netlify/functions/lib/squeegeePublicAchievementHighlights");
 const history=require("../netlify/functions/lib/squeegeeActiveLeaderboardImport");
+const crypto=require("node:crypto");
+const previewKey=Buffer.alloc(32,23);
+function publishedBoard(accounts,pointsFor=(row,i)=>100+i){
+ return {status:"preview_public_first_names",sourceAsOf:asOf,
+  entries:accounts.map((row,i)=>({
+    customerRef:"NBG-"+crypto.createHmac("sha256",previewKey)
+      .update("n64-preview-public-first-name-v1:"+
+        history.canonicalLegacyRef(row.id))
+      .digest("hex").slice(0,10).toUpperCase(),
+    displayName:row.firstName,town:row.town,points:pointsFor(row,i)
+  }))};
+}
 const asOf="2026-11-06";
 const id1="11111111-1111-4111-8111-111111111111";
 const id2="22222222-2222-4222-8222-222222222222";
@@ -71,47 +83,58 @@ test("town record results follow year selection and leave original import unchan
  assert.equal(towns.find(t=>t.town==="Comber").highest,null);
  assert.equal(JSON.stringify([primary,second]),original);
 });
-test("public records are anonymous, exclude withdrawals, and preserve the chosen period",()=>{
+test("published record holders show first name, town and period XP while withdrawals stay private",()=>{
  const snapshot={version:1,asOf,accounts:[primary,second]};
  const a1=history.canonicalLegacyRef(id1),a2=history.canonicalLegacyRef(id2);
  const aliases=new Set([a1,a2]);
  const permissions={version:1,sourceAsOf:asOf,records:[
   {alias:a1,consent:"pending"},{alias:a2,consent:"withdrawn",withdrawnAt:asOf}
  ]};
- const year=pub.highlights(snapshot,aliases,permissions,"2025");
+ const board=publishedBoard([primary,second],(row,i)=>i?500:125);
+ const year=pub.highlights(snapshot,aliases,permissions,"2025",board,previewKey);
  assert.equal(year.period,"2025");
+ assert.equal(year.status,"preview_public_named_records");
  assert.equal(year.colours.find(row=>row.colour==="Blue").highest,5);
  assert.equal(year.colours.find(row=>row.colour==="Blue").current,0);
  assert.deepEqual(Object.keys(year.colours[0]).sort(),
    ["colour","current","currentTop","highest","highestTop"]);
  const blue=year.colours.find(row=>row.colour==="Blue");
- assert.deepEqual(blue.highestTop,[5]);
+ assert.deepEqual(blue.highestTop,[{displayName:"Alex",town:"Bangor",points:125,cleans:5}]);
  assert.deepEqual(blue.currentTop,[]);
  assert.ok(Array.isArray(year.longestJobCurrentTop));
  assert.ok(Array.isArray(year.longestJobHighestTop));
  assert.ok(Array.isArray(year.longestAllJobsCurrentTop));
  assert.ok(Array.isArray(year.longestAllJobsHighestTop));
- const json=JSON.stringify(pub.highlights(snapshot,aliases,permissions,"overall"));
- for(const secret of ["Alex","Bangor","Private","Comber",id1,id2,a1,a2,"j-blue"])
+ const json=JSON.stringify(pub.highlights(snapshot,aliases,permissions,"overall",board,previewKey));
+ assert.ok(json.includes('"displayName":"Alex"'));
+ assert.ok(json.includes('"town":"Bangor"'));
+ assert.ok(json.includes('"points":125'));
+ for(const secret of ["Private","Comber",id1,id2,a1,a2,"j-blue"])
    assert.ok(!json.includes(secret),secret);
  const wrong={...permissions,sourceAsOf:"2025-01-01"};
- assert.equal(pub.highlights(snapshot,aliases,wrong,"overall"),null);
- assert.equal(pub.highlights(snapshot,aliases,permissions,"2027"),null);
- assert.equal(pub.highlights(snapshot,new Set([a2]),permissions,"overall"),null);
+ assert.equal(pub.highlights(snapshot,aliases,wrong,"overall",board,previewKey),null);
+ assert.equal(pub.highlights(snapshot,aliases,permissions,"2027",board,previewKey),null);
+ assert.equal(pub.highlights(snapshot,new Set([a2]),permissions,"overall",board,previewKey),null);
+ assert.equal(pub.highlights(snapshot,aliases,permissions,"overall",null,previewKey),null);
+ assert.equal(pub.highlights(snapshot,aliases,permissions,"overall",board,null),null);
+ assert.equal(pub.highlights(snapshot,aliases,permissions,"overall",
+   {...board,sourceAsOf:"2025-01-01"},previewKey),null);
 });
+
 test("public achievements run only inside Preview 77 and cannot publish private winners",()=>{
  const api=fs.readFileSync(path.join(__dirname,"../netlify/functions/arcadeLeaderboard.js"),"utf8");
  assert.match(api,/if\(isExactN64PreviewRequest\(event\)\)/);
- assert.match(api,/publicRecords\.highlights\(privateCustomers,eligible\.aliases,privateNames,period\)/);
+ assert.match(api,/publicRecords\.highlights\(\s*privateCustomers,eligible\.aliases,privateNames,period,\s*publicScores,privateKey\s*\)/);
  assert.match(api,/publicScores\?\.status==="preview_public_first_names"/);
  assert.ok(api.indexOf("const publicAchievements=")>api.indexOf("if(isExactN64PreviewRequest(event))"));
 });
 
-test("public top five shows only five real ranked numbers, never names or withdrawn customers",()=>{
+test("public top five ranks only already-public names with town and XP, excluding withdrawals",()=>{
+ const firstNames=["Anna","Bella","Cara","David","Ellen","Frank","Gina","Helen"];
  const accounts=Array.from({length:8},(_,i)=>{
   const n=i+1;
   const id=String(n).padStart(8,"0")+"-1111-4111-8111-"+String(n).padStart(12,"0");
-  return {id,ref:String(n),firstName:"Person"+n,town:"Bangor",paidCleans:n,
+  return {id,ref:String(n),firstName:firstNames[i],town:"Bangor",paidCleans:n,
     jobs:[{id:"private-job-"+n,label:"Black",currentStreak:n,lastCompletedOn:asOf,
       paidCleans:n}],events:[paid(asOf,0,n)]};
  });
@@ -119,23 +142,36 @@ test("public top five shows only five real ranked numbers, never names or withdr
  const snapshot={version:1,asOf,accounts};
  const permissions={version:1,sourceAsOf:asOf,records:aliases.map((alias,i)=>
   ({alias,consent:i===7?"withdrawn":"pending",withdrawnAt:i===7?asOf:null}))};
- const publicView=pub.highlights(snapshot,new Set(aliases),permissions,"overall");
+ const board=publishedBoard(accounts,(_,i)=>(i+1)*100);
+ const publicView=pub.highlights(snapshot,new Set(aliases),permissions,
+  "overall",board,previewKey);
  assert.ok(publicView);
  const black=publicView.colours.find(row=>row.colour==="Black");
- assert.deepEqual(black.currentTop,[7,6,5,4,3]);
- assert.deepEqual(black.highestTop,[7,6,5,4,3]);
+ assert.deepEqual(black.currentTop.map(row=>row.cleans),[7,6,5,4,3]);
+ assert.deepEqual(black.highestTop.map(row=>row.cleans),[7,6,5,4,3]);
+ assert.deepEqual(black.currentTop.map(row=>row.points),[700,600,500,400,300]);
+ assert.deepEqual(black.currentTop.map(row=>row.displayName),
+  ["Gina","Frank","Ellen","David","Cara"]);
+ assert.deepEqual(black.currentTop.map(row=>row.town),["Bangor","Bangor","Bangor","Bangor","Bangor"]);
  assert.equal(black.current,7);
  assert.equal(black.highest,7);
- assert.deepEqual(publicView.longestJobCurrentTop,[7,6,5,4,3]);
- assert.deepEqual(publicView.longestJobHighestTop,[7,6,5,4,3]);
+ assert.deepEqual(publicView.longestJobCurrentTop.map(row=>row.cleans),[7,6,5,4,3]);
+ assert.deepEqual(publicView.longestJobHighestTop.map(row=>row.cleans),[7,6,5,4,3]);
  assert.ok(publicView.longestAllJobsCurrentTop.length<=5);
  assert.ok(publicView.longestAllJobsHighestTop.length<=5);
  const raw=JSON.stringify(publicView);
+ assert.ok(!raw.includes("Helen"));
  for(const row of accounts)
-   for(const value of [row.firstName,row.id,row.ref,row.jobs[0].id])
+   for(const value of [row.id,row.ref,row.jobs[0].id])
      assert.ok(!raw.includes('"'+value+'"'),"Leaked private value: "+value);
+ // Removing a player from the public board must also remove that player
+ // from records; the private Squeegee import alone never publishes names.
+ const boardWithoutGina={...board,entries:board.entries.filter(row=>
+   row.displayName!=="Gina")};
+ const filtered=pub.highlights(snapshot,new Set(aliases),permissions,
+   "overall",boardWithoutGina,previewKey);
+ assert.equal(filtered.colours.find(row=>row.colour==="Black").currentTop[0].displayName,"Frank");
 });
-
 test("top five owner records are directly visible and keep town/year links",()=>{
  const owner=fs.readFileSync(path.join(__dirname,
   "../netlify/functions/squeegeePreviewOwnerCustomers.mjs"),"utf8");
@@ -150,4 +186,27 @@ test("top five owner records are directly visible and keep town/year links",()=>
  assert.match(ui,/validTopFive\(row\.currentTop,row\.current\)/);
  assert.match(ui,/longestAllJobsHighestTop/);
  assert.match(ui,/!LIVE_N64 && publicAchievements/);
+});
+
+test("three public tabs keep Records separate from Leaderboards and protected Customer HQ",()=>{
+ const ui=fs.readFileSync(path.join(__dirname,
+  "../src/components/ArcadeLeaderboard.jsx"),"utf8");
+ assert.match(ui,/onClick={openBoard}>★ LEADERBOARDS/);
+ assert.match(ui,/onClick={openRecords}>★ RECORDS/);
+ assert.match(ui,/onClick={openHQ}>★ CUSTOMER HQ/);
+ assert.match(ui,/hidden={activePanel!=="records"}/);
+ assert.match(ui,/hidden={activePanel!=="hq"}/);
+ assert.match(ui,/setHqOpened\(true\)/);
+ assert.match(ui,/n64-record-person/);
+ assert.match(ui,/row\.points\.toLocaleString\("en-GB"\)\} XP/);
+ assert.match(ui,/row\.cleans\.toLocaleString\("en-GB"\)/);
+ assert.match(ui,/validTopFive\(row\.currentTop,row\.current\)/);
+ const api=fs.readFileSync(path.join(__dirname,
+  "../netlify/functions/arcadeLeaderboard.js"),"utf8");
+ assert.match(api,/if\(isExactN64PreviewRequest\(event\)\)/);
+ const publicHelper=fs.readFileSync(path.join(__dirname,
+  "../netlify/functions/lib/squeegeePublicAchievementHighlights.js"),"utf8");
+ assert.match(publicHelper,/status:"preview_public_named_records"/);
+ assert.match(publicHelper,/publicScores\?\.status!=="preview_public_first_names"/);
+ assert.match(publicHelper,/withdrawn\.has\(alias\)/);
 });
