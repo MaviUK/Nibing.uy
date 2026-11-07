@@ -6,6 +6,7 @@ const nameConsents = require("./lib/squeegeeLeaderboardNameConsent");
 const customerHQ = require("./lib/customerHQ");
 const arcadeMerge = require("./lib/arcadeCustomerMerge");
 const yearlyPreview = require("./lib/squeegeeYearlyPreviewBoard");
+const publicRecords = require("./lib/squeegeePublicAchievementHighlights");
 const { publicCustomerReference, townFromAddress, safePublicTown, safePublicReference } =
   require("./lib/arcadePublicIdentity");
 const {
@@ -471,9 +472,17 @@ exports.handler = async (event) => {
         const publicScores=nameConsents.previewFirstNameScoreboard(
           privateCustomers,full,eligible.aliases,privateNames,privateKey
         );
+        // Only a successfully verified preview scoreboard can share
+        // anonymous record totals. No names, towns, refs or dates per winner.
+        // Recheck withdrawals from the current ledger on EVERY request.
+        const publicAchievements=publicScores?.status==="preview_public_first_names"&&
+          Array.isArray(publicScores.entries)&&publicScores.entries.length>0
+          ?publicRecords.highlights(privateCustomers,eligible.aliases,privateNames,period)
+          :null;
         return out(200,{...publicLeaderboard(publicScores||{
           entries:[],totalPlayers:0,status:"eligibility_pending"
-        }),eligiblePlayers:eligible.count,
+        }),...(publicAchievements?{publicAchievements}:{}),
+          eligiblePlayers:eligible.count,
           verifiedPlayers:eligible.verifiedCount,
           verifiedActiveAccounts:eligible.verifiedActiveEmailAccounts,
           verifiedAsOf:eligible.verificationAsOf,
