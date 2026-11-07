@@ -36,7 +36,7 @@ test("Android owner uploader blocks the original Squeegee archive before the POS
 });
 
 test("Android owner uploader blocks oversized or empty JSON but permits the 2.3 MB prepared import",()=>{
-  const oversized=simulateUpload({name:"oversized.json",size:3100000});
+  const oversized=simulateUpload({name:"oversized.json",size:3900000});
   assert.equal(oversized.prevented,true);
   assert.match(oversized.message,/too large/);
   const empty=simulateUpload({name:"empty.json",size:2});
@@ -52,8 +52,8 @@ test("Android owner uploader blocks oversized or empty JSON but permits the 2.3 
 test("private import keeps owner OTP and CSRF, caps multipart, and rejects non-JSON on the server",()=>{
   assert.match(handler,/verifyTestSessionCookie/);
   assert.match(handler,/uploadCsrf\.isAllowedOwnerUpload/);
-  assert.match(handler,/3_500_000/);
-  assert.match(handler,/3_000_000/);
+  assert.match(handler,/4_200_000/);
+  assert.match(handler,/3_800_000/);
   assert.match(handler,/if\(typeof file\.name!=="string"/);
   assert.match(handler,/status:404|status:405|415/);
   assert.ok(handler.includes('accept=".sqg,application/octet-stream,.json,application/json"'));
