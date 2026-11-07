@@ -191,6 +191,75 @@ test("same-day skip ends customer-wide current run without resetting other job's
  assert.equal(scores.combinedCurrent[0].activeCombined,1);
  assert.equal(scores.combined[0].combined,1);
 });
+test("town records show their own current and historical highest streak independently",()=>{
+ const towns=achievement.townRecords(snap,{asOf});
+ assert.deepEqual(towns.map(x=>x.town),
+  ["Bangor","Comber","Donaghadee","Newtownards"]);
+ const bangor=towns.find(x=>x.town==="Bangor");
+ assert.equal(bangor.customers,1);
+ assert.equal(bangor.current.ref,"10");
+ assert.equal(bangor.current.active,3);
+ assert.equal(bangor.highest.ref,"10");
+ assert.equal(bangor.highest.best,4);
+ const comber=towns.find(x=>x.town==="Comber");
+ assert.equal(comber.current,null);
+ assert.equal(comber.highest.ref,"40");
+ assert.equal(comber.highest.best,3);
+ const newtownards=towns.find(x=>x.town==="Newtownards");
+ assert.equal(newtownards.current.ref,"30");
+ assert.equal(newtownards.current.active,5);
+ assert.equal(newtownards.highest.best,5);
+});
+test("town filters include separate colour records and do not leak winners from other towns",()=>{
+ const groups=achievement.townGroups(snap);
+ const bangor=achievement.awards(groups.get("Bangor"),{asOf});
+ assert.equal(bangor.byColour.Blue[0].ref,"10");
+ assert.equal(bangor.byColour.Black[0].ref,"10");
+ assert.equal(bangor.byColour.Brown.length,0);
+ assert.equal(bangor.byColour.Green.length,0);
+ assert.equal(bangor.longestJob[0].ref,"10");
+ const newtownards=achievement.awards(groups.get("Newtownards"),{asOf});
+ assert.equal(newtownards.byColour.Blue.length,0);
+ assert.equal(newtownards.byColour.Brown.length,0);
+ assert.equal(newtownards.longestJob[0].ref,"30");
+});
+test("unknown and missing towns are not invented or merged with named towns",()=>{
+ const unknown={ref:"99",town:"Town unavailable",jobs:[job("Blue",1,asOf)],
+  paidCleans:1,events:[paid(asOf,0,1)]};
+ const empty={ref:"100",town:"",jobs:[job("Blue",1,asOf)],
+  paidCleans:1,events:[paid(asOf,0,1)]};
+ const list=[...snap,unknown,empty];
+ const keys=[...achievement.townGroups(list).keys()];
+ assert.deepEqual(keys,["Bangor","Donaghadee","Newtownards","Comber"]);
+ assert.equal(achievement.townRecords(list,{asOf}).length,4);
+ const global=achievement.awards(list,{asOf});
+ assert.ok(global.byColourCurrent.Blue.some(x=>x.ref==="99"));
+});
+test("town summary and filters read but never modify original imported records",()=>{
+ const before=JSON.stringify(snap);
+ achievement.townGroups(snap);
+ achievement.townRecords(snap,{asOf});
+ assert.equal(JSON.stringify(snap),before);
+});
+test("town selector stays behind owner authentication and preserves the selected town in record links",()=>{
+ const src=fs.readFileSync(path.join(__dirname,
+  "../netlify/functions/squeegeePreviewOwnerCustomers.mjs"),"utf8");
+ assert.match(src,/function achievementsPanel\(snapshot,selectedTown=""\)/);
+ assert.match(src,/const town=groups\.has\(selectedTown\)\?selectedTown:""/);
+ assert.match(src,/const subset=town\?groups\.get\(town\):snapshot\.accounts/);
+ assert.match(src,/id="town-select"/);
+ assert.match(src,/TOWN-BY-TOWN RECORDS/);
+ assert.match(src,/Current · any job/);
+ assert.match(src,/Historical best · any job/);
+ assert.match(src,/url\(\{view:"records",town:row\.town\}\)/);
+ assert.match(src,/url\(\{ref:item\.ref,view:"records",town\}\)/);
+ assert.match(src,/achievementsPanel\(snapshot,safeString\(params\.get\("town"\),60\)\)/);
+ assert.match(src,/fromRecords\?url\(\{view:"records",town:safeString\(params\.get\("town"\),60\)\}\)/);
+ const auth=src.indexOf("if(!owner.verifyTestSessionCookie");
+ const privateRead=src.indexOf("const snapshot=await getStore");
+ assert.ok(auth>=0&&privateRead>auth);
+});
+
 test("admin headings and private customer detail explicitly separate both streak measures",()=>{
  const src=fs.readFileSync(path.join(__dirname,
    "../netlify/functions/squeegeePreviewOwnerCustomers.mjs"),"utf8");
