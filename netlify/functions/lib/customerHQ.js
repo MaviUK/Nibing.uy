@@ -190,19 +190,41 @@ function validateApiCustomer(apiRow,account){
 function publicAccount(account,websiteXp=0,now=Date.now()){
   if(!account)return null;
   const xp=Number.isSafeInteger(websiteXp)&&websiteXp>=0?Math.min(100000,websiteXp):0;
-  const projected=effectiveCleaningStreak(account.events,{now});
-  // Imported streak/next bonus are immutable backup values, not a promise
-  // that the streak is still active several missed four-week cycles later.
-  const currentStreak=Math.min(account.currentStreak,projected.currentStreak);
+  const byJob=Array.isArray(account.jobs);
+  const jobStreaks=byJob?account.jobs.map((job,index)=>{
+    // Attendance and the 35-day projection are scoped to THIS job only.
+    // A skipped Blue job must never reset another Brown or Black job.
+    const events=(Array.isArray(account.events)?account.events:[])
+      .filter(event=>event.j===index);
+    const projected=effectiveCleaningStreak(events,{now});
+    const currentStreak=Math.min(job.currentStreak,projected.currentStreak);
+    return {number:index+1,label:job.label,currentStreak,
+      nextBonus:20+2*currentStreak,paidCleans:job.paidCleans,
+      cleaningPoints:job.points,recordedSkips:job.recordedSkips,
+      streakExpired:projected.expired,
+      lastCompletedOn:projected.lastCompletedOn};
+  }):null;
+  const projected=byJob?null:effectiveCleaningStreak(account.events,{now});
+  const currentStreak=byJob?null:
+    Math.min(account.currentStreak,projected.currentStreak);
+  const historyEvents=account.events.map(event=>{
+    if(!byJob)return {...event};
+    const {j,...rest}=event;
+    return {...rest,jobNumber:j+1,
+      jobLabel:jobStreaks[j]?.label||"Job "+String(j+1)};
+  }).reverse();
   return {firstName:account.firstName||null,town:account.town,
     customerReference:account.ref,points:account.points+xp,
     cleaningPoints:account.points,websiteXp:xp,
-    paidCleans:account.paidCleans,currentStreak,
-    nextBonus:20+2*currentStreak,streakExpired:projected.expired,
-    lastCompletedOn:projected.lastCompletedOn,
+    paidCleans:account.paidCleans,
+    streakModel:byJob?"per_job":"legacy_customer",
+    jobs:jobStreaks,
+    currentStreak,nextBonus:byJob?null:20+2*currentStreak,
+    streakExpired:byJob?null:projected.expired,
+    lastCompletedOn:byJob?null:projected.lastCompletedOn,
     recordedSkippedVisits:account.recordedSkips,
     historyAsOf:account.historyAsOf||history.AS_OF,
-    history:account.events.map(x=>({...x})).reverse()};
+    history:historyEvents};
 }
 async function issueCode({env,now=Date.now(),authStore,account,send}){
   if(!secret(env)||!account?.email||typeof send!=="function")
