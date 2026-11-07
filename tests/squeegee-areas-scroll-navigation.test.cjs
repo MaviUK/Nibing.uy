@@ -243,7 +243,7 @@ test("menu and cache-busted assets preserve the real dynamic Areas section and n
 test("Leaderboards menu and shared deep link land on the leaderboard tabs rather than the section boundary",()=>{
   const ui=fs.readFileSync(path.join(ROOT,"src/components/ArcadeLeaderboard.jsx"),"utf8");
   assert.match(ui,/id="live-leaderboard"/);
-  assert.match(ui,/className="n64-board-tabs"/);
+  assert.match(ui,/className=\{"n64-board-tabs"/);
   const mobile=browser({sectionTop:3800,headingTop:4020,width:390});
   const clicked=mobile.click("#live-leaderboard");
   assert.equal(clicked.prevented,true);
