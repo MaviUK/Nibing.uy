@@ -338,14 +338,15 @@ export default function CustomerHQ({embedded=false}){
           <div className="hq-stats">
             <Score label="TOTAL REWARDS" value={number(account.points)+" XP"}
               highlight sub="Historical cleans + website XP"/>
-            <Score label="CURRENT STREAK" value={number(account.currentStreak)}
-              sub={account.streakExpired?
-                "Last recorded clean: "+formatDate(account.lastCompletedOn):
-                "Consecutive cleaning visits"}/>
-            <Score label="NEXT CLEAN BONUS" value={"+"+number(account.nextBonus)}
-              sub={account.streakExpired?
-                "Restarts at 20 XP when the next clean is completed and paid":
-                "If your next scheduled clean is completed and paid"}/>
+            <Score label={account.streakModel==="per_job"?"TRACKED JOBS":"JOB STREAKS"}
+              value={account.streakModel==="per_job"?number(account.jobs?.length||0):"UPDATE DUE"}
+              sub={account.streakModel==="per_job"?
+                "Each Squeegee job has an independent consecutive-clean streak":
+                "Awaiting a fresh per-job Squeegee history import"}/>
+            <Score label="NEXT CLEAN BONUS" value="BY JOB"
+              sub={account.streakModel==="per_job"?
+                "See the individual bonus for each job below":
+                "Individual bonuses available after the corrected import"}/>
             <Score label="PAID BINS" value={number(account.paidCleans)}
               sub="Verified completed and paid individual bins"/>
           </div>
@@ -356,9 +357,28 @@ export default function CustomerHQ({embedded=false}){
               <strong>+{number(account.websiteXp)} XP</strong></div>
             <div className="hq-balance-line hq-total"><span>Total XP</span>
               <strong>{number(account.points)} XP</strong></div>
-            <p className="hq-small">Cleans start at 20 points, rising by 2 per consecutive four-weekly visit. A recorded skip or more than 35 days without a completed clean resets the next bonus to 20 (allowing seven extra days for schedule changes). Points already earned are never removed.</p>
+            <p className="hq-small">Each Squeegee job starts at 20 XP per paid bin and rises by 2 XP per consecutive completed visit on that job. A recorded skip resets only that job. An overdue gap of more than 35 days resets that job's next bonus projection; already-earned XP is not deducted.</p>
+            {account.streakModel!=="per_job"&&
+              <p className="hq-small" role="status"><strong>Score update pending:</strong> These historical totals were imported using the older customer-wide streak calculation. The owner must reimport a Squeegee backup before corrected per-job points are shown.</p>}
             <p className="hq-small">Source: Squeegee backup of {formatDate(account.historyAsOf)}. New payments and cleans are not automatically added until the next verified import.</p>
           </GamePanel>
+          {account.streakModel==="per_job"&&Array.isArray(account.jobs)&&
+            <GamePanel label="CONSECUTIVE CLEANS / PER SQUEEGEE JOB">
+              {account.jobs.length?
+                account.jobs.map(job=>
+                  <div className="hq-balance-line" key={job.number}>
+                    <span><strong>JOB {String(job.number).padStart(2,"0")} · {job.label}</strong>
+                      <small style={{display:"block"}}>
+                        {number(job.currentStreak)} consecutive visits · {number(job.paidCleans)} paid bins
+                        {job.streakExpired?" · streak expired":""}
+                      </small>
+                    </span>
+                    <strong>+{number(job.nextBonus)} XP / bin next</strong>
+                  </div>
+                ):
+                <p>No recurring job history has been recorded for this customer yet.</p>}
+              <p className="hq-small">Two jobs of the same bin colour remain separate. A skipped visit on one job never changes another job's streak.</p>
+            </GamePanel>}
           <div className="hq-account-tabs" role="group" aria-label="Customer account sections">
             <button className={tab==="history"?"hq-selected":""}
               onClick={()=>setTab("history")}>POINTS HISTORY</button>
@@ -378,9 +398,9 @@ export default function CustomerHQ({embedded=false}){
                     <small>{entry.source==="website"?
                       "★ WEBSITE · "+entry.label+(entry.note?" · "+entry.note:""):
                       entry.event==="paid_completed_clean"?
-                        "♻ CLEANING · Completed and paid"+(entry.quantity>1?" · "+entry.quantity+" bins":" · 1 bin")+" • streak "+entry.streak:
+                        "♻ CLEANING · "+(entry.jobLabel?entry.jobLabel+" · ":"")+"Completed and paid"+(entry.quantity>1?" · "+entry.quantity+" bins":" · 1 bin")+" • job streak "+entry.streak:
                       entry.event==="recorded_skip"?
-                        "♻ CLEANING · Recorded skipped visit • streak reset":
+                        "♻ CLEANING · "+(entry.jobLabel?entry.jobLabel+" · ":"")+"Recorded skipped visit • this job's streak reset":
                         "♻ CLEANING · Completed • payment not yet verified"}</small>
                   </div>
                   <strong className={entry.points?"hq-earned":"hq-zero"}>
