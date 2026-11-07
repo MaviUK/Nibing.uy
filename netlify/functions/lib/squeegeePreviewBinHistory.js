@@ -4,7 +4,8 @@
 // through the owner's authenticated, CSRF-protected private Netlify upload.
 const {canonicalLegacyRef}=require("./squeegeeActiveLeaderboardImport");
 const {safePublicTown}=require("./arcadePublicIdentity");
-const VERSION="2026-11-streak-20-plus-2-per-paid-bin-v1";
+const VERSION="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2";
+const LEGACY_VERSION="2026-11-streak-20-plus-2-per-paid-bin-v1";
 const UUID=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 const REF=/^(?:[0-9]{1,12}|CUS[0-9]{1,15}|[Aa]{2}[0-9]{3,8})$/;
 const EMAIL=/^[^\s@]{1,80}@[^\s@]{1,160}\.[^\s@]{2,24}$/;
@@ -39,13 +40,14 @@ function displayable(asOf,now=Date.now()){
   return Number.isInteger(days)&&days>=0&&days<=DISPLAY_GRACE_DAYS;
 }
 function isBinSnapshot(raw){
-  return raw?.version===1&&raw.scoringVersion===VERSION &&
+  return raw?.version===1&&
+    [VERSION,LEGACY_VERSION].includes(raw.scoringVersion) &&
     typeof raw.asOf==="string"&&Array.isArray(raw.accounts)&&
     raw.accounts.length>=1&&raw.accounts.length<=5000;
 }
 function validateBinSource(raw,{now=Date.now()}={}){
-  if(!isBinSnapshot(raw)||!fresh(raw.asOf,now))
-    throw Error("per_bin_history_source_invalid_or_stale");
+  if(!isBinSnapshot(raw)||raw.scoringVersion!==VERSION||!fresh(raw.asOf,now))
+    throw Error("per_job_history_source_invalid_or_stale");
   const accounts=[],ids=new Set(),refs=new Set(),aliases=new Set();
   const emailCounts=new Map();
   let points=0,paidBins=0,paidVisits=0,historyEvents=0,ranked=0;
@@ -63,7 +65,8 @@ function validateBinSource(raw,{now=Date.now()}={}){
        !Number.isSafeInteger(row.currentStreak)||row.currentStreak<0||row.currentStreak>2000||
        row.nextBonus!==20+2*row.currentStreak||
        !Number.isSafeInteger(row.recordedSkips)||row.recordedSkips<0||
-       !Array.isArray(row.events)||row.events.length>2500)
+       !Array.isArray(row.events)||row.events.length>2500||
+       !Array.isArray(row.jobs)||row.jobs.length>200)
       throw Error("per_bin_customer_invalid");
     const id=row.id.toLowerCase(), ref=row.ref.toUpperCase();
     const alias=canonicalLegacyRef(id);
@@ -71,42 +74,88 @@ function validateBinSource(raw,{now=Date.now()}={}){
       throw Error("per_bin_duplicate_customer");
     ids.add(id);refs.add(ref);aliases.add(alias);
     if(row.email)emailCounts.set(row.email,(emailCounts.get(row.email)||0)+1);
+    const jobKeys=new Set();
+    const jobs=row.jobs.map(job=>{
+      if(!job||!UUID.test(String(job.id||""))||
+         jobKeys.has(job.id.toLowerCase())||
+         typeof job.label!=="string"||
+         !/^(?:(?:Black|Brown|Blue|Green)(?: \\+ (?:Black|Brown|Blue|Green))*|Other job)$/.test(job.label)||
+         !Number.isSafeInteger(job.currentStreak)||job.currentStreak<0||
+         job.currentStreak>2000||job.nextBonus!==20+2*job.currentStreak||
+         !Number.isSafeInteger(job.paidCleans)||job.paidCleans<0||
+         !Number.isSafeInteger(job.points)||job.points<0||
+         !Number.isSafeInteger(job.recordedSkips)||job.recordedSkips<0||
+         (job.lastCompletedOn!==null&&dateValue(job.lastCompletedOn)===null))
+         throw Error("per_job_summary_invalid");
+      jobKeys.add(job.id.toLowerCase());
+      return {...job,id:job.id.toLowerCase()};
+    });
+    if(jobs.length>0&&!Array.isArray(row.events))
+      throw Error("per_job_events_missing");
+    const state=jobs.map(()=>({streak:0,lastVisitDay:null,
+      points:0,paidCleans:0,skips:0,lastCompletedOn:null}));
     let previous="",score=0,units=0,visits=0,skips=0;
     const events=[];
     for(const e of row.events){
       if(!e||dateValue(e.date)===null||e.date<"2000-01-01"||
          e.date>raw.asOf||e.date<previous||!EVENTS.has(e.event)||
+         !Number.isSafeInteger(e.j)||e.j<0||e.j>=jobs.length||
          !Number.isSafeInteger(e.streak)||e.streak<0||e.streak>2000||
          !Number.isSafeInteger(e.quantity)||e.quantity<0||e.quantity>20||
-         !Number.isSafeInteger(e.points)||e.points<0||e.points>1000||
-         (e.event==="paid_completed_clean"&&
-           (e.quantity<1||e.streak<1||
-            e.points!==(20+2*(e.streak-1))*e.quantity))||
+         !Number.isSafeInteger(e.points)||e.points<0||e.points>20000||
+         (e.event==="paid_completed_clean"&&e.quantity<1)||
          (e.event==="completed_payment_not_verified"&&e.quantity<1)||
          ((e.event==="recorded_skip"||e.event==="completed_non_bin_service")&&e.quantity!==0)||
          (e.event!=="paid_completed_clean"&&e.points!==0))
-        throw Error("per_bin_event_invalid");
+        throw Error("per_job_event_invalid");
+      const job=state[e.j];
       previous=e.date;
-      score+=e.points;
-      if(e.event==="paid_completed_clean"){units+=e.quantity;visits++;}
-      if(e.event==="recorded_skip")skips++;
+      if(e.event==="recorded_skip"){
+        job.streak=0;job.lastVisitDay=null;job.skips++;skips++;
+      }else if(e.event==="paid_completed_clean"||
+                e.event==="completed_payment_not_verified"){
+        if(job.lastVisitDay!==e.date){
+          job.streak++;job.lastVisitDay=e.date;
+        }
+        job.lastCompletedOn=e.date;
+        if(e.event==="paid_completed_clean"){
+          const expected=e.quantity*(20+2*(job.streak-1));
+          if(e.points!==expected)throw Error("per_job_points_mismatch");
+          job.points+=expected;job.paidCleans+=e.quantity;
+          score+=expected;units+=e.quantity;visits++;
+        }
+      }
+      if(e.streak!==job.streak)throw Error("per_job_streak_mismatch");
       events.push({date:e.date,event:e.event,points:e.points,
-        streak:e.streak,quantity:e.quantity});
+        streak:e.streak,quantity:e.quantity,j:e.j});
     }
-    if(score!==row.points||units!==row.paidCleans||skips!==row.recordedSkips)
-      throw Error("per_bin_reconciliation_failed");
+    for(let j=0;j<jobs.length;j++){
+      const derived=state[j],reported=jobs[j];
+      if(derived.streak!==reported.currentStreak||
+         derived.points!==reported.points||
+         derived.paidCleans!==reported.paidCleans||
+         derived.skips!==reported.recordedSkips||
+         derived.lastCompletedOn!==reported.lastCompletedOn)
+        throw Error("per_job_summary_mismatch");
+    }
+    if(score!==row.points||units!==row.paidCleans||
+       skips!==row.recordedSkips||
+       row.currentStreak!==Math.max(0,...jobs.map(j=>j.currentStreak)))
+      throw Error("per_job_reconciliation_failed");
     if(score>0&&row.town!=="Town unavailable")ranked++;
     points+=score;paidBins+=units;paidVisits+=visits;historyEvents+=events.length;
     accounts.push({id,ref:row.ref,email:row.email,firstName:row.firstName,
       town:row.town,points:score,paidCleans:units,
       currentStreak:row.currentStreak,nextBonus:row.nextBonus,
-      recordedSkips:skips,events,historyAsOf:raw.asOf});
+      recordedSkips:skips,events,jobs,historyAsOf:raw.asOf});
   }
   // Lock the initial 5 November source to independently verified totals.
   // Later weekly backups are dynamic and require owner authentication.
   if(raw.asOf==="2026-11-05" &&
-     (accounts.length!==1020||points!==1008106||paidBins!==25921))
-    throw Error("five_nov_audit_totals_mismatch");
+     (accounts.length!==1020||paidBins!==25921))
+    throw Error("five_nov_paid_bin_audit_mismatch");
+  // The old customer-day point total (1,008,106) is deliberately NOT a
+  // valid assertion after switching to independent recurring-job streaks.
   const countShared=[...emailCounts.values()].filter(n=>n>1).length;
   const qualified=accounts.filter(a=>a.email && emailCounts.get(a.email)===1 &&
     a.points>0 && a.town!=="Town unavailable");
@@ -141,9 +190,10 @@ function eligibleBinAccounts(snapshot){
     verifiedPaidBins+=a.paidCleans;
   }
   return {aliases,count:aliases.size,historicalPoints,verifiedPaidBins,
+    perJobScoringVerified:snapshot.scoringVersion===VERSION,
     verifiedAliases:aliases,verifiedCount:aliases.size,
     verifiedImportedActiveAccounts:snapshot.accounts.length,
     verifiedActiveEmailAccounts,verificationAsOf:snapshot.asOf,
     verificationStatus:"verified_from_squeegee_backup"};
 }
-module.exports={VERSION,fresh,displayable,DISPLAY_GRACE_DAYS,isBinSnapshot,validateBinSource,eligibleBinAccounts};
+module.exports={VERSION,LEGACY_VERSION,fresh,displayable,DISPLAY_GRACE_DAYS,isBinSnapshot,validateBinSource,eligibleBinAccounts};
