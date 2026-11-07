@@ -1,5 +1,5 @@
 import SevenZip from "./vendor/sqg-7zip/7zz.es6.js";
-import {makeState,acceptSqueegeeRecord,finishSqueegeeImport} from "./customer-hq-sqg-converter.mjs";
+import {SCORE_VERSION,makeState,acceptSqueegeeRecord,finishSqueegeeImport} from "./customer-hq-sqg-converter.mjs?v=per-job-v2-20261107";
 
 // Pinned upstream open-source 7-Zip WASM. The decoder alone is downloaded;
 // Squeegee customer data is never uploaded to GitHub or the decoder provider.
@@ -75,7 +75,10 @@ async function convert(file,previous){
   throw Error("The archive finished early; no customer data was imported.");
  emit("Reconciling private leaderboard scores",92);
  const outcome=finishSqueegeeImport(state,asOf,previous||{});
- emit("Verified private points ready to import",98);
+ if(outcome?.snapshot?.scoringVersion!==SCORE_VERSION||
+    SCORE_VERSION!=="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2")
+   throw Error("The Squeegee scoring module is outdated. Reload the import page before retrying.");
+ emit("Verified private per-job points ready to import",98);
  return outcome;
 }
 self.onmessage=async e=>{
