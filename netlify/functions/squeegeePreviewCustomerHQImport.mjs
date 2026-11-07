@@ -22,7 +22,7 @@ const headers={
   "Referrer-Policy":"no-referrer",
   "Content-Security-Policy":"default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' https://raw.githubusercontent.com; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
 };
-function page(html,status=200){
+function page(html,status=200,extraHeaders={}){
   return new Response('<!doctype html><html lang="en"><meta charset="utf-8">'+
     '<meta name="viewport" content="width=device-width,initial-scale=1">'+
     '<title>Customer HQ • Private History Setup</title>'+
@@ -35,7 +35,46 @@ function page(html,status=200){
     'a{color:#f7c948}small{color:#ddd}</style><main>'+
     '<h1>NI Bin Guy • Customer HQ Setup</h1>'+html+
     '<p><small>Owner-only N64 preview. Customer account data remains in private Netlify storage; it is not added to the public website or GitHub.</small></p>'+
-    '</main>',{status,headers});
+    '</main>',{status,headers:{...headers,...extraHeaders}});
+}
+// Deliberately log and show only fixed, non-identifying validation codes.
+// Do not log the uploaded backup, customer names, IDs, email, cookies or body.
+const OWNER_IMPORT_CODES=new Set([
+  "per_job_history_source_invalid_or_stale","per_bin_customer_invalid",
+  "per_bin_duplicate_customer","per_job_summary_invalid",
+  "per_job_cross_customer_conflict","per_job_events_missing",
+  "per_job_event_invalid","per_job_points_mismatch",
+  "per_job_streak_mismatch","per_job_summary_mismatch",
+  "per_job_reconciliation_failed","five_nov_paid_bin_audit_mismatch",
+  "invalid_hq_source","unverified_per_bin_consent_source",
+  "invalid_portal_consents_source","mismatched_portal_consents_source",
+  "incomplete_portal_consents_source","unexpected_ranked_hq_customer",
+  "hq_event_validation_failed","hq_history_balance_mismatch",
+  "hq_customer_validation_failed","hq_public_score_mismatch",
+  "hq_active_leaderboard_reconciliation_failed"
+]);
+function safeImportReason(err){
+  const code=err instanceof Error?err.message:"";
+  return OWNER_IMPORT_CODES.has(code)?code:"unexpected_failure";
+}
+function importFailure(stage,err){
+  const safeStage=["parse_json","verify_history","load_previous","load_consents",
+    "prepare_consents","save_consents","save_history"].includes(stage)?stage:"upload";
+  const reason=safeImportReason(err);
+  console.warn("preview77_private_hq_import_rejected",safeStage,reason);
+  const verification=safeStage==="parse_json"||safeStage==="verify_history";
+  const message=verification?
+    "The backup was unpacked but its private scoring file did not pass the independent job-history checks.":
+    "The private update could not be completed or verified.";
+  const guidance=verification?
+    "Your previous verified cleaning XP remains unchanged. The owner can report the diagnostic below; do not alter or extract customer records.":
+    "Please do not assume that the new scores were saved. Check the private import summary before retrying.";
+  const diagnostic=safeStage+" / "+reason;
+  return page('<section><strong>IMPORT NOT APPLIED</strong><p>'+message+
+    '</p><p>'+guidance+'</p><p><b>Diagnostic:</b> <code>'+
+    escape(diagnostic)+'</code></p><p><a href="/api/squeegee-preview-hq-import">'+
+    'Return to customer-history import</a></p></section>',
+    verification?422:503,{"X-Private-Import-Reason":diagnostic});
 }
 function scope(req,ctx){return {
   hostname:new URL(req.url).hostname,
@@ -107,6 +146,7 @@ export default async function handler(request,ctx){
   // Some Samsung/Android in-app browser uploads send Origin: null (or
   // omit Origin). Verify an unpredictable token tied to this exact signed
   // owner session instead of rejecting legitimate same-origin forms.
+  let stage="upload";
   try{
     const size=Number(request.headers.get("content-length")||0);
     if(!Number.isFinite(size)||size>4_200_000)
@@ -123,7 +163,11 @@ export default async function handler(request,ctx){
     if(typeof file.name!=="string"||!/\.json$/i.test(file.name))
       return page("<section>You selected a Squeegee backup or another unsupported file. Please select the prepared Customer HQ .json file instead. No customer records were changed.</section>",415);
     const source=await file.text();
-    const validated=hq.validateSource(JSON.parse(source));
+    stage="parse_json";
+    const parsed=JSON.parse(source);
+    stage="verify_history";
+    const validated=hq.validateSource(parsed);
+    stage="load_previous";
     const previous=await store.get(hq.DATA_KEY,{type:"json",consistency:"strong"});
     if(previous?.asOf && validated.asOf<previous.asOf)
       return page("<section>Older customer history cannot replace newer data.</section>",409);
@@ -135,17 +179,21 @@ export default async function handler(request,ctx){
     // mismatch of source dates hides public names, including withdrawals.
     // A withheld or withdrawn customer never becomes public on refresh.
     const consentStore=getStore({name:nameConsents.STORE_NAME,consistency:"strong"});
+    stage="load_consents";
     const oldConsent=await consentStore.getWithMetadata(nameConsents.KEY,{
       type:"json",consistency:"strong"
     });
+    stage="prepare_consents";
     const nextConsent=nameConsents.initialiseFromPrivateCustomerHQ(
       validated,oldConsent?.data||null);
+    stage="save_consents";
     const permissionsSaved=await consentStore.setJSON(
       nameConsents.KEY,nextConsent,oldConsent?.etag
         ?{onlyIfMatch:oldConsent.etag}:{onlyIfNew:true}
     );
     if(permissionsSaved?.modified!==true)
       return page("<section>Leaderboard consent records changed elsewhere. No private history was replaced. Please try again.</section>",409);
+    stage="save_history";
     const saved=await store.setJSON(hq.DATA_KEY,{
       ...validated,sourceHash:hash,importedAt:new Date().toISOString()
     });
@@ -163,8 +211,8 @@ export default async function handler(request,ctx){
       'No-email accounts are excluded from the public leaderboard but their historical XP is retained. '+
       validated.summary.duplicateEmailCount+' shared-email addresses require manual identity verification for portal sign-in.</p></section>'+
       '<p><a href="/customer-hq?ntl-drawer-state=hidden">Open Customer HQ</a></p>');
-  }catch{
-    return page("<section>Private history validation failed. No records were imported. Check that you selected the correct NI Bin Guy Customer HQ JSON.</section>",422);
+  }catch(error){
+    return importFailure(stage,error);
   }
 }
 // Netlify's static route manifest requires a literal path here, not PATH.
