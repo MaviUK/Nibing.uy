@@ -472,13 +472,15 @@ exports.handler = async (event) => {
         const publicScores=nameConsents.previewFirstNameScoreboard(
           privateCustomers,full,eligible.aliases,privateNames,privateKey
         );
-        // Only a successfully verified preview scoreboard can share
-        // anonymous record totals. No names, towns, refs or dates per winner.
-        // Recheck withdrawals from the current ledger on EVERY request.
+        // Use ONLY the first name, town and XP already visible on this
+        // exact public year leaderboard. Recheck withdrawals every request;
+        // do not expose source refs, job IDs, emails or private history.
         const publicAchievements=publicScores?.status==="preview_public_first_names"&&
           Array.isArray(publicScores.entries)&&publicScores.entries.length>0
-          ?publicRecords.highlights(privateCustomers,eligible.aliases,privateNames,period)
-          :null;
+          ?publicRecords.highlights(
+            privateCustomers,eligible.aliases,privateNames,period,
+            publicScores,privateKey
+          ):null;
         return out(200,{...publicLeaderboard(publicScores||{
           entries:[],totalPlayers:0,status:"eligibility_pending"
         }),...(publicAchievements?{publicAchievements}:{}),
