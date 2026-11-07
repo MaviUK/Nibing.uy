@@ -285,8 +285,10 @@ test("admin displays the achievements only after owner-session verification",()=
  assert.match(src,/fromRecords\?'← HIGH ACHIEVEMENTS':'← ALL CUSTOMERS'/);
  assert.match(src,/id="high-achievements"/);
  assert.match(src,/id="owner-job-/);
- assert.match(src,/colour\+" bin · current"/);
- assert.match(src,/colour\+" bin · highest ever"/);
+ assert.match(src,/achievements\.RECORD_CATEGORIES\.map\(colour=>/);
+ assert.match(src,/Green & Brown bins/);
+ assert.match(src,/awarded\.byColourCurrent\[colour\]/);
+ assert.match(src,/awarded\.byColour\[colour\]/);
  assert.match(src,/Current unbroken · all jobs/);
  assert.match(src,/Historical highest · all jobs/);
  assert.match(src,/Current longest · any job/);
