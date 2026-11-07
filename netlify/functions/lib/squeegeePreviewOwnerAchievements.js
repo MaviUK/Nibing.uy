@@ -34,15 +34,26 @@ function addDays(date,days){
  if(!Number.isFinite(t))return null;
  return new Date(t+days*86400000).toISOString().slice(0,10);
 }
-function jobRecords(account,asOf) {
+function jobRecords(account,asOf,year=null) {
  if(!Array.isArray(account.jobs)||!Array.isArray(account.events))return [];
  const byJob=account.jobs.map(()=>[]);
  for(const e of account.events)if(Number.isSafeInteger(e?.j)&&
   e.j>=0&&e.j<byJob.length)byJob[e.j].push(e);
  return account.jobs.map((job,index)=>{
   let best=0,achievedOn=null;
+  const cutoff=year===null?asOf:year+"-12-31"<asOf?year+"-12-31":asOf;
+  const timeline=new Map();
   for(const event of byJob[index]){
-   if(!CLEAN.has(event?.event)||!dateDay(event.date)||
+   const day=dateDay(event?.date);
+   if(day&&day<=cutoff){
+    if(!timeline.has(day))timeline.set(day,{skip:false,streak:0});
+    const dayEvents=timeline.get(day);
+    if(event.event==="recorded_skip")dayEvents.skip=true;
+    else if(CLEAN.has(event.event)&&Number.isSafeInteger(event.streak)&&event.streak>0)
+      dayEvents.streak=Math.max(dayEvents.streak,event.streak);
+   }
+   if(!CLEAN.has(event?.event)||!dateDay(event.date)||event.date>cutoff||
+      (year!==null&&!event.date.startsWith(year+"-"))||
       !Number.isSafeInteger(event.streak)||event.streak<1)continue;
    if(event.streak>best){
     best=event.streak;
@@ -51,28 +62,38 @@ function jobRecords(account,asOf) {
     achievedOn=event.date;
    }
   }
-  const last=dateDay(job.lastCompletedOn);
-  // Existing HQ projects a next clean back to 20 XP after 35 days.
-  // An achievement labelled "active" must apply that SAME staleness rule.
-  const current=Number.isSafeInteger(job.currentStreak)&&job.currentStreak>0
+  let last=dateDay(job.lastCompletedOn);
+  // For an older year, reconstruct its year-end streak from dated events.
+  // Never mistake the 2026 snapshot's currentStreak for its 2024/25 value.
+  let current=Number.isSafeInteger(job.currentStreak)&&job.currentStreak>0
    ?job.currentStreak:0;
-  const active=last && asOf<=addDays(last,35)?current:0;
+  if(year!==null){
+   current=0;last=null;
+   for(const [day,entry] of [...timeline].sort(([a],[b])=>a.localeCompare(b))){
+    if(entry.skip){current=0;last=null;}
+    else if(entry.streak>0){current=entry.streak;last=day;}
+   }
+  }
+  const active=last && cutoff<=addDays(last,35)?current:0;
   return {
    ref:account.ref,firstName:account.firstName,town:account.town,
    jobId:job.id,jobIndex:index,label:job.label,
    best,achievedOn,active,lastCompletedOn:last,
-   paidBins:Number.isSafeInteger(job.paidCleans)?job.paidCleans:0
+   paidBins:year===null?(Number.isSafeInteger(job.paidCleans)?job.paidCleans:0):
+    byJob[index].filter(e=>e?.event==="paid_completed_clean" &&
+      typeof e.date==="string"&&e.date.startsWith(year+"-")&&e.date<=cutoff)
+     .reduce((sum,e)=>sum+(Number.isSafeInteger(e.quantity)&&e.quantity>0?e.quantity:1),0)
   };
  });
 }
-function customerCleanDateRecord(account,asOf=null){
+function customerCleanDateRecord(account,asOf=null,year=null){
  // Customer-wide achievement, NOT an XP scoring streak. Multiple jobs on
  // one date count as one completed visit. Any skipped job resets the
  // customer-wide award even if another job was completed on that same date.
  const byDate=new Map();
  for(const e of Array.isArray(account.events)?account.events:[]){
   const day=dateDay(e?.date);
-  if(!day)continue;
+  if(!day||(asOf!==null&&day>asOf))continue;
   if(!byDate.has(day))byDate.set(day,{clean:false,skip:false});
   const record=byDate.get(day);
   if(CLEAN.has(e.event))record.clean=true;
@@ -83,7 +104,7 @@ function customerCleanDateRecord(account,asOf=null){
   const {clean,skip}=byDate.get(day);
   if(skip){run=0;lastCompletedOn=null;}
   else if(clean){run++;lastCompletedOn=day;}
-  if(run>best){best=run;achievedOn=day;}
+  if(run>best&&(year===null||day.startsWith(year+"-"))){best=run;achievedOn=day;}
  }
  // As-of is the verified backup date, not a live schedule lookup. A
  // record with no completed visit during the last 35 days is not current.
@@ -94,22 +115,32 @@ function customerCleanDateRecord(account,asOf=null){
   ...(asOf!==null?{activeCombined,lastCompletedOn}:{}),
  };
 }
-function awards(accounts,{asOf="",limit=5}={}){
- if(!Array.isArray(accounts)||!dateDay(asOf))return null;
+function awards(accounts,{asOf="",limit=5,year=null}={}){
+ if(!Array.isArray(accounts)||!dateDay(asOf)||
+    (year!==null&&(!Number.isSafeInteger(year)||year<2024||
+      year>Number(asOf.slice(0,4)))))return null;
+ const cutoff=year===null?asOf:year+"-12-31"<asOf?year+"-12-31":asOf;
  // A legacy customer-wide import cannot give truthful per-job awards.
  if(accounts.some(account=>!Array.isArray(account?.jobs)||
   !Array.isArray(account?.events)))return null;
  const allJobs=[],customers=[];
  for(const account of accounts){
   if(typeof account?.ref!=="string")continue;
-  const jobs=jobRecords(account,asOf);
+  const jobs=jobRecords(account,asOf,year);
   allJobs.push(...jobs);
   const {combined,achievedOn,activeCombined,lastCompletedOn}=
-   customerCleanDateRecord(account,asOf);
+   customerCleanDateRecord(account,cutoff,year);
+  const yearEvents=year===null?[]:account.events.filter(e=>
+    typeof e?.date==="string"&&e.date.startsWith(year+"-")&&e.date<=cutoff);
+  const cleanedJobs=new Set(yearEvents.filter(e=>CLEAN.has(e.event)&&
+    Number.isSafeInteger(e.j)&&e.j>=0&&e.j<account.jobs.length).map(e=>e.j));
   customers.push({
    ref:account.ref,firstName:account.firstName,town:account.town,
-   combined,achievedOn,activeCombined,lastCompletedOn,jobs:jobs.length,
-   paidBins:Number.isSafeInteger(account.paidCleans)?account.paidCleans:0
+   combined,achievedOn,activeCombined,lastCompletedOn,
+   jobs:year===null?jobs.length:cleanedJobs.size,
+   paidBins:year===null?(Number.isSafeInteger(account.paidCleans)?account.paidCleans:0):
+    yearEvents.filter(e=>e.event==="paid_completed_clean").reduce(
+      (sum,e)=>sum+(Number.isSafeInteger(e.quantity)&&e.quantity>0?e.quantity:1),0)
   });
  }
  const byColour=Object.fromEntries(COLOURS.map(colour=>[
@@ -119,7 +150,7 @@ function awards(accounts,{asOf="",limit=5}={}){
   colour,top(allJobs.filter(j=>j.label===colour),"active",limit)
  ]));
  return {
-  asOf,
+  asOf,year,periodEnd:cutoff,
   jobCount:allJobs.length,
   byColour,
   byColourCurrent,
@@ -145,11 +176,11 @@ function townGroups(accounts) {
  }
  return groups;
 }
-function townRecords(accounts,{asOf="",limit=5}={}){
+function townRecords(accounts,{asOf="",limit=5,year=null}={}){
  const towns=townGroups(accounts);
  const records=[];
  for(const [town,customers] of towns){
-  const summary=awards(customers,{asOf,limit});
+  const summary=awards(customers,{asOf,limit,year});
   if(!summary)continue;
   records.push({
    town,customers:customers.length,
