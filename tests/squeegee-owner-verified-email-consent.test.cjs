@@ -70,7 +70,9 @@ test("bulk attestation never reverses existing customer withdrawal or rewrites a
   const privateAccounts=fixture();
   const eligible=hq.eligibleRankedEmailAccounts(privateAccounts);
   const pending=names.initialiseFromPrivateCustomerHQ(privateAccounts);
-  const now=Date.parse("2026-11-06T12:00:00Z");
+  // Match the rolling source-as-of date; a fixed 6 November time becomes
+  // earlier than the generated import once the calendar advances.
+  const now=Date.now();
   const before={...pending,records:pending.records.map(r=>
     r.alias===refs[1]?{...r,consent:"withdrawn",withdrawnAt:"2026-11-05T15:00:00Z"}:r)};
   const once=names.approveOwnerReviewedEmailReplies(before,privateAccounts,
