@@ -3,6 +3,8 @@
 // An achievement does not grant XP, publish customer data, or change a job.
 // Use recorded attended VISITS, not physical-bin quantities, for streaks.
 const COLOURS=["Black","Blue","Brown","Green"];
+// Display Green and Brown together as one ranked category; source job colours stay unchanged.
+const RECORD_CATEGORIES=["Black","Blue","Green & Brown"];
 const CLEAN=new Set(["paid_completed_clean","completed_payment_not_verified"]);
 const DAY=/^\d{4}-\d{2}-\d{2}$/;
 function dateDay(value) {
@@ -149,6 +151,11 @@ function awards(accounts,{asOf="",limit=5,year=null}={}){
  const byColourCurrent=Object.fromEntries(COLOURS.map(colour=>[
   colour,top(allJobs.filter(j=>j.label===colour),"active",limit)
  ]));
+ // Merge the rankings, NOT the jobs: never add two jobs' streak counts.
+ // Mixed-colour Squeegee job labels still compete in "any job" only.
+ const greenBrownJobs=allJobs.filter(j=>j.label==="Green"||j.label==="Brown");
+ byColour["Green & Brown"]=top(greenBrownJobs,"best",limit);
+ byColourCurrent["Green & Brown"]=top(greenBrownJobs,"active",limit);
  return {
   asOf,year,periodEnd:cutoff,
   jobCount:allJobs.length,
@@ -190,4 +197,4 @@ function townRecords(accounts,{asOf="",limit=5,year=null}={}){
  }
  return records.sort((a,b)=>a.town.localeCompare(b.town,"en-GB"));
 }
-module.exports={awards,jobRecords,customerCleanDateRecord,townGroups,townRecords,COLOURS};
+module.exports={awards,jobRecords,customerCleanDateRecord,townGroups,townRecords,COLOURS,RECORD_CATEGORIES};
