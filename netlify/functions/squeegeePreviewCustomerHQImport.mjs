@@ -116,6 +116,8 @@ export default async function handler(request,ctx){
       });
     }
     const summary=existing?.summary;
+    const perJobReady=existing?.scoringVersion===
+      "2026-11-streak-20-plus-2-per-job-per-paid-bin-v2";
     const eligible=hq.eligibleRankedEmailAccounts(existing);
     return page('<section><strong>'+(summary?"PRIVATE HISTORY IMPORTED":"NOT IMPORTED")+
       '</strong><p>'+(summary?
@@ -130,7 +132,9 @@ export default async function handler(request,ctx){
         ' · Shared-email conflicts held for review: '+summary.duplicateEmailCount+
         ' · Source: '+escape(existing.asOf):
         'Upload the latest private Customer HQ JSON prepared from the verified Squeegee backup. Only an owner can replace cleaning scores. No customer can sign in until history is privately imported.')+
-      '</p></section>'+
+      '</p>'+(summary?'<p><strong>STREAK SCORING:</strong> '+
+        (perJobReady?'PER SQUEEGEE JOB — CORRECTED':
+          'OLDER CUSTOMER-WIDE CALCULATION — REIMPORT REQUIRED')+'</p>':'')+'</section>'+
       '<section><h2>Upload your normal Squeegee backup</h2>'+
       '<form id="hq-history-upload-form" method="post" enctype="multipart/form-data" action="'+PATH+'">'+
       '<input type="hidden" name="csrf" value="'+escape(csrfToken)+'">'+
@@ -202,7 +206,7 @@ export default async function handler(request,ctx){
     return page('<section><strong>PRIVATE CUSTOMER HQ HISTORY READY</strong>'+
       '<p>Validated '+validated.summary.activeAccounts+' active customers, '+
       validated.summary.verifiedPaidBins+' fully paid physical bins, '+
-      validated.summary.allHistoricalPoints+' cleaning XP and '+
+      validated.summary.allHistoricalPoints+' cleaning XP (calculated separately per recurring Squeegee job) and '+
       validated.summary.historyEvents+' clean history entries. '+
       validated.summary.rankedWithEmail+' ranking-eligible customers have an email, '+
       'representing '+validated.summary.rankedWithEmailPoints+' cleaning XP. '+
