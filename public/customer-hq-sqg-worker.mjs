@@ -1,5 +1,5 @@
 import SevenZip from "./vendor/sqg-7zip/7zz.es6.js";
-import {SCORE_VERSION,makeState,acceptSqueegeeRecord,finishSqueegeeImport} from "./customer-hq-sqg-converter.mjs?v=per-job-occurrence-v3-20261107";
+import {SCORE_VERSION,makeState,acceptSqueegeeRecord,finishSqueegeeImport} from "./customer-hq-sqg-converter.mjs?v=per-job-transfer-v4-20261107";
 
 // Pinned upstream open-source 7-Zip WASM. The decoder alone is downloaded;
 // Squeegee customer data is never uploaded to GitHub or the decoder provider.
@@ -90,11 +90,15 @@ self.onmessage=async e=>{
   const missingJob=error?.message==="missing_squeegee_recurring_job_id"||
     error?.message==="invalid_or_conflicting_squeegee_job_id";
   const occurrenceMismatch=error?.message==="invalid_squeegee_occurrence_job_date";
+  const conflictingTransfer=["squeegee_job_shared_active_customers",
+    "squeegee_job_date_conflicts_between_customers"].includes(error?.message);
   self.postMessage({type:"error",
    message:missingJob?
     "The Squeegee backup did not provide a reliable recurring job ID for each clean. Per-job streaks cannot be verified, so NO scores have been replaced. Please ask NI Bin Guy to review the backup format.":
     occurrenceMismatch?
     "A Squeegee cleaning occurrence does not match its recurring job and due date. No scores have been changed. Please report this diagnostic to NI Bin Guy.":
+    conflictingTransfer?
+    "A transferred Squeegee job is assigned to two active customers or the same cleaning date. No scores have been replaced; this job requires owner review.":
     typeof error?.message==="string"?error.message:"Unable to process this backup safely."});
  }
 };
