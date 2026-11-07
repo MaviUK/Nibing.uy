@@ -210,3 +210,47 @@ test("three public tabs keep Records separate from Leaderboards and protected Cu
  assert.match(publicHelper,/publicScores\?\.status!=="preview_public_first_names"/);
  assert.match(publicHelper,/withdrawn\.has\(alias\)/);
 });
+
+test("Green and Brown share one top-five ranking without combining job streaks",()=>{
+ const make=(id,ref,label,streak,firstName)=>({
+  id,ref,firstName,town:"Bangor",paidCleans:streak,
+  jobs:[{id:"job-"+ref,label,currentStreak:streak,lastCompletedOn:asOf,paidCleans:streak}],
+  events:[paid(asOf,0,streak)]
+ });
+ const brown=make("33333333-3333-4333-8333-333333333333","303","Brown",4,"Beth");
+ const green=make("44444444-4444-4444-8444-444444444444","404","Green",7,"Gina");
+ const mixed=make("55555555-5555-4555-8555-555555555555","505","Blue + Brown",30,"Mandy");
+ const accounts=[brown,green,mixed];
+ const ranked=award.awards(accounts,{asOf});
+ assert.deepEqual(award.RECORD_CATEGORIES,["Black","Blue","Green & Brown"]);
+ assert.deepEqual(ranked.byColour["Green & Brown"].map(r=>r.best),[7,4]);
+ assert.deepEqual(ranked.byColourCurrent["Green & Brown"].map(r=>r.active),[7,4]);
+ assert.deepEqual(ranked.byColour["Green & Brown"].map(r=>r.label),["Green","Brown"]);
+ assert.ok(!ranked.byColour["Green & Brown"].some(r=>r.label==="Blue + Brown"));
+ assert.equal(ranked.byColour.Green[0].best,7);
+ assert.equal(ranked.byColour.Brown[0].best,4);
+ assert.equal(ranked.longestJob[0].best,30);
+ assert.equal(ranked.byColour["Green & Brown"][0].best,7); // not 7 + 4
+ const y26=award.awards(accounts,{asOf,year:2026});
+ assert.deepEqual(y26.byColour["Green & Brown"].map(r=>r.best),[7,4]);
+ const aliases=accounts.map(r=>history.canonicalLegacyRef(r.id));
+ const permissions={version:1,sourceAsOf:asOf,records:aliases.map(alias=>({alias,consent:"pending"}))};
+ const board=publishedBoard(accounts,(_,i)=>[400,700,1500][i]);
+ const pubView=pub.highlights({version:1,asOf,accounts},new Set(aliases),
+  permissions,"2026",board,previewKey);
+ assert.deepEqual(pubView.colours.map(c=>c.colour),["Black","Blue","Green & Brown"]);
+ const combined=pubView.colours.find(c=>c.colour==="Green & Brown");
+ assert.deepEqual(combined.currentTop.map(r=>r.cleans),[7,4]);
+ assert.deepEqual(combined.highestTop.map(r=>r.displayName),["Gina","Beth"]);
+ assert.deepEqual(combined.highestTop.map(r=>r.points),[700,400]);
+ assert.ok(!JSON.stringify(pubView.colours).includes("Mandy"));
+ const ui=fs.readFileSync(path.join(__dirname,
+  "../src/components/ArcadeLeaderboard.jsx"),"utf8");
+ assert.match(ui,/const colours=\["Black","Blue","Green & Brown"\]/);
+ assert.match(ui,/records\.colours\.length===3/);
+ assert.match(ui,/greenbrown/);
+ const owner=fs.readFileSync(path.join(__dirname,
+  "../netlify/functions/squeegeePreviewOwnerCustomers.mjs"),"utf8");
+ assert.match(owner,/achievements\.RECORD_CATEGORIES\.map\(colour=>/);
+ assert.match(owner,/award--.*GreenBrown/);
+});
