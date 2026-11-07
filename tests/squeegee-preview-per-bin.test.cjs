@@ -16,22 +16,29 @@ function today(){
 const id1="11111111-1111-4111-8111-111111111111";
 const id2="22222222-2222-4222-8222-222222222222";
 const paid=(date,quantity,streak)=>({date,event:"paid_completed_clean",
-  quantity,streak,points:quantity*(20+2*(streak-1))});
+  quantity,streak,points:quantity*(20+2*(streak-1)),j:0});
+const firstJob="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const secondJob="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 function source(){
   return {version:1,asOf:today(),scoringVersion:bin.VERSION,
     accounts:[
       {id:id1,ref:"1001",email:"alice@example.test",firstName:"Alice",
         town:"Bangor",points:100,paidCleans:5,currentStreak:1,
-        nextBonus:22,recordedSkips:1,events:[
+        nextBonus:22,recordedSkips:1,jobs:[{id:firstJob,label:"Brown",
+          currentStreak:1,nextBonus:22,paidCleans:5,points:100,
+          recordedSkips:1,lastCompletedOn:"2026-06-01"}],events:[
           paid("2024-03-10",2,1),
-          {date:"2025-05-20",event:"recorded_skip",points:0,streak:0,quantity:0},
+          {date:"2025-05-20",event:"recorded_skip",points:0,streak:0,quantity:0,j:0},
           paid("2026-06-01",3,1),
           {date:"2026-06-02",event:"completed_non_bin_service",
-            points:0,streak:1,quantity:0},
+            points:0,streak:1,quantity:0,j:0},
         ]},
       {id:id2,ref:"1002",email:"bob@example.test",firstName:"Bob",
         town:"Comber",points:20,paidCleans:1,currentStreak:1,
-        nextBonus:22,recordedSkips:0,events:[paid("2025-05-18",1,1)]}
+        nextBonus:22,recordedSkips:0,jobs:[{id:secondJob,label:"Blue",
+          currentStreak:1,nextBonus:22,paidCleans:1,points:20,
+          recordedSkips:0,lastCompletedOn:"2025-05-18"}],
+        events:[paid("2025-05-18",1,1)]}
     ]};
 }
 test("Preview 77 accepts new per-bin private schema without changing old 31 October preview scoring",()=>{
