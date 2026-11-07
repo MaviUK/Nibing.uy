@@ -15,10 +15,14 @@ function TopFiveCleanRecords({values,unit="cleans",label}){
   if(!Array.isArray(values)||values.length===0)
     return <div className="n64-record-no-results">No qualifying records</div>;
   return <ol className="n64-record-ranks" aria-label={label}>
-    {values.slice(0,5).map((value,i)=>
+    {values.slice(0,5).map((row,i)=>
       <li key={i}>
         <span className="n64-record-rank-number">#{String(i+1).padStart(2,"0")}</span>
-        <strong>{value.toLocaleString("en-GB")} <small>{unit}</small></strong>
+        <span className="n64-record-person">
+          <strong>{row.displayName}</strong>
+          <span>{row.town} · {row.points.toLocaleString("en-GB")} XP</span>
+        </span>
+        <strong className="n64-record-rank-result">{row.cleans.toLocaleString("en-GB")} <small>{unit}</small></strong>
       </li>
     )}
   </ol>;
@@ -85,6 +89,10 @@ export default function ArcadeLeaderboard() {
   const openHQ = () => selectPanel("hq");
   const openBoard = () => {
     selectPanel("leaderboard");
+    window.dispatchEvent(new Event("n64:leaderboard-updated"));
+  };
+  const openRecords = () => {
+    selectPanel("records");
     window.dispatchEvent(new Event("n64:leaderboard-updated"));
   };
   useLayoutEffect(() => {
@@ -348,12 +356,18 @@ export default function ArcadeLeaderboard() {
         const records=data.publicAchievements;
         const colours=["Black","Blue","Brown","Green"];
         const cleanCount=value=>Number.isSafeInteger(value)&&value>=0&&value<=100000;
+        const validFirstName=value=>typeof value==="string"&&
+          /^[\p{L}][\p{L}'’\-]{0,39}$/u.test(value);
+        const validPublicTown=value=>typeof value==="string"&&
+          value.length>1&&value.length<=80&&value!=="Town unavailable";
         const validTopFive=(list,leader)=>
           Array.isArray(list)&&list.length<=5&&
-          list.every((value,i)=>cleanCount(value)&&value>0&&
-            (i===0||value<=list[i-1]))&&
-          (list[0]||0)===leader;
-        const safeRecords=records?.status==="anonymous_verified_records"&&
+          list.every((row,i)=>row&&
+            validFirstName(row.displayName)&&validPublicTown(row.town)&&
+            cleanCount(row.points)&&cleanCount(row.cleans)&&row.cleans>0&&
+            (i===0||row.cleans<=list[i-1].cleans))&&
+          (list[0]?.cleans||0)===leader;
+        const safeRecords=records?.status==="preview_public_named_records"&&
           records.period===selectedYear&&data.period===selectedYear&&
           /^20\d{2}-\d{2}-\d{2}$/.test(records.sourceAsOf||"")&&
           /^20\d{2}-\d{2}-\d{2}$/.test(records.periodEnd||"")&&
@@ -427,11 +441,14 @@ export default function ArcadeLeaderboard() {
   return (
     <section ref={boardSectionRef} id="live-leaderboard" className="n64-public-leaderboard" aria-labelledby="n64-board-title">
       <div className={"n64-public-board-inner"+(activePanel==="hq"?" n64-public-board-inner--hq":"")}>
-        <div ref={boardTabsRef} className="n64-board-tabs" role="group" aria-label="Leaderboard and Customer HQ">
+        <div ref={boardTabsRef} className={"n64-board-tabs"+(!LIVE_N64?" n64-board-tabs--three":"")} role="group" aria-label="Leaderboard, Records and Customer HQ">
           <button type="button" className={activePanel==="leaderboard"?"n64-board-tab n64-board-tab--selected":"n64-board-tab"}
-            aria-pressed={activePanel==="leaderboard"} onClick={openBoard}>★ LEADERBOARD</button>
+            aria-pressed={activePanel==="leaderboard"} onClick={openBoard}>★ LEADERBOARDS</button>
+          {!LIVE_N64 && <button type="button"
+            className={activePanel==="records"?"n64-board-tab n64-board-tab--selected":"n64-board-tab"}
+            aria-pressed={activePanel==="records"} onClick={openRecords}>★ RECORDS</button>}
           <button type="button" className={activePanel==="hq"?"n64-board-tab n64-board-tab--selected":"n64-board-tab"}
-            aria-pressed={activePanel==="hq"} onClick={openHQ}>★ MY CUSTOMER HQ</button>
+            aria-pressed={activePanel==="hq"} onClick={openHQ}>★ CUSTOMER HQ</button>
         </div>
         <div className="n64-board-tab-content" hidden={activePanel!=="leaderboard"}>
         <h2 id="n64-board-title">{rankingMode==="owner"?"Verified Customer Rankings":
@@ -567,62 +584,7 @@ export default function ArcadeLeaderboard() {
             SHOW MORE PUBLIC SCORES ↓
           </button>
         </div>}
-        {!LIVE_N64 && publicAchievements && <section
-          className="n64-public-record-highlights"
-          aria-label="Verified anonymous top five bin cleaning achievements">
-          <h3>★ TOP 5 BIN CLEANING RECORDS · {selectedYear==="overall"?"ALL-TIME":selectedYear}</h3>
-          <p>Five highest qualifying records in each category, using the {publicAchievements.sourceAsOf} verified backup.
-            {selectedYear==="overall"
-              ?" Current streaks are active at the backup date."
-              :" Historical records were reached during "+selectedYear+"; runs may have started earlier."}
-            {" "}Ranks and counts only — record holders remain anonymous.</p>
-          <div className="n64-public-record-grid">
-            {publicAchievements.colours.map(row=>
-              <article key={row.colour}
-                className={"n64-public-record n64-public-record--"+row.colour.toLowerCase()}>
-                <h4>{row.colour.toUpperCase()} BIN · TOP 5</h4>
-                <div className="n64-record-pair">
-                  <div><span className="n64-record-stat-label">
-                    {selectedYear!=="overall"&&publicAchievements.periodEnd!==publicAchievements.sourceAsOf
-                      ?"YEAR-END STREAKS":"CURRENT STREAKS"}
-                  </span><TopFiveCleanRecords values={row.currentTop}
-                    label={"Top five current "+row.colour+" bin streaks"}/></div>
-                  <div><span className="n64-record-stat-label">HIGHEST REACHED</span>
-                    <TopFiveCleanRecords values={row.highestTop}
-                      label={"Top five historical "+row.colour+" bin streaks"}/></div>
-                </div>
-              </article>
-            )}
-          </div>
-          <div className="n64-public-record-extras">
-            <div>
-              <h4>★ SINGLE JOB STREAKS · TOP 5</h4>
-              <div className="n64-record-pair">
-                <div><span className="n64-record-stat-label">CURRENT / YEAR-END</span>
-                  <TopFiveCleanRecords values={publicAchievements.longestJobCurrentTop}
-                    label="Top five current single job streaks"/></div>
-                <div><span className="n64-record-stat-label">HIGHEST REACHED</span>
-                  <TopFiveCleanRecords values={publicAchievements.longestJobHighestTop}
-                    label="Top five historical single job streaks"/></div>
-              </div>
-            </div>
-            <div>
-              <h4>★ ALL JOBS COMBINED · TOP 5</h4>
-              <div className="n64-record-pair">
-                <div><span className="n64-record-stat-label">CURRENT / YEAR-END</span>
-                  <TopFiveCleanRecords values={publicAchievements.longestAllJobsCurrentTop}
-                    unit="clean-days" label="Top five current combined job streaks"/></div>
-                <div><span className="n64-record-stat-label">HIGHEST REACHED</span>
-                  <TopFiveCleanRecords values={publicAchievements.longestAllJobsHighestTop}
-                    unit="clean-days" label="Top five historical combined job streaks"/></div>
-              </div>
-            </div>
-          </div>
-          <p className="n64-public-record-footnote">A single-job streak counts cleaning visits, not bins.
-            Across-all-jobs counts distinct cleaning dates and ends when any job is skipped.
-            Fewer than five entries appear where fewer qualify. Customer and job details stay private.</p>
-        </section>}
-                {nameConsentMode && players.length>0 && <p className="n64-board-display-note">
+        {nameConsentMode && players.length>0 && <p className="n64-board-display-note">
           {publicNamedCount.toLocaleString("en-GB")} customers are displayed by first name and town on {LIVE_N64?"the public leaderboard":"this N64 preview"}.
         </p>}
         {connection === "reconnecting" && (
@@ -751,6 +713,80 @@ export default function ArcadeLeaderboard() {
           </>}
         </div>
         </div>
+        {!LIVE_N64 && <div className="n64-board-tab-content n64-board-records-tab"
+          hidden={activePanel!=="records"} aria-labelledby="n64-records-title">
+          <h2 id="n64-records-title">★ Cleaning Records</h2>
+          <p className="n64-records-intro">The top five streak holders for each bin, individual job and all jobs combined.</p>
+          <div className="n64-leaderboard-years" role="group" aria-label="Choose records year">
+            {["overall",...availableYears].map(period=>
+              <button type="button" key={period}
+                aria-pressed={selectedYear===String(period)}
+                className={selectedYear===String(period)?"n64-year-selected":""}
+                onClick={()=>selectYear(String(period))}>
+                {period==="overall"?"OVERALL":period}
+              </button>
+            )}
+          </div>
+        {!LIVE_N64 && publicAchievements && <section
+          className="n64-public-record-highlights"
+          aria-label="Verified top five bin cleaning records with public name town and XP">
+          <h3>★ TOP 5 BIN CLEANING RECORDS · {selectedYear==="overall"?"ALL-TIME":selectedYear}</h3>
+          <p>Five highest qualifying records in each category, using the {publicAchievements.sourceAsOf} verified backup.
+            {selectedYear==="overall"
+              ?" Current streaks are active at the backup date."
+              :" Historical records were reached during "+selectedYear+"; runs may have started earlier."}
+            {" "}Each record lists the published first name, town and XP for that year.</p>
+          <div className="n64-public-record-grid">
+            {publicAchievements.colours.map(row=>
+              <article key={row.colour}
+                className={"n64-public-record n64-public-record--"+row.colour.toLowerCase()}>
+                <h4>{row.colour.toUpperCase()} BIN · TOP 5</h4>
+                <div className="n64-record-pair">
+                  <div><span className="n64-record-stat-label">
+                    {selectedYear!=="overall"&&publicAchievements.periodEnd!==publicAchievements.sourceAsOf
+                      ?"YEAR-END STREAKS":"CURRENT STREAKS"}
+                  </span><TopFiveCleanRecords values={row.currentTop}
+                    label={"Top five current "+row.colour+" bin streaks"}/></div>
+                  <div><span className="n64-record-stat-label">HIGHEST REACHED</span>
+                    <TopFiveCleanRecords values={row.highestTop}
+                      label={"Top five historical "+row.colour+" bin streaks"}/></div>
+                </div>
+              </article>
+            )}
+          </div>
+          <div className="n64-public-record-extras">
+            <div>
+              <h4>★ SINGLE JOB STREAKS · TOP 5</h4>
+              <div className="n64-record-pair">
+                <div><span className="n64-record-stat-label">CURRENT / YEAR-END</span>
+                  <TopFiveCleanRecords values={publicAchievements.longestJobCurrentTop}
+                    label="Top five current single job streaks"/></div>
+                <div><span className="n64-record-stat-label">HIGHEST REACHED</span>
+                  <TopFiveCleanRecords values={publicAchievements.longestJobHighestTop}
+                    label="Top five historical single job streaks"/></div>
+              </div>
+            </div>
+            <div>
+              <h4>★ ALL JOBS COMBINED · TOP 5</h4>
+              <div className="n64-record-pair">
+                <div><span className="n64-record-stat-label">CURRENT / YEAR-END</span>
+                  <TopFiveCleanRecords values={publicAchievements.longestAllJobsCurrentTop}
+                    unit="clean-days" label="Top five current combined job streaks"/></div>
+                <div><span className="n64-record-stat-label">HIGHEST REACHED</span>
+                  <TopFiveCleanRecords values={publicAchievements.longestAllJobsHighestTop}
+                    unit="clean-days" label="Top five historical combined job streaks"/></div>
+              </div>
+            </div>
+          </div>
+          <p className="n64-public-record-footnote">A single-job streak counts cleaning visits, not bins.
+            Across-all-jobs counts distinct cleaning dates and ends when any job is skipped.
+            Fewer than five entries appear where fewer qualify. Squeegee references and job details stay private.</p>
+        </section>}
+                  {!publicAchievements && <p className="n64-records-wait" role="status">
+            {connection==="reconnecting"?"Records are temporarily unavailable. Checking again…":
+              "Loading verified cleaning records…"}
+          </p>}
+        </div>}
         <div className="n64-board-tab-content n64-board-hq-tab" hidden={activePanel!=="hq"}>
           {hqOpened && <React.Suspense fallback={<p role="status">Loading your secure Customer HQ…</p>}>
             <CustomerHQ embedded/>
