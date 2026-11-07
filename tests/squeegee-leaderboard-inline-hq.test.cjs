@@ -116,7 +116,7 @@ test("sign-in CTA and both tabs anchor the TOP of the leaderboard after React ch
   assert.match(board,/onClick=\{openHQ\}>★ SIGN IN \/ VIEW MY CLEANING POINTS/);
   assert.match(board,/const openBoard = \(\) => \{\s*selectPanel\("leaderboard"\)/);
   assert.match(board,/ref=\{boardSectionRef\} id="live-leaderboard"/);
-  assert.match(board,/ref=\{boardTabsRef\} className="n64-board-tabs"/);
+  assert.match(board,/ref=\{boardTabsRef\} className=\{"n64-board-tabs"/);
   assert.match(board,/scrollOnPanelChange\.current = true;\s*setActivePanel\(panel\)/);
   assert.match(board,/useLayoutEffect\(\(\) => \{/);
   assert.match(board,/scrollToArcadeTabs\(boardTabsRef\.current\)/);
