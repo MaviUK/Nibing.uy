@@ -68,6 +68,8 @@ test("owner directory enforces exact Preview 77 and signed owner cookie before r
  const guarded=source.indexOf("if(!owner.verifyTestSessionCookie");
  const privateRead=source.indexOf("const snapshot=await getStore");
  assert.ok(guarded>=0&&privateRead>guarded);
+ assert.match(source,/path:"\/api\/squeegee-preview-owner-customers"/);
+ assert.doesNotMatch(source,/path:PATH/);
  assert.match(source,/Content-Security-Policy/);
  assert.match(source,/no-store/);
  assert.doesNotMatch(source,/addJobToCustomer|createCustomer\(/);
