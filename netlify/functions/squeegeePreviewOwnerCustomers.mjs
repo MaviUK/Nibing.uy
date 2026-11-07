@@ -50,7 +50,16 @@ const css=[
  " .admin-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0 21px}.admin-nav a{display:block;padding:11px 8px;text-align:center;text-decoration:none;font-weight:900;color:#233a5a;background:#dceafa;border:3px solid #97a8c0;box-shadow:3px 4px #081e3a}.admin-nav a.selected{background:#ffe274;border-color:#c4a347}.admin-nav a:focus-visible{outline:3px solid white;outline-offset:3px}",
 
  "footer{font-size:12px;color:#bed0e4;margin-top:30px}@media(max-width:720px){.search{grid-template-columns:1fr 1fr}.search .query,.search button{grid-column:1/-1}.stats{gap:7px}.stats .stat{padding:10px}.stats .stat b{font-size:20px}dl{grid-template-columns:1fr}dt{margin-bottom:-8px}}",
- "@media(max-width:400px){main{padding:12px 10px}.panel{padding:12px}.search{grid-template-columns:1fr}.search .query,.search button{grid-column:auto}.customer{padding:10px}.customer .points{font-size:13px}.event{grid-template-columns:85px 1fr auto;gap:6px}.stat small{font-size:10px}.records{padding:11px}.award-grid,.award-extra{gap:8px}.award{padding:10px 8px;border-width:3px}.award .value{font-size:25px}.award .who{font-size:12px}}"
+ "@media(max-width:400px){main{padding:12px 10px}.panel{padding:12px}.search{grid-template-columns:1fr}.search .query,.search button{grid-column:auto}.customer{padding:10px}.customer .points{font-size:13px}.event{grid-template-columns:85px 1fr auto;gap:6px}.stat small{font-size:10px}.records{padding:11px}.award-grid,.award-extra{gap:8px}.award{padding:10px 8px;border-width:3px}.award .value{font-size:25px}.award .who{font-size:12px}}",
+ "/* Owner records legibility: larger, higher contrast type and square N64 cards. */",
+ ".records{padding:clamp(17px,2.5vw,27px)}.records>p,.record-group>p{font-size:15px;line-height:1.55}.record-head{align-items:center}.record-head small{font-size:13px;font-weight:800;color:#f5e4a4}.record-group{padding-top:20px}.record-group h3{font-size:clamp(20px,2.7vw,24px);line-height:1.3;margin-bottom:10px}",
+ ".stats .stat{padding:15px}.stats .stat small{font-size:12px;line-height:1.4}.stats .stat b{line-height:1.12}.admin-nav a{font-size:15px;line-height:1.35;min-height:52px;display:flex;align-items:center;justify-content:center}",
+ ".award-grid,.award-extra{gap:15px}.award{padding:17px 16px;border-width:4px}.award h3{font-size:16px;line-height:1.35;letter-spacing:0;margin:0 0 10px}.award .award-mode{display:inline-block;background:#27425f;color:#fff;font-size:12px;letter-spacing:.025em;line-height:1.3;padding:5px 8px;margin:0 0 10px}.record-group.current .award .award-mode{background:#175444}.record-group.alltime .award .award-mode{background:#694b11}.record-group.milestones .award .award-mode{background:#345176}",
+ ".award .value{font-size:clamp(33px,4.5vw,44px);line-height:1.15;color:#105143;overflow-wrap:anywhere}.award .value small{font-size:14px;font-weight:850;color:#253d55}.award .who{font-size:16px;line-height:1.42;margin-top:10px}.award .who a{color:#153d65;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}.award .when{font-size:13px;line-height:1.5;color:#31435b;margin-top:7px}.award details{margin-top:14px;padding-top:9px}.award summary{font-size:14px;line-height:1.45;padding:8px 0;color:#183e60}.award li{font-size:14px;line-height:1.5;padding:0 0 9px}.award li span{font-size:12px;line-height:1.4;color:#36485d;margin-top:3px}",
+ ".town-index th,.town-index td{font-size:14px;line-height:1.45;padding:12px 10px;vertical-align:top}.town-index td a{font-weight:850;text-decoration:underline;text-underline-offset:3px}.town-index td strong{font-size:15px;color:#165043}.town-index small{font-size:12px;color:#344b66;line-height:1.4;margin-top:4px}.town-index .no-record{color:#465c72}.town-picker label{font-size:15px}.record-notes{font-size:14px;line-height:1.6;background:#dceafa;color:#243953;border:3px solid #7e9ebc;padding:15px 16px;margin:20px 0 2px}.record-notes strong{color:#164f40}",
+ ".record-jump{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 20px}.record-jump a{display:inline-block;background:#e8f2ff;color:#193b5d;border:2px solid #8fa9c7;font-weight:900;font-size:13px;line-height:1.35;text-decoration:underline;text-underline-offset:3px;padding:10px 11px;flex:1 1 130px;text-align:center}.record-jump a:focus-visible,.award summary:focus-visible{outline:3px solid #ffe274;outline-offset:3px}",
+ "@media(max-width:720px){.award-grid,.award-extra{grid-template-columns:minmax(0,1fr);gap:14px}.award{padding:17px 15px;border-width:4px}.award .who{font-size:16px}.award .value{font-size:39px}.records{padding:17px 13px}.records>p,.record-group>p{font-size:15px}.town-index .tablewrap{overflow:visible}.town-index table,.town-index tbody,.town-index tr,.town-index td{display:block;width:100%}.town-index thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.town-index tr{margin:0 0 15px;background:#fff8dd;border:3px solid #96b0c8;box-shadow:4px 4px 0 #081c34}.town-index td{padding:12px 14px;border-bottom:2px solid #d1d8d8;font-size:15px;overflow-wrap:anywhere}.town-index td:before{content:attr(data-label);display:block;font-size:12px;font-weight:950;line-height:1.35;text-transform:uppercase;letter-spacing:.035em;color:#344d66;margin-bottom:4px}.town-index td:first-child{background:#dceafa;border-bottom:3px solid #aac0d8;padding:13px 14px}.town-index td:first-child:before{display:none}.town-index td:first-child a{font-size:19px}.town-index td:last-child{border-bottom:0}.town-index td strong{font-size:19px;display:block}.town-index small{font-size:13px;margin-top:3px}.town-index .no-record{font-weight:800}}",
+ "@media(max-width:450px){main{padding:15px 12px 42px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stats .stat{padding:14px 12px}.stats .stat:last-child{grid-column:1/-1}.stats .stat b{font-size:26px}.stats .stat small{font-size:12px}.records{padding:14px 12px}.award{padding:16px 14px}.award h3{font-size:16px}.award .who{font-size:16px}.award .when{font-size:13px}.award .value{font-size:38px}.admin-nav a{font-size:14px;padding:11px 7px}.record-jump a{font-size:13px}.record-head small{font-size:12px}}"
 ].join("");
 const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;")
  .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -117,7 +126,7 @@ function achievementsPanel(snapshot,selectedTown=""){
   towns.map(row=>option(row.town,town,row.town+" ("+fmt(row.customers)+")")).join("")+
   '</select><button type="submit">SHOW TOWN RECORDS →</button></form>';
  const townWinner=(entry,metric)=>{
-  if(!entry)return '<span class="no-record">No current streak</span>';
+  if(!entry)return '<span class="no-record">'+(metric==="active"?"No current streak":"No recorded streak")+'</span>';
   return '<strong>'+fmt(entry[metric])+' cleans</strong>'+
    '<small style="display:block">'+esc(entry.firstName||"Customer")+
    ' (REF '+esc(entry.ref)+')</small>';
@@ -129,11 +138,11 @@ function achievementsPanel(snapshot,selectedTown=""){
    'single-job and all-jobs record holders.</p>'+
    '<div class="tablewrap"><table><thead><tr><th>Town</th><th>Customers</th>'+
    '<th>Current · any job</th><th>Historical best · any job</th></tr></thead>'+
-   '<tbody>'+towns.map(row=>'<tr><td><a href="'+
+   '<tbody>'+towns.map(row=>'<tr><td data-label="Town"><a href="'+
     esc(url({view:"records",town:row.town}))+'"><b>'+
-    esc(row.town)+'</b> →</a></td><td>'+fmt(row.customers)+'</td>'+
-    '<td>'+townWinner(row.current,"active")+'</td>'+
-    '<td>'+townWinner(row.highest,"best")+'</td></tr>').join("")+
+    esc(row.town)+'</b> →</a></td><td data-label="Customers">'+fmt(row.customers)+'</td>'+
+    '<td data-label="Current · any job">'+townWinner(row.current,"active")+'</td>'+
+    '<td data-label="Historical best · any job">'+townWinner(row.highest,"best")+'</td></tr>').join("")+
    '</tbody></table></div></div>':"";
  const holder=(item,jobSpecific=false)=>{
    const hash=jobSpecific&&Number.isSafeInteger(item.jobIndex)?
@@ -147,6 +156,7 @@ function achievementsPanel(snapshot,selectedTown=""){
    const tied=winner&&list.length>1&&list[1][key]===value;
    const isJob=kind==="job";
    const isCurrent=key==="active"||key==="activeCombined";
+   const isMilestone=key==="paidBins"||key==="jobs";
    const dateField=isCurrent?"lastCompletedOn":"achievedOn";
    const rows=list.map((item,i)=>{
      const hash=isJob?"#owner-job-"+item.jobIndex:"#cleaning-history";
@@ -159,7 +169,7 @@ function achievementsPanel(snapshot,selectedTown=""){
        (item[dateField]?' · '+esc(item[dateField]):"")+'</span></li>';
    }).join("");
    return '<article class="award'+(colour?' award--'+esc(colour):" award--wide")+'">'+
-     '<div class="award-mode">'+(isCurrent?"CURRENT STREAK":"HISTORICAL RECORD")+'</div>'+
+     '<div class="award-mode">'+(isMilestone?"LIFETIME MILESTONE":isCurrent?"CURRENT STREAK":"HISTORICAL RECORD")+'</div>'+
      '<h3>'+esc(title)+'</h3>'+
      '<div class="value">'+fmt(value)+' <small>'+esc(unit)+'</small></div>'+
      (winner?'<div class="who">'+holder(winner,isJob)+'</div>'+
@@ -209,6 +219,10 @@ function achievementsPanel(snapshot,selectedTown=""){
      'leaderboards. '+(town?'Showing <b>'+esc(town)+'</b> ('+
        fmt(subset.length)+' imported customers).':'Showing all imported towns.')+
      ' Tap a name to inspect the individual job.</p>'+townSelector+
+   '<nav class="record-jump" aria-label="Jump to award section">'+
+     '<a href="#current-achievements">Current streaks</a>'+
+     '<a href="#historical-achievements">Historical bests</a>'+
+     '<a href="#town-records">Town records</a></nav>'+
    '<div class="record-group current" id="current-achievements">'+
      '<h3>⚡ CURRENT STREAKS</h3>'+
      '<p>Still unbroken as of '+esc(awarded.asOf)+'. '+
