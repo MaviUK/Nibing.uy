@@ -69,7 +69,8 @@ const css=[
  ".award .note{color:#263b50}",
  ".town-index th,.town-index td{color:#14283e}",
  ".town-index small,.town-index .no-record{color:#263b50}",
- ".record-notes{color:#e6f2ff}"
+ ".record-notes{color:#e6f2ff}",
+ ".record-year-picker{display:flex;gap:8px;flex-wrap:wrap;margin:13px 0 16px}.record-year-picker a{background:#e5effb;color:#182e48;border:3px solid #8298b5;min-width:66px;text-decoration:none;font-weight:950;font-size:14px;text-align:center;padding:11px 13px;box-shadow:3px 3px 0 #071d34}.record-year-picker a.selected{background:#ffe274;border-color:#c6a345}.record-year-picker a:focus-visible{outline:3px solid #ffe274;outline-offset:3px}"
 ].join("");
 const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;")
  .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -119,17 +120,29 @@ function filters(q,mode,year){
  '</select></div><button type="submit">★ SEARCH</button></form>';
 }
 
-function achievementsPanel(snapshot,selectedTown=""){
+function achievementsPanel(snapshot,selectedTown="",selectedYear="overall"){
+ const latest=Number(String(snapshot?.asOf||"").slice(0,4));
+ const year=/^20\d{2}$/.test(selectedYear)&&Number(selectedYear)>=2024&&
+   Number(selectedYear)<=latest?selectedYear:"overall";
+ const annual=year!=="overall";
+ const scopedYear=annual?Number(year):null;
+ const viewingCurrent=annual&&Number(year)===latest;
+ const yearPicker='<nav class="record-year-picker" aria-label="Achievement record period">'+
+   ["overall",...Array.from({length:Math.max(0,latest-2023)},(_,i)=>String(2024+i))]
+    .map(period=>'<a href="'+esc(url({view:"records",town:selectedTown,year:period}))+'"'+
+      (period===year?' class="selected" aria-current="page"':'')+'>'+
+      (period==="overall"?"OVERALL":esc(period))+'</a>').join("")+'</nav>';
  // Only choose towns in the private, validated Squeegee backup.
  const groups=achievements.townGroups(snapshot?.accounts);
  const town=groups.has(selectedTown)?selectedTown:"";
  const subset=town?groups.get(town):snapshot.accounts;
- const awarded=achievements.awards(subset,{asOf:snapshot?.asOf});
+ const awarded=achievements.awards(subset,{asOf:snapshot?.asOf,year:scopedYear});
  if(!awarded)return '<section class="records" id="high-achievements">'+
    '<h2>★ HIGH ACHIEVEMENTS</h2><p>Per-job awards require a verified Squeegee per-job history.</p></section>';
- const towns=achievements.townRecords(snapshot?.accounts,{asOf:snapshot.asOf});
+ const towns=achievements.townRecords(snapshot?.accounts,{asOf:snapshot.asOf,year:scopedYear});
  const townSelector='<form action="'+PATH+'" method="get" class="town-picker">'+
   '<input type="hidden" name="view" value="records">'+
+  '<input type="hidden" name="year" value="'+esc(year)+'">'+
   '<label for="town-select">⌖ CHOOSE TOWN</label>'+
   '<select name="town" id="town-select">'+
   option("",town,"All towns · global records")+
@@ -149,7 +162,7 @@ function achievementsPanel(snapshot,selectedTown=""){
    '<div class="tablewrap"><table><thead><tr><th>Town</th><th>Customers</th>'+
    '<th>Current · any job</th><th>Historical best · any job</th></tr></thead>'+
    '<tbody>'+towns.map(row=>'<tr><td><a href="'+
-    esc(url({view:"records",town:row.town}))+'"><b>'+
+    esc(url({view:"records",town:row.town,year}))+'"><b>'+
     esc(row.town)+'</b> →</a></td><td>'+fmt(row.customers)+'</td>'+
     '<td>'+townWinner(row.current,"active")+'</td>'+
     '<td>'+townWinner(row.highest,"best")+'</td></tr>').join("")+
@@ -157,7 +170,7 @@ function achievementsPanel(snapshot,selectedTown=""){
  const holder=(item,jobSpecific=false)=>{
    const hash=jobSpecific&&Number.isSafeInteger(item.jobIndex)?
      "#owner-job-"+item.jobIndex:"#cleaning-history";
-   return '<a href="'+esc(url({ref:item.ref,view:"records",town})+hash)+'">'+
+   return '<a href="'+esc(url({ref:item.ref,view:"records",town,year})+hash)+'">'+
      esc(item.firstName||"Customer")+' · '+esc(item.town||"Town unavailable")+
      ' (REF '+esc(item.ref)+')</a>';
  };
@@ -169,7 +182,7 @@ function achievementsPanel(snapshot,selectedTown=""){
    const dateField=isCurrent?"lastCompletedOn":"achievedOn";
    const rows=list.map((item,i)=>{
      const hash=isJob?"#owner-job-"+item.jobIndex:"#cleaning-history";
-     return '<li><a href="'+esc(url({ref:item.ref,view:"records",town})+hash)+'">'+
+     return '<li><a href="'+esc(url({ref:item.ref,view:"records",town,year})+hash)+'">'+
        (i+1)+'. '+esc(item.firstName||"Customer")+' · '+
        esc(item.town||"Town unavailable")+'</a> · <b>'+
        fmt(item[key])+' '+esc(unit)+'</b>'+
@@ -178,7 +191,7 @@ function achievementsPanel(snapshot,selectedTown=""){
        (item[dateField]?' · '+esc(item[dateField]):"")+'</span></li>';
    }).join("");
    return '<article class="award'+(colour?' award--'+esc(colour):" award--wide")+'">'+
-     '<div class="award-mode">'+(isCurrent?"CURRENT STREAK":"HISTORICAL RECORD")+'</div>'+
+     '<div class="award-mode">'+(isCurrent?(annual&&!viewingCurrent?"YEAR-END STREAK":"CURRENT STREAK"):"HISTORICAL RECORD")+'</div>'+
      '<h3>'+esc(title)+'</h3>'+
      '<div class="value">'+fmt(value)+' <small>'+esc(unit)+'</small></div>'+
      (winner?'<div class="who">'+holder(winner,isJob)+'</div>'+
@@ -195,31 +208,31 @@ function achievementsPanel(snapshot,selectedTown=""){
  };
  const currentColours=["Black","Blue","Brown","Green"].map(colour=>
    card(colour+" bin · current",awarded.byColourCurrent[colour],"active",
-     {colour,desc:"Ongoing per-job cleans, as of last backup"})
+     {colour,desc:annual?"Per-job streak at "+awarded.periodEnd:"Ongoing per-job cleans, as of last backup"})
  ).join("");
  const historicalColours=["Black","Blue","Brown","Green"].map(colour=>
    card(colour+" bin · highest ever",awarded.byColour[colour],"best",
-     {colour,desc:"Lifetime best, retained after skips"})
+     {colour,desc:annual?"Highest streak reached in "+year+" (may have started earlier)":"Lifetime best, retained after skips"})
  ).join("");
  const currentOthers=[
    card("Current longest · any job",awarded.activeJob,"active",
-     {desc:"One individual Squeegee job; as of backup"}),
+     {desc:annual?"One Squeegee job at "+awarded.periodEnd:"One individual Squeegee job; as of backup"}),
    card("Current unbroken · all jobs",awarded.combinedCurrent,"activeCombined",
      {desc:"One customer; distinct cleaning dates since their last skip",
        kind:"customer",unit:"clean-days"})
  ].join("");
  const historicOthers=[
    card("Historical highest · any job",awarded.longestJob,"best",
-     {desc:"One individual recurring job; all-time"}),
+     {desc:annual?"One recurring job; best reached in "+year:"One individual recurring job; all-time"}),
    card("Historical highest · all jobs",awarded.combined,"combined",
      {desc:"Best customer-wide cleaning-day run before any skip",
        kind:"customer",unit:"clean-days"})
  ].join("");
  const milestones=[
    card("Most paid physical bins",awarded.paidBins,"paidBins",
-     {desc:"Verified paid bins, not jobs",kind:"customer",unit:"bins"}),
+     {desc:annual?"Verified paid physical bins in "+year:"Verified paid bins, not jobs",kind:"customer",unit:"bins"}),
    card("Most separate jobs",awarded.mostJobs,"jobs",
-     {desc:"Distinct recurring jobs with recorded history",kind:"customer",unit:"jobs"})
+     {desc:annual?"Distinct recurring jobs cleaned in "+year:"Distinct recurring jobs with recorded history",kind:"customer",unit:"jobs"})
  ].join("");
  return '<section class="records" id="high-achievements">'+
    '<div class="record-head"><h2>★ HIGH ACHIEVEMENT RECORDS</h2>'+
@@ -227,22 +240,25 @@ function achievementsPanel(snapshot,selectedTown=""){
    '<p><b>Current streaks</b> and <b>historical highest streaks</b> are separate '+
      'leaderboards. '+(town?'Showing <b>'+esc(town)+'</b> ('+
        fmt(subset.length)+' imported customers).':'Showing all imported towns.')+
-     ' Tap a name to inspect the individual job.</p>'+townSelector+
+     ' Tap a name to inspect the individual job.</p>'+yearPicker+townSelector+
    '<div class="record-group current" id="current-achievements">'+
-     '<h3>⚡ CURRENT STREAKS</h3>'+
-     '<p>Still unbroken as of '+esc(awarded.asOf)+'. '+
+     '<h3>⚡ '+(annual&&!viewingCurrent?"YEAR-END STREAKS":"CURRENT STREAKS")+'</h3>'+
+     '<p>Still unbroken as of '+esc(awarded.periodEnd)+'. '+
        'A skipped job resets its own streak. More than 35 days without a '+
        'completed clean makes that job streak inactive.</p>'+
      '<div class="award-grid">'+currentColours+'</div>'+
      '<div class="award-extra">'+currentOthers+'</div></div>'+
    '<div class="record-group alltime" id="historical-achievements">'+
      '<h3>★ HISTORICAL HIGHEST STREAKS</h3>'+
-     '<p>The longest streaks ever achieved in the imported history, '+
-       'even when a customer later skipped a clean or their streak expired.</p>'+
+     '<p>'+(annual?"Highest streaks reached during "+year+
+       " (continuing streaks may have started in an earlier year). ":
+       "The longest streaks ever achieved in the imported history. ")+
+       'Records remain after a later skip or expiry.</p>'+
      '<div class="award-grid">'+historicalColours+'</div>'+
      '<div class="award-extra">'+historicOthers+'</div></div>'+
    '<div class="record-group milestones"><h3>◆ OTHER MILESTONES</h3>'+
-     '<p>Lifetime achievements unrelated to consecutive streaks.</p>'+
+     '<p>'+(annual?"Achievements recorded in "+year:"Lifetime achievements")+
+       " unrelated to consecutive streaks.</p>"+
      '<div class="award-extra">'+milestones+'</div></div>'+
    townTable+
    '<div class="record-notes"><strong>Streak rules:</strong> A job streak counts completed '+
@@ -250,7 +266,7 @@ function achievementsPanel(snapshot,selectedTown=""){
      'counts one distinct cleaned date per customer and breaks when any job '+
      'has a recorded skip; it does not affect individual job XP. Mixed-colour '+
      'jobs compete in overall records, not single-colour categories. Current '+
-     'means <b>current at the backup date</b>, not live Squeegee status. '+
+     'means <b>'+esc(awarded.periodEnd)+'</b> in this view, not live Squeegee status. '+
      'Awards include imported active customers only, with their town as '+
      'recorded in the verified Squeegee backup.</div></section>';
 }
@@ -280,9 +296,10 @@ function listPage(snapshot,eligible,params){
    '>★ HIGH ACHIEVEMENTS</a></nav>';
  if(recordView){
   return respond("High Achievements",'<h1>★ OWNER RECORDS</h1>'+
-   '<p class="lead">Lifetime cleaning milestones from your imported customers. '+
+   '<p class="lead">Cleaning milestones from your imported customers, by year or overall. '+
    'Backup: <b>'+esc(snapshot.asOf)+'</b>.</p>'+stats+nav+
-   achievementsPanel(snapshot,safeString(params.get("town"),60)));
+   achievementsPanel(snapshot,safeString(params.get("town"),60),
+    safeString(params.get("year"),10)));
  }
  const entries=shown.map(({account,eligible:ranked,periodPoints,periodBins})=>
   '<li><a class="customer" href="'+esc(url({ref:account.ref,q,mode,year,page}))+'">'+
@@ -358,7 +375,8 @@ async function detailPage(snapshot,eligible,params,account){
  const years=[...new Set([...byYear.keys(),...Object.keys(summary?.yearly||{}).map(Number),2024,2025,2026])]
   .filter(year=>Number.isSafeInteger(year)&&year>=2000&&year<=2099).sort((a,b)=>b-a);
  const fromRecords=params.get("view")==="records";
- const back=fromRecords?url({view:"records",town:safeString(params.get("town"),60)}):url({q:safeString(params.get("q"),90),
+ const back=fromRecords?url({view:"records",town:safeString(params.get("town"),60),
+  year:safeString(params.get("year"),10)}):url({q:safeString(params.get("q"),90),
   mode:params.get("mode")||"all",year:params.get("year")||"overall",page:params.get("page")||"1"});
  const name=contact?.name||account.firstName||"Customer";
  const total=summary?.points??clean.points;
