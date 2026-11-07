@@ -315,3 +315,19 @@ test("yearly current and highest streaks reset after skips, including unseen res
  assert.equal(lifetime.byColour.Brown[0].best,28);
  assert.equal(lifetime.byColourCurrent.Brown[0].active,2);
 });
+
+test("records use gold silver and bronze medals for ranks 1–3 only",()=>{
+ const ui=fs.readFileSync(path.join(__dirname,
+  "../src/components/ArcadeLeaderboard.jsx"),"utf8");
+ const component=ui.slice(ui.indexOf("function TopFiveCleanRecords("),
+  ui.indexOf("export default function ArcadeLeaderboard()"));
+ assert.match(component,/i<3 && <span className="n64-record-medal"/);
+ assert.match(component,/aria-label=\{\["Gold medal","Silver medal","Bronze medal"\]\[i\]\}/);
+ assert.match(component,/\{\["🥇","🥈","🥉"\]\[i\]\}/);
+ assert.match(component,/<span className="n64-record-person">/);
+ assert.match(component,/<strong className="n64-record-rank-result">/);
+ const css=fs.readFileSync(path.join(__dirname,
+  "../src/n64-finale.css"),"utf8");
+ assert.match(css,/\.n64-board-records-tab \.n64-record-medal/);
+ assert.match(css,/\.n64-board-records-tab \.n64-record-rank-number/);
+});
