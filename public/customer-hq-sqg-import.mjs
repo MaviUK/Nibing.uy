@@ -67,7 +67,7 @@ if(form&&input&&error&&button&&progress){
       ref:r.ref,town:r.town,firstName:r.firstName};
    }
    const result=await new Promise((resolve,reject)=>{
-    worker=new Worker("/customer-hq-sqg-worker.mjs",{type:"module"});
+    worker=new Worker("/customer-hq-sqg-worker.mjs?v=per-job-v2-20261107",{type:"module"});
     worker.onerror=()=>reject(Error("The secure archive decoder could not start on this device."));
     worker.onmessage=e=>{
       const data=e.data||{};
@@ -81,6 +81,13 @@ if(form&&input&&error&&button&&progress){
     worker.postMessage({file,previous});
    });
    worker.terminate();worker=null;
+   // Fail closed if an old Android cache supplies the previous customer-wide
+   // converter. Do not POST a misleading or incompatible scoring snapshot.
+   if(result?.snapshot?.scoringVersion!=="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2"||
+      !Array.isArray(result?.snapshot?.accounts)||
+      result.snapshot.accounts.some(record=>!Array.isArray(record.jobs))){
+     throw Error("Your browser loaded an older cleaning-points engine. Refresh this owner import page and select the .sqg backup again. No points were changed.");
+   }
    const text=JSON.stringify(result.snapshot);
    const bytes=new Blob([text],{type:"application/json"});
    if(bytes.size<100||bytes.size>3800000)
