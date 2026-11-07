@@ -130,7 +130,11 @@ test("admin displays the achievements only after owner-session verification",()=
   "../netlify/functions/squeegeePreviewOwnerCustomers.mjs"),"utf8");
  assert.match(src,/import achievements from "\.\/lib\/squeegeePreviewOwnerAchievements\.js"/);
  assert.match(src,/function achievementsPanel\(snapshot\)/);
- assert.match(src,/achievementsPanel\(snapshot\)\+filters/);
+ assert.match(src,/if\(recordView\)/);
+ assert.match(src,/achievementsPanel\(snapshot\)/);
+ assert.match(src,/stats\+nav\+filters\(q,mode,year\)/);
+ assert.match(src,/url\(\{view:"records"\}\)/);
+ assert.match(src,/fromRecords\?'← HIGH ACHIEVEMENTS':'← ALL CUSTOMERS'/);
  assert.match(src,/id="high-achievements"/);
  assert.match(src,/id="owner-job-/);
  assert.match(src,/Longest "\+colour\+" bin streak/);
