@@ -211,6 +211,7 @@ export function finishSqueegeeImport(state,asOf,previous={}){
     recordedSkips:jobSkips,lastCompletedOn});
   }
   allEvents.sort((a,b)=>a.date.localeCompare(b.date)||a.j-b.j||
+   (a.event==="recorded_skip"?-1:b.event==="recorded_skip"?1:0)||
    a._id.localeCompare(b._id));
   row.events=allEvents.map(({_id,...e})=>e);
   // Legacy account-wide fields are retained for version-compatible readers,
