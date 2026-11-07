@@ -9,6 +9,7 @@ import website from "./lib/arcadeCustomerMerge.js";
 import consent from "./lib/squeegeeLeaderboardNameConsent.js";
 import personal from "./lib/squeegeePersonalLeaderboard.js";
 import directory from "./lib/squeegeePreviewOwnerCustomerDirectory.js";
+import achievements from "./lib/squeegeePreviewOwnerAchievements.js";
 
 const PATH="/api/squeegee-preview-owner-customers";
 const ORIGIN="https://deploy-preview-77--nibinguy.netlify.app";
@@ -38,8 +39,14 @@ const css=[
  ".tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;color:#263958;text-align:left}th,td{padding:10px 7px;border-bottom:2px solid #c9c9ba;font-size:13px}th{background:#dceafa}",
  ".event{display:grid;grid-template-columns:105px 1fr auto;gap:10px;border-bottom:2px solid #ddd8b8;padding:9px 2px;font-size:13px}.event strong{color:#185a4c;white-space:nowrap}.event:nth-child(even){background:#edf2e8}",
  ".tag{display:inline-block;background:#ffe274;border:2px solid #bea953;color:#263958;font-size:11px;font-weight:900;letter-spacing:.05em;padding:4px 8px;margin:0 6px 4px 0}",
+ ".records{margin:23px 0 29px;background:#102644;border:4px solid #526b8e;box-shadow:6px 6px 0 #10223b;padding:15px;color:#f9f5e6}.records h2{font-size:clamp(20px,5vw,28px);margin:0 0 5px}.records>p{font-size:13px;color:#dce9f8;margin:5px 0 16px}",
+ ".award-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.award{padding:13px 12px;background:#fff4d2;color:#263958;border:4px solid #d2b960;box-shadow:3px 4px #081c34;min-width:0}.award--Black{background:#d2d4db;border-color:#8b929c}.award--Blue{background:#b9dcfb;border-color:#7da9d3}.award--Brown{background:#e9c9ac;border-color:#b18a68}.award--Green{background:#cde5bc;border-color:#8aab80}",
+ ".award h3{font-size:13px;text-transform:uppercase;letter-spacing:.03em;margin:0 0 6px}.award .value{font-size:clamp(24px,5vw,35px);font-weight:950;line-height:1.1;color:#175748}.award .value small{font-size:12px;color:#2d425f}.award .who{margin-top:8px;font-size:14px;font-weight:800;line-height:1.35;overflow-wrap:anywhere}.award .who a{color:#223856}.award .when{font-size:11px;color:#526079;margin-top:4px}.award details{margin-top:10px;border-top:2px solid #8d99a5;padding-top:7px}.award summary{cursor:pointer;font-size:12px;font-weight:850}.award ol{list-style:none;padding:0;margin:9px 0 0;display:grid;gap:7px}.award li{font-size:12px;border-bottom:1px solid #bac5c9;padding:0 0 5px;overflow-wrap:anywhere}.award li a{font-weight:800;color:#223856}.award li span{display:block;color:#56637b}",
+ ".record-notes{font-size:12px;color:#d6e4f5;margin:14px 2px 0}.record-notes strong{color:#ffdf78}.record-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}.record-head small{font-size:11px;color:#dceafa}.award--wide{background:#f8e7a5;border-color:#c5a552}tr:target{outline:4px solid #e0b93a;outline-offset:-4px;background:#fff0b7}",
+ ".award-extra{margin-top:13px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}",
+
  "footer{font-size:12px;color:#bed0e4;margin-top:30px}@media(max-width:720px){.search{grid-template-columns:1fr 1fr}.search .query,.search button{grid-column:1/-1}.stats{gap:7px}.stats .stat{padding:10px}.stats .stat b{font-size:20px}dl{grid-template-columns:1fr}dt{margin-bottom:-8px}}",
- "@media(max-width:400px){main{padding:12px 10px}.panel{padding:12px}.search{grid-template-columns:1fr}.search .query,.search button{grid-column:auto}.customer{padding:10px}.customer .points{font-size:13px}.event{grid-template-columns:85px 1fr auto;gap:6px}.stat small{font-size:10px}}"
+ "@media(max-width:400px){main{padding:12px 10px}.panel{padding:12px}.search{grid-template-columns:1fr}.search .query,.search button{grid-column:auto}.customer{padding:10px}.customer .points{font-size:13px}.event{grid-template-columns:85px 1fr auto;gap:6px}.stat small{font-size:10px}.records{padding:11px}.award-grid,.award-extra{gap:8px}.award{padding:10px 8px;border-width:3px}.award .value{font-size:25px}.award .who{font-size:12px}}"
 ].join("");
 const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;")
  .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -88,6 +95,81 @@ function filters(q,mode,year){
  option("2025",year,"2025")+option("2026",year,"2026")+
  '</select></div><button type="submit">★ SEARCH</button></form>';
 }
+
+function achievementsPanel(snapshot){
+ // Render only from the authenticated, verified per-job private import.
+ const awarded=achievements.awards(snapshot?.accounts,{asOf:snapshot?.asOf});
+ if(!awarded) return '<section class="records" id="high-achievements">'+
+  '<h2>★ HIGH ACHIEVEMENTS</h2>'+
+  '<p>Per-job records will appear after a verified Squeegee per-job history import.</p></section>';
+ const holder=(item,jobSpecific=false)=>{
+  const hash=jobSpecific&&Number.isSafeInteger(item.jobIndex)?
+   "#owner-job-"+item.jobIndex:"#cleaning-history";
+  return '<a href="'+esc(url({ref:item.ref})+hash)+'">'+
+   esc(item.firstName||"Customer")+' · '+esc(item.town||"Town unavailable")+
+   ' (REF '+esc(item.ref)+')</a>';
+ };
+ const card=(title,list,key,{colour="",desc="",unit="visits",kind="job"}={})=>{
+  const best=list[0]||null;
+  const value=best?(Number(best[key])||0):0;
+  const tied=best&&list.length>1&&list[1][key]===value;
+  const isJob=kind==="job";
+  const previous=list.map((item,i)=>{
+   return '<li><a href="'+esc(url({ref:item.ref})+
+      (isJob?"#owner-job-"+item.jobIndex:"#cleaning-history"))+'">'+
+      (i+1)+'. '+esc(item.firstName||"Customer")+' · '+
+      esc(item.town||"Town unavailable")+'</a> · <b>'+
+      fmt(item[key])+' '+esc(unit)+'</b>'+
+      '<span>REF '+esc(item.ref)+(isJob?
+       ' · '+esc(item.label)+' job #'+(item.jobIndex+1):'')+
+      (item.achievedOn?' · '+esc(item.achievedOn):"")+'</span></li>';
+  }).join("");
+  return '<article class="award'+(colour?' award--'+esc(colour):" award--wide")+'">'+
+   '<h3>'+esc(title)+'</h3><div class="value">'+fmt(value)+
+   ' <small>'+esc(unit)+'</small></div>'+
+   (best?'<div class="who">'+holder(best,isJob)+'</div>'+
+    (isJob?'<div class="when">'+esc(best.label)+
+      ' job #'+(best.jobIndex+1)+'</div>':"")+
+    '<div class="when">'+(tied?"Joint record · ":"")+
+     (best.achievedOn?"Achieved "+esc(best.achievedOn):"Recorded at "+esc(snapshot.asOf))+
+    '</div>':'<p class="note">No qualifying history</p>')+
+   (desc?'<div class="when">'+esc(desc)+'</div>':"")+
+   (list.length>1?'<details><summary>TOP '+list.length+
+    ' RECORD HOLDERS</summary><ol>'+previous+'</ol></details>':"")+
+   '</article>';
+ };
+ const colourCards=["Black","Blue","Brown","Green"].map(colour=>
+  card("Longest "+colour+" bin streak",awarded.byColour[colour],"best",
+   {colour,desc:"Best recorded, all-time",unit:"cleans"})
+ ).join("");
+ const other=[
+  card("Longest streak · any job",awarded.longestJob,"best",
+   {desc:"One individual Squeegee job · all-time",unit:"cleans"}),
+  card("Longest ongoing job streak",awarded.activeJob,"active",
+   {desc:"As of backup · last completed clean within 35 days",unit:"cleans"}),
+  card("Longest unbroken · all jobs",awarded.combined,"combined",
+   {desc:"One customer; distinct cleaned dates, until any job is skipped",unit:"clean-days",kind:"customer"}),
+  card("Most paid physical bins",awarded.paidBins,"paidBins",
+   {desc:"Verified paid bins, not job count",unit:"bins",kind:"customer"}),
+  card("Most separate jobs",awarded.mostJobs,"jobs",
+   {desc:"Distinct Squeegee job IDs with recorded history",unit:"jobs",kind:"customer"})
+ ].join("");
+ return '<section class="records" id="high-achievements">'+
+  '<div class="record-head"><h2>★ HIGH ACHIEVEMENT RECORDS</h2>'+
+   '<small>ALL TIME · BACKUP '+esc(awarded.asOf)+'</small></div>'+
+  '<p>Record holders from all '+fmt(snapshot.accounts.length)+
+   ' imported active customers. Tap a name to view their private job history.</p>'+
+  '<div class="award-grid">'+colourCards+'</div>'+
+  '<div class="award-extra">'+other+'</div>'+
+  '<div class="record-notes"><strong>How records work:</strong> Streaks count completed '+
+   'cleaning dates on individual Squeegee jobs, not the number of bins. A recorded '+
+   'skip resets that job. "All jobs" is a separate achievement using one cleaned '+
+   'date per customer, with any recorded skip breaking the sequence; it does not '+
+   'affect the independently calculated job XP. Mixed-colour jobs qualify for '+
+   'overall records, not the single-colour awards. Records reflect the imported '+
+   'active-customer history, not inactive or unimported customers.</div>'+
+  '</section>';
+}
 function listPage(snapshot,eligible,params){
  const q=safeString(params.get("q"),90);
  const mode=["all","eligible","other"].includes(params.get("mode"))?params.get("mode"):"all";
@@ -122,7 +204,7 @@ function listPage(snapshot,eligible,params){
  return respond("Customer directory",
  '<h1>★ CUSTOMER DIRECTORY</h1>'+
  '<p class="lead">Click any record to view private cleaning and XP history. Backup date: <b>'+
- esc(snapshot.asOf)+'</b>.</p>'+stats+filters(q,mode,year)+
+ esc(snapshot.asOf)+'</b>.</p>'+stats+achievementsPanel(snapshot)+filters(q,mode,year)+
  '<div class="tools"><span>'+fmt(rows.length)+' matching customers</span>'+signout+'</div>'+
  (entries?'<ol class="list">'+entries+'</ol>'+paging:
  '<section class="panel"><h2>No matching customers</h2><p>Try a different first name, email, town or Squeegee customer reference.</p></section>')+
@@ -224,12 +306,16 @@ async function detailPage(snapshot,eligible,params,account){
  '<tbody>'+table+'</tbody></table></div>'+
  (summary?"":'<p class="note">Website XP could not be verified just now; cleaning XP remains accurate from the import.</p>')+
  '<p class="note">Dated verified XP only. Undated legacy website awards are not counted as earned on a specific day.</p></section>';
+ const jobAwards=achievements.jobRecords(account,snapshot.asOf);
  const perJobPanel=Array.isArray(account.jobs)?
-  '<section class="panel"><h2>Consecutive cleans by Squeegee job</h2>'+
+  '<section class="panel" id="job-records"><h2>Consecutive cleans by Squeegee job</h2>'+
   (account.jobs.length?'<div class="tablewrap"><table><thead><tr><th>Job</th><th>Streak</th>'+
-    '<th>Next paid bin</th><th>Paid bins</th><th>Earned XP</th><th>Skips</th></tr></thead><tbody>'+
-    account.jobs.map((job,index)=>'<tr><td><b>'+esc(job.label)+' #'+(index+1)+'</b><br>'+
+    '<th>Best ever</th><th>Next paid bin</th><th>Paid bins</th><th>Earned XP</th><th>Skips</th></tr></thead><tbody>'+
+    account.jobs.map((job,index)=>'<tr id="owner-job-'+index+'"><td><b>'+esc(job.label)+' #'+(index+1)+'</b><br>'+
       '<small>'+esc(job.id)+'</small></td><td>'+fmt(job.currentStreak)+'</td>'+
+      '<td>'+fmt(jobAwards[index]?.best||0)+
+      (jobAwards[index]?.achievedOn?
+        '<small style="display:block">'+esc(jobAwards[index].achievedOn)+'</small>':"")+'</td>'+
       '<td><b>+'+fmt(job.nextBonus)+' XP</b></td><td>'+fmt(job.paidCleans)+'</td>'+
       '<td>'+fmt(job.points)+'</td><td>'+fmt(job.recordedSkips)+'</td></tr>').join("")+
     '</tbody></table></div>':'<p>No recorded job occurrences in this backup.</p>')+
