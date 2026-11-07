@@ -440,7 +440,7 @@ export default function ArcadeLeaderboard() {
 
   return (
     <section ref={boardSectionRef} id="live-leaderboard" className="n64-public-leaderboard" aria-labelledby="n64-board-title">
-      <div className={"n64-public-board-inner"+(activePanel==="hq"?" n64-public-board-inner--hq":"")}>
+      <div className={"n64-public-board-inner"+(activePanel==="hq"?" n64-public-board-inner--hq":activePanel==="records"?" n64-public-board-inner--records":"")}>
         <div ref={boardTabsRef} className={"n64-board-tabs"+(!LIVE_N64?" n64-board-tabs--three":"")} role="group" aria-label="Leaderboard, Records and Customer HQ">
           <button type="button" className={activePanel==="leaderboard"?"n64-board-tab n64-board-tab--selected":"n64-board-tab"}
             aria-pressed={activePanel==="leaderboard"} onClick={openBoard}>★ LEADERBOARDS</button>
@@ -727,7 +727,7 @@ export default function ArcadeLeaderboard() {
               </button>
             )}
           </div>
-        {!LIVE_N64 && publicAchievements && <section
+        {publicAchievements && <section
           className="n64-public-record-highlights"
           aria-label="Verified top five bin cleaning records with public name town and XP">
           <h3>★ TOP 5 BIN CLEANING RECORDS · {selectedYear==="overall"?"ALL-TIME":selectedYear}</h3>
@@ -782,8 +782,9 @@ export default function ArcadeLeaderboard() {
             Across-all-jobs counts distinct cleaning dates and ends when any job is skipped.
             Fewer than five entries appear where fewer qualify. Squeegee references and job details stay private.</p>
         </section>}
-                  {!publicAchievements && <p className="n64-records-wait" role="status">
+          {!publicAchievements && <p className="n64-records-wait" role="status">
             {connection==="reconnecting"?"Records are temporarily unavailable. Checking again…":
+              connection==="live"?"No verified records available for this period. Try another year or a newer backup.":
               "Loading verified cleaning records…"}
           </p>}
         </div>}
