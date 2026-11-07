@@ -101,7 +101,7 @@ export default async function handler(request,ctx){
       '<p id="hq-upload-error" role="alert" aria-live="assertive"></p>'+
       '<progress id="hq-upload-progress" value="0" max="100" style="width:100%;display:none"></progress>'+
       '<button id="hq-import-button" type="submit" disabled>Process Squeegee backup and update points</button></form>'+
-      '<p><small>The usual Squeegee archive can be up to 65 MB. The reduced private import must fit below 3 MB. Customer names, emails, invoices and raw backup files are never sent to the archive decoder. Updated scores replace the last verified snapshot without doubling points, and existing withdrawals are preserved.</small></p></section>'+
+      '<p><small>The usual Squeegee archive can be up to 65 MB. The reduced private import must fit below 3.8 MB. Customer names, emails, invoices and raw backup files are never sent to the archive decoder. Updated scores replace the last verified snapshot without doubling points, and existing withdrawals are preserved.</small></p></section>'+
       '<p><a href="/customer-hq?ntl-drawer-state=hidden">Open Customer HQ</a></p>');
   }
   // Some Samsung/Android in-app browser uploads send Origin: null (or
@@ -109,7 +109,7 @@ export default async function handler(request,ctx){
   // owner session instead of rejecting legitimate same-origin forms.
   try{
     const size=Number(request.headers.get("content-length")||0);
-    if(!Number.isFinite(size)||size>3_500_000)
+    if(!Number.isFinite(size)||size>4_200_000)
       return page("<section>The selected file is too large. No customer data was imported.</section>",413);
     const form=await request.formData();
     if(!uploadCsrf.isAllowedOwnerUpload({
@@ -118,8 +118,8 @@ export default async function handler(request,ctx){
       '<a href="'+PATH+'">Return to the import form and select the file again.</a></section>',403);
     const file=form.get("history");
     if(!file||typeof file.text!=="function"||file.size<100||
-       file.size>3_000_000)
-      return page("<section>Choose the prepared private Customer HQ JSON (under 3 MB). The original Squeegee .sqg backup is not supported by this form.</section>",400);
+       file.size>3_800_000)
+      return page("<section>Choose the prepared private Customer HQ JSON (under 3.8 MB). The original Squeegee .sqg backup is not supported by this form.</section>",400);
     if(typeof file.name!=="string"||!/\.json$/i.test(file.name))
       return page("<section>You selected a Squeegee backup or another unsupported file. Please select the prepared Customer HQ .json file instead. No customer records were changed.</section>",415);
     const source=await file.text();
