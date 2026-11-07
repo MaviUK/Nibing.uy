@@ -131,6 +131,7 @@ export function safeOwnerReturnPath(value) {
   // while the original permission ledger is never modified.
   if(value==="/?ntl-drawer-state=hidden&owner-board=1&owner-auth-complete=1#live-leaderboard")
     return value;
+  if(value==="/api/squeegee-preview-owner-customers")return value;
   if(value==="/api/squeegee-preview-auto-recover" ||
      value==="/api/squeegee-preview-owner-recovery" ||
      value==="/api/squeegee-preview-owner-recovery-v2" ||
@@ -162,14 +163,17 @@ function redirectTo(path) {
   }});
 }
 function authPage(returnTo=null){
+  const ownerDirectory=returnTo==="/api/squeegee-preview-owner-customers";
   const bookingStatus=returnTo?.startsWith("/api/squeegee-preview-auto-status");
-  const description=bookingStatus?
+  const description=ownerDirectory?
+    '<p>Verify the owner to search all imported customers and inspect individual cleaning records. This does not modify any Squeegee jobs.</p>':
+    bookingStatus?
     '<p>Authorise this browser to see the <strong>selected automatic booking status</strong>. No Squeegee customer or job will be created.</p>':
     returnTo?
       '<p>Authorise this browser to resume the existing booking review. No new website booking or Squeegee write happens here.</p>':
       '<p>This authorises your browser to inspect Preview 1 Squeegee booking status and previous test records.</p>';
   const destinationMessage=returnTo?
-    '<div class="notice"><strong>'+(bookingStatus?"Booking status":"Booking review")+
+    '<div class="notice"><strong>'+(ownerDirectory?"Customer admin":bookingStatus?"Booking status":"Booking review")+
     ':</strong> After verifying your code, you will return directly to that page in this browser.</div>':"";
   return page(description+
   '<p>Request an access code to your usual business bookings mailbox. The code is not shown on this page.</p>'+
@@ -180,8 +184,10 @@ function authPage(returnTo=null){
   '<div class="notice">This authorises owner access only. Do not submit another website booking or Squeegee write.</div>');
 }
 function challengePage(challengeId,returnTo=null){
+  const ownerDirectory=returnTo==="/api/squeegee-preview-owner-customers";
   const bookingStatus=returnTo?.startsWith("/api/squeegee-preview-auto-status");
-  const verifyLabel=bookingStatus?"Verify code and view booking status":
+  const verifyLabel=ownerDirectory?"Verify code and open customer admin":
+    bookingStatus?"Verify code and view booking status":
     returnTo?"Verify code and continue booking review":"Authorise this browser";
   return page('<p>A 10-digit code has been sent to your bookings email. Enter it here within 15 minutes.</p>'+
   '<form method="post"><input type="hidden" name="action" value="verify">'+
