@@ -17,7 +17,13 @@ function TopFiveCleanRecords({values,unit="cleans",label}){
   return <ol className="n64-record-ranks" aria-label={label}>
     {values.slice(0,5).map((row,i)=>
       <li key={i}>
-        <span className="n64-record-rank-number">#{String(i+1).padStart(2,"0")}</span>
+        <span className="n64-record-rank-number">
+          #{String(i+1).padStart(2,"0")}
+          {i<3 && <span className="n64-record-medal" role="img"
+            aria-label={["Gold medal","Silver medal","Bronze medal"][i]}>
+            {["🥇","🥈","🥉"][i]}
+          </span>}
+        </span>
         <span className="n64-record-person">
           <strong>{row.displayName}</strong>
           <span>{row.town} · {row.points.toLocaleString("en-GB")} XP</span>
