@@ -888,6 +888,7 @@
 .n64-public-record--blue{background:#c7e3fc;border-color:#4779ab}
 .n64-public-record--brown{background:#ebcfb5;border-color:#98704f}
 .n64-public-record--green{background:#d4e8c5;border-color:#568548}
+.n64-public-record--greenbrown{background:linear-gradient(90deg,#d4e8c5 0%,#d4e8c5 49%,#ebcfb5 51%,#ebcfb5 100%);border-color:#827551}
 .n64-public-record h4{color:#14283e;margin:0 0 12px;text-align:left;font-size:1rem;line-height:1.3;font-weight:1000}
 .n64-record-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .n64-record-pair>div{min-width:0;display:flex;flex-direction:column;gap:3px;border-top:2px solid #8294a3;padding-top:8px}
