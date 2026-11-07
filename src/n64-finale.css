@@ -965,3 +965,21 @@
   }
   .n64-public-leaderboard .n64-board-records-tab .n64-record-medal{font-size:18px}
 }
+
+/* Preview 77: same gold/silver/bronze awards as the Records tab, beside
+   ranks 01–03 in the public XP Leaderboards tab. No data or score changes. */
+.n64-public-leaderboard .n64-rank-public .n64-board-medal{
+  display:inline-block;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
+  font-size:21px;
+  line-height:1;
+  vertical-align:middle;
+  margin:0 3px 0 2px;
+  white-space:nowrap;
+}
+@media(max-width:380px){
+  .n64-public-leaderboard .n64-rank-public .n64-board-medal{
+    font-size:18px;
+    margin:0 2px 0 1px;
+  }
+}
