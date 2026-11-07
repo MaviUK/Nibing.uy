@@ -734,7 +734,7 @@ export default function ArcadeLeaderboard() {
           <p>Five highest qualifying records in each category, using the {publicAchievements.sourceAsOf} verified backup.
             {selectedYear==="overall"
               ?" Current streaks are active at the backup date."
-              :" Historical records were reached during "+selectedYear+"; runs may have started earlier."}
+              :" Only cleans completed in "+selectedYear+" count toward "+selectedYear+" records. Earlier-year cleans are excluded."}
             {" "}Each record lists the published first name, town and XP for that year.</p>
           <div className="n64-public-record-grid">
             {publicAchievements.colours.map(row=>
