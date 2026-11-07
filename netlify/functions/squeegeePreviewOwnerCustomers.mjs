@@ -44,6 +44,7 @@ const css=[
  ".award h3{font-size:13px;text-transform:uppercase;letter-spacing:.03em;margin:0 0 6px}.award .value{font-size:clamp(24px,5vw,35px);font-weight:950;line-height:1.1;color:#175748}.award .value small{font-size:12px;color:#2d425f}.award .who{margin-top:8px;font-size:14px;font-weight:800;line-height:1.35;overflow-wrap:anywhere}.award .who a{color:#223856}.award .when{font-size:11px;color:#526079;margin-top:4px}.award details{margin-top:10px;border-top:2px solid #8d99a5;padding-top:7px}.award summary{cursor:pointer;font-size:12px;font-weight:850}.award ol{list-style:none;padding:0;margin:9px 0 0;display:grid;gap:7px}.award li{font-size:12px;border-bottom:1px solid #bac5c9;padding:0 0 5px;overflow-wrap:anywhere}.award li a{font-weight:800;color:#223856}.award li span{display:block;color:#56637b}",
  ".record-notes{font-size:12px;color:#d6e4f5;margin:14px 2px 0}.record-notes strong{color:#ffdf78}.record-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}.record-head small{font-size:11px;color:#dceafa}.award--wide{background:#f8e7a5;border-color:#c5a552}tr:target{outline:4px solid #e0b93a;outline-offset:-4px;background:#fff0b7}",
  ".award-extra{margin-top:13px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}",
+ " .admin-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0 21px}.admin-nav a{display:block;padding:11px 8px;text-align:center;text-decoration:none;font-weight:900;color:#233a5a;background:#dceafa;border:3px solid #97a8c0;box-shadow:3px 4px #081e3a}.admin-nav a.selected{background:#ffe274;border-color:#c4a347}.admin-nav a:focus-visible{outline:3px solid white;outline-offset:3px}",
 
  "footer{font-size:12px;color:#bed0e4;margin-top:30px}@media(max-width:720px){.search{grid-template-columns:1fr 1fr}.search .query,.search button{grid-column:1/-1}.stats{gap:7px}.stats .stat{padding:10px}.stats .stat b{font-size:20px}dl{grid-template-columns:1fr}dt{margin-bottom:-8px}}",
  "@media(max-width:400px){main{padding:12px 10px}.panel{padding:12px}.search{grid-template-columns:1fr}.search .query,.search button{grid-column:auto}.customer{padding:10px}.customer .points{font-size:13px}.event{grid-template-columns:85px 1fr auto;gap:6px}.stat small{font-size:10px}.records{padding:11px}.award-grid,.award-extra{gap:8px}.award{padding:10px 8px;border-width:3px}.award .value{font-size:25px}.award .who{font-size:12px}}"
@@ -105,7 +106,7 @@ function achievementsPanel(snapshot){
  const holder=(item,jobSpecific=false)=>{
   const hash=jobSpecific&&Number.isSafeInteger(item.jobIndex)?
    "#owner-job-"+item.jobIndex:"#cleaning-history";
-  return '<a href="'+esc(url({ref:item.ref})+hash)+'">'+
+  return '<a href="'+esc(url({ref:item.ref,view:"records"})+hash)+'">'+
    esc(item.firstName||"Customer")+' · '+esc(item.town||"Town unavailable")+
    ' (REF '+esc(item.ref)+')</a>';
  };
@@ -115,7 +116,7 @@ function achievementsPanel(snapshot){
   const tied=best&&list.length>1&&list[1][key]===value;
   const isJob=kind==="job";
   const previous=list.map((item,i)=>{
-   return '<li><a href="'+esc(url({ref:item.ref})+
+   return '<li><a href="'+esc(url({ref:item.ref,view:"records"})+
       (isJob?"#owner-job-"+item.jobIndex:"#cleaning-history"))+'">'+
       (i+1)+'. '+esc(item.firstName||"Customer")+' · '+
       esc(item.town||"Town unavailable")+'</a> · <b>'+
@@ -187,6 +188,19 @@ function listPage(snapshot,eligible,params){
  '<div class="stat"><b>'+fmt(snapshot.accounts.length)+'</b><small>Imported active customers</small></div>'+
  '<div class="stat"><b>'+fmt(eligible?.count??0)+'</b><small>Leaderboard eligible</small></div>'+
  '<div class="stat"><b>'+fmt(snapshot.summary?.verifiedPaidBins??0)+'</b><small>Paid bins recorded</small></div></div>';
+ const recordView=params.get("view")==="records";
+ const nav='<nav class="admin-nav" aria-label="Owner admin sections">'+
+  '<a href="'+PATH+'"'+(!recordView?' class="selected" aria-current="page"':'')+
+   '>⌕ CUSTOMERS</a>'+
+  '<a href="'+esc(url({view:"records"}))+'"'+
+   (recordView?' class="selected" aria-current="page"':'')+
+   '>★ HIGH ACHIEVEMENTS</a></nav>';
+ if(recordView){
+  return respond("High Achievements",'<h1>★ OWNER RECORDS</h1>'+
+   '<p class="lead">Lifetime cleaning milestones from your imported customers. '+
+   'Backup: <b>'+esc(snapshot.asOf)+'</b>.</p>'+stats+nav+
+   achievementsPanel(snapshot));
+ }
  const entries=shown.map(({account,eligible:ranked,periodPoints,periodBins})=>
   '<li><a class="customer" href="'+esc(url({ref:account.ref,q,mode,year,page}))+'">'+
   '<span><b>'+esc(account.firstName||"Name missing")+' · '+esc(account.town)+'</b>'+
@@ -204,7 +218,7 @@ function listPage(snapshot,eligible,params){
  return respond("Customer directory",
  '<h1>★ CUSTOMER DIRECTORY</h1>'+
  '<p class="lead">Click any record to view private cleaning and XP history. Backup date: <b>'+
- esc(snapshot.asOf)+'</b>.</p>'+stats+achievementsPanel(snapshot)+filters(q,mode,year)+
+ esc(snapshot.asOf)+'</b>.</p>'+stats+nav+filters(q,mode,year)+
  '<div class="tools"><span>'+fmt(rows.length)+' matching customers</span>'+signout+'</div>'+
  (entries?'<ol class="list">'+entries+'</ol>'+paging:
  '<section class="panel"><h2>No matching customers</h2><p>Try a different first name, email, town or Squeegee customer reference.</p></section>')+
@@ -260,11 +274,13 @@ async function detailPage(snapshot,eligible,params,account){
  const byYear=new Map(yearly.map(row=>[row.year,row]));
  const years=[...new Set([...byYear.keys(),...Object.keys(summary?.yearly||{}).map(Number),2024,2025,2026])]
   .filter(year=>Number.isSafeInteger(year)&&year>=2000&&year<=2099).sort((a,b)=>b-a);
- const back=url({q:safeString(params.get("q"),90),
+ const fromRecords=params.get("view")==="records";
+ const back=fromRecords?url({view:"records"}):url({q:safeString(params.get("q"),90),
   mode:params.get("mode")||"all",year:params.get("year")||"overall",page:params.get("page")||"1"});
  const name=contact?.name||account.firstName||"Customer";
  const total=summary?.points??clean.points;
- const intro='<a class="btn alt" href="'+esc(back)+'">← ALL CUSTOMERS</a>'+
+ const intro='<a class="btn alt" href="'+esc(back)+'">'+
+ (fromRecords?'← HIGH ACHIEVEMENTS':'← ALL CUSTOMERS')+'</a>'+
  '<h1 style="margin-top:20px">★ '+esc(name)+'</h1>'+
  '<p class="lead">REF '+esc(account.ref)+' · '+esc(account.town)+
  ' · Imported '+esc(snapshot.asOf)+'</p>'+
