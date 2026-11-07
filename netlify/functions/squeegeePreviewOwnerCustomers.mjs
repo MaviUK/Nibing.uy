@@ -222,7 +222,7 @@ function achievementsPanel(snapshot,selectedTown=""){
    '<nav class="record-jump" aria-label="Jump to award section">'+
      '<a href="#current-achievements">Current streaks</a>'+
      '<a href="#historical-achievements">Historical bests</a>'+
-     '<a href="#town-records">Town records</a></nav>'+
+     '<a href="'+(town?'#town-select':'#town-records')+'">'+(town?'Change town':'Town records')+'</a></nav>'+
    '<div class="record-group current" id="current-achievements">'+
      '<h3>⚡ CURRENT STREAKS</h3>'+
      '<p>Still unbroken as of '+esc(awarded.asOf)+'. '+
