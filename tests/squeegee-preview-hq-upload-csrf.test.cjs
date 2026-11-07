@@ -52,5 +52,5 @@ test("Only the private owner import form can carry the session-bound token",()=>
   assert.ok(!ownerForm.includes('request.headers.get("origin")!==HOST'));
   assert.ok(ownerForm.includes('session.verifyTestSessionCookie'));
   assert.ok(!ownerForm.includes("file.arrayBuffer()")); // avoid unbounded binary handling
-  assert.ok(ownerForm.includes("3_500_000")); // multipart size cap
+  assert.ok(ownerForm.includes("4_200_000")); // multipart size cap for per-job history, below 6 MB
 });
