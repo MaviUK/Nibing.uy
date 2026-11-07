@@ -201,8 +201,10 @@ async function detailPage(snapshot,eligible,params,account){
  '<dt>Public name consent</dt><dd>'+esc(visibility)+'</dd>'+
  '<dt>Public leaderboard position</dt><dd>'+(
  summary?.rank?"#"+fmt(summary.rank):eligibleForBoard?"Not displayed":"Not eligible")+'</dd>'+
- '<dt>Current cleaning streak</dt><dd>'+fmt(account.currentStreak)+'</dd>'+
- '<dt>Next clean bonus</dt><dd>'+fmt(account.nextBonus)+' XP per eligible clean</dd>'+
+ '<dt>Consecutive clean streaks</dt><dd>'+(Array.isArray(account.jobs)?
+  "See individual jobs below":"Older customer-wide import — update required")+'</dd>'+
+ '<dt>Next bonus</dt><dd>'+(Array.isArray(account.jobs)?
+  "Calculated separately for each job":"Awaiting corrected import")+'</dd>'+
  '<dt>Recorded skips</dt><dd>'+fmt(account.recordedSkips)+'</dd>'+
  '</dl><p class="note">Contact details come from a read-only Squeegee lookup when available. '+
  'The original imported customer history contains first names, towns, email addresses and references.</p></section>';
@@ -222,6 +224,19 @@ async function detailPage(snapshot,eligible,params,account){
  '<tbody>'+table+'</tbody></table></div>'+
  (summary?"":'<p class="note">Website XP could not be verified just now; cleaning XP remains accurate from the import.</p>')+
  '<p class="note">Dated verified XP only. Undated legacy website awards are not counted as earned on a specific day.</p></section>';
+ const perJobPanel=Array.isArray(account.jobs)?
+  '<section class="panel"><h2>Consecutive cleans by Squeegee job</h2>'+
+  (account.jobs.length?'<div class="tablewrap"><table><thead><tr><th>Job</th><th>Streak</th>'+
+    '<th>Next paid bin</th><th>Paid bins</th><th>Earned XP</th><th>Skips</th></tr></thead><tbody>'+
+    account.jobs.map((job,index)=>'<tr><td><b>'+esc(job.label)+' #'+(index+1)+'</b><br>'+
+      '<small>'+esc(job.id)+'</small></td><td>'+fmt(job.currentStreak)+'</td>'+
+      '<td><b>+'+fmt(job.nextBonus)+' XP</b></td><td>'+fmt(job.paidCleans)+'</td>'+
+      '<td>'+fmt(job.points)+'</td><td>'+fmt(job.recordedSkips)+'</td></tr>').join("")+
+    '</tbody></table></div>':'<p>No recorded job occurrences in this backup.</p>')+
+  '<p class="note">Each recurring job has its own consecutive-clean counter. A skipped job only resets itself.</p></section>':
+  '<section class="panel"><h2>Per-job streaks need a new backup</h2>'+
+  '<p>Stored scores were generated under the older customer-day rule. Reimport the same .sqg backup '+
+  'through the private owner import to recalculate accurate job-specific streaks.</p></section>';
  const events=Array.isArray(account.events)?account.events.slice().reverse():[];
  const start=Number(params.get("events"));
  const offset=Number.isSafeInteger(start)&&start>=0?Math.min(start,events.length):0;
@@ -234,6 +249,8 @@ async function detailPage(snapshot,eligible,params,account){
  const eventRows=events.slice(offset,offset+40).map(e=>
   '<div class="event"><span>'+esc(e.date)+'</span><span>'+
   esc(labels[e.event]||"Recorded visit")+
+  (Array.isArray(account.jobs)&&Number.isSafeInteger(e.j)&&account.jobs[e.j]?
+   " · "+esc(account.jobs[e.j].label)+" #"+(e.j+1):"")+
   (Number.isSafeInteger(e.quantity)&&e.quantity>0?" · "+fmt(e.quantity)+" bin(s)":"")+
   (e.event==="paid_completed_clean"?" · streak "+fmt(e.streak):"")+
   '</span><strong>'+fmt(e.points)+' XP</strong></div>').join("");
@@ -245,7 +262,7 @@ async function detailPage(snapshot,eligible,params,account){
  (eventRows||"<p>No events in this backup.</p>")+more+
  '<p class="note">The scoring import records physical-bin quantities and dates, '+
  'but not the colour of each historical bin.</p></section>';
- return respond("Customer "+account.ref,intro+stats+profile+annual+visitHistory);
+ return respond("Customer "+account.ref,intro+stats+profile+perJobPanel+annual+visitHistory);
 }
 function runtimeScope(req,ctx){
  return {hostname:new URL(req.url).hostname,deployContext:ctx?.deploy?.context,siteId:ctx?.site?.id};
