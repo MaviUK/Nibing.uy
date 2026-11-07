@@ -53,14 +53,14 @@ test("year-specific streaks use that year's actual recorded events, not today's 
  const y25=award.awards([primary],{asOf,year:2025});
  const y26=award.awards([primary],{asOf,year:2026});
  const all=award.awards([primary],{asOf});
- assert.equal(y24.byColour.Blue[0].best,4);
- assert.equal(y24.byColourCurrent.Blue[0].active,4);
+ assert.equal(y24.byColour.Blue[0].best,2); // Two distinct 2024 visits, NOT lifetime streak 4
+ assert.equal(y24.byColourCurrent.Blue[0].active,2);
  assert.equal(y24.periodEnd,"2024-12-31");
- assert.equal(y25.byColour.Blue[0].best,5);
+ assert.equal(y25.byColour.Blue[0].best,1); // January lifetime streak 5 counts as one 2025 clean
  assert.equal(y25.byColourCurrent.Blue.length,0);
  assert.equal(y25.periodEnd,"2025-12-31");
- assert.equal(y26.byColour.Blue[0].best,3);
- assert.equal(y26.byColourCurrent.Blue[0].active,3);
+ assert.equal(y26.byColour.Blue[0].best,2);
+ assert.equal(y26.byColourCurrent.Blue[0].active,2);
  assert.equal(y26.periodEnd,asOf);
  assert.equal(all.byColour.Blue[0].best,5);
  assert.equal(all.byColourCurrent.Blue[0].active,3);
@@ -70,7 +70,7 @@ test("a year counts paid physical quantities and only jobs cleaned that year",()
  const r=award.awards([primary],{asOf,year:2025});
  assert.equal(r.paidBins[0].paidBins,4);
  assert.equal(r.mostJobs[0].jobs,2);
- assert.equal(r.combined[0].combined,4);
+ assert.equal(r.combined[0].combined,2); // 2024 dates and pre-skip cleans excluded
  assert.equal(r.combinedCurrent.length,0);
  const y26=award.awards([primary],{asOf,year:2026});
  assert.equal(y26.paidBins[0].paidBins,3);
@@ -79,7 +79,7 @@ test("a year counts paid physical quantities and only jobs cleaned that year",()
 test("town record results follow year selection and leave original import unchanged",()=>{
  const original=JSON.stringify([primary,second]);
  const towns=award.townRecords([primary,second],{asOf,year:2024});
- assert.equal(towns.find(t=>t.town==="Bangor").highest.best,4);
+ assert.equal(towns.find(t=>t.town==="Bangor").highest.best,2);
  assert.equal(towns.find(t=>t.town==="Comber").highest,null);
  assert.equal(JSON.stringify([primary,second]),original);
 });
@@ -94,12 +94,12 @@ test("published record holders show first name, town and period XP while withdra
  const year=pub.highlights(snapshot,aliases,permissions,"2025",board,previewKey);
  assert.equal(year.period,"2025");
  assert.equal(year.status,"preview_public_named_records");
- assert.equal(year.colours.find(row=>row.colour==="Blue").highest,5);
+ assert.equal(year.colours.find(row=>row.colour==="Blue").highest,1);
  assert.equal(year.colours.find(row=>row.colour==="Blue").current,0);
  assert.deepEqual(Object.keys(year.colours[0]).sort(),
    ["colour","current","currentTop","highest","highestTop"]);
  const blue=year.colours.find(row=>row.colour==="Blue");
- assert.deepEqual(blue.highestTop,[{displayName:"Alex",town:"Bangor",points:125,cleans:5}]);
+ assert.deepEqual(blue.highestTop,[{displayName:"Alex",town:"Bangor",points:125,cleans:1}]);
  assert.deepEqual(blue.currentTop,[]);
  assert.ok(Array.isArray(year.longestJobCurrentTop));
  assert.ok(Array.isArray(year.longestJobHighestTop));
@@ -215,7 +215,10 @@ test("Green and Brown share one top-five ranking without combining job streaks",
  const make=(id,ref,label,streak,firstName)=>({
   id,ref,firstName,town:"Bangor",paidCleans:streak,
   jobs:[{id:"job-"+ref,label,currentStreak:streak,lastCompletedOn:asOf,paidCleans:streak}],
-  events:[paid(asOf,0,streak)]
+  events:label.includes("+")?[paid(asOf,0,streak)]:
+   Array.from({length:streak},(_,i)=>paid(
+    new Date(Date.parse(asOf+"T12:00:00Z")-
+      (streak-i-1)*28*86400000).toISOString().slice(0,10),0,i+1))
  });
  const brown=make("33333333-3333-4333-8333-333333333333","303","Brown",4,"Beth");
  const green=make("44444444-4444-4444-8444-444444444444","404","Green",7,"Gina");
@@ -253,4 +256,62 @@ test("Green and Brown share one top-five ranking without combining job streaks",
   "../netlify/functions/squeegeePreviewOwnerCustomers.mjs"),"utf8");
  assert.match(owner,/achievements\.RECORD_CATEGORIES\.map\(colour=>/);
  assert.match(owner,/award--.*GreenBrown/);
+});
+
+test("a 32-clean lifetime streak counts only the 12 verified 2026 visits",()=>{
+ const calendar=Array.from({length:12},(_,i)=>paid(
+  new Date(Date.parse("2026-01-01T12:00:00Z")+i*28*86400000)
+   .toISOString().slice(0,10),0,i+21));
+ assert.equal(calendar[11].date,"2026-11-05");
+ const customer={
+  ref:"3000",firstName:"Chris",town:"Donaghadee",paidCleans:32,
+  jobs:[{id:"black-lifetime",label:"Black",currentStreak:32,
+    lastCompletedOn:"2026-11-05",paidCleans:32}],
+  // Deliberately out of order and with two services recorded for one date:
+  // a yearly per-job streak is one attended VISIT per distinct day.
+  events:[paid("2025-12-04",0,20),
+    ...calendar.slice().reverse(),paid("2026-01-01",0,21,2),
+    paid("2026-11-08",0,33)]
+ };
+ const original=JSON.stringify(customer);
+ const all=award.awards([customer],{asOf});
+ const annual=award.awards([customer],{asOf,year:2026});
+ const year2025=award.awards([customer],{asOf,year:2025});
+ assert.equal(all.byColour.Black[0].best,32);
+ assert.equal(all.byColourCurrent.Black[0].active,32);
+ assert.equal(annual.byColour.Black[0].best,12);
+ assert.equal(annual.byColourCurrent.Black[0].active,12);
+ assert.equal(annual.longestJob[0].best,12);
+ assert.equal(annual.activeJob[0].active,12);
+ assert.equal(annual.combined[0].combined,12);
+ assert.equal(annual.combinedCurrent[0].activeCombined,12);
+ assert.equal(year2025.byColour.Black[0].best,1);
+ assert.equal(JSON.stringify(customer),original);
+});
+
+test("yearly current and highest streaks reset after skips, including unseen reset signals",()=>{
+ const row={ref:"3001",firstName:"Ruth",town:"Bangor",paidCleans:9,
+  jobs:[{id:"brown-year",label:"Brown",currentStreak:2,
+    lastCompletedOn:"2026-11-06",paidCleans:9}],
+  events:[
+   paid("2025-12-30",0,26),
+   paid("2026-01-27",0,27),
+   paid("2026-02-24",0,28),
+   skip("2026-03-24",0),
+   paid("2026-04-21",0,1),
+   paid("2026-05-19",0,2),
+   paid("2026-06-16",0,3),
+   // Original per-job counter dropping without a skip must also break the run.
+   paid("2026-10-09",0,1),
+   paid("2026-11-06",0,2)
+  ]};
+ const year=award.awards([row],{asOf,year:2026});
+ assert.equal(year.byColour.Brown[0].best,3);
+ assert.equal(year.byColourCurrent.Brown[0].active,2);
+ assert.equal(year.combined[0].combined,5); // April, May, June, Oct and Nov unique dates
+ assert.equal(year.combinedCurrent[0].activeCombined,5);
+ assert.equal(year.paidBins[0].paidBins,7);
+ const lifetime=award.awards([row],{asOf});
+ assert.equal(lifetime.byColour.Brown[0].best,28);
+ assert.equal(lifetime.byColourCurrent.Brown[0].active,2);
 });
