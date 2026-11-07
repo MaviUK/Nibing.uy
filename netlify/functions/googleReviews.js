@@ -65,7 +65,7 @@ async function getPlaceDetails(apiKey, placeId) {
     headers: {
       "Content-Type": "application/json",
       "X-Goog-Api-Key": apiKey,
-      "X-Goog-FieldMask": "id,displayName,rating,userRatingCount,reviews,googleMapsUri,googleMapsLinks.writeAReviewUri",
+      "X-Goog-FieldMask": "id,displayName,rating,userRatingCount,reviews,googleMapsUri",
     },
   });
 
@@ -119,13 +119,6 @@ export default async function handler(req) {
       userRatingCount: Number(place.userRatingCount) || null,
       googleMapsUri: place.googleMapsUri || googleReviewsUrl,
       googleReviewsUrl,
-      // Prefer the official Google Places API write-review URL.
-      // The Place ID fallback still opens Google's own review UI.
-      writeReviewUrl: (
-        typeof place.googleMapsLinks?.writeAReviewUri === "string" &&
-        /^https:\/\/(?:www\.)?google\.com\/maps\//.test(place.googleMapsLinks.writeAReviewUri)
-      ) ? place.googleMapsLinks.writeAReviewUri
-        : "https://search.google.com/local/writereview?placeid=" + encodeURIComponent(placeId),
       reviews: reviews.slice(0, 5),
     });
   } catch (err) {
