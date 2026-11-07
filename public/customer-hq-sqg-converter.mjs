@@ -96,8 +96,15 @@ export function acceptSqueegeeRecord(state,row) {
   if(!validDay(date))return;
   const jobId=recurringJobId(row);
   const occurrenceId=String(row._id||"").toLowerCase();
-  if(!UUID.test(occurrenceId))
+  // Squeegee's real .sqg export uses a date-qualified occurrence key:
+  // 36-character recurring job UUID followed by YYYY-MM-DD (46 characters).
+  // The prefix and day MUST match this occurrence's own job and due date;
+  // accepting any 46-character string would silently mis-attribute streaks.
+  // The standalone UUID form remains supported for older exports and fixtures.
+  if(!occurrenceId)
    throw Error("missing_squeegee_occurrence_id");
+  if(!UUID.test(occurrenceId)&&occurrenceId!==jobId+date)
+   throw Error("invalid_squeegee_occurrence_job_date");
   const customerId=row.customerId.toLowerCase();
   const registeredOwner=state.jobOwners.get(jobId);
   if(registeredOwner&&registeredOwner!==customerId)
