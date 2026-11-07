@@ -13,6 +13,7 @@ function metric(entry,key){
  if(key==="best")return entry.best;
  if(key==="active")return entry.active;
  if(key==="combined")return entry.combined;
+ if(key==="activeCombined")return entry.activeCombined;
  if(key==="paidBins")return entry.paidBins;
  if(key==="jobs")return entry.jobs;
  return 0;
@@ -20,8 +21,11 @@ function metric(entry,key){
 function top(entries,key,limit=5){
  return entries.filter(e=>metric(e,key)>0)
   .sort((a,b)=>metric(b,key)-metric(a,key)||
-   // For ties in a historical record, credit the earlier achievement.
-   (a.achievedOn||"9999-99-99").localeCompare(b.achievedOn||"9999-99-99")||
+   // A current-streak tie favours the most recently cleaned job. Historical
+   // ties favour the earliest first achievement. Both are deterministic.
+   (key==="active"||key==="activeCombined"
+    ?(b.lastCompletedOn||"").localeCompare(a.lastCompletedOn||"")
+    :(a.achievedOn||"9999-99-99").localeCompare(b.achievedOn||"9999-99-99"))||
    a.ref.localeCompare(b.ref)||String(a.jobIndex??0).localeCompare(String(b.jobIndex??0)))
   .slice(0,limit);
 }
@@ -61,10 +65,10 @@ function jobRecords(account,asOf) {
   };
  });
 }
-function customerCleanDateRecord(account){
- // Awards-only metric across all of a customer's jobs. Multiple jobs
- // completed on the same day count ONCE, and a skip on ANY job interrupts it.
- // This deliberately does not affect independently scored per-job streaks.
+function customerCleanDateRecord(account,asOf=null){
+ // Customer-wide achievement, NOT an XP scoring streak. Multiple jobs on
+ // one date count as one completed visit. Any skipped job resets the
+ // customer-wide award even if another job was completed on that same date.
  const byDate=new Map();
  for(const e of Array.isArray(account.events)?account.events:[]){
   const day=dateDay(e?.date);
@@ -74,14 +78,21 @@ function customerCleanDateRecord(account){
   if(CLEAN.has(e.event))record.clean=true;
   if(e.event==="recorded_skip")record.skip=true;
  }
- let run=0,best=0,achievedOn=null;
+ let run=0,best=0,achievedOn=null,lastCompletedOn=null;
  for(const day of [...byDate.keys()].sort()){
   const {clean,skip}=byDate.get(day);
-  if(skip)run=0;
-  else if(clean)run++;
+  if(skip){run=0;lastCompletedOn=null;}
+  else if(clean){run++;lastCompletedOn=day;}
   if(run>best){best=run;achievedOn=day;}
  }
- return {combined:best,achievedOn};
+ // As-of is the verified backup date, not a live schedule lookup. A
+ // record with no completed visit during the last 35 days is not current.
+ const activeCombined=run>0&&lastCompletedOn&&dateDay(asOf)&&
+  asOf<=addDays(lastCompletedOn,35)?run:0;
+ return {
+  combined:best,achievedOn,
+  ...(asOf!==null?{activeCombined,lastCompletedOn}:{}),
+ };
 }
 function awards(accounts,{asOf="",limit=5}={}){
  if(!Array.isArray(accounts)||!dateDay(asOf))return null;
@@ -93,23 +104,29 @@ function awards(accounts,{asOf="",limit=5}={}){
   if(typeof account?.ref!=="string")continue;
   const jobs=jobRecords(account,asOf);
   allJobs.push(...jobs);
-  const {combined,achievedOn}=customerCleanDateRecord(account);
+  const {combined,achievedOn,activeCombined,lastCompletedOn}=
+   customerCleanDateRecord(account,asOf);
   customers.push({
    ref:account.ref,firstName:account.firstName,town:account.town,
-   combined,achievedOn,jobs:jobs.length,
+   combined,achievedOn,activeCombined,lastCompletedOn,jobs:jobs.length,
    paidBins:Number.isSafeInteger(account.paidCleans)?account.paidCleans:0
   });
  }
  const byColour=Object.fromEntries(COLOURS.map(colour=>[
   colour,top(allJobs.filter(j=>j.label===colour),"best",limit)
  ]));
+ const byColourCurrent=Object.fromEntries(COLOURS.map(colour=>[
+  colour,top(allJobs.filter(j=>j.label===colour),"active",limit)
+ ]));
  return {
   asOf,
   jobCount:allJobs.length,
   byColour,
+  byColourCurrent,
   longestJob:top(allJobs,"best",limit),
   activeJob:top(allJobs,"active",limit),
   combined:top(customers,"combined",limit),
+  combinedCurrent:top(customers,"activeCombined",limit),
   paidBins:top(customers,"paidBins",limit),
   mostJobs:top(customers,"jobs",limit)
  };
