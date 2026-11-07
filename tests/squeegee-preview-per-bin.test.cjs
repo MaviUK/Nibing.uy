@@ -60,6 +60,29 @@ test("Preview 77 accepts new per-bin private schema without changing old 31 Octo
   assert.equal(eligible.historicalPoints,120);
   assert.equal(eligible.verifiedPaidBins,6);
 });
+test("per-job bonus projection and paid history remain separate from account totals",()=>{
+  const s=hq.validateSource(source());
+  const alice=hq.publicAccount(s.accounts[0],0,Date.parse("2026-06-03T12:00:00Z"));
+  assert.equal(alice.streakModel,"per_job");
+  assert.equal(alice.currentStreak,null);
+  assert.equal(alice.nextBonus,null);
+  assert.equal(alice.jobs.length,1);
+  assert.equal(alice.jobs[0].label,"Brown");
+  assert.equal(alice.jobs[0].currentStreak,1);
+  assert.equal(alice.jobs[0].nextBonus,22);
+  assert.equal(alice.history[0].jobLabel,"Brown");
+  const eligible=hq.eligibleRankedEmailAccounts(s);
+  assert.equal(eligible.perJobScoringVerified,true);
+});
+test("a previous customer-wide backup stays readable but is flagged for reimport",()=>{
+  const legacy=source();
+  legacy.scoringVersion=bin.LEGACY_VERSION;
+  const read=hq.eligibleRankedEmailAccounts(legacy);
+  assert.equal(read.perJobScoringVerified,false);
+  assert.equal(read.count,2);
+  // Upload endpoints do not re-accept the obsolete scoring version.
+  assert.throws(()=>hq.validateSource(legacy));
+});
 test("Preview 77 yearly board uses completed service dates and bin quantities",async()=>{
   const s=hq.validateSource(source());
   const eligible=hq.eligibleRankedEmailAccounts(s);
