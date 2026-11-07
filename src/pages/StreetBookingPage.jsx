@@ -1,72 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import BOOKING_TERMS from "../data/bookingTerms.json";
 
-const TERMS_VERSION = "August 2026";
-const TERMS_TITLE = "Ni Bin Guy – Terms of Service";
-const TERMS_BODY = `We keep our Terms of Service simple and transparent. By booking or receiving a bin clean from Ni Bin Guy, you agree to:
-
-1) Service & Contracts
-- Regular 4-weekly plans are based on a 13-clean minimum term, which is approximately 12 months, unless agreed otherwise.
-- One-off cleans have no minimum term.
-- Each bin is treated separately; adding another bin may start a new agreement for that bin.
-- Bookings and plans are not transferable without our agreement.
-
-2) Bin Availability
-- Bins must be left out or made accessible on the scheduled cleaning day and must remain available until 8pm.
-- If your bin is not available when we attend, or access is blocked, the clean will still be charged.
-- If we are unable to attend on the scheduled day, we will notify you and rearrange the clean as soon as reasonably possible.
-- We may be unable to clean if the bin has not been emptied by the council, is too heavy to move safely, or contains unsafe or excessive waste.
-
-3) Cancellations & Minimum Term
-- One-off cleans may be cancelled up to 24 hours before the scheduled clean day without charge.
-- If a one-off clean is cancelled with less than 24 hours' notice, or the bin is not available when we attend, the clean may still be charged in full.
-- A 4-weekly plan may be cancelled any time up to 24 hours before the second scheduled clean. If cancelled before the second clean, the first clean will be charged at the standard one-off clean price, and any difference between the 4-weekly price and one-off price will become payable.
-- After the second clean, the 4-weekly plan continues for the full 13-clean minimum term.
-- If the customer cancels before the end of the 13-clean minimum term, they will remain liable for the outstanding balance for the remaining cleans within the 12-month minimum term.
-- After the 13-clean minimum term has been completed, the plan continues on a rolling basis and may be cancelled by giving at least 30 days' notice.
-
-4) One-Off Cleans & Animal Waste
-- One-off cleans containing dog faeces, cat litter, animal bedding, or other animal faeces/waste will incur a £5 surcharge per affected bin.
-- We may refuse to clean bins containing excessive animal waste, hazardous waste, sharp items, medical waste, chemicals, paint, oil, rubble, hot ashes, or anything unsafe.
-
-5) Cleaning Process
-- Bins are cleaned inside and outside where safe using pressurised water and detergent.
-- Some stains, ingrained smells, paint, tar, or long-term residue may take multiple visits or may not fully remove.
-- Any loosened waste may be bagged and left in your bin for disposal.
-- Please keep at least 5 metres away during cleaning.
-
-6) Payments
-- Payment is due within 7 days of each clean unless agreed otherwise.
-- Accepted payment methods are Direct Debit, Bank Transfer, and Card. No cash.
-- Cancelling a Direct Debit does not cancel your service or contract. Cancellation must be requested directly with Ni Bin Guy.
-- If a 4-weekly plan is cancelled early, any outstanding balance due under the minimum term may still be payable.
-- Overdue accounts may result in service being stopped and may be referred for recovery.
-
-7) Customer Responsibilities
-- Please keep your contact details, address, and payment details up to date.
-- Please tell us in advance if your bin will not be available.
-- Please make sure gates are unlocked, access is safe, and pets are secured where needed.
-- By booking, you authorise Ni Bin Guy to use a suitable external water tap at the service address, where available, to refill our cleaning tank or equipment as reasonably required to carry out the service.
-- We have zero tolerance for abuse, threats, or harassment toward staff, including online abuse.
-
-8) Other Terms
-- We may place a small sticker or service tag on your bin.
-- Discounts are discretionary and may be withdrawn or changed.
-- Prices may change outside of any agreed fixed term.
-
-9) Data & Communication
-- You consent to us storing your details and contacting you about your booking, schedule, payment, and service.
-- Text reminders are a courtesy only. You remain responsible for knowing your scheduled clean date.`;
+const TERMS_VERSION = BOOKING_TERMS.version;
+const TERMS_TITLE = BOOKING_TERMS.title;
+const TERMS_BODY = BOOKING_TERMS.body;
 
 const PLANS = [
   { id: "domestic_4w", label: "4 Weekly", price: 5 },
   { id: "domestic_oneoff", label: "One-off", price: 15 },
   { id: "comm_lt360_4w", label: "Commercial <360L 4 Weekly", price: 5 },
   { id: "comm_lt360_oneoff", label: "Commercial <360L One-Off", price: 15 },
-  { id: "comm_gt660_4w", label: "Commercial >660L 4 Weekly", price: 12.5 },
-  { id: "comm_gt660_oneoff", label: "Commercial >660L One-Off", price: 35 },
+  { id: "comm_gt660_4w", label: "Commercial 660L+ 4 Weekly", price: 15 },
+  { id: "comm_gt660_oneoff", label: "Commercial 660L+ One-Off", price: 45 },
 ];
 
-const DEFAULT_BIN = { type: "", count: 1, planId: "domestic_4w" };
+const DEFAULT_BIN = { type: "", count: 1, planId: "domestic_4w", sizeLitres: null };
+
+const isLargeCommercialPlan = (planId) =>
+  planId === "comm_gt660_4w" || planId === "comm_gt660_oneoff";
+const hasRequiredBinSize = (bin) =>
+  !isLargeCommercialPlan(bin?.planId) ||
+  bin.sizeLitres === 660 || bin.sizeLitres === 1100;
 
 function money(value) {
   const amount = Math.round((Number(value) || 0) * 100) / 100;
@@ -144,6 +98,7 @@ function TermsModal({ open, onClose, onConfirm }) {
     setScrolledToEnd(false);
     const el = scrollRef.current;
     if (!el) return;
+    el.scrollTop = 0;
     const onScroll = () => {
       if (el.scrollTop + el.clientHeight >= el.scrollHeight - 8) setScrolledToEnd(true);
     };
@@ -178,7 +133,7 @@ export default function StreetBookingPage() {
   const [address, setAddress] = useState("");
   const [placeId, setPlaceId] = useState(null);
   const [termsOpen, setTermsOpen] = useState(false);
-  const [termsViewed, setTermsViewed] = useState(false);
+  const [termsConfirmed, setTermsConfirmed] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -218,7 +173,9 @@ export default function StreetBookingPage() {
         type: bin.type,
         count,
         planId: plan.id,
-        planLabel: plan.label,
+        sizeLitres: isLargeCommercialPlan(bin.planId) ? bin.sizeLitres : null,
+        planLabel: plan.label +
+          (isLargeCommercialPlan(bin.planId) && bin.sizeLitres ? ` — ${bin.sizeLitres}L` : ""),
         unitPrice: plan.price,
         baseUnit: plan.price,
         discounted: false,
@@ -230,7 +187,16 @@ export default function StreetBookingPage() {
   }, [bins]);
 
   const updateBin = (index, field, value) => {
-    setBins((current) => current.map((bin, binIndex) => binIndex === index ? { ...bin, [field]: field === "count" ? Math.max(1, parseInt(value || "1", 10)) : value } : bin));
+    setBins((current) => current.map((bin, binIndex) => {
+      if (binIndex !== index) return bin;
+      const updated = {
+        ...bin,
+        [field]: field === "count" ? Math.max(1, parseInt(value || "1", 10)) :
+          field === "sizeLitres" ? (value ? Number(value) : null) : value,
+      };
+      if (field === "planId" && !isLargeCommercialPlan(value)) updated.sizeLitres = null;
+      return updated;
+    }));
   };
 
   const reset = () => {
@@ -240,7 +206,7 @@ export default function StreetBookingPage() {
     setPhone("");
     setAddress("");
     setPlaceId(null);
-    setTermsViewed(false);
+    setTermsConfirmed(false);
     setTermsAccepted(false);
     setSuccess(false);
     selectedPlaceRef.current = null;
@@ -248,12 +214,16 @@ export default function StreetBookingPage() {
 
   const submit = async (event) => {
     event.preventDefault();
+    if (bins.some((bin) => !hasRequiredBinSize(bin))) {
+      alert("Please select 660L or 1100L for each large commercial bin.");
+      return;
+    }
     if (!name.trim() || !email.trim() || !phone.trim() || !address.trim() || bins.some((bin) => !bin.type)) {
       alert("Please complete all fields before submitting.");
       return;
     }
-    if (!termsAccepted) {
-      alert("Please view and agree to the Terms of Service.");
+    if (!termsConfirmed || !termsAccepted) {
+      alert("Please scroll through and confirm the Terms of Service.");
       return;
     }
 
@@ -289,6 +259,12 @@ export default function StreetBookingPage() {
       });
 
       if (!response.ok) throw new Error(await response.text());
+      // Score only after the street-signup booking has been accepted.
+      const arcadeSubmissionId = window.crypto?.randomUUID?.()
+        || "street-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+      window.n64Score?.awardBooking(arcadeSubmissionId, bins);
+      const booked = await response.json().catch(() => ({}));
+      window.n64Score?.offerEntry(booked.arcadeBookingProof);
       setSuccess(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
@@ -300,7 +276,7 @@ export default function StreetBookingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white px-4 py-8 sm:py-12">
+    <div className="n64-street-booking min-h-screen bg-black text-white px-4 py-8 sm:py-12">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-6">
           <a href="/" className="inline-block" aria-label="Ni Bin Guy home">
@@ -340,6 +316,25 @@ export default function StreetBookingPage() {
                   <select value={bin.planId} onChange={(event) => updateBin(index, "planId", event.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-3">
                     {PLANS.map((plan) => <option key={plan.id} value={plan.id}>{plan.label} (£{money(plan.price)})</option>)}
                   </select>
+                  {isLargeCommercialPlan(bin.planId) && (
+                    <div className="space-y-1">
+                      <label htmlFor={`street-large-bin-size-${index}`} className="block text-sm font-bold text-gray-800">
+                        Commercial bin size (required)
+                      </label>
+                      <select
+                        id={`street-large-bin-size-${index}`}
+                        value={bin.sizeLitres ?? ""}
+                        onChange={(event) => updateBin(index, "sizeLitres", event.target.value)}
+                        required
+                        aria-required="true"
+                        className="w-full border border-gray-500 rounded-lg px-4 py-3"
+                      >
+                        <option value="">Select your bin size</option>
+                        <option value="660">660 litres (660L)</option>
+                        <option value="1100">1100 litres (1100L)</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               ))}
 
@@ -367,22 +362,32 @@ export default function StreetBookingPage() {
 
               <div className="rounded-xl border border-gray-400 bg-gray-50 p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm text-gray-700">Customer must view and agree to the <button type="button" onClick={() => { setTermsOpen(true); setTermsViewed(true); }} className="underline font-bold">Terms of Service</button>.</p>
+                  <p className="text-sm text-gray-700">Customer must view and agree to the <button type="button" onClick={() => setTermsOpen(true)} className="underline font-bold">Terms of Service</button>.</p>
                   <span className="text-[10px] text-gray-500">v{TERMS_VERSION}</span>
                 </div>
                 <label className="mt-3 flex items-start gap-2 text-sm">
-                  <input type="checkbox" className="mt-1" checked={termsAccepted} disabled={!termsViewed} onChange={(event) => setTermsAccepted(event.target.checked)} />
-                  <span>I’ve read and agree to the Terms of Service.{!termsViewed && <span className="block text-xs text-gray-500">Open the Terms first to enable this.</span>}</span>
+                  <input type="checkbox" className="mt-1" checked={termsAccepted} disabled={!termsConfirmed} onChange={(event) => setTermsAccepted(event.target.checked)} />
+                  <span>I’ve read and agree to the Terms of Service.{!termsConfirmed && <span className="block text-xs text-gray-500">Scroll to the bottom of the Terms and select Confirm & Agree to unlock this.</span>}</span>
                 </label>
               </div>
 
-              <button type="submit" disabled={submitting || !termsAccepted} className="w-full bg-green-500 hover:bg-green-600 text-black font-black uppercase py-4 px-6 rounded-xl disabled:opacity-50">{submitting ? "Completing signup…" : "Complete Street Signup"}</button>
+              <button type="submit" disabled={submitting || !termsConfirmed || !termsAccepted} className="w-full bg-green-500 hover:bg-green-600 text-black font-black uppercase py-4 px-6 rounded-xl disabled:opacity-50">{submitting ? "Completing signup…" : "Complete Street Signup"}</button>
             </form>
           )}
         </div>
       </div>
 
-      <TermsModal open={termsOpen} onClose={() => setTermsOpen(false)} onConfirm={() => { setTermsAccepted(true); setTermsOpen(false); }} />
+      {termsOpen && (
+        <TermsModal
+          open={termsOpen}
+          onClose={() => setTermsOpen(false)}
+          onConfirm={() => {
+            setTermsConfirmed(true);
+            setTermsAccepted(true);
+            setTermsOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

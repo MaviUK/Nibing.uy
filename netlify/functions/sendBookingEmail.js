@@ -1,16 +1,39 @@
+const BOOKING_TERMS = require("../../src/data/bookingTerms.json");
 // netlify/functions/sendBookingEmail.js
 const { Resend } = require("resend");
+const { signBooking } = require("./lib/arcadeBookingProof");
+const { autoEnrollBooking } = require("./arcadeLeaderboard");
+const { verifyPreviewBooking } = require("./previewBookingChallenge");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
+const { annualBookingBreakdown } = require("./lib/annualBookingBreakdown");
 const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
+const { buildOwnerTermsSummary } = require("./lib/ownerBookingTermsSummary");
+const ownerCertificate=require("./lib/squeegeeOwnerCertificate");
+const { validateBookingSubmission, claimBookingSubmission, submissionErrorResponse } = require("./lib/bookingSubmissionGuard");
+const { stageWithoutBlockingBooking } = require("./lib/squeegeeBookingStage");
+const {
+  dispatchAcceptedBooking,autoDispatchConfigured,normalOwnerReceipt,
+}=require("./lib/squeegeePreviewAutoDispatch");
+const rollout=require("./lib/squeegeePreviewAutoRollout");
+const productionGuard=require("./lib/squeegeeProductionGuard");
+const productionDispatch=require("./lib/squeegeeProductionDispatch");
+const {emailContent:buildOwnerReviewEmail}=
+  require("./lib/squeegeeSyncOwnerAlert");
+const { normaliseUkBookingPhone } = require("./lib/ukBookingPhone");
+const { validateCommercialBinSizes } = require("./lib/squeegeeBookingPricing");
+const { PILOT_NAME } = require("./lib/squeegeePreviewAutoRollout");
+const { recordNoDispatch } = require("./lib/squeegeeBookingReviewTrace");
 
 // Optional audit logging. If Netlify Blobs is unavailable, logging is skipped.
 let getStoreSafe = null;
 try {
   const { getStore } = require("@netlify/blobs");
-  getStoreSafe = function (name) {
+  getStoreSafe = function (name,consistency) {
     const siteID = process.env.NETLIFY_SITE_ID || process.env.BLOBS_SITE_ID;
     const token = process.env.NETLIFY_BLOBS_TOKEN || process.env.BLOBS_TOKEN;
-    return siteID && token ? getStore({ name, siteID, token }) : getStore({ name });
+    const options={name,...(consistency?{consistency}:{})};
+    return siteID && token ?
+      getStore({...options,siteID,token}):getStore(options);
   };
 } catch (_) {
   // Blobs are optional.
@@ -20,33 +43,11 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM_DEFAULT = process.env.RESEND_FROM || "Ni Bin Guy <noreply@nibing.uy>";
 const TO_ADMIN = process.env.BOOKINGS_TO || "info@nibing.uy";
-const TERMS_VERSION_DEFAULT = "July 2026";
+const TERMS_VERSION_DEFAULT = BOOKING_TERMS.version;
 const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET_KEY || "";
 const RECAPTCHA_MIN_SCORE = Number(process.env.RECAPTCHA_MIN_SCORE || "0.5");
 
-const TERMS_BODY = `
-Ni Bin Guy – Terms of Service
-
-• Regular 4-weekly plans are based on a 13-clean minimum term, which is approximately 12 months, unless agreed otherwise.
-• One-off cleans have no minimum term and may be cancelled up to 24 hours before the scheduled clean day without charge.
-• Bins must be left out or made accessible on the scheduled cleaning day and must remain available until 8pm.
-• If your bin is not available when we attend, or access is blocked, the clean may still be charged.
-• If we are unable to attend on the scheduled day, we will notify you and rearrange the clean as soon as reasonably possible.
-• A 4-weekly plan may be cancelled any time up to 24 hours before the second scheduled clean. If cancelled before the second clean, the first clean will be charged at the standard one-off clean price, and any difference between the 4-weekly price and one-off price will become payable.
-• After the second clean, the 4-weekly plan continues for the full 13-clean minimum term.
-• If the customer cancels before the end of the 13-clean minimum term, they will remain liable for the outstanding balance for the remaining cleans within the 12-month minimum term.
-• After the 13-clean minimum term has been completed, the plan continues on a rolling basis and may be cancelled by giving at least 30 days’ notice.
-• One-off cleans containing dog faeces, cat litter, animal bedding, or other animal faeces/waste will incur a £5 surcharge per affected bin.
-• We may refuse to clean bins containing excessive animal waste, hazardous waste, sharp items, medical waste, chemicals, paint, oil, rubble, hot ashes, or anything unsafe.
-• Bins are cleaned inside and outside where safe using pressurised water and detergent. Some stains, ingrained smells, paint, tar, or long-term residue may take multiple visits or may not fully remove.
-• Payment is due within 7 days unless agreed otherwise. Accepted methods are Direct Debit, Bank Transfer, and Card. No cash.
-• Cancelling a Direct Debit does not cancel your service or contract. Cancellation must be requested directly with Ni Bin Guy.
-• Overdue accounts may result in service being stopped and may be referred for recovery.
-• Please keep your contact details, address, and payment details up to date, and make sure access is safe on cleaning day.
-• We may place a small sticker or service tag on your bin. Discounts are discretionary and may be withdrawn or changed.
-• You consent to us storing your details and contacting you about your booking, schedule, payment, and service.
-• Text reminders are a courtesy only. You remain responsible for knowing your scheduled clean date.
-`;
+const TERMS_BODY = BOOKING_TERMS.body;
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -59,21 +60,6 @@ const fmtGBP = (value) => {
   const amount = Math.round((Number(value) || 0) * 100) / 100;
   return `£${amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2)}`;
 };
-
-function tosHtmlBlock(version, timestampIso) {
-  const when = timestampIso
-    ? new Date(timestampIso).toLocaleString("en-GB", { timeZone: "Europe/London" })
-    : "—";
-
-  return `
-    <h3 style="margin:16px 0 6px">Terms of Service confirmation</h3>
-    <p style="margin:0 0 10px">
-      Version: <strong>${escapeHtml(version || TERMS_VERSION_DEFAULT)}</strong><br>
-      Confirmed at: <strong>${escapeHtml(when)}</strong>
-    </p>
-    <pre style="white-space:pre-wrap;background:#f6f6f6;padding:12px;border-radius:8px;border:1px solid #eee;margin:0">${escapeHtml(TERMS_BODY)}</pre>
-  `;
-}
 
 function buildPricingBlocks(pricing, discountCode) {
   const code = String(discountCode || "").trim();
@@ -170,6 +156,14 @@ function buildAuditPromise(details) {
 
 exports.handler = async (event) => {
   const startedAt = Date.now();
+  // No names, addresses, emails, booking IDs or tokens in performance logs.
+  // Each duration measures a real stage, including its network time.
+  const timings = {};
+  const timed = async (name, fn) => {
+    const since = Date.now();
+    try { return await fn(); }
+    finally { timings[name] = Date.now() - since; }
+  };
 
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }) };
@@ -183,7 +177,7 @@ exports.handler = async (event) => {
     const {
       name = "",
       address = "",
-      phone = "",
+      phone: rawPhone = "",
       email = "",
       bins = [],
       placeId = "",
@@ -198,33 +192,84 @@ exports.handler = async (event) => {
       termsTimestamp = new Date().toISOString(),
     } = payload;
 
+    // Website bookings must refer to the currently published agreement.
+    if (source === "website" && termsVersion !== TERMS_VERSION_DEFAULT) {
+      return {
+        statusCode: 428,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+        body: JSON.stringify({ error: "Reload and accept the September 2026 terms" }),
+      };
+    }
+
+    // Reject postcodes/non-phone text BEFORE claiming a booking ID, emailing
+    // anyone, awarding XP or dispatching any real Squeegee API work.
+    const phone=normaliseUkBookingPhone(rawPhone);
+    if(!phone) {
+      return {
+        statusCode:422,
+        headers:{"Content-Type":"application/json","Cache-Control":"no-store"},
+        body:JSON.stringify({
+          error:"Enter a valid UK contact number (e.g. 028 or 07, 11 digits).",
+          reason:"invalid_booking_phone",
+        }),
+      };
+    }
+    // The independently signed automatic Squeegee worker consumes this
+    // accepted payload; keep its contact number canonical and numeric.
+    payload.phone=phone;
+    // The signed Preview 1 background receipt needs these same accepted
+    // agreement details if it sends the ordinary owner email after syncing.
+    payload.termsVersion=termsVersion;
+    payload.termsTimestamp=termsTimestamp;
+    payload.termsAcceptanceText=termsAcceptanceText;
+    payload.source=source;
+
     const filteredBins = (Array.isArray(bins) ? bins : []).filter((bin) => bin?.type);
+    const binSizeCheck = validateCommercialBinSizes(filteredBins);
+    if (!binSizeCheck.ok) {
+      return {
+        statusCode: 422,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+        body: JSON.stringify({
+          error: "Choose 660L or 1100L for each large commercial bin.",
+          reason: binSizeCheck.reason,
+        }),
+      };
+    }
     const binsText =
       filteredBins
         .map((bin) => {
           const planOrFrequency = bin.planId ? `plan: ${bin.planId}` : bin.frequency || "";
-          return `${bin.count || 1} x ${bin.type} (${planOrFrequency})`;
+          const size = bin.sizeLitres ? ` (${bin.sizeLitres}L)` : "";
+          return `${bin.count || 1} x ${bin.type}${size} (${planOrFrequency})`;
         })
         .join("\n") || "(none provided)";
     const binsHtml =
       filteredBins
         .map((bin) => {
           const planOrFrequency = bin.planId ? `plan: ${escapeHtml(bin.planId)}` : escapeHtml(bin.frequency || "");
-          return `${escapeHtml(bin.count || 1)} x ${escapeHtml(bin.type)} (${planOrFrequency})`;
+          const size = bin.sizeLitres ? ` (${bin.sizeLitres}L)` : "";
+          return `${escapeHtml(bin.count || 1)} x ${escapeHtml(bin.type)}${size} (${planOrFrequency})`;
         })
         .join("<br>") || "(none provided)";
     const pricingBlocks = buildPricingBlocks(pricing, discountCode);
 
     // These two independent network/CPU operations used to run one after the other.
     const [recaptcha, termsPdfAttachment] = await Promise.all([
-      verifyRecaptcha({ token: recaptchaToken, expectedAction: recaptchaAction }),
-      buildTermsAcceptancePdfAttachment({
+      // Staging has its own signed, rate-limited test challenge because
+      // the production reCAPTCHA key may reject Netlify preview hostnames.
+      // Production requests never pass this preview-only verification.
+      timed("security", () => payload.previewProof
+        ? verifyPreviewBooking(event, payload.previewProof)
+        : verifyRecaptcha({ token: recaptchaToken, expectedAction: recaptchaAction })),
+      timed("pdf", () => buildTermsAcceptancePdfAttachment({
         name,
         email,
         phone,
         address,
         binsText,
         pricingText: pricingBlocks.text,
+        annualBreakdownText: annualBookingBreakdown(pricing),
         termsAccepted,
         termsVersion,
         termsAcceptanceText,
@@ -234,7 +279,7 @@ exports.handler = async (event) => {
       }).catch((error) => {
         console.warn("Terms PDF generation skipped:", error.message);
         return null;
-      }),
+      })),
     ]);
 
     if (!recaptcha.ok) {
@@ -244,12 +289,70 @@ exports.handler = async (event) => {
         body: JSON.stringify({ error: "Anti-bot check failed" }),
       };
     }
+    // A customer cannot accept a booking unless their signed Terms PDF exists.
+    // This guard runs BEFORE reserving the reference or sending any email.
+    if (!termsPdfAttachment) {
+      return {
+        statusCode: 424,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+        body: JSON.stringify({ error: "Terms certificate unavailable; no booking submitted" }),
+      };
+    }
 
+    // Once the security check has passed, claim this random booking reference.
+    // This prevents rapid repeated taps/retries from sending duplicate emails.
+    // Claims are deliberately NOT consumed when CAPTCHA verification fails.
+    const submission = validateBookingSubmission(payload);
+    if (!submission.ok) return submissionErrorResponse(submission);
+    // The preview worker must send the owner the SAME PDF already given to
+    // the customer. Stage those exact bytes BEFORE accepting the booking.
+    const syncHost=String(event?.headers?.host||event?.headers?.Host||"").toLowerCase();
+    const isPreview1=syncHost==="deploy-preview-77--nibinguy.netlify.app";
+    const productionSyncEnabled=productionDispatch.issuerConfigured(
+      process.env,syncHost);
+    const previewSyncEnabled=isPreview1 &&
+      autoDispatchConfigured(process.env) &&
+      rollout.acceptedForRollout(payload,"email",process.env);
+    let stagedOwnerPdfSha=null;
+    if (previewSyncEnabled || productionSyncEnabled) {
+      try {
+        if (!getStoreSafe) throw new Error("netlify_blobs_not_available");
+        const ownerPdfStart=Date.now();
+        const saved=await ownerCertificate.storeCustomerCertificate(
+          submission.bookingId,termsPdfAttachment,
+          getStoreSafe(productionSyncEnabled?
+            productionGuard.CERT_STORE:ownerCertificate.STORE,"strong"));
+        timings.ownerPdfStore=Date.now()-ownerPdfStart;
+        stagedOwnerPdfSha=saved.sha256;
+      } catch (error) {
+        console.error("Automatic booking owner certificate staging failed:",error?.message||"unavailable");
+        return {
+          statusCode: 424,
+          headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+          body: JSON.stringify({ error: "Terms certificate could not be secured; no booking submitted" }),
+        };
+      }
+    }
+    const claimStarted=Date.now();
+    const claim = await claimBookingSubmission({
+      ...submission, channel: "email", sourceHost: syncHost,
+    });
+    timings.claim=Date.now()-claimStarted;
+    if (!claim.ok) return submissionErrorResponse({ ...submission, ...claim });
+
+    // Both immediate customer and owner emails share this generated PDF.
+    // Preview 1 deferred owner delivery rebuilds the same acceptance
+    // certificate from the signed original booking details.
     const attachments = termsPdfAttachment ? [termsPdfAttachment] : undefined;
+    const ownerTerms=buildOwnerTermsSummary({
+      termsAccepted,termsVersion,termsTimestamp,
+      pdfAttached:Boolean(termsPdfAttachment),
+    });
     const subjectAdmin = `🗑️ New Bin Cleaning Booking (${source})`;
-    const textAdmin = `New Bin Cleaning Booking\n\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\n${lat != null && lng != null ? `Geo: ${lat}, ${lng}\n` : ""}${placeId ? `Place ID: ${placeId}\n` : ""}Bins:\n${binsText}\n\n${pricingBlocks.text}\n\n— TERMS —\nAccepted: ${termsAccepted ? "yes" : "no"}\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\nAcceptance line: ${termsAcceptanceText}\n`;
+    const textAdmin = `New Bin Cleaning Booking\n\nBooking reference: ${submission.bookingId}\nName: ${name}\nEmail: ${email}\nPhone: ${phone}\nAddress: ${address}\n${lat != null && lng != null ? `Geo: ${lat}, ${lng}\n` : ""}${placeId ? `Place ID: ${placeId}\n` : ""}Bins:\n${binsText}\n\n${pricingBlocks.text}\n\n${ownerTerms.text}\n`;
     const htmlAdmin = `
       <h2>New Bin Cleaning Booking</h2>
+      <p><strong>Booking reference:</strong> ${escapeHtml(submission.bookingId)}</p>
       <p><strong>Name:</strong> ${escapeHtml(name)}</p>
       <p><strong>Address:</strong> ${escapeHtml(address)}</p>
       <p><strong>Phone:</strong> ${escapeHtml(phone)}</p>
@@ -258,32 +361,83 @@ exports.handler = async (event) => {
       ${placeId ? `<p><strong>Place ID:</strong> ${escapeHtml(placeId)}</p>` : ""}
       <p><strong>Bins:</strong><br>${binsHtml}</p>
       ${pricingBlocks.html}
-      <hr style="margin:16px 0;border:none;border-top:1px solid #e5e7eb">
-      <div style="padding:12px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb">
-        <p style="margin:0 0 6px"><strong>TERMS</strong> <span style="color:#6b7280">(v${escapeHtml(termsVersion)})</span></p>
-        <p style="margin:0 0 6px"><em>${escapeHtml(termsAcceptanceText)}</em></p>
-        ${tosHtmlBlock(termsVersion, termsTimestamp)}
-      </div>
+      ${ownerTerms.html}
       <p style="color:#6b7280;font-size:12px;margin-top:12px">Source: ${escapeHtml(source)}</p>
     `;
 
-    const adminEmailPromise = resend.emails.send({
-      from: FROM_DEFAULT,
-      to: TO_ADMIN,
-      subject: subjectAdmin,
-      text: textAdmin,
-      html: htmlAdmin,
-      replyTo: email || undefined,
-      attachments,
-    });
+    const ownerReceipt={
+      subject:subjectAdmin,text:textAdmin,html:htmlAdmin,
+      replyTo:email||null,termsBody:TERMS_BODY,
+      binsText,pricingText:pricingBlocks.text,
+    };
+    // A signed and separately approved worker sends ONE owner email.
+    // Disabled production and all unrelated previews preserve original flow.
+    const deferAdminForPreview=previewSyncEnabled &&
+      Boolean(normalOwnerReceipt(ownerReceipt));
+    const deferAdminForProduction=productionSyncEnabled &&
+      Boolean(normalOwnerReceipt(ownerReceipt));
+    const deferAdminForAuto=deferAdminForPreview||deferAdminForProduction;
+    if (deferAdminForAuto && stagedOwnerPdfSha) {
+      ownerReceipt.ownerPdfSha256=stagedOwnerPdfSha;
+    }
+    const recordAutoNoDispatch=async(details)=>{
+      if(!productionSyncEnabled)return recordNoDispatch(
+        submission.bookingId,details);
+      if(!getStoreSafe)return;
+      try{
+        await getStoreSafe(productionGuard.STATUS_STORE,"strong").setJSON(
+          submission.bookingId,{
+            bookingId:submission.bookingId,
+            stage:"requires_reconciliation",
+            reason:String(details?.reason||"handoff_uncertain").slice(0,90),
+            ownerAlertDelivery:details?.ownerAlertDelivery||"not_sent",
+            updatedAt:new Date().toISOString(),
+          },{onlyIfNew:true});
+      }catch{console.error("Production booking review status unavailable");}
+    };
+    const adminEmailMessage={
+      from:FROM_DEFAULT,to:TO_ADMIN,subject:subjectAdmin,
+      text:textAdmin,html:htmlAdmin,
+      replyTo:email||undefined,attachments,
+    };
+    const reviewOwnerMessage=(reason,matchReason="")=>{
+      // Preview 1 bookings always need ONE owner-facing outcome. When the
+      // API handoff is clearly unavailable, do not claim a successful sync.
+      const candidates=Array.isArray(payload.bookingScheduleSnapshot?.results)?
+        payload.bookingScheduleSnapshot.results:[];
+      const review=buildOwnerReviewEmail(submission.bookingId,reason,{
+        customerName:name,serviceAddress:address,
+        customerEmail:email,customerPhone:phone,
+        requestedBinCounts:filteredBins.map(bin=>
+          String(Number(bin.count)||1)+" x "+String(bin.type||"")),
+        firstCleanDates:candidates.map(row=>row?.assignedCleanDate),
+        bookingTotal:pricing?.total,
+        matchReason,
+      });
+      if(!review)return null;
+      return {
+        from:FROM_DEFAULT,to:TO_ADMIN,
+        subject:review.subject,text:review.text,html:review.html,
+        replyTo:email||undefined,
+      };
+    };
+    const previewSyncUnavailable=isPreview1 && !deferAdminForPreview;
+    const adminEmailPromise=deferAdminForAuto?
+      Promise.resolve({error:null,deferred:true}):
+      resend.emails.send(previewSyncUnavailable?
+        reviewOwnerMessage(!autoDispatchConfigured(process.env)?
+          "automatic_sync_not_enabled":
+          "outside_approved_preview_email_pilot")||adminEmailMessage:
+        adminEmailMessage);
 
     const customerEmailPromise = email
       ? resend.emails.send({
           from: FROM_DEFAULT,
           to: email,
-          subject: `🗑️ Booking confirmed — your bin's days are numbered`,
-          text: `Thanks ${name},\n\nYour Ni Bin Guy booking is confirmed.\n\nName: ${name}\nPhone: ${phone}\nAddress: ${address}\n\nBins:\n${binsText}\n\n${pricingBlocks.text}\n\nTerms:\nAccepted: ${termsAccepted ? "yes" : "no"}\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\n\n${termsPdfAttachment ? "Your signed Terms & Conditions Acceptance Certificate PDF is attached to this email.\n\n" : ""}We’ll be in touch shortly to confirm your cleaning schedule.`,
+          subject: `🗑️ Booking received — ${submission.bookingId}`,
+          text: `Thanks ${name},\n\nYour Ni Bin Guy booking has been received.\n\nBooking reference: ${submission.bookingId}\n\nName: ${name}\nPhone: ${phone}\nAddress: ${address}\n\nBins:\n${binsText}\n\n${pricingBlocks.text}\n\nTerms:\nAccepted: ${termsAccepted ? "yes" : "no"}\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\n\n${termsPdfAttachment ? "Your signed Terms & Conditions Acceptance Certificate PDF is attached to this email.\n\n" : ""}We’ll be in touch shortly to confirm your cleaning schedule.`,
           html: buildBookingEmailHtml({
+            bookingId: submission.bookingId,
             name,
             address,
             phone,
@@ -299,14 +453,20 @@ exports.handler = async (event) => {
         })
       : Promise.resolve({ error: null });
 
-    // Start the optional audit write at the same time as both emails.
+    // Audit and customer receipt are still sent immediately in Preview 1.
+    // Its owner email is delayed until the signed worker chooses the result.
     const auditPromise = buildAuditPromise({
       channel: "email",
+      bookingId: submission.bookingId,
+      arcadeOptOut: payload.arcadeOptOut === true,
       name,
       email,
       phone,
       address,
       bins,
+      // Audit the dates presented to this customer. These are browser-supplied
+      // and must be independently verified before writing a Squeegee job.
+      bookingScheduleSnapshot: payload.bookingScheduleSnapshot || null,
       placeId,
       lat,
       lng,
@@ -325,38 +485,197 @@ exports.handler = async (event) => {
       createdAt: new Date().toISOString(),
     });
 
-    const [adminResult, customerResult] = await Promise.all([
+    // Preview 77: the signed Squeegee worker can be durably queued once
+    // the accepted submission is claimed, its signed PDF is staged and the
+    // normal audit has finished. Run that handoff in parallel with Resend
+    // instead of waiting for emails, leaderboard and shadow analysis.
+    // This NEVER makes a second dispatch; the final block awaits this one.
+    const dispatchToApprovedWorker=()=>productionSyncEnabled?
+      productionDispatch.dispatchAcceptedProductionBooking(payload,{
+        channel:"email",eventHost:syncHost,ownerReceipt,
+      }):
+      dispatchAcceptedBooking(payload,{
+        channel:"email",eventHost:syncHost,ownerReceipt,
+      });
+    const squeegeeDispatchTask = deferAdminForAuto
+      ? Promise.resolve(auditPromise)
+          .then(() => timed("squeegeeQueue",dispatchToApprovedWorker))
+          .catch(() => ({queued:false,reason:"dispatch_unavailable"}))
+      : null;
+
+    const [adminResult, customerResult] = await timed("receiptsAndAudit", () => Promise.all([
       adminEmailPromise,
       customerEmailPromise,
       auditPromise,
-    ]);
+    ]));
 
     if (adminResult?.error) {
       console.error("Resend admin error:", adminResult.error);
+      if(isPreview1||productionSyncEnabled) await recordAutoNoDispatch({
+        reason:"owner_receipt_delivery_failed_before_squeegee_dispatch",
+        ownerAlertDelivery:"not_sent",
+      });
       return {
         statusCode: 502,
         body: JSON.stringify({ error: "Failed to send admin email", details: adminResult.error }),
       };
     }
 
-    // The booking is safely received once the admin email succeeds. A customer-email
-    // failure should not tell the customer that their booking failed and encourage duplicates.
+    // An accepted Preview 1 booking has an immutable receipt before dispatch
+    // and an audited submission; its owner email is deferred, NOT lost.
+    // Elsewhere the successful admin email retains the existing acceptance
+    // behaviour. Customer-email failure must not prompt duplicate retries.
     if (customerResult?.error) {
       console.error("Resend customer error:", customerResult.error);
     }
 
+    // A customer is added to the global rankings automatically after the
+    // booking email has been accepted, without a second form or another tap.
+    // Prize contact information is kept in the private preview store.
+    let arcadeEntry = null;
+    let arcadeDeadline;
+    try {
+      // The booking email has already succeeded. Never hold its response
+      // hostage to slow leaderboard storage or snapshot rebuilding.
+      arcadeEntry = await timed("leaderboard", () => Promise.race([
+        autoEnrollBooking(payload),
+        new Promise((resolve) => {
+          arcadeDeadline = setTimeout(() => resolve({ registered: false }), 1800);
+        }),
+      ]));
+    } catch (error) {
+      // An accepted booking must never fail because global XP is unavailable.
+      // The browser will automatically retry with its signed booking proof.
+      console.warn("Arcade auto-enrolment temporarily unavailable:", error?.message || "unknown");
+    } finally {
+      clearTimeout(arcadeDeadline);
+    }
+
+    // Shadow-mode Squeegee integration: read-only preparation after an
+    // accepted booking. It must not change email, XP or confirmation results.
+    try {
+      await timed("readOnlyStage", () =>
+        stageWithoutBlockingBooking(payload, { channel: "email" }));
+    } catch (_) {
+      console.warn("Read-only Squeegee booking preparation unavailable");
+    }
+
+    // Preview 1 only: dispatch AFTER customer confirmation, independent
+    // audit and leaderboard. Signed receipt includes the normal admin email
+    // so the worker can send it ONLY when the Squeegee import succeeds.
+    const freshPilot=name===PILOT_NAME && isPreview1;
+    // EVERY Preview 1 booking must show whether its Squeegee dispatch
+    // was accepted. The receipt alone does not imply a job was created.
+    let squeegeePilot=null;
+    let deferredDispatchAccepted=false;
+    let dispatchFailureReason="dispatch_unavailable";
+    try {
+      const handoffStarted=Date.now();
+      const dispatched=squeegeeDispatchTask
+        ? await squeegeeDispatchTask
+        : await dispatchAcceptedBooking(payload,{
+            channel:"email",eventHost:syncHost,
+            ownerReceipt:deferAdminForAuto?ownerReceipt:null,
+          });
+      if(!squeegeeDispatchTask)
+        timings.squeegeeQueue=Date.now()-handoffStarted;
+      deferredDispatchAccepted=dispatched.queued===true;
+      dispatchFailureReason=dispatched.reason||"dispatch_unavailable";
+      if(isPreview1) {
+        squeegeePilot={
+          queued:dispatched.queued===true,
+          reason:dispatched.reason,
+        };
+        // No customer contact information is emitted in this diagnostic.
+        console.info(freshPilot?
+          "Preview 1 Fresh Sync dispatch":"Preview 1 Squeegee dispatch",{
+          bookingId:submission.bookingId,...squeegeePilot,
+        });
+      }
+      if(dispatched.reason==="dispatch_uncertain_reconcile") {
+        console.warn("Preview 1 Squeegee dispatch uncertain; do not automatically retry");
+      }
+    } catch {
+      if(isPreview1) squeegeePilot={queued:false,reason:"dispatch_unavailable"};
+      console.warn("Preview 1 Squeegee dispatch unavailable");
+    }
+    if(deferAdminForAuto && !deferredDispatchAccepted) {
+      // No accepted worker means no authoritative Squeegee outcome.
+      // Send ONE urgent/manual-review email with full booking details,
+      // never a normal "import succeeded" owner email. For a timeout the
+      // worker MAY have started; the email explicitly warns to check first.
+      let fallbackOwnerDelivery="not_sent";
+      try{
+        const uncertain=dispatchFailureReason==="dispatch_uncertain_reconcile" ||
+          dispatchFailureReason==="dispatch_not_accepted";
+        const problem=uncertain?dispatchFailureReason:
+          (dispatchFailureReason==="not_enabled"?
+            "automatic_sync_not_enabled":
+            "dispatch_unavailable");
+        const fallbackMessage=reviewOwnerMessage(problem,dispatchFailureReason);
+        const fallback=await timed("ownerReviewFallback", () =>
+          resend.emails.send(fallbackMessage||adminEmailMessage));
+        if(fallback?.error)
+          console.error("Preview 1 owner review email fallback failed",fallback.error);
+        else {
+          fallbackOwnerDelivery="sent";
+          console.info("Preview 1 owner manual review email sent after Squeegee handoff failed",{
+            bookingId:submission.bookingId,
+          });
+        }
+      }catch{
+        console.error("Preview 1 owner review email fallback delivery exception");
+      }
+      // The owner-only status page must still show the booking when the
+      // Resend review email failed or the worker handoff never succeeded.
+      // onlyIfNew prevents an uncertain dispatch from overwriting a worker.
+      await recordAutoNoDispatch({
+        reason:dispatchFailureReason,
+        ownerAlertDelivery:fallbackOwnerDelivery,
+      });
+    }
+    if(isPreview1 && !deferAdminForAuto && !deferredDispatchAccepted) {
+      // The normal owner warning was sent, but Squeegee wasn't queued.
+      // Retain a queryable record even when the owner missed that email.
+      await recordNoDispatch(submission.bookingId,{
+        reason:dispatchFailureReason,
+        ownerAlertDelivery:"sent",
+      });
+    }
+
     const durationMs = Date.now() - startedAt;
-    console.log(`Booking email completed in ${durationMs}ms`);
+    // A per-stage log allows comparison before/after caching without
+    // exposing customer records, booking identifiers or proof details.
+    console.info("Booking stage timings (ms)", JSON.stringify({
+      total: durationMs, ...timings,
+    }));
+    const serverTiming = [
+      `booking;dur=${durationMs}`,
+      ...Object.entries(timings)
+        .filter(([, ms]) => Number.isFinite(ms))
+        .map(([name, ms]) => `${name};dur=${ms}`),
+    ].join(", ");
 
     return {
       statusCode: 200,
       headers: {
         "Content-Type": "application/json",
-        "Server-Timing": `booking;dur=${durationMs}`,
+        "Server-Timing": serverTiming,
       },
       body: JSON.stringify({
         success: true,
+        bookingId: submission.bookingId,
+        submittedAt: submission.submittedAt,
+        serverReceivedAt: submission.serverReceivedAt,
         customerConfirmationSent: !customerResult?.error,
+        arcadeBookingProof: signBooking(payload),
+        arcadeRegistered: Boolean(arcadeEntry?.registered),
+        arcadePlayerToken: arcadeEntry?.playerToken || null,
+        arcadeCustomerRef: arcadeEntry?.customerRef || null,
+        arcadeTown: arcadeEntry?.town || null,
+        // Populated for all Preview 1 website bookings only.
+        // Queued means internal receipt, NOT confirmed Squeegee creation.
+        squeegeePilot,
       }),
     };
   } catch (error) {

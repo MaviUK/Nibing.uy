@@ -65,23 +65,30 @@ body {
   outline-offset: 3px;
 }
 
-/* Skip link accessibility */
+/* Keep the keyboard-only accessibility link completely above the viewport.
+   Negative top offsets can leave its last few pixels visible on Android when
+   font size or line height makes the link taller than the fixed offset. */
 .skip-link {
-  position: absolute;
-  top: -40px;
+  position: fixed;
+  top: 0;
   left: 10px;
   background: #000;
   color: #fff;
   padding: 10px 14px;
   z-index: 1000;
-  border-radius: 6px;
+  border-radius: 0;
   text-decoration: none;
-  transition: top 0.2s;
+  transform: translateY(calc(-100% - 8px));
+  transition: transform 0.2s;
 }
 
 .skip-link:focus,
 .skip-link:focus-visible {
-  top: 10px;
+  transform: translateY(10px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skip-link { transition: none; }
 }
 
 /* Global accessible focus indicators */

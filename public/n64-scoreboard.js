@@ -1,0 +1,787 @@
+/*
+ * NI Bin Guy N64 preview - optional cookie-saved arcade XP.
+ * Stores points and completed activity keys only. Never saves addresses,
+ * names, postcodes, emails, phone numbers or payment information.
+ * Local game points have no monetary or redemption value.
+ */
+(function () {
+  "use strict";
+  if (window.n64Score) return;
+
+  const COOKIE_NAME = "nbg_arcade_score_v1";
+  const EVENT_STORE = "nbg_arcade_rewards_v2";
+  const PLAYER_COOKIE_NAME = "nbg_arcade_player_v1";
+  const PLAYER_COOKIE_MAX_AGE = 90 * 24 * 60 * 60;
+  const COOKIE_MAX_AGE = 180 * 24 * 60 * 60;
+  const POINTS = Object.freeze({
+    level: 50,
+    coverage: 25,
+    binChecker: 35,
+    freeClean: 25,
+    customerPortal: 25,
+    contact: 25,
+    oneOffPerBin: 60,
+    fourWeeklyPerBin: 150,
+  });
+  const LEVELS = Object.freeze({
+    "what-we-do": 1,
+    "the-process": 2,
+    "bins-we-clean": 3,
+    "why-clean-your-bin": 4,
+    "why-ni-bin-guy": 5,
+    "areas-we-cover": 6,
+    "customer-portal": 7,
+    "level-08-final": 8,
+  });
+  const MAX_HISTORY = 8;
+  const MAX_BOOKING_KEYS = 45;
+  const MAX_LOCAL_EVENTS = 1500;
+  const permanentKeys = new Set(
+    Object.keys(LEVELS).map((id) => "l:" + id).concat(["a:coverage", "a:bin-checker"])
+  );
+
+  const DATE_FORMAT = new Intl.DateTimeFormat("en-GB",{
+    timeZone:"Europe/London",year:"numeric",month:"2-digit",day:"2-digit",
+  });
+  function ukDate() {
+    const parts=Object.fromEntries(DATE_FORMAT.formatToParts(new Date())
+      .map(p=>[p.type,p.value]));
+    return parts.year+"-"+parts.month+"-"+parts.day;
+  }
+  function validPeriodEvent(item) {
+    return item && typeof item.key==="string" &&
+      /^(?:l:[a-z0-9-]+@\d{4}-\d{2}|a:(?:free-clean|contact|customer-portal)@\d{4}-\d{2}-\d{2})$/.test(item.key) &&
+      typeof item.at==="string" && Number.isFinite(Date.parse(item.at));
+  }
+  function readPeriodEvents(fallback) {
+    try {
+      const data=JSON.parse(localStorage.getItem(EVENT_STORE)||"null");
+      if(Array.isArray(data))return data.filter(validPeriodEvent).slice(-MAX_LOCAL_EVENTS);
+    }catch(_){}
+    return (Array.isArray(fallback)?fallback:[]).filter(validPeriodEvent).slice(-MAX_LOCAL_EVENTS);
+  }
+  function persistPeriodEvents() {
+    try {
+      localStorage.setItem(EVENT_STORE,JSON.stringify(periodEvents.slice(-MAX_LOCAL_EVENTS)));
+    }catch(_){}
+  }
+
+  function readCookie() {
+    try {
+      const entry = document.cookie
+        .split("; ")
+        .find((part) => part.startsWith(COOKIE_NAME + "="));
+      if (!entry) return null;
+      const value = JSON.parse(decodeURIComponent(entry.slice(COOKIE_NAME.length + 1)));
+      if (!value || ![1,2].includes(value.v) || !Number.isSafeInteger(value.xp) || value.xp < 0) return null;
+      if (!Array.isArray(value.claimed)) return null;
+      return {
+        xp: Math.min(value.xp, 100000000),
+        periodic: Array.isArray(value.periodic)?value.periodic:[],
+        claimed: value.claimed.filter((key) => typeof key === "string" && /^[a-z0-9:._-]{1,80}$/i.test(key)).slice(-100),
+        history: Array.isArray(value.history)
+          ? value.history.filter((item) => Array.isArray(item) && typeof item[0] === "string"
+              && Number.isSafeInteger(item[1])).slice(0, MAX_HISTORY)
+          : [],
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // This cookie contains only a signed pseudonymous player reference.
+  // It is created after an explicit, verified booking + prize opt-in.
+  function readPlayerCookie() {
+    const entry = document.cookie.split("; ")
+      .find((part) => part.startsWith(PLAYER_COOKIE_NAME + "="));
+    if (!entry) return null;
+    const token = decodeURIComponent(entry.slice(PLAYER_COOKIE_NAME.length + 1));
+    return token.length < 700 && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token) ? token : null;
+  }
+
+  const stored = readCookie();
+  let saved = Boolean(stored);
+  let xp = stored ? stored.xp : 0;
+  let claimed = new Set(stored ? stored.claimed : []);
+  let history = stored ? stored.history : [];
+  let periodEvents = readPeriodEvents(stored?.periodic);
+  let accountTotal = null;
+  let accountCustomerRef = null;
+  // This is server-confirmed, per-customer progress (never copied into the
+  // anonymous cookie or into another customer's phone history).
+  let accountAchievementMode = "loading";
+  let accountAchievementMonth = null;
+  let accountAchievementDay = null;
+  let accountEarnedKeys = new Set();
+  let accountRefreshPending = false;
+  let accountRefreshQueued = false;
+  let accountRevision = 0;
+  let accountLastCheck = 0;
+  let accountSyncTimer = null;
+  let root, scoreNode, recentNode, historyNode, savedNode, saveButton, resetButton;
+  let refreshQueued = false;
+  let playerToken = readPlayerCookie();
+  let recoveryAttempted = false;
+  let progressTimer = null;
+  let progressSyncing = false;
+  let progressSyncAgain = false;
+  let boardNode, boardNote;
+
+  function deleteCookie() {
+    try {
+      document.cookie = COOKIE_NAME + "=; Path=/; Max-Age=0; SameSite=Lax"
+        + (location.protocol === "https:" ? "; Secure" : "");
+    } catch (_) {}
+  }
+
+  function writePlayerCookie() {
+    if (!playerToken) return;
+    document.cookie = PLAYER_COOKIE_NAME + "=" + encodeURIComponent(playerToken)
+      + "; Path=/; Max-Age=" + PLAYER_COOKIE_MAX_AGE + "; SameSite=Lax"
+      + (location.protocol === "https:" ? "; Secure" : "");
+  }
+
+  function deletePlayerCookie() {
+    document.cookie = PLAYER_COOKIE_NAME + "=; Path=/; Max-Age=0; SameSite=Lax"
+      + (location.protocol === "https:" ? "; Secure" : "");
+  }
+
+  function writeCookie() {
+    if (!saved) return;
+    try {
+      const keep = [...claimed].filter((key) => permanentKeys.has(key));
+      const bookingKeys = [...claimed].filter((key) => key.startsWith("b:")).slice(-MAX_BOOKING_KEYS);
+      const privateKeys = [...claimed].filter((key) => key.startsWith("o:")).slice(-MAX_BOOKING_KEYS);
+      const value = encodeURIComponent(JSON.stringify({
+        v: 2,
+        xp,
+        periodic:periodEvents.slice(-12),
+        claimed: keep.concat(bookingKeys, privateKeys),
+        history: history.slice(0, MAX_HISTORY),
+      }));
+      document.cookie = COOKIE_NAME + "=" + value + "; Path=/; Max-Age=" + COOKIE_MAX_AGE
+        + "; SameSite=Lax" + (location.protocol === "https:" ? "; Secure" : "");
+    } catch (error) {
+      console.warn("Could not save arcade score on this device:", error);
+    }
+  }
+
+  function paint() {
+    if (!root) return;
+    scoreNode.textContent = (accountTotal === null ? xp : accountTotal).toLocaleString("en-GB");
+    if (history.length) {
+      recentNode.textContent = "+" + history[0][1] + " XP  " + history[0][0];
+    } else {
+      recentNode.textContent = "Complete a level to earn XP";
+    }
+    historyNode.replaceChildren();
+    for (const [label, points] of history.slice(0, 5)) {
+      const line = document.createElement("li");
+      const title = document.createElement("span");
+      title.textContent = label;
+      const value = document.createElement("strong");
+      value.textContent = "+" + points;
+      line.appendChild(title);
+      line.appendChild(value);
+      historyNode.appendChild(line);
+    }
+    savedNode.textContent = accountTotal !== null
+      ? "Verified account total: Squeegee cleaning XP + website rewards."
+      : saved
+        ? "Your local website XP is saved on this device. Sign in to combine it with cleaning rewards."
+        : "XP lasts this visit. Choose Save XP to remember it on this device.";
+    saveButton.hidden = saved || accountTotal !== null;
+    resetButton.hidden = accountTotal !== null || (!saved && !xp && !claimed.size);
+  }
+
+  function redraw() {
+    if (!root || refreshQueued) return;
+    refreshQueued = true;
+    requestAnimationFrame(() => {
+      refreshQueued = false;
+      paint();
+    });
+  }
+
+  function award(key, points, label) {
+    if (typeof key !== "string" || !/^[a-z0-9:._-]{1,80}$/i.test(key)) return false;
+    if (!Number.isSafeInteger(points) || points <= 0 || points > 30000) return false;
+    if (claimed.has(key)) return false;
+    claimed.add(key);
+    xp = Math.min(xp + points, 100000000);
+    history = [[label, points], ...history].slice(0, MAX_HISTORY);
+    writeCookie();
+    redraw();
+    window.dispatchEvent(new Event("n64:score-updated"));
+    scheduleProgressSync();
+    scheduleAccountSync();
+    return true;
+  }
+
+  function awardPeriod(key,points,label) {
+    // Do not award while checking whether this phone belongs to a customer
+    // who already completed the task on another device.
+    if(accountAchievementMode==="loading")return false;
+    if(accountAchievementMode==="verified"&&accountEarnedKeys.has(key))
+      return false;
+    if(periodEvents.some(x=>x.key===key))return false;
+    if(!Number.isSafeInteger(points)||points<=0||points>1000)return false;
+    saved=true;
+    periodEvents.push({key,at:new Date().toISOString()});
+    periodEvents=periodEvents.slice(-MAX_LOCAL_EVENTS);
+    persistPeriodEvents();
+    xp=Math.min(xp+points,100000000);
+    history=[[label,points],...history].slice(0,MAX_HISTORY);
+    writeCookie();
+    redraw();
+    window.dispatchEvent(new Event("n64:score-updated"));
+    scheduleAccountSync();
+    return true;
+  }
+  const LEVEL_SEQUENCE=Object.keys(LEVELS);
+  function levelStatus(sectionId){
+    const level=LEVELS[String(sectionId||"")];
+    if(!level)return "unknown";
+    if(accountAchievementMode==="loading")return "pending";
+    const month=ukDate().slice(0,7);
+    // If a tab remained open into a new month, refresh verified eligibility
+    // before trying to award any XP for that month.
+    if(accountAchievementMode==="verified"&&accountAchievementMonth!==month)
+      return "pending";
+    const earned=id=>{
+      const key="l:"+id+"@"+month;
+      return (accountAchievementMode==="verified"&&accountEarnedKeys.has(key))||
+        periodEvents.some(e=>e.key===key);
+    };
+    if(earned(sectionId))return "earned";
+    const unlocked=LEVEL_SEQUENCE.slice(0,level-1).every(earned);
+    return unlocked?"ready":"locked";
+  }
+  function awardLevel(sectionId) {
+    if(levelStatus(sectionId)!=="ready")return false;
+    const level=LEVELS[String(sectionId||"")];
+    return awardPeriod("l:"+sectionId+"@"+ukDate().slice(0,7),
+      POINTS.level,"Level "+String(level).padStart(2,"0")+" completed");
+  }
+  function awardAction(name) {
+    if(accountAchievementMode==="loading")return false;
+    if(name==="coverage" || name==="bin-checker"){
+      const key="a:"+name;
+      if(accountAchievementMode==="verified"&&accountEarnedKeys.has(key))
+        return false;
+      return award(key,name==="coverage"?POINTS.coverage:POINTS.binChecker,
+        name==="coverage"?"Checked service area":"Checked bin collection day");
+    }
+    const daily={
+      "free-clean":[POINTS.freeClean,"Played Free Bin Clean"],
+      "customer-portal":[POINTS.customerPortal,"Visited customer portal"],
+      "contact":[POINTS.contact,"Opened Contact Us"],
+    };
+    const selected=daily[name];
+    return selected ? awardPeriod("a:"+name+"@"+ukDate(),
+      selected[0],selected[1]) : false;
+  }
+
+  function awardBooking(submissionId, bins) {
+    if (typeof submissionId !== "string" || !/^[a-z0-9_-]{6,90}$/i.test(submissionId) || !Array.isArray(bins)) return false;
+    let total = 0;
+    let binCount = 0;
+    for (const bin of bins.slice(0, 30)) {
+      if (!bin || typeof bin.type !== "string" || !bin.type.trim()) continue;
+      const count = Math.min(100, Math.max(0, Math.floor(Number(bin.count) || 0)));
+      if (!count) continue;
+      const plan = String(bin.planId || "");
+      if (plan.endsWith("_oneoff")) total += count * POINTS.oneOffPerBin;
+      else if (plan.endsWith("_4w")) total += count * POINTS.fourWeeklyPerBin;
+      else continue;
+      binCount += count;
+    }
+    if (!total || !binCount) return false;
+    // Only a random submission reference is retained, never the customer's details.
+    const key = "b:" + submissionId.slice(-24).toLowerCase();
+    // Once a booking is confirmed, save the XP and random booking reference
+    // automatically. It is needed to restore an entry after a brief outage.
+    saved = true;
+    const earned = award(key, Math.min(total, 30000), "Booking sent: " + binCount + " bin" + (binCount === 1 ? "" : "s"));
+    writeCookie();
+    redraw();
+    return earned;
+  }
+
+
+  function applyAchievementState(account){
+    let mode="guest",month=null,day=null,keys=new Set();
+    if(account){
+      mode="loading"; // Fail closed until the verified ledger is available.
+      const record=account.achievementState;
+      if(record&&typeof record==="object"&&
+         record.month===ukDate().slice(0,7)&&
+         record.day===ukDate()&&Array.isArray(record.earnedKeys)&&
+         record.earnedKeys.length<=200){
+        mode="verified";
+        month=record.month;
+        day=record.day;
+        keys=new Set(record.earnedKeys.filter(key=>
+          typeof key==="string"&&
+          /^(?:l:[a-z0-9-]+@\d{4}-\d{2}|a:[a-z-]+(?:@\d{4}-\d{2}-\d{2})?)$/.test(key)));
+      }
+    }
+    const changed=mode!==accountAchievementMode ||
+      month!==accountAchievementMonth ||
+      day!==accountAchievementDay ||
+      keys.size!==accountEarnedKeys.size ||
+      [...keys].some(key=>!accountEarnedKeys.has(key));
+    accountAchievementMode=mode;
+    accountAchievementMonth=month;
+    accountAchievementDay=day;
+    accountEarnedKeys=keys;
+    if(changed){
+      window.dispatchEvent(new Event("n64:achievement-state-changed"));
+    }
+  }
+
+  // The verified customer session is HttpOnly. The badge never guesses an
+  // account from a public leaderboard name or the unsigned website cookie.
+  // Customer HQ is the authority for the combined score. Ignore any
+  // previously started account lookup that finishes after a newer verified
+  // login or logout event. This prevents an older guest response replacing
+  // the correctly signed-in badge on slower mobile connections.
+  function publishVerifiedTotal(){
+    if(!Number.isSafeInteger(accountTotal)||accountTotal<0)return;
+    window.dispatchEvent(new CustomEvent("n64:verified-total",{
+      detail:{points:accountTotal,customerReference:accountCustomerRef},
+    }));
+  }
+  async function refreshAccountTotal(force=false) {
+    if (accountRefreshPending) {
+      if (force) accountRefreshQueued = true;
+      return;
+    }
+    if (!force && Date.now()-accountLastCheck<15000) return;
+    accountRefreshPending = true;
+    accountLastCheck = Date.now();
+    const requestRevision = accountRevision;
+    try {
+      const response = await fetch("/api/customer-hq", {
+        method: "GET",cache: "no-store",credentials: "same-origin",
+      });
+      if (!response.ok) throw new Error("account_request_failed");
+      const data=await response.json();
+      if (accountRevision !== requestRevision) return;
+      const fresh=data?.authenticated===true &&
+        Number.isSafeInteger(data.account?.points) &&
+        data.account.points>=0 ? data.account : null;
+      if(!fresh){
+        accountTotal=null;
+        accountCustomerRef=null;
+        applyAchievementState(null);
+        redraw();
+        return;
+      }
+      const ref=typeof fresh.customerReference==="string"?
+        fresh.customerReference:null;
+      // The server is authoritative, including when a duplicate award is
+      // removed and the correct XP balance DECREASES. The request revision
+      // above protects against responses from a previous login.
+      const changed=accountTotal!==fresh.points || accountCustomerRef!==ref;
+      accountTotal=fresh.points;
+      accountCustomerRef=ref;
+      applyAchievementState(fresh);
+      redraw();
+      if(changed)publishVerifiedTotal();
+    } catch (_) {
+      // Network failures leave a previously verified total intact.
+      if(accountTotal===null)redraw();
+    } finally {
+      accountRefreshPending = false;
+      if(accountRefreshQueued){
+        accountRefreshQueued=false;
+        void refreshAccountTotal(true);
+      }
+    }
+  }
+  function scheduleAccountSync() {
+    if(accountTotal===null)return;
+    if(accountSyncTimer)window.clearTimeout(accountSyncTimer);
+    accountSyncTimer=window.setTimeout(async()=>{
+      accountSyncTimer=null;
+      try {
+        // Booking points are NOT accepted here. Those still require the
+        // original signed, successful booking and immutable UUID link.
+        const latest=periodEvents.slice(-25);
+        const response=await fetch("/api/customer-hq",{
+          method:"POST",cache:"no-store",credentials:"same-origin",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({action:"sync-website-xp",
+            claimed:[...claimed].filter(k=>permanentKeys.has(k)),events:latest}),
+        });
+        if(response.ok) {
+          await refreshAccountTotal(true);
+          window.dispatchEvent(new Event("n64:leaderboard-updated"));
+        } else if(response.status===401) {
+          accountTotal=null;redraw();
+        }
+      }catch(_) { /* Local awards remain available for the next sign-in. */ }
+    },1450);
+  }
+
+  // Debounced: several points earned together trigger one server update.
+  // The signed token never exposes name, email, address or phone.
+  function scheduleProgressSync() {
+    if (!playerToken) return;
+    if (progressTimer) window.clearTimeout(progressTimer);
+    progressTimer = window.setTimeout(() => {
+      progressTimer = null;
+      void syncProgress();
+    }, 1200);
+  }
+
+  async function syncProgress() {
+    if (!playerToken) return;
+    if (progressSyncing) { progressSyncAgain = true; return; }
+    progressSyncing = true;
+    const token = playerToken;
+    try {
+      const response = await fetch("/.netlify/functions/arcadeLeaderboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync", playerToken: token, claimed: [...claimed] }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 401 || response.status === 403) {
+        if (playerToken === token) {
+          playerToken = null;
+          deletePlayerCookie();
+          if (boardNote) boardNote.textContent = "XP session expired. Your local XP remains saved.";
+        }
+        return;
+      }
+      if (!response.ok) throw new Error(data.error || "XP sync failed");
+      if (data.changed) {
+        window.dispatchEvent(new Event("n64:leaderboard-updated"));
+      }
+    } catch (_) {
+      // Offline browsers retain the XP cookie; resync on next connection.
+      if (boardNote) boardNote.textContent = "Offline: local XP saved; global XP will sync when connected.";
+    } finally {
+      progressSyncing = false;
+      if (progressSyncAgain) {
+        progressSyncAgain = false;
+        scheduleProgressSync();
+      }
+    }
+  }
+
+  async function refreshLeaderboard() {
+    if (!boardNode) return;
+    try {
+      const response = await fetch("/.netlify/functions/arcadeLeaderboard", {cache:"no-store"});
+      if (!response.ok) throw new Error("Leaderboard unavailable");
+      const data = await response.json();
+      const top = Array.isArray(data.entries) ? data.entries.slice(0,10) : [];
+      boardNode.replaceChildren();
+      if (!top.length) {
+        const li = document.createElement("li");
+        li.textContent = data.status === "eligibility_pending"
+          ? "Verified email accounts being prepared…"
+          : data.status === "consent_pending"
+          ? "Customer permissions pending…"
+          : "No players yet — be the first!";
+        boardNode.appendChild(li);
+      }
+      top.forEach((item) => {
+        const li = document.createElement("li");
+        const name = document.createElement("a");
+        name.href = "/customer-hq?ntl-drawer-state=hidden";
+        name.title = "Sign in to view your own private points history";
+        name.style.color = "inherit";
+        name.style.textDecoration = "underline";
+        name.textContent = item.rank + ". " + String(item.displayName || item.customerRef || "Player") + " · " + String(item.town || "Town unavailable");
+        const score = document.createElement("strong");
+        score.textContent = Number(item.points || 0).toLocaleString("en-GB") + " XP";
+        li.append(name,score);
+        boardNode.appendChild(li);
+      });
+      boardNote.textContent = data.status === "eligibility_pending"
+        ? "A verified registered email is required to join. Customer history is being imported privately; no personal details are public."
+        : data.status === "consent_only" || data.status === "consent_pending"
+        ? "Only customers with a registered email and recorded publication permission appear by first name and town. Squeegee references and contact details remain private."
+        : data.sourceAsOf
+        ? "Squeegee active-account snapshot: " + data.sourceAsOf + ". Streak: 20 points first paid clean, +2 each consecutive visit; a recorded skip resets the next bonus. Website XP joins after account verification. No names or addresses."
+        : "Public: customer reference, town and XP only. No names or addresses.";
+    } catch (_) { boardNote.textContent = "Leaderboard currently unavailable. Your XP remains on this device."; }
+  }
+
+  function bookingKey(id) {
+    if (typeof id !== "string" || !/^[a-z0-9_-]{6,90}$/i.test(id)) return "";
+    return id.slice(-24).toLowerCase();
+  }
+
+  function keepBookingPrivate(id) {
+    const key = bookingKey(id);
+    if (!key) return;
+    claimed.add("o:" + key);
+    // Preserve their opt-out alongside the booking points so a later page
+    // visit cannot mistakenly recover this booking onto the public board.
+    saved = true;
+    writeCookie();
+  }
+
+  function attachPlayerToken(token) {
+    if (typeof token !== "string" || token.length > 700 ||
+        !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)) return false;
+    playerToken = token;
+    writePlayerCookie();
+    saved = true;
+    writeCookie();
+    redraw();
+    window.dispatchEvent(new Event("n64:score-updated"));
+    window.dispatchEvent(new Event("n64:leaderboard-updated"));
+    scheduleProgressSync();
+    return true;
+  }
+
+  // No "Join" button. The server inserts the entry when the booking succeeds.
+  // A client-side retry is automatic if the server was briefly unavailable.
+  async function registerEntry(proof) {
+    if (typeof proof !== "string" || !proof.includes(".")) {
+      throw new Error("This booking could not be linked to its XP.");
+    }
+    const response = await fetch("/.netlify/functions/arcadeLeaderboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingProof: proof, consent: true, claimed: [...claimed] }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !attachPlayerToken(data.playerToken)) {
+      throw new Error(data.error || "The leaderboard is temporarily unavailable.");
+    }
+    return data;
+  }
+
+  function onBookingConfirmed(result, optOut, submissionId) {
+    if (optOut === true) {
+      keepBookingPrivate(submissionId);
+      return;
+    }
+    if (result?.arcadePlayerToken && attachPlayerToken(result.arcadePlayerToken)) return;
+    if (typeof result?.arcadeBookingProof === "string") {
+      void registerEntry(result.arcadeBookingProof).catch(() => {
+        // Booking points stay on the phone. Future page loads also attempt
+        // recovery using the random booking reference saved in its XP cookie.
+      });
+    }
+  }
+
+  // Backward compatibility with older preview screens, without displaying
+  // their obsolete "Join Leaderboard" opt-in panel.
+  function offerEntry(proof) {
+    onBookingConfirmed({ arcadeBookingProof: proof }, false, "");
+  }
+
+  // Existing preview bookings have a random booking reference in the XP
+  // cookie. Resolve it against a previously confirmed booking on the server,
+  // then enrol this same visitor automatically without another booking.
+  async function recoverExistingBookings() {
+    if (playerToken || recoveryAttempted) return;
+    recoveryAttempted = true;
+    const previous = [...claimed]
+      .filter((key) => key.startsWith("b:") && !claimed.has("o:" + key.slice(2)))
+      .slice(-3).reverse();
+    for (const key of previous) {
+      if (playerToken) break;
+      try {
+        const response = await fetch("/.netlify/functions/arcadeRecoverBooking", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bookingId: key.slice(2), claimed: [...claimed],
+          }),
+        });
+        if (!response.ok) continue;
+        const result = await response.json();
+        if (attachPlayerToken(result.playerToken)) break;
+      } catch (_) {
+        // Do not block the page or erase the existing local XP.
+      }
+    }
+  }
+
+
+  function buildHud() {
+    if (root || !document.body) return;
+    // Do not overlay the administrative, account or callback screens.
+    if (!["/", "/street-booking"].includes(location.pathname.replace(/\/$/, "") || "/")) return;
+    // This stylesheet is noncritical: loading it after the DOM is ready keeps
+    // the homepage renderable even if a mobile browser delays this asset.
+    if (!document.querySelector('link[data-n64-score-style]')) {
+      const scoreStyle = document.createElement("link");
+      scoreStyle.rel = "stylesheet";
+      scoreStyle.href = "/n64-scoreboard.css?v=4";
+      scoreStyle.dataset.n64ScoreStyle = "true";
+      document.head.appendChild(scoreStyle);
+    }
+
+    root = document.createElement("aside");
+    root.className = "n64-score-hud";
+    root.setAttribute("aria-label", "NI Bin Guy arcade score");
+    root.innerHTML = [
+      '<button type="button" class="n64-score-backdrop" aria-label="Close score panel" hidden></button>',
+      '<button type="button" class="n64-score-toggle" aria-expanded="false" aria-controls="n64-score-details">',
+      '<span aria-hidden="true">★</span> <strong data-n64-score>0</strong><small>XP</small></button>',
+      '<div class="n64-score-panel" id="n64-score-details" role="dialog" aria-modal="true" aria-labelledby="n64-score-heading-label" hidden>',
+      '<div class="n64-score-heading"><strong id="n64-score-heading-label">★ PLAYER SCORE</strong><button type="button" class="n64-score-close" aria-label="Close scoreboard">×</button></div>',
+      '<div class="n64-score-earned" aria-live="polite"></div>',
+      '<section class="n64-board"><strong>🏆 GLOBAL LEADERBOARD</strong><ol class="n64-board-list"><li>Loading scores…</li></ol><p class="n64-board-note"></p></section>',
+      '<p class="n64-score-hint">Levels +50 each/month • Free Clean / Portal / Contact +25 daily</p>',
+      '<p class="n64-score-hint">Bin day +35 once • One-off +60/bin • 4-weekly +150/bin</p>',
+      '<ol class="n64-score-history"></ol>',
+      '<p class="n64-score-persistence"></p>',
+      '<div class="n64-score-controls"><button type="button" class="n64-score-save">Save XP (cookie)</button><button type="button" class="n64-score-reset">Reset score</button></div>',
+      '<p class="n64-score-legal">Device XP is saved locally. After secure customer sign-in, this star shows cleaning + website XP from your verified account. Your private cleaning history is never shown publicly.</p>',
+      '</div>',
+    ].join("");
+
+    const toggle = root.querySelector(".n64-score-toggle");
+    const panel = root.querySelector(".n64-score-panel");
+    const backdrop = root.querySelector(".n64-score-backdrop");
+    const closeButton = root.querySelector(".n64-score-close");
+    scoreNode = root.querySelector("[data-n64-score]");
+    boardNode = root.querySelector(".n64-board-list");
+    boardNote = root.querySelector(".n64-board-note");
+    recentNode = root.querySelector(".n64-score-earned");
+    historyNode = root.querySelector(".n64-score-history");
+    savedNode = root.querySelector(".n64-score-persistence");
+    saveButton = root.querySelector(".n64-score-save");
+    resetButton = root.querySelector(".n64-score-reset");
+
+    function setOpen(open) {
+      panel.hidden = !open;
+      backdrop.hidden = !open;
+      root.classList.toggle("n64-score-open", open);
+      toggle.setAttribute("aria-expanded", String(open));
+      if (open) {
+        panel.scrollTop = 0;
+        // The close control remains sticky even when the score list scrolls.
+        closeButton.focus({ preventScroll: true });
+        void refreshLeaderboard();
+      } else {
+        toggle.focus({ preventScroll: true });
+      }
+    }
+
+    toggle.addEventListener("click", () => setOpen(panel.hidden));
+    closeButton.addEventListener("click", () => setOpen(false));
+    backdrop.addEventListener("click", () => setOpen(false));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !panel.hidden) {
+        event.preventDefault();
+        setOpen(false);
+      }
+    });
+    saveButton.addEventListener("click", () => {
+      saved = true;
+      writeCookie();
+      paint();
+    });
+    resetButton.addEventListener("click", () => {
+      deleteCookie();
+      deletePlayerCookie();
+      playerToken = null;
+      if (progressTimer) window.clearTimeout(progressTimer);
+      progressTimer = null;
+      saved = false;
+      xp = 0;
+      claimed = new Set();
+      history = [];
+      periodEvents=[];
+      try{localStorage.removeItem(EVENT_STORE);}catch(_){}
+      paint();
+      window.dispatchEvent(new Event("n64:score-updated"));
+    });
+    document.body.appendChild(root);
+    paint();
+    window.dispatchEvent(new Event("n64:score-updated"));
+    refreshLeaderboard();
+    // Register the verified-account listener BEFORE fetching, so neither
+    // a quick login nor a slow response can leave the star on local XP.
+    window.addEventListener("n64:request-verified-total",publishVerifiedTotal);
+    window.addEventListener("n64:account-score",(event)=>{
+      if(!event?.detail || !Object.prototype.hasOwnProperty.call(event.detail,"points"))return;
+      accountRevision+=1;
+      const total=event.detail.points;
+      const ref=typeof event.detail.customerReference==="string"?
+        event.detail.customerReference:null;
+      if(!Number.isSafeInteger(total)||total<0){
+        accountTotal=null;
+        accountCustomerRef=null;
+        applyAchievementState(null);
+      }else{
+        // Verified Customer HQ can also report a corrected LOWER total.
+        accountTotal=total;
+        if(accountCustomerRef!==ref || event.detail.achievementState)
+          applyAchievementState({
+            achievementState:event.detail.achievementState,
+          });
+        accountCustomerRef=ref;
+      }
+      accountLastCheck=Date.now();
+      redraw();
+      if(accountRefreshPending)accountRefreshQueued=true;
+    });
+    void refreshAccountTotal(true);
+    window.addEventListener("online", scheduleProgressSync);
+    window.addEventListener("pageshow",()=>{
+      scheduleProgressSync();
+      void refreshAccountTotal();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        scheduleProgressSync();
+        // Fetch also when the month/day has rolled over, even if the
+        // ordinary 15-second refresh throttle has not elapsed.
+        void refreshAccountTotal(
+          accountAchievementMode==="verified"&&
+          (accountAchievementMonth!==ukDate().slice(0,7)||
+            accountAchievementDay!==ukDate())
+        );
+      }
+    });
+    window.setInterval(() => {
+      if (!panel.hidden && document.visibilityState === "visible") void refreshLeaderboard();
+      if(document.visibilityState==="visible"&&
+         accountAchievementMode==="verified"){
+        // Another phone can earn XP while this one remains open.
+        // Recheck verified progress roughly every 15 seconds.
+        const periodChanged=accountAchievementMonth!==ukDate().slice(0,7)||
+          accountAchievementDay!==ukDate();
+        void refreshAccountTotal(periodChanged);
+      }
+    }, 15000);
+    if (playerToken) scheduleProgressSync();
+    else window.setTimeout(recoverExistingBookings, 1100);
+  }
+
+  window.n64Score = Object.freeze({
+    awardLevel,
+    levelStatus,
+    awardAction,
+    awardBooking,
+    offerEntry,
+    registerEntry,
+    attachPlayerToken,
+    onBookingConfirmed,
+    keepBookingPrivate,
+    activityKeys: () => [...claimed].filter(key => permanentKeys.has(key)),
+    activityEvents: () => periodEvents.map(e=>({key:e.key,at:e.at})),
+    points: () => accountTotal === null ? xp : accountTotal,
+    isRegistered: () => Boolean(playerToken),
+    rules: POINTS,
+  });
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", buildHud, { once: true });
+  } else {
+    buildHud();
+  }
+})();

@@ -1,59 +1,11 @@
 const crypto = require("crypto");
 const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
+const fs = require("node:fs");
+const path = require("node:path");
 
-const DEFAULT_TERMS_BODY = `We keep our Terms of Service simple and transparent. By booking or receiving a bin clean from Ni Bin Guy, you agree to:
-
-1) Service & Contracts
-- Regular 4-weekly plans are based on a 13-clean minimum term, which is approximately 12 months, unless agreed otherwise.
-- One-off cleans have no minimum term.
-- Each bin is treated separately; adding another bin may start a new agreement for that bin.
-- Bookings and plans are not transferable without our agreement.
-
-2) Bin Availability
-- Bins must be left out or made accessible on the scheduled cleaning day and must remain available until 8pm.
-- If your bin is not available when we attend, or access is blocked, the clean may still be charged.
-- If we are unable to attend on the scheduled day, we will notify you and rearrange the clean as soon as reasonably possible.
-- We may be unable to clean if the bin has not been emptied by the council, is too heavy to move safely, or contains unsafe or excessive waste.
-
-3) Cancellations & Minimum Term
-- One-off cleans may be cancelled up to 24 hours before the scheduled clean day without charge.
-- If a one-off clean is cancelled with less than 24 hours notice, or the bin is not available when we attend, the clean may still be charged in full.
-- A 4-weekly plan may be cancelled any time up to 24 hours before the second scheduled clean. If cancelled before the second clean, the first clean will be charged at the standard one-off clean price, and any difference between the 4-weekly price and one-off price will become payable.
-- After the second clean, the 4-weekly plan continues for the full 13-clean minimum term.
-- If the customer cancels before the end of the 13-clean minimum term, they will remain liable for the outstanding balance for the remaining cleans within the 12-month minimum term.
-- After the 13-clean minimum term has been completed, the plan continues on a rolling basis and may be cancelled by giving at least 30 days notice.
-
-4) One-Off Cleans & Animal Waste
-- One-off cleans containing dog faeces, cat litter, animal bedding, or other animal faeces/waste will incur a GBP 5 surcharge per affected bin.
-- We may refuse to clean bins containing excessive animal waste, hazardous waste, sharp items, medical waste, chemicals, paint, oil, rubble, hot ashes, or anything unsafe.
-
-5) Cleaning Process
-- Bins are cleaned inside and outside where safe using pressurised water and detergent.
-- Some stains, ingrained smells, paint, tar, or long-term residue may take multiple visits or may not fully remove.
-- Any loosened waste may be bagged and left in your bin for disposal.
-- Please keep at least 5 metres away during cleaning.
-
-6) Payments
-- Payment is due within 7 days of each clean unless agreed otherwise.
-- Accepted payment methods are Direct Debit, Bank Transfer, and Card. No cash.
-- Cancelling a Direct Debit does not cancel your service or contract. Cancellation must be requested directly with Ni Bin Guy.
-- If a 4-weekly plan is cancelled early, any outstanding balance due under the minimum term may still be payable.
-- Overdue accounts may result in service being stopped and may be referred for recovery.
-
-7) Customer Responsibilities
-- Please keep your contact details, address, and payment details up to date.
-- Please tell us in advance if your bin will not be available.
-- Please make sure gates are unlocked, access is safe, and pets are secured where needed.
-- We have zero tolerance for abuse, threats, or harassment toward staff, including online abuse.
-
-8) Other Terms
-- We may place a small sticker or service tag on your bin.
-- Discounts are discretionary and may be withdrawn or changed.
-- Prices may change outside of any agreed fixed term.
-
-9) Data & Communication
-- You consent to us storing your details and contacting you about your booking, schedule, payment, and service.
-- Text reminders are a courtesy only. You remain responsible for knowing your scheduled clean date.`;
+const TERMS_DOC = require("../../../src/data/bookingTerms.json");
+const DEFAULT_TERMS_BODY = TERMS_DOC.body;
+const { fillPreparedTermsMaster } = require("./preparedTermsPdf");
 
 const BRAND = {
   black: rgb(0.02, 0.02, 0.02),
@@ -147,6 +99,7 @@ function buildHash(data) {
     address: data.address || "",
     binsText: data.binsText || "",
     pricingText: data.pricingText || "",
+    annualBreakdownText: data.annualBreakdownText || "",
     termsAccepted: !!data.termsAccepted,
     termsVersion: data.termsVersion || "",
     termsAcceptanceText: data.termsAcceptanceText || "",
@@ -157,18 +110,45 @@ function buildHash(data) {
   return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
+// The exact existing NI Bin Guy brand image is packed into the functions
+// that generate signed agreements. Never issue a live HTTP request while
+// building a booking certificate. Memoize across warm function invocations.
+let bundledLogoBytes;
+function getBundledLogoBytes() {
+  if (bundledLogoBytes !== undefined) return bundledLogoBytes;
+  const candidates = [
+    path.resolve(process.cwd(), "public/logo.png"),
+    path.resolve(__dirname, "../../../public/logo.png"),
+    path.resolve(__dirname, "public/logo.png"),
+  ];
+  for (const filename of candidates) {
+    try {
+      const bytes = fs.readFileSync(filename);
+      if (bytes.length > 8 &&
+          bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+        bundledLogoBytes = bytes;
+        return bytes;
+      }
+    } catch (error) {
+      if (error?.code !== "ENOENT") {
+        console.warn("Local terms logo unavailable:", error?.code || "read_error");
+      }
+    }
+  }
+  bundledLogoBytes = null; // Fallback: retain a complete text-only agreement.
+  return null;
+}
+
 async function tryEmbedLogo(pdfDoc) {
   try {
-    const response = await fetch("https://nibing.uy/logo.png");
-    if (!response.ok) return null;
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    return await pdfDoc.embedPng(bytes);
+    const bytes = getBundledLogoBytes();
+    return bytes ? await pdfDoc.embedPng(bytes) : null;
   } catch (_) {
     return null;
   }
 }
 
-async function buildTermsAcceptancePdfAttachment(data) {
+async function buildTermsAcceptancePdfAttachmentLegacy(data) {
   const termsBody = data.termsBody || DEFAULT_TERMS_BODY;
   const verificationHash = data.verificationHash || buildHash({ ...data, termsBody });
 
@@ -302,6 +282,11 @@ async function buildTermsAcceptancePdfAttachment(data) {
   drawWrapped(data.binsText || "(none provided)", { size: 10, bold: true });
   y -= 6;
   drawWrapped(data.pricingText || "Pricing not provided.", { size: 10 });
+  if (data.annualBreakdownText) {
+    y -= 4;
+    section("Annual cost breakdown - 13 cleans");
+    drawWrapped(data.annualBreakdownText, { size: 9, lineGap: 13 });
+  }
 
   if (y < 220) addPage(false);
   section("Verification");
@@ -334,7 +319,32 @@ async function buildTermsAcceptancePdfAttachment(data) {
   };
 }
 
+// The fixed, branded September 2026 master is produced once at build time.
+ // Only personal details and the hash are stamped per request. If an unusual
+ // booking cannot fit the reserved spaces, or a stale/missing template appears,
+ // retain the complete original generator rather than lose any legal text.
+async function buildTermsAcceptancePdfAttachment(data) {
+  const actualTerms = data.termsBody || DEFAULT_TERMS_BODY;
+  if (actualTerms !== DEFAULT_TERMS_BODY ||
+      (data.termsVersion && data.termsVersion !== TERMS_DOC.version)) {
+    return buildTermsAcceptancePdfAttachmentLegacy(data);
+  }
+  try {
+    const verifiedHash = data.verificationHash ||
+      buildHash({ ...data, termsBody: actualTerms });
+    const filled = await fillPreparedTermsMaster(data, verifiedHash);
+    if (filled) return filled;
+  } catch (error) {
+    console.warn("Prepared Terms PDF unavailable; using complete generator",
+      error?.message || "unknown");
+  }
+  return buildTermsAcceptancePdfAttachmentLegacy(data);
+}
+
 module.exports = {
   buildTermsAcceptancePdfAttachment,
+  buildTermsAcceptancePdfAttachmentLegacy,
+  buildHash,
+  getBundledLogoBytes,
   DEFAULT_TERMS_BODY,
 };

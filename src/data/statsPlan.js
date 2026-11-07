@@ -1,136 +1,64 @@
 import { useEffect, useMemo, useState } from "react";
-import { LIFETIME_COMPLETED_BINS } from "./verifiedCompletedServices.mjs";
 
-// Lifetime bins are verified physical service quantities through 5 Nov 2026;
-// do not add future planned routes or simulate cleans during the day.
+// Verified completed bins through the Squeegee audit remain immutable.
+// Since the last verified day, the owner has requested a separate public
+// running estimate of 200 bins per Mon–Thu workday, 08:00–18:00 UK time.
+import { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN, OWNER_CONFIRMED_WEEK, getOwnerConfirmedWeekReconciliation } from "./cleaningCycleData.mjs";
+import { VERIFIED_COMPLETED_SERVICES, LIFETIME_COMPLETED_BINS } from "./verifiedCompletedServices.mjs";
+import { ownerEstimatedBinsSince } from "./dailyBinCounter.mjs";
+import { OWNER_MONTHLY_PLAN, MONTHLY_CLEANING_TARGET } from "./ownerMonthlyPlan.mjs";
+export { OWNER_MONTHLY_PLAN, MONTHLY_CLEANING_TARGET } from "./ownerMonthlyPlan.mjs";
+export { CYCLE_SNAPSHOT, FOUR_WEEK_PLAN, OWNER_CONFIRMED_WEEK, getOwnerConfirmedWeekReconciliation };
+
+// Keep the previous 14,000 cleans separate from Squeegee's 31,212 bins.
+export const PRE_SQUEEGEE_COMPLETED_BINS = VERIFIED_COMPLETED_SERVICES.beforeSqueegeeBins;
+export const TOTAL_COMPLETED_BINS = LIFETIME_COMPLETED_BINS;
+
 export const STATS_BASE = {
-  totalBinsCleaned: LIFETIME_COMPLETED_BINS,
-  monthlyCustomers: 1734,   // owner's confirmed monthly customer count
+  totalBinsCleaned: TOTAL_COMPLETED_BINS,
+  // Monthly customer figure is owner-reported, not derived from this snapshot.
+  monthlyCustomers: OWNER_MONTHLY_PLAN.monthlyCustomers,
 };
 
-// ✅ Your real 4-week rota (Mon–Thu only)
-export const FOUR_WEEK_PLAN = [
-   // Week 1
-  {
-    Mon: { area: "Groomsport & Bangor", bins: 105, customers: 61 },
-    Tue: { area: "Bangor", bins: 115, customers: 75 },
-    Wed: { area: "Ards", bins: 95, customers: 66 },
-    Thu: { area: "Ards & Bangor", bins: 121, customers: 69 },
-  },
-  // Week 2
-  {
-    Mon: { area: "Comber & Ards", bins: 110, customers: 79 },
-    Tue: { area: "Bangor & Ards", bins: 95, customers: 61 },
-    Wed: { area: "Comber & Ards", bins: 120, customers: 73 },
-    Thu: { area: "Bangor & Ards", bins: 105, customers: 81 },
-  },
-  // Week 3
-  {
-    Mon: { area: "Bangor", bins: 100, customers: 73 },
-    Tue: { area: "Bangor", bins: 90, customers: 67 },
-    Wed: { area: "Comber & Ards", bins: 125, customers: 71 },
-    Thu: { area: "Comber", bins: 105, customers: 75 },
-  },
-  // Week 4
-  {
-    Mon: { area: "Portaferry", bins: 135, customers: 81 },
-    Tue: { area: "Millisle", bins: 101, customers: 72 },
-    Wed: { area: "Donaghadee", bins: 112, customers: 71 },
-    Thu: { area: "Donaghadee", bins: 129, customers: 78 },
-  },
-];
-
-// ✅ Set this to the Monday that should count as “Week 1”
-export const ANCHOR_MONDAY = new Date("2026-01-05T00:00:00");
-
-// ✅ Counter catch-up date: 4 months before 6 June 2026.
-// The live headline adds all completed route bins from this date onward.
-const COUNTER_COUNT_FROM = new Date("2026-02-06T00:00:00");
-
-// Workday times
-const START_HOUR = 9;
-const END_HOUR = 17;
-
+const ANCHOR_MONDAY = new Date(CYCLE_SNAPSHOT.weekOneMonday + "T00:00:00Z");
 const DAY_MAP = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-
-const weeksBetween = (a, b) =>
-  Math.floor((b.getTime() - a.getTime()) / (7 * 24 * 60 * 60 * 1000));
-
-function getPlanForDate(date = new Date()) {
-  const dayKey = DAY_MAP[date.getDay()];
-
-  // Your rule:
-  // Friday = Office Day
-  // Saturday/Sunday = Closed
-  if (dayKey === "Fri") return { active: false, dayKey, area: "Office Day", bins: 0, customers: 0 };
-  if (dayKey === "Sat" || dayKey === "Sun") return { active: false, dayKey, area: "Closed", bins: 0, customers: 0 };
-
-  // Mon–Thu rota
-  const weekIndex = ((weeksBetween(ANCHOR_MONDAY, date) % 4) + 4) % 4;
-  const plan = FOUR_WEEK_PLAN[weekIndex]?.[dayKey];
-
-  return {
-    active: !!plan,
-    dayKey,
-    area: plan?.area ?? "Route Day",
-    bins: plan?.bins ?? 0,
-    customers: plan?.customers ?? 0,
-  };
+function weeksBetween(a,b) {
+  const day=d=>Date.UTC(d.getFullYear(),d.getMonth(),d.getDate());
+  return Math.floor((day(b)-day(a))/(7*24*60*60*1000));
 }
-
-function getDayProgress(now) {
-  const start = new Date(now);
-  start.setHours(START_HOUR, 0, 0, 0);
-
-  const end = new Date(now);
-  end.setHours(END_HOUR, 0, 0, 0);
-
-  return clamp((now - start) / (end - start), 0, 1);
+function getPlanForDate(date) {
+  const dayKey=DAY_MAP[date.getDay()];
+  if(dayKey==="Fri")return "Office Day";
+  if(dayKey==="Sat"||dayKey==="Sun")return "Closed";
+  const weekIndex=((weeksBetween(ANCHOR_MONDAY,date)%4)+4)%4;
+  const plan=FOUR_WEEK_PLAN[weekIndex]?.[dayKey];
+  return plan?.bins>0?plan.area:"No cleans scheduled";
 }
-
-function startOfDay(d) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-}
-
-function computeCompletedRouteTotals(now) {
-  let bins = 0;
-  let customers = 0;
-  const cursor = startOfDay(COUNTER_COUNT_FROM);
-  const today = startOfDay(now);
-
-  while (cursor < today) {
-    const plan = getPlanForDate(cursor);
-
-    // Count every completed route day since the counter catch-up date.
-    // This keeps the headline cumulative and includes the last 4 months.
-    if (plan.active && ["Mon", "Tue", "Wed", "Thu"].includes(plan.dayKey)) {
-      bins += plan.bins;
-      customers += plan.customers;
-    }
-
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  return { bins, customers };
-}
-
-// ✅ This is what your landing page will import and use
 export function useLiveCounters() {
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 10000);
-    return () => clearInterval(id);
-  }, []);
-
-  const now = useMemo(() => new Date(), [tick]);
-  const today = useMemo(() => getPlanForDate(now), [now]);
-  // Completed totals refresh with a verified Squeegee data import, not a clock.
+  const [now,setNow]=useState(()=>new Date());
+  useEffect(()=>{
+    const timer=setInterval(()=>setNow(new Date()),60000);
+    return ()=>clearInterval(timer);
+  },[]);
+  const todaysArea=useMemo(()=>getPlanForDate(now),[now]);
+  // Start estimating the day AFTER the audit, avoiding any overlap with
+  // physically counted bin services in the latest verified snapshot.
+  const ownerPacedBins=useMemo(() =>
+    ownerEstimatedBinsSince(VERIFIED_COMPLETED_SERVICES.asOf,now),[now]);
   return {
-    totalBinsCleaned: STATS_BASE.totalBinsCleaned,
-    todaysArea: today.area,
-    totalMonthlyCustomers: STATS_BASE.monthlyCustomers, // owner-confirmed count
+    totalBinsCleaned:TOTAL_COMPLETED_BINS+ownerPacedBins,
+    ownerEstimatedBinsSinceAudit:ownerPacedBins,
+    preSqueegeeCompletedBins:PRE_SQUEEGEE_COMPLETED_BINS,
+    verifiedThrough:new Date(VERIFIED_COMPLETED_SERVICES.asOf+"T12:00:00Z").toLocaleDateString("en-GB",{
+      day:"numeric",month:"short",year:"numeric",timeZone:"Europe/London"
+    }),
+    todaysArea,
+    totalMonthlyCustomers:OWNER_MONTHLY_PLAN.monthlyCustomers,
+    monthlyCleansTarget:MONTHLY_CLEANING_TARGET.monthlyCleans,
+    weeklyCleaningTargets:MONTHLY_CLEANING_TARGET.weekly,
+    weeklyAverageCleans:MONTHLY_CLEANING_TARGET.averageCleansPerWeek,
+    dailyAverageCleans:MONTHLY_CLEANING_TARGET.averageCleansPerWorkday,
+    monthlyRevenueTargetGBP:OWNER_MONTHLY_PLAN.monthlyRevenueTargetGBP,
+    pricePerPaidCleanGBP:OWNER_MONTHLY_PLAN.pricePerPaidCleanGBP,
   };
 }
