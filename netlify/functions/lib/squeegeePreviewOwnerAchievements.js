@@ -131,4 +131,32 @@ function awards(accounts,{asOf="",limit=5}={}){
   mostJobs:top(customers,"jobs",limit)
  };
 }
-module.exports={awards,jobRecords,customerCleanDateRecord,COLOURS};
+// All comparisons are scoped to a verified, exact imported town name.
+// "Town unavailable" is included in the global records, not assigned to a
+// fictional town. No geolocation, inference or fuzzy grouping is used.
+function townGroups(accounts) {
+ const groups=new Map();
+ if(!Array.isArray(accounts))return groups;
+ for(const account of accounts){
+  const town=account?.town;
+  if(typeof town!=="string"||!town.trim()||town==="Town unavailable")continue;
+  if(!groups.has(town))groups.set(town,[]);
+  groups.get(town).push(account);
+ }
+ return groups;
+}
+function townRecords(accounts,{asOf="",limit=5}={}){
+ const towns=townGroups(accounts);
+ const records=[];
+ for(const [town,customers] of towns){
+  const summary=awards(customers,{asOf,limit});
+  if(!summary)continue;
+  records.push({
+   town,customers:customers.length,
+   current:summary.activeJob[0]||null,
+   highest:summary.longestJob[0]||null
+  });
+ }
+ return records.sort((a,b)=>a.town.localeCompare(b.town,"en-GB"));
+}
+module.exports={awards,jobRecords,customerCleanDateRecord,townGroups,townRecords,COLOURS};
