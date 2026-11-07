@@ -141,6 +141,50 @@ test("different jobs on one customer earn independently and one skipped job does
  assert.equal(next.snapshot.scoringVersion,
   "2026-11-streak-20-plus-2-per-job-per-paid-bin-v2");
 });
+test("genuine Squeegee .sqg occurrence IDs bind the recurring job UUID and YYYY-MM-DD",async()=>{
+ const {makeState,acceptSqueegeeRecord}=await load();
+ const state=makeState();
+ const customerId="11111111-1111-4111-8111-111111111111";
+ const jobId="22222222-2222-4222-8222-222222222222";
+ const paid={resourceType:"joboccurrences",customerId,jobId,status:1,
+  _id:jobId+"2026-11-06",isoDueDate:"2026-11-06",
+  services:[{description:"Brown",quantity:2}]};
+ acceptSqueegeeRecord(state,paid);
+ assert.equal(state.occurrences.length,1);
+ assert.equal(state.occurrences[0].id,jobId+"2026-11-06");
+ assert.equal(state.occurrences[0].jobId,jobId);
+ // Exact duplicates from replicated backup parts never create another clean.
+ acceptSqueegeeRecord(state,{...paid});
+ assert.equal(state.occurrences.length,1);
+ // A recorded skip on the same job and a different date stays a separate event.
+ acceptSqueegeeRecord(state,{...paid,status:2,isoDueDate:"2026-11-07",
+  _id:jobId+"2026-11-07",services:[]});
+ assert.equal(state.occurrences.length,2);
+ assert.equal(state.occurrences[1].status,2);
+});
+test("Squeegee occurrence identity fails closed if job or date does not match",async()=>{
+ const {makeState,acceptSqueegeeRecord}=await load();
+ const customerId="11111111-1111-4111-8111-111111111111";
+ const jobId="22222222-2222-4222-8222-222222222222";
+ const secondJob="33333333-3333-4333-8333-333333333333";
+ const make=(changes={})=>({resourceType:"joboccurrences",
+  _id:jobId+"2026-11-06",jobId,customerId,status:1,
+  isoDueDate:"2026-11-06",services:[{description:"Brown"}],...changes});
+ for(const mutation of [
+  {_id:jobId+"2026-11-07"}, // date mismatch
+  {jobId:secondJob},       // wrong recurring job
+  {_id:jobId+"2026-11-06-extra"}, // not an authoritative ID
+  {_id:""},                // absent identity
+ ]){
+  assert.throws(()=>acceptSqueegeeRecord(makeState(),make(mutation)),
+   /squeegee_occurrence/);
+ }
+ const state=makeState();
+ acceptSqueegeeRecord(state,make());
+ assert.throws(()=>acceptSqueegeeRecord(state,
+  make({services:[{description:"Blue"}]})),/conflicting_squeegee_occurrence/);
+ assert.equal(state.occurrences.length,1);
+});
 test("an occurrence without a stable Squeegee job ID is rejected, not guessed from colour",async()=>{
  const {makeState,acceptSqueegeeRecord}=await load();
  const state=makeState();
