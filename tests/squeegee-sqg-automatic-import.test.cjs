@@ -195,20 +195,49 @@ test("an occurrence without a stable Squeegee job ID is rejected, not guessed fr
   isoDueDate:"2026-11-06",status:1,services:[{description:"Brown"}]
  }),/missing_squeegee_recurring_job_id/);
 });
-test("the same recurring job ID cannot be attached to two customers",async()=>{
+test("an inactive-to-active Squeegee job transfer keeps owners and streaks separate",async()=>{
+ const {makeState,acceptSqueegeeRecord}=await load();
+ const state=makeState();
+ const firstId="11111111-1111-4111-8111-111111111111";
+ const secondId="22222222-2222-4222-8222-222222222222";
+ const jobId="33333333-3333-4333-8333-333333333333";
+ acceptSqueegeeRecord(state,{resourceType:"customers",_id:firstId,
+  state:"inactive",_externalId:"111"});
+ acceptSqueegeeRecord(state,{resourceType:"customers",_id:secondId,
+  state:"active",_externalId:"222"});
+ const occurrence=(customerId,date)=>({resourceType:"joboccurrences",
+  customerId,jobId,_id:jobId+date,isoDueDate:date,status:2});
+ acceptSqueegeeRecord(state,occurrence(firstId,"2025-11-06"));
+ acceptSqueegeeRecord(state,occurrence(secondId,"2026-11-06"));
+ assert.equal(state.jobOwners.get(jobId).size,2);
+ assert.equal(state.occurrences.length,2);
+ assert.equal(state.customers.size,1);
+ assert.equal(state.customers.has(secondId),true);
+});
+test("same recurring job and day cannot be assigned to two different customer accounts",async()=>{
  const {makeState,acceptSqueegeeRecord}=await load();
  const state=makeState();
  const jobId="11111111-1111-4111-8111-111111111111";
- const build=(customerId,occurrenceId)=>({
-  resourceType:"joboccurrences",jobId,customerId,
-  _id:occurrenceId,isoDueDate:"2026-11-06",status:2
- });
- acceptSqueegeeRecord(state,build("22222222-2222-4222-8222-222222222222",
-  "33333333-3333-4333-8333-333333333333"));
- assert.throws(()=>acceptSqueegeeRecord(state,
-  build("44444444-4444-4444-8444-444444444444",
-    "55555555-5555-4555-8555-555555555555")),
-  /squeegee_job_shared_by_multiple_customers/);
+ const firstId="22222222-2222-4222-8222-222222222222";
+ const secondId="33333333-3333-4333-8333-333333333333";
+ const occurrence=(customerId,id)=>({resourceType:"joboccurrences",
+  jobId,customerId,_id:id,isoDueDate:"2026-11-06",status:2});
+ acceptSqueegeeRecord(state,occurrence(firstId,
+  "44444444-4444-4444-8444-444444444444"));
+ assert.throws(()=>acceptSqueegeeRecord(state,occurrence(secondId,
+  "55555555-5555-4555-8555-555555555555")),
+  /squeegee_job_date_conflicts_between_customers/);
+ assert.equal(state.occurrences.length,1);
+});
+test("a job shared by two ACTIVE customers is rejected before points are recalculated",async()=>{
+ const {state,uuid,customerIds,finishSqueegeeImport}=await seed();
+ const {acceptSqueegeeRecord}=await load();
+ const jobId=uuid(501000);
+ acceptSqueegeeRecord(state,{resourceType:"joboccurrences",jobId,
+  customerId:customerIds[1],_id:jobId+"2026-11-07",
+  isoDueDate:"2026-11-07",status:2});
+ assert.throws(()=>finishSqueegeeImport(state,"2026-11-07"),
+  /squeegee_job_shared_active_customers/);
 });
 test("known November 6 audit cannot be silently overwritten by an invalid reconciliation",async()=>{
  const {result,state,finishSqueegeeImport}=await seed();
