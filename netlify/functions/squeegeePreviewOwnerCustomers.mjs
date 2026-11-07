@@ -352,18 +352,20 @@ async function detailPage(snapshot,eligible,params,account){
  '<p class="note">Dated verified XP only. Undated legacy website awards are not counted as earned on a specific day.</p></section>';
  const jobAwards=achievements.jobRecords(account,snapshot.asOf);
  const perJobPanel=Array.isArray(account.jobs)?
-  '<section class="panel" id="job-records"><h2>Consecutive cleans by Squeegee job</h2>'+
-  (account.jobs.length?'<div class="tablewrap"><table><thead><tr><th>Job</th><th>Streak</th>'+
-    '<th>Best ever</th><th>Next paid bin</th><th>Paid bins</th><th>Earned XP</th><th>Skips</th></tr></thead><tbody>'+
+  '<section class="panel" id="job-records"><h2>Current vs historical streaks by job</h2>'+
+  (account.jobs.length?'<div class="tablewrap"><table><thead><tr><th>Job</th><th>Current streak</th>'+
+    '<th>Historical highest</th><th>Next paid bin</th><th>Paid bins</th><th>Earned XP</th><th>Skips</th></tr></thead><tbody>'+
     account.jobs.map((job,index)=>'<tr id="owner-job-'+index+'"><td><b>'+esc(job.label)+' #'+(index+1)+'</b><br>'+
-      '<small>'+esc(job.id)+'</small></td><td>'+fmt(job.currentStreak)+'</td>'+
+      '<small>'+esc(job.id)+'</small></td><td>'+fmt(jobAwards[index]?.active||0)+'</td>'+
       '<td>'+fmt(jobAwards[index]?.best||0)+
       (jobAwards[index]?.achievedOn?
         '<small style="display:block">'+esc(jobAwards[index].achievedOn)+'</small>':"")+'</td>'+
-      '<td><b>+'+fmt(job.nextBonus)+' XP</b></td><td>'+fmt(job.paidCleans)+'</td>'+
+      '<td><b>+'+fmt(20+2*(jobAwards[index]?.active||0))+' XP</b></td><td>'+fmt(job.paidCleans)+'</td>'+
       '<td>'+fmt(job.points)+'</td><td>'+fmt(job.recordedSkips)+'</td></tr>').join("")+
     '</tbody></table></div>':'<p>No recorded job occurrences in this backup.</p>')+
-  '<p class="note">Each recurring job has its own consecutive-clean counter. A skipped job only resets itself.</p></section>':
+  '<p class="note"><strong>Current streak</strong> is active at the backup date and resets to zero after a skip or more than 35 days without a clean. '+
+   '<strong>Historical highest</strong> remains even after a missed visit. '+
+   'One skipped job cannot reset another job\'s XP streak.</p></section>':
   '<section class="panel"><h2>Per-job streaks need a new backup</h2>'+
   '<p>Stored scores were generated under the older customer-day rule. Reimport the same .sqg backup '+
   'through the private owner import to recalculate accurate job-specific streaks.</p></section>';
