@@ -938,3 +938,30 @@
 .n64-public-leaderboard .n64-board-records-tab .n64-record-rank-result{color:#0c493a;font-size:18px;font-weight:950;text-align:right;line-height:1.25;white-space:normal;flex:0 0 auto}
 .n64-public-leaderboard .n64-board-records-tab .n64-record-rank-result small{display:block;color:#30455a;font-size:12px;font-weight:850}
 @media(max-width:600px){.n64-public-leaderboard .n64-board-tabs--three{gap:5px}.n64-public-leaderboard .n64-board-tabs--three .n64-board-tab{font-size:.72rem;line-height:1.2;letter-spacing:0;padding:10px 4px;min-height:50px;box-shadow:2px 3px 0 #52759d}.n64-public-leaderboard .n64-board-records-tab .n64-record-person>strong{font-size:15px}.n64-public-leaderboard .n64-board-records-tab .n64-record-rank-result{font-size:17px}}
+
+/* The #01–#03 award medals are part of the actual Records ranking, not an image.
+   Reserve the same space for #04 and #05 to keep names aligned on Android. */
+.n64-public-leaderboard .n64-board-records-tab .n64-record-rank-number{
+  display:inline-flex;
+  align-items:center;
+  flex:0 0 59px;
+  min-width:59px;
+  gap:4px;
+  white-space:nowrap;
+}
+.n64-public-leaderboard .n64-board-records-tab .n64-record-medal{
+  display:inline-block;
+  flex:none;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
+  font-size:21px;
+  line-height:1;
+  vertical-align:middle;
+}
+@media(max-width:380px){
+  .n64-public-leaderboard .n64-board-records-tab .n64-record-rank-number{
+    flex-basis:53px;
+    min-width:53px;
+    gap:2px;
+  }
+  .n64-public-leaderboard .n64-board-records-tab .n64-record-medal{font-size:18px}
+}
