@@ -115,6 +115,9 @@ export function CustomerReviews() {
   const rating = Number(reviewData?.rating);
   const ratingCount = Number(reviewData?.userRatingCount);
   const googleLink = reviewData?.googleMapsUri || reviewData?.googleReviewsUrl || GOOGLE_REVIEWS_URL;
+  // The Places API provides Google's own write-a-review URL when configured.
+  // Fall back to the already-published business profile link if unavailable.
+  const writeReviewLink = reviewData?.writeReviewUrl || reviewData?.googleReviewsUrl || GOOGLE_REVIEWS_URL;
 
   return (
     <section
@@ -146,9 +149,19 @@ export function CustomerReviews() {
               <p className="n64-reviews-head__intro">Real customer feedback from Google.</p>
             )}
           </div>
-          <a className="n64-trust-link n64-trust-link--yellow" href={googleLink} target="_blank" rel="noopener noreferrer">
-            View on Google <span aria-hidden="true">↗</span>
-          </a>
+          <div className="n64-reviews-head__actions">
+            <a className="n64-trust-link n64-trust-link--write-review"
+              href={writeReviewLink} target="_blank" rel="noopener noreferrer"
+              aria-label="Leave a Google review for NI Bin Guy, opens Google in a new tab">
+              <span aria-hidden="true">★</span> Leave a Google Review
+              <span aria-hidden="true">↗</span>
+            </a>
+            <a className="n64-trust-link n64-trust-link--yellow"
+              href={googleLink} target="_blank" rel="noopener noreferrer">
+              View on Google <span aria-hidden="true">↗</span>
+            </a>
+            <small>Your review is written on Google. Google sign-in may be required.</small>
+          </div>
         </div>
 
         {reviews.length > 0 ? (
