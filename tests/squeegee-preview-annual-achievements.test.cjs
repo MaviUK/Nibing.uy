@@ -185,7 +185,7 @@ test("top five owner records are directly visible and keep town/year links",()=>
  assert.match(ui,/TopFiveCleanRecords/);
  assert.match(ui,/validTopFive\(row\.currentTop,row\.current\)/);
  assert.match(ui,/longestAllJobsHighestTop/);
- assert.match(ui,/!LIVE_N64 && publicAchievements/);
+ assert.match(ui,/{publicAchievements && <section/);
 });
 
 test("three public tabs keep Records separate from Leaderboards and protected Customer HQ",()=>{
