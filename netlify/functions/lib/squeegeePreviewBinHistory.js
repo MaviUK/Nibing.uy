@@ -79,7 +79,7 @@ function validateBinSource(raw,{now=Date.now()}={}){
       if(!job||!UUID.test(String(job.id||""))||
          jobKeys.has(job.id.toLowerCase())||
          typeof job.label!=="string"||
-         !/^(?:(?:Black|Brown|Blue|Green)(?: \\+ (?:Black|Brown|Blue|Green))*|Other job)$/.test(job.label)||
+         !/^(?:(?:Black|Brown|Blue|Green)(?: \+ (?:Black|Brown|Blue|Green))*|Other job)$/.test(job.label)||
          !Number.isSafeInteger(job.currentStreak)||job.currentStreak<0||
          job.currentStreak>2000||job.nextBonus!==20+2*job.currentStreak||
          !Number.isSafeInteger(job.paidCleans)||job.paidCleans<0||
