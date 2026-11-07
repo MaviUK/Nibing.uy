@@ -28,6 +28,7 @@ export default function ArcadeLeaderboard() {
   const [connection, setConnection] = useState("connecting");
   const [updatedAt, setUpdatedAt] = useState(null);
   const [historyStatus, setHistoryStatus] = useState(null);
+  const [scoreUpdatePending,setScoreUpdatePending]=useState(false);
   const [nameConsentMode, setNameConsentMode] = useState(false);
   const [eligibilityPending, setEligibilityPending] = useState(false);
   const [eligiblePlayers, setEligiblePlayers] = useState(null);
@@ -328,6 +329,7 @@ export default function ArcadeLeaderboard() {
           ? Math.max(0, Number(data.totalPlayers)) : next.length);
         setUpdatedAt(new Date());
         setHistoryStatus(data.status === "active_status_refresh_required" ? data.status : null);
+        setScoreUpdatePending(data.scoreUpdatePending===true);
         setNameConsentMode(data.status === "consent_only" || data.status === "consent_pending" ||
           data.status === "public_eligible_scores" ||
           data.status === "preview_public_first_names");
@@ -460,6 +462,12 @@ export default function ArcadeLeaderboard() {
             : "Checking scores…"}
           </span>
         </div>
+        {scoreUpdatePending && <p className="n64-board-error" role="status">
+          <strong>LEADERBOARD SCORE UPDATE PENDING.</strong> The current historical XP
+          still uses the earlier customer-wide streak calculation. Each Squeegee
+          job will receive its own streak after the owner imports a fresh,
+          verified Squeegee backup. These scores have not yet been recalculated.
+        </p>}
         <div className="n64-board-join-cta">
           <button type="button" onClick={openHQ}>★ SIGN IN / VIEW MY CLEANING POINTS →</button>
         </div>
