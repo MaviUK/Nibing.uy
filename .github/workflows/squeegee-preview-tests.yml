@@ -136,6 +136,8 @@ on:
       - public/vendor/sqg-7zip/7zz.es6.js
       - public/vendor/sqg-7zip/LICENSE.txt
       - tests/squeegee-sqg-automatic-import.test.cjs
+      - tests/squeegee-hq-private-import-diagnostics.test.cjs
+      - tests/squeegee-preview-owner-directory.test.cjs
       - public/customer-hq-import-validation.js
       - src/pages/CustomerHQ.jsx
       - src/customer-hq.css
