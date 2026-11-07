@@ -11,6 +11,25 @@ if(form&&input&&error&&button&&progress){
  const explain=(text)=>{
   error.textContent=text;error.setAttribute("role","status");
  };
+ // The Netlify function replies with HTML. Never display its CSS or markup
+ // in an upload error; show only the readable private owner's error section.
+ function privateErrorText(reply,response){
+   let message="";
+   const kind=response.headers.get("content-type")||"";
+   if(/html/i.test(kind) && typeof DOMParser==="function"){
+     const doc=new DOMParser().parseFromString(reply,"text/html");
+     message=doc.querySelector("main section")?.textContent||
+       doc.querySelector("main")?.textContent||"";
+   }else if(/json/i.test(kind)){
+     try{const parsed=JSON.parse(reply);
+       message=String(parsed.message||parsed.error||"");}catch{}
+   }
+   if(!message)message="The upload was rejected without a readable explanation.";
+   const cleaned=message.replace(/\\s+/g," ").trim().slice(0,420);
+   const safeCode=response.headers.get("X-Private-Import-Reason")||"";
+   return safeCode && /^[a-z_]+ \/ [a-z_]+$/.test(safeCode)&&
+     !cleaned.includes(safeCode)?cleaned+" ("+safeCode+")":cleaned;
+ }
  function check(file){
   if(!file)return "Choose your latest Squeegee backup (.sqg).";
   if(/\.json$/i.test(file.name)){
@@ -76,8 +95,7 @@ if(form&&input&&error&&button&&progress){
     body,cache:"no-store",redirect:"follow"});
    const reply=await response.text();
    if(!response.ok){
-    const plain=reply.replace(/<[^>]*>/g," ").replace(/\s+/g," ").slice(0,300);
-    throw Error("The website withheld the new points: "+plain);
+    throw Error("The website withheld the new points: "+privateErrorText(reply,response));
    }
    progress.value=100;
    document.open();document.write(reply);document.close();
