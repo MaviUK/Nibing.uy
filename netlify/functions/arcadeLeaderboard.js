@@ -435,6 +435,8 @@ exports.handler = async (event) => {
           stores.history.get(historical.PUBLISHED_KEY,{type:"json",consistency:"strong"}),
         ]);
         const eligible=customerHQ.eligibleRankedEmailAccounts(privateCustomers);
+        const scoreUpdatePending=privateCustomers?.scoringVersion===
+          "2026-11-streak-20-plus-2-per-paid-bin-v1";
         if(!eligible){
           return out(200,{...publicLeaderboard({
             entries:[],totalPlayers:0,status:"eligibility_pending"
@@ -454,7 +456,7 @@ exports.handler = async (event) => {
             verifiedActiveAccounts:eligible.verifiedActiveEmailAccounts,
             verifiedAsOf:eligible.verificationAsOf,
             eligibleCleaningXp:annualCleaningTotal,
-            period,availableYears:years});
+            scoreUpdatePending,period,availableYears:years});
         }
         // All periods, including Overall, use only verified earning dates.
         // Legacy XP without earning dates is excluded, not reassigned.
@@ -476,7 +478,7 @@ exports.handler = async (event) => {
           verifiedActiveAccounts:eligible.verifiedActiveEmailAccounts,
           verifiedAsOf:eligible.verificationAsOf,
           eligibleCleaningXp:annualCleaningTotal,
-          period,availableYears:years});
+          scoreUpdatePending,period,availableYears:years});
       }
       const activeBoard=await getActiveHistoricalBoard(stores);
       // Production/non-Preview hosts retain the existing website-only board.
