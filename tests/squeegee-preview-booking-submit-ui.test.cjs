@@ -87,11 +87,15 @@ test("fresh test confirmation reports queue acceptance without claiming job crea
   assert.match(server,/queued:dispatched.queued===true/);
   assert.match(server,/squeegeePilot,/);
   assert.match(server,/reason:dispatched.reason/);
-  assert.match(booking,/bookingConfirmation\?\.squeegeePilot/);
-  assert.match(booking,/Squeegee test handoff/);
-  assert.match(booking,/Accepted for Squeegee validation/);
-  assert.match(booking,/does not yet confirm a customer or job was created/);
-  assert.match(booking,/Do not submit another booking/);
+  // The backend still reports internal pilot status to the owner, not to customers.
+  // Customers only see a clear received state and the date-confirmation message.
+  assert.doesNotMatch(booking,/Preview 1 Squeegee test handoff/);
+  assert.doesNotMatch(booking,/Accepted for Squeegee validation/);
+  assert.doesNotMatch(booking,/Squeegee syncing was not confirmed/);
+  assert.doesNotMatch(booking,/bookingConfirmation\.squeegeePilot\.reason/);
+  assert.match(booking,/Booking received/);
+  assert.match(booking,/confirm your first clean date separately/);
+  assert.match(booking,/Please don't submit another booking for the same bins/);
   // The customer-facing Submit Booking path never asks for an owner access
   // code, opens a second recovery tab, or calls a Squeegee POST itself.
   assert.ok(!booking.includes("Arm one test booking"));
@@ -105,6 +109,7 @@ test("booking confirmation does not block customers buying extra bins",()=>{
   assert.ok(!booking.includes("requiresManualQuantityCheck"));
   assert.match(booking,/Booking confirmed/);
   assert.match(booking,/Booking reference:/);
+  assert.doesNotMatch(booking,/Your booking is confirmed\. We'll confirm your clean date separately/);
 });
 
 test("Preview 1 allows a slow date lookup to finish but never invents a confirmed date",()=>{
