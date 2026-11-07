@@ -463,6 +463,11 @@ export default function ArcadeLeaderboard() {
         <div className="n64-board-join-cta">
           <button type="button" onClick={openHQ}>★ SIGN IN / VIEW MY CLEANING POINTS →</button>
         </div>
+        {!LIVE_N64 && <div style={{textAlign:"center",padding:"10px 0 20px"}}>
+          <a href="/api/squeegee-preview-owner-customers" style={{display:"inline-block",background:"#dceafa",color:"#1f3457",border:"3px solid #354d72",padding:"10px 14px",fontWeight:900,textDecoration:"none",boxShadow:"4px 4px 0 #102642"}}>
+            ★ OWNER ADMIN / SEARCH ALL CUSTOMERS →
+          </a>
+        </div>}
         <ol aria-label="Public leaderboard rankings">
           {!players.length ? (
             <li className="n64-board-empty">
