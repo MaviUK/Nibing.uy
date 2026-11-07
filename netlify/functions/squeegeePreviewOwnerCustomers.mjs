@@ -70,6 +70,7 @@ const css=[
  ".town-index th,.town-index td{color:#14283e}",
  ".town-index small,.town-index .no-record{color:#263b50}",
  ".record-notes{color:#e6f2ff}",
+ ".record-group .award--GreenBrown{background:linear-gradient(90deg,#d4e8c5 0%,#d4e8c5 49%,#ebcfb5 51%,#ebcfb5 100%);border-color:#827551}",
  ".record-year-picker{display:flex;gap:8px;flex-wrap:wrap;margin:13px 0 16px}.record-year-picker a{background:#e5effb;color:#182e48;border:3px solid #8298b5;min-width:66px;text-decoration:none;font-weight:950;font-size:14px;text-align:center;padding:11px 13px;box-shadow:3px 3px 0 #071d34}.record-year-picker a.selected{background:#ffe274;border-color:#c6a345}.record-year-picker a:focus-visible{outline:3px solid #ffe274;outline-offset:3px}",
  "/* Show all five ranked owner results without collapsed details or faded text. */",
  ".award-top-label{font-weight:950;color:#183d5a;font-size:13px;letter-spacing:.02em;line-height:1.35;margin:13px 0 6px;padding:8px 0 5px;border-top:2px solid #7a8b9c}",
@@ -168,8 +169,8 @@ function achievementsPanel(snapshot,selectedTown="",selectedYear="overall"){
  const townTable=!town?
   '<div class="record-group town-index" id="town-records">'+
    '<h3>⌖ TOWN-BY-TOWN RECORDS</h3>'+
-   '<p>Select a town to view its own top five Black, Blue, Brown, Green, '+
-   'single-job and all-jobs record holders.</p>'+
+   '<p>Select a town to view its own top five Black, Blue, Green &amp; Brown, '+
+   'single-job and all-jobs record holders. Green and Brown rank together.</p>'+
    '<div class="tablewrap"><table><thead><tr><th>Town</th><th>Customers</th>'+
    '<th>Current · any job</th><th>Historical best · any job</th></tr></thead>'+
    '<tbody>'+towns.map(row=>'<tr><td><a href="'+
@@ -204,7 +205,7 @@ function achievementsPanel(snapshot,selectedTown="",selectedYear="overall"){
        (isJob?' · '+esc(item.label)+' job #'+(item.jobIndex+1):"")+
        (item[dateField]?' · '+esc(item[dateField]):"")+'</span></li>';
    }).join("");
-   return '<article class="award'+(colour?' award--'+esc(colour):" award--wide")+'">'+
+   return '<article class="award'+(colour?' award--'+(colour==="Green & Brown"?"GreenBrown":esc(colour)):" award--wide")+'">'+
      '<div class="award-mode">'+(isCurrent?(annual&&!viewingCurrent?"YEAR-END STREAK":"CURRENT STREAK"):"HISTORICAL RECORD")+'</div>'+
      '<h3>'+esc(title)+'</h3>'+
      '<div class="value">'+fmt(value)+' <small>'+esc(unit)+'</small></div>'+
@@ -221,12 +222,14 @@ function achievementsPanel(snapshot,selectedTown="",selectedYear="overall"){
        '<ol class="award-top-five">'+rows+'</ol>':"")+
      '</article>';
  };
- const currentColours=["Black","Blue","Brown","Green"].map(colour=>
-   card(colour+" bin · current",awarded.byColourCurrent[colour],"active",
+ const currentColours=achievements.RECORD_CATEGORIES.map(colour=>
+   card((colour==="Green & Brown"?"Green & Brown bins":colour+" bin")+" · current",
+     awarded.byColourCurrent[colour],"active",
      {colour,desc:annual?"Per-job streak at "+awarded.periodEnd:"Ongoing per-job cleans, as of last backup"})
  ).join("");
- const historicalColours=["Black","Blue","Brown","Green"].map(colour=>
-   card(colour+" bin · highest ever",awarded.byColour[colour],"best",
+ const historicalColours=achievements.RECORD_CATEGORIES.map(colour=>
+   card((colour==="Green & Brown"?"Green & Brown bins":colour+" bin")+" · highest ever",
+     awarded.byColour[colour],"best",
      {colour,desc:annual?"Highest streak reached in "+year+" (may have started earlier)":"Lifetime best, retained after skips"})
  ).join("");
  const currentOthers=[
