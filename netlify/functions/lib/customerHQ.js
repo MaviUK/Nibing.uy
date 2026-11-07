@@ -135,7 +135,7 @@ function validateSource(raw){
  * Existing history is preserved in the private import when email is absent.
  */
 function eligibleRankedEmailAccounts(snapshot){
-  if(snapshot?.scoringVersion===binHistory.VERSION)
+  if(binHistory.isBinSnapshot(snapshot))
     return binHistory.eligibleBinAccounts(snapshot);
   if(!snapshot || snapshot.version!==1 || snapshot.asOf!==history.AS_OF ||
      snapshot.scoringVersion!==RULE_VERSION ||
