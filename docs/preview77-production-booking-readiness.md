@@ -88,7 +88,7 @@ Preview 77 owner import form accepts the normal weekly Squeegee .sqg archive (sa
 ## 6 November 2026 — Security, booking and mobile release gates
 
 - **Secrets audit:** The dedicated Squeegee production credential is marked secret and Functions-only, with a nonempty value for production and blank overrides in preview/dev. Automatic production writes OFF, explicit owner approval OFF, atomic write ledger not ready, emergency pause ON. No credential was copied into source control.
-- **Outstanding:** legacy `RESEND_API_KEY`, `RECAPTCHA_SECRET_KEY`, `BLOBS_TOKEN` and `NETLIFY_EMAILS_SECRET` are site-wide variables with `is_secret=false`. There is also an unexpected Netlify variable whose **NAME is a Resend-like token and equals the current Resend API key**. Treat this credential as exposed. Do not print its value or token-bearing name. Rotation and removal must be coordinated: create a replacement provider key, insert it as a protected Netlify variable, verify email, revoke the previous key and remove the token-named entry. Netlify upsert cannot change an existing variable's secret flag or scopes.
+- **7 November security correction:** `RESEND_API_KEY`, `RECAPTCHA_SECRET_KEY`, `NETLIFY_EMAILS_SECRET` and `SQUEEGEE_PRODUCTION_API_KEY` are marked secret. Production Squeegee credentials have Functions-only scope with a nonempty production context and blank nonproduction overrides. The obsolete token-like Netlify variable name has been deleted; it did not match the currently configured Resend credential. `BLOBS_TOKEN` remains unprotected with broad scopes. A guarded replacement via the Netlify management API returned HTTP 422 and left the existing token intact, to avoid disrupting bookings. Set `BLOBS_TOKEN` to Secret, preferably Functions-only, in the Netlify UI while retaining its exact value; redeploy safely and verify storage. Separately audit and rotate any still-active previously exposed Resend key at the provider, after confirming it is unused. Removing the Netlify variable does not revoke a provider-side API key.
 - **GET-only production Squeegee check:** The production owner status page now includes a private services/job-groups connectivity check. It explicitly requires `SQUEEGEE_PRODUCTION_READ_ENABLED=true`, `SQUEEGEE_PRODUCTION_AUTO_SYNC_ENABLED=false`, `SQUEEGEE_PRODUCTION_OWNER_APPROVED_WRITES=false`, `SQUEEGEE_PRODUCTION_ATOMIC_LEDGER_READY=false`, `SQUEEGEE_PRODUCTION_WRITES_PAUSED=true` and the exact production runtime. Preview 77 cannot execute it against production credentials by design; it requires an owner-approved safe-mode production deployment.
 - **Booking safeguards:** Existing tests cover signed PDF and original SHA-256 certificate, date/round mapping, duplicate claims, ambiguous POST no replay, and owner alerts for holds, inactive customers and quantity reviews. Synthetic checks are not proof of an approved production booking.
 - **Mobile:** Added safe Android-emulation Playwright smoke with screenshots of homepage and booking/coverage dialogs. No booking is submitted. It is not a substitute for a hands-on Samsung session.
@@ -100,3 +100,29 @@ Preview 77 owner import form accepts the normal weekly Squeegee .sqg archive (sa
 The owner's 31 October active four-weekly route snapshot includes Portaferry (Round 11, Monday Week 3) and Millisle (Rounds 12 and 14 in Week 3, and Round 17 in Week 4). Their previous `review-only` flags contradicted that active schedule. Preview 77 now classifies both as active and makes the postcode checker use local centres for their villages. Only an **exact council-confirmed address** with matching postcode, bin collection dates and four-weekly town schedule may receive automatic booking dates. Unknown council addresses remain review-only, and the separately removed towns (Greyabbey, Ballywalter, Portavogie, Cloughey and Ballyhalbert) remain blocked.
 
 Service links, active town pages, sitemap and search structured data now match these rounds. The two previously noindex review pages are replaced by service pages but still say that address/date availability is checked before allocating the first clean. Do not automatically extend coverage to neighbouring villages or use a town name alone to assign a job. This is a Preview 77 change only; the live website and Squeegee production-write controls remain unchanged. The owner should confirm the current route assumptions before final release.
+
+## 7 November 2026 — Security changes, evidence and safe rollback checkpoint
+
+**Canonical release is PR #77 (`preview/n64-retro-site`).** PR #80 is not the approved source. Do not merge or publish without owner approval. The live Netlify production deploy remains unchanged.
+
+### Flags checked directly in Netlify
+
+- Automatic production writes OFF (`SQUEEGEE_PRODUCTION_AUTO_SYNC_ENABLED=false`, `SQUEEGEE_PRODUCTION_OWNER_APPROVED_WRITES=false`, `SQUEEGEE_PRODUCTION_ATOMIC_LEDGER_READY=false`, `SQUEEGEE_PRODUCTION_WRITES_PAUSED=true`).
+- GET-only production access is enabled (`SQUEEGEE_PRODUCTION_READ_ENABLED=true`), but the authenticated production-context connectivity test and controlled booking have not been performed.
+- Production Customer HQ and public leaderboard remain OFF (`N64_PRODUCTION_CUSTOMER_HQ_ENABLED=false`, `N64_PRODUCTION_LEADERBOARD_ENABLED=false`). They may be enabled only after the shared private history, evidence-backed consent and withdrawal flow have been verified.
+- `BLOBS_TOKEN` still needs secret/scope correction in Netlify. A redeploy and a safe storage smoke test are needed after the change.
+
+### Private history and consent
+
+1. Owner must inspect `/api/squeegee-preview-hq-import` for the actual active history date, physical paid-bin totals and XP. The 6 November import expects 26,039 paid physical bins; an HTTP 200 upload does not alone verify the recorded totals.
+2. Owner must inspect `/api/squeegee-preview-leaderboard-names` for the presence of a consent ledger and positive reply evidence, preserving withdrawal records and excluding unverified customers.
+3. Verify public Overall/2024/2025/2026 rankings against signed-in Customer HQ. A 35-day historical display grace is not an automatic Squeegee refresh; keep weekly owner-reviewed backup imports.
+
+### Final deployment and rollback
+
+1. Record the current live `main` commit and production deploy ID. Preserve a current read-only copy of private customer history and consent data. A Netlify site rollback does not undo any Squeegee jobs already created.
+2. Deploy to production with writes OFF and emergency pause ON. Verify signed Terms PDFs, customer and owner emails, and the authenticated GET-only Squeegee services/job-group check. Verify zero Squeegee writes.
+3. Only after separate owner approval, reconcile a single real production booking with Squeegee; check existing-customer match, inactive/duplicate holds, same-colour quantities, correct rounds/dates and owner attention alerts; prove the kill switch.
+4. Complete a real Samsung/Android booking, autocomplete, Customer HQ OTP, permission withdrawal and slow-network test. Automated safe browser simulation and fake-only CI tests are not substitutes.
+
+**Status:** Preview 77 is mergeable and the current build/tests pass; external security and production acceptance work still block a safe release.
