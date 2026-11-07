@@ -49,6 +49,7 @@ function validateBinSource(raw,{now=Date.now()}={}){
   if(!isBinSnapshot(raw)||raw.scoringVersion!==VERSION||!fresh(raw.asOf,now))
     throw Error("per_job_history_source_invalid_or_stale");
   const accounts=[],ids=new Set(),refs=new Set(),aliases=new Set();
+  const globalJobOwners=new Map();
   const emailCounts=new Map();
   let points=0,paidBins=0,paidVisits=0,historyEvents=0,ranked=0;
   for(const row of raw.accounts){
@@ -87,8 +88,12 @@ function validateBinSource(raw,{now=Date.now()}={}){
          !Number.isSafeInteger(job.recordedSkips)||job.recordedSkips<0||
          (job.lastCompletedOn!==null&&dateValue(job.lastCompletedOn)===null))
          throw Error("per_job_summary_invalid");
-      jobKeys.add(job.id.toLowerCase());
-      return {...job,id:job.id.toLowerCase()};
+      const canonicalId=job.id.toLowerCase();
+      const jobOwner=globalJobOwners.get(canonicalId);
+      if(jobOwner && jobOwner!==id)throw Error("per_job_cross_customer_conflict");
+      globalJobOwners.set(canonicalId,id);
+      jobKeys.add(canonicalId);
+      return {...job,id:canonicalId};
     });
     if(jobs.length>0&&!Array.isArray(row.events))
       throw Error("per_job_events_missing");
