@@ -106,10 +106,6 @@ export function acceptSqueegeeRecord(state,row) {
   if(!UUID.test(occurrenceId)&&occurrenceId!==jobId+date)
    throw Error("invalid_squeegee_occurrence_job_date");
   const customerId=row.customerId.toLowerCase();
-  const registeredOwner=state.jobOwners.get(jobId);
-  if(registeredOwner&&registeredOwner!==customerId)
-   throw Error("squeegee_job_shared_by_multiple_customers");
-  state.jobOwners.set(jobId,customerId);
   const services=(row.services||[]).map(s=>({
     description:String(s?.description||""),quantity:s?.quantity}));
   const record={id:occurrenceId,jobId,customerId,date,status:row.status,services,
@@ -121,6 +117,18 @@ export function acceptSqueegeeRecord(state,row) {
    if(earlier!==signature)throw Error("conflicting_squeegee_occurrence");
    return;
   }
+  // Squeegee may transfer an existing recurring job to a new customer.
+  // The 6 Nov backup contains historical inactive owners and one current
+  // active owner for 10 job IDs. Preserve the job ID but NEVER combine the
+  // previous customer's attendance streak with the current customer's.
+  let owners=state.jobOwners.get(jobId);
+  if(!owners){owners=new Map();state.jobOwners.set(jobId,owners);}
+  for(const [ownerId,days] of owners){
+   if(ownerId!==customerId&&days.has(date))
+    throw Error("squeegee_job_date_conflicts_between_customers");
+  }
+  if(!owners.has(customerId))owners.set(customerId,new Set());
+  owners.get(customerId).add(date);
   state.occurrenceIds.set(occurrenceId,signature);
   state.occurrences.push(record);
  }
@@ -146,6 +154,15 @@ export function finishSqueegeeImport(state,asOf,previous={}){
    state.customers.size>5000||state.occurrences.length<10000||
    state.invoices.size<10000)
   throw Error("archive_data_incomplete_or_unrecognised");
+ // A job transferred from an inactive account is valid. Simultaneous active
+ // customer ownership is ambiguous and is NOT safe to score automatically.
+ for(const owners of state.jobOwners.values()){
+  if(owners.size<2)continue;
+  let activeOwners=0;
+  for(const customerId of owners.keys())
+   if(state.customers.has(customerId))activeOwners++;
+  if(activeOwners>1)throw Error("squeegee_job_shared_active_customers");
+ }
  const rows=new Map();
  for(const [id,c] of state.customers)rows.set(id,makeCustomer(c,previous));
  const events=new Map(),audit={paidBins:0,heldOccurrences:0,
