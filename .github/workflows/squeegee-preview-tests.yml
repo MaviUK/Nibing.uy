@@ -139,6 +139,8 @@ on:
       - tests/squeegee-hq-private-import-diagnostics.test.cjs
       - tests/squeegee-preview-owner-directory.test.cjs
       - tests/squeegee-preview-owner-achievements.test.cjs
+      - netlify/functions/lib/squeegeePublicAchievementHighlights.js
+      - tests/squeegee-preview-annual-achievements.test.cjs
       - netlify/functions/lib/squeegeePreviewOwnerAchievements.js
       - netlify/functions/squeegeePreviewOwnerCustomers.mjs
       - public/customer-hq-import-validation.js
