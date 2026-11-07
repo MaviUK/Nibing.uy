@@ -277,9 +277,9 @@ test("admin displays the achievements only after owner-session verification",()=
  const src=fs.readFileSync(path.join(__dirname,
   "../netlify/functions/squeegeePreviewOwnerCustomers.mjs"),"utf8");
  assert.match(src,/import achievements from "\.\/lib\/squeegeePreviewOwnerAchievements\.js"/);
- assert.match(src,/function achievementsPanel\(snapshot\)/);
+ assert.match(src,/function achievementsPanel\(snapshot,selectedTown=""\)/);
  assert.match(src,/if\(recordView\)/);
- assert.match(src,/achievementsPanel\(snapshot\)/);
+ assert.match(src,/achievementsPanel\(snapshot,safeString\(params\.get\("town"\),60\)\)/);
  assert.match(src,/stats\+nav\+filters\(q,mode,year\)/);
  assert.match(src,/url\(\{view:"records"\}\)/);
  assert.match(src,/fromRecords\?'← HIGH ACHIEVEMENTS':'← ALL CUSTOMERS'/);
