@@ -27,7 +27,7 @@ function seed({day="2026-11-07",skip=false}={}){
      _id:invoice,customerId:id,transactionType:0,
      amount:10,invoice:{paid:!unfinished}});
     acceptSqueegeeRecord(state,{resourceType:"joboccurrences",
-     _id:uuid(counter+20000),customerId:id,
+     _id:uuid(counter+20000),jobId:uuid(500000+i*1000+j),customerId:id,
      status:1,isoDueDate:"2026-11-06",
      paymentStatus:unfinished?"invoiced":"paid",
      paidDate:unfinished?null:"2026-11-06",invoiceTransactionId:invoice,
@@ -38,7 +38,7 @@ function seed({day="2026-11-07",skip=false}={}){
   acceptSqueegeeRecord(state,{resourceType:"transactions",
    _id:uuid(888888),customerId:customerIds[0],transactionType:1,amount:-120});
   if(skip)acceptSqueegeeRecord(state,{resourceType:"joboccurrences",
-   customerId:customerIds[0],_id:uuid(987654),status:2,
+   customerId:customerIds[0],jobId:uuid(501000),_id:uuid(987654),status:2,
    isoDueDate:"2026-11-05",skipReason:"Not Out"});
   const result=finishSqueegeeImport(state,day);
   return {result,state,uuid,customerIds,finishSqueegeeImport};
@@ -79,7 +79,7 @@ test("the archive parser uses customer status and amount signs, never counts del
  assert.equal(state.balance.get(id),0);
  assert.equal(state.invoices.get(id).paid,false);
 });
-test("automatic conversion matches physical bin quantities and customer-day streaks",async()=>{
+test("automatic conversion matches physical bin quantities with independent job streaks",async()=>{
  const {result}=await seed();
  assert.equal(result.snapshot.accounts.length,901);
  assert.equal(result.summary.verifiedPaidBins,901*12*2);
@@ -100,6 +100,64 @@ test("recorded skips reset streaks but never create XP or physical bins",async()
  assert.equal(first.events[0].event,"recorded_skip");
  assert.equal(first.events[0].points,0);
  assert.equal(result.summary.verifiedPaidBins,901*24);
+});
+test("different jobs on one customer earn independently and one skipped job does not reset the other",async()=>{
+ const {state,uuid,customerIds,finishSqueegeeImport}=await seed();
+ const firstId=customerIds[0];
+ const invoice=uuid(999991);
+ const {acceptSqueegeeRecord}=await load();
+ acceptSqueegeeRecord(state,{resourceType:"transactions",
+  _id:invoice,customerId:firstId,transactionType:0,
+  amount:5,invoice:{paid:true}});
+ // The original first job was completed on Nov 6. Second occurrence on
+ // Nov 7 earns +22, despite a skip on a DIFFERENT Brown job the same day.
+ acceptSqueegeeRecord(state,{resourceType:"joboccurrences",
+  _id:uuid(999992),jobId:uuid(501000),customerId:firstId,
+  status:1,isoDueDate:"2026-11-07",
+  invoiceTransactionId:invoice,paymentStatus:"paid",paidDate:"2026-11-07",
+  services:[{description:"Brown",quantity:1}]});
+ acceptSqueegeeRecord(state,{resourceType:"joboccurrences",
+  _id:uuid(999993),jobId:uuid(501001),customerId:firstId,
+  status:2,isoDueDate:"2026-11-07"});
+ const next=finishSqueegeeImport(state,"2026-11-07");
+ const customer=next.snapshot.accounts.find(a=>a.id===firstId);
+ const brownA=customer.jobs.find(j=>j.id===uuid(501000));
+ const brownB=customer.jobs.find(j=>j.id===uuid(501001));
+ assert.equal(brownA.currentStreak,2);
+ assert.equal(brownA.nextBonus,24);
+ assert.equal(brownB.currentStreak,0);
+ assert.equal(brownB.nextBonus,20);
+ assert.equal(customer.paidCleans,25);
+ assert.equal(customer.points,502);
+ assert.equal(customer.recordedSkips,1);
+ assert.equal(next.summary.verifiedPaidBins,901*24+1);
+ assert.equal(next.snapshot.scoringVersion,
+  "2026-11-streak-20-plus-2-per-job-per-paid-bin-v2");
+});
+test("an occurrence without a stable Squeegee job ID is rejected, not guessed from colour",async()=>{
+ const {makeState,acceptSqueegeeRecord}=await load();
+ const state=makeState();
+ assert.throws(()=>acceptSqueegeeRecord(state,{
+  resourceType:"joboccurrences",
+  _id:"11111111-1111-4111-8111-111111111111",
+  customerId:"22222222-2222-4222-8222-222222222222",
+  isoDueDate:"2026-11-06",status:1,services:[{description:"Brown"}]
+ }),/missing_squeegee_recurring_job_id/);
+});
+test("the same recurring job ID cannot be attached to two customers",async()=>{
+ const {makeState,acceptSqueegeeRecord}=await load();
+ const state=makeState();
+ const jobId="11111111-1111-4111-8111-111111111111";
+ const build=(customerId,occurrenceId)=>({
+  resourceType:"joboccurrences",jobId,customerId,
+  _id:occurrenceId,isoDueDate:"2026-11-06",status:2
+ });
+ acceptSqueegeeRecord(state,build("22222222-2222-4222-8222-222222222222",
+  "33333333-3333-4333-8333-333333333333"));
+ assert.throws(()=>acceptSqueegeeRecord(state,
+  build("44444444-4444-4444-8444-444444444444",
+    "55555555-5555-4555-8555-555555555555")),
+  /squeegee_job_shared_by_multiple_customers/);
 });
 test("known November 6 audit cannot be silently overwritten by an invalid reconciliation",async()=>{
  const {result,state,finishSqueegeeImport}=await seed();
