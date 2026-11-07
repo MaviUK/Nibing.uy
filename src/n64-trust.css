@@ -659,3 +659,36 @@
     padding-top:calc(39px + var(--n64-check-height));
   }
 }
+
+/* A high-contrast review-writing CTA uses Google's own form, not an iframe. */
+#main-content.n64-world .n64-reviews-head__actions{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  align-items:stretch;
+  width:min(100%,280px);
+  flex:0 0 auto;
+}
+#main-content.n64-world .n64-reviews-head__actions .n64-trust-link{
+  width:100%;
+  min-height:48px;
+}
+#main-content.n64-world .n64-trust-link--write-review{
+  background:#0b654a;
+  color:#fff !important;
+  border-color:#154437 !important;
+  box-shadow:4px 5px 0 #0a4636 !important;
+}
+#main-content.n64-world .n64-trust-link--write-review:hover{background:#0a5841;}
+#main-content.n64-world .n64-reviews-head__actions small{
+  display:block;
+  font-size:.76rem;
+  line-height:1.45;
+  font-weight:750;
+  text-align:center;
+  color:#324a62;
+}
+@media(max-width:640px){
+  #main-content.n64-world .n64-reviews-head__actions{width:100%;}
+  #main-content.n64-world .n64-reviews-head__actions .n64-trust-link{width:100%;}
+}
