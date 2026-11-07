@@ -67,7 +67,7 @@ if(form&&input&&error&&button&&progress){
       ref:r.ref,town:r.town,firstName:r.firstName};
    }
    const result=await new Promise((resolve,reject)=>{
-    worker=new Worker("/customer-hq-sqg-worker.mjs?v=per-job-occurrence-v3-20261107",{type:"module"});
+    worker=new Worker("/customer-hq-sqg-worker.mjs?v=per-job-transfer-v4-20261107",{type:"module"});
     worker.onerror=()=>reject(Error("The secure archive decoder could not start on this device."));
     worker.onmessage=e=>{
       const data=e.data||{};
