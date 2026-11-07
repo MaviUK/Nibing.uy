@@ -570,7 +570,12 @@ export default function ArcadeLeaderboard() {
                 className={change ? "n64-board-row n64-board-row--" + change : "n64-board-row"}>
                 <button type="button" className="n64-board-player-button" onClick={openHQ}
                   title="Open your own secure points dashboard — this public entry does not grant access to another customer's account">
-                  <strong>{String(i + 1).padStart(2, "0")}</strong> {player.anonymous?"ARCADE PLAYER "+String(i+1):player.displayName||player.customerRef}
+                  <strong>{String(i + 1).padStart(2, "0")}</strong>
+                  {!LIVE_N64 && i<3 && <span className="n64-board-medal" role="img"
+                    aria-label={["Gold medal","Silver medal","Bronze medal"][i]}>
+                    {["🥇","🥈","🥉"][i]}
+                  </span>}
+                  {" "}{player.anonymous?"ARCADE PLAYER "+String(i+1):player.displayName||player.customerRef}
                   {player.town!=="Town unavailable" && <span className="n64-board-town"> · {player.town}</span>}
                 </button>
                 <span className="n64-board-score">
