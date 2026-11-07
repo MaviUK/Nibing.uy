@@ -70,7 +70,18 @@ const css=[
  ".town-index th,.town-index td{color:#14283e}",
  ".town-index small,.town-index .no-record{color:#263b50}",
  ".record-notes{color:#e6f2ff}",
- ".record-year-picker{display:flex;gap:8px;flex-wrap:wrap;margin:13px 0 16px}.record-year-picker a{background:#e5effb;color:#182e48;border:3px solid #8298b5;min-width:66px;text-decoration:none;font-weight:950;font-size:14px;text-align:center;padding:11px 13px;box-shadow:3px 3px 0 #071d34}.record-year-picker a.selected{background:#ffe274;border-color:#c6a345}.record-year-picker a:focus-visible{outline:3px solid #ffe274;outline-offset:3px}"
+ ".record-year-picker{display:flex;gap:8px;flex-wrap:wrap;margin:13px 0 16px}.record-year-picker a{background:#e5effb;color:#182e48;border:3px solid #8298b5;min-width:66px;text-decoration:none;font-weight:950;font-size:14px;text-align:center;padding:11px 13px;box-shadow:3px 3px 0 #071d34}.record-year-picker a.selected{background:#ffe274;border-color:#c6a345}.record-year-picker a:focus-visible{outline:3px solid #ffe274;outline-offset:3px}",
+ "/* Show all five ranked owner results without collapsed details or faded text. */",
+ ".award-top-label{font-weight:950;color:#183d5a;font-size:13px;letter-spacing:.02em;line-height:1.35;margin:13px 0 6px;padding:8px 0 5px;border-top:2px solid #7a8b9c}",
+ ".award ol.award-top-five{display:grid;gap:0;list-style:none;padding:0;margin:0}",
+ ".award .award-top-five li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:4px 9px;padding:10px 1px;border-bottom:1px solid #9cacb5;font-size:13px;line-height:1.4;overflow-wrap:anywhere;color:#14283e}",
+ ".award .award-top-five li:last-child{border-bottom:0}",
+ ".award .award-top-five .award-entry-name{display:block;min-width:0;font-size:14px;line-height:1.4;color:#14283e;font-weight:900}",
+ ".award .award-entry-rank{display:inline-block;min-width:27px;font-size:13px;color:#194b60;font-weight:950}",
+ ".award .award-top-five .award-entry-name a{color:#113f65;text-decoration:underline;text-underline-offset:2px;font-weight:900}",
+ ".award .award-top-five .award-entry-score{color:#0c493a;font-size:15px;font-weight:950;text-align:right;white-space:normal;line-height:1.3}",
+ ".award .award-top-five .award-entry-detail{display:block;grid-column:1/-1;color:#263b50;font-size:12px;line-height:1.45;font-weight:650}",
+ "@media(max-width:600px){.records .award-grid,.records .award-extra{grid-template-columns:minmax(0,1fr)}.award .award-top-five .award-entry-name{font-size:15px}.award .award-top-five .award-entry-score{font-size:16px}.award .award-top-five .award-entry-detail{font-size:13px}}"
 ].join("");
 const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;")
  .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -157,7 +168,7 @@ function achievementsPanel(snapshot,selectedTown="",selectedYear="overall"){
  const townTable=!town?
   '<div class="record-group town-index" id="town-records">'+
    '<h3>⌖ TOWN-BY-TOWN RECORDS</h3>'+
-   '<p>Select a town to view its own Black, Blue, Brown, Green, '+
+   '<p>Select a town to view its own top five Black, Blue, Brown, Green, '+
    'single-job and all-jobs record holders.</p>'+
    '<div class="tablewrap"><table><thead><tr><th>Town</th><th>Customers</th>'+
    '<th>Current · any job</th><th>Historical best · any job</th></tr></thead>'+
@@ -180,13 +191,16 @@ function achievementsPanel(snapshot,selectedTown="",selectedYear="overall"){
    const isJob=kind==="job";
    const isCurrent=key==="active"||key==="activeCombined";
    const dateField=isCurrent?"lastCompletedOn":"achievedOn";
-   const rows=list.map((item,i)=>{
+   const rows=list.slice(0,5).map((item,i)=>{
      const hash=isJob?"#owner-job-"+item.jobIndex:"#cleaning-history";
-     return '<li><a href="'+esc(url({ref:item.ref,view:"records",town,year})+hash)+'">'+
-       (i+1)+'. '+esc(item.firstName||"Customer")+' · '+
-       esc(item.town||"Town unavailable")+'</a> · <b>'+
-       fmt(item[key])+' '+esc(unit)+'</b>'+
-       '<span>REF '+esc(item.ref)+
+     return '<li class="award-rank-row">'+
+       '<span class="award-entry-name"><b class="award-entry-rank">#'+
+       String(i+1).padStart(2,"0")+'</b> <a href="'+
+       esc(url({ref:item.ref,view:"records",town,year})+hash)+'">'+
+       esc(item.firstName||"Customer")+' · '+
+       esc(item.town||"Town unavailable")+'</a></span>'+
+       '<strong class="award-entry-score">'+fmt(item[key])+' '+esc(unit)+'</strong>'+
+       '<span class="award-entry-detail">REF '+esc(item.ref)+
        (isJob?' · '+esc(item.label)+' job #'+(item.jobIndex+1):"")+
        (item[dateField]?' · '+esc(item[dateField]):"")+'</span></li>';
    }).join("");
@@ -202,8 +216,9 @@ function achievementsPanel(snapshot,selectedTown="",selectedYear="overall"){
            esc(winner[dateField]):"Recorded at "+esc(snapshot.asOf))+
        '</div>':'<p class="note">'+(isCurrent?"No active streak":"No qualifying history")+'</p>')+
      (desc?'<div class="when">'+esc(desc)+'</div>':"")+
-     (list.length>1?'<details><summary>TOP '+list.length+
-       ' RECORD HOLDERS</summary><ol>'+rows+'</ol></details>':"")+
+     (rows?'<div class="award-top-label">TOP 5 RECORD HOLDERS'+
+       (list.length<5?' · '+list.length+' QUALIFIED':'')+'</div>'+
+       '<ol class="award-top-five">'+rows+'</ol>':"")+
      '</article>';
  };
  const currentColours=["Black","Blue","Brown","Green"].map(colour=>
