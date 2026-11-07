@@ -79,7 +79,7 @@ function highlights(snapshot,eligibleAliases,permissions,period="overall",public
  return {
    status:"preview_public_named_records",
    period,periodEnd:record.periodEnd,sourceAsOf:snapshot.asOf,
-   colours:awards.COLOURS.map(colour=>{
+   colours:awards.RECORD_CATEGORIES.map(colour=>{
      const currentTop=topFive(record.byColourCurrent[colour],"active");
      const highestTop=topFive(record.byColour[colour],"best");
      return {colour,current:currentTop[0]?.cleans||0,
