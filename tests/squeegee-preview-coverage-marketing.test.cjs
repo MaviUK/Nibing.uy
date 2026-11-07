@@ -16,15 +16,15 @@ test("homepage area links advertise only verified towns, not stale historical ro
     assert.doesNotMatch(injected,re);
     assert.doesNotMatch(fallback,re);
   }
-  for(const town of ["Bangor","Groomsport","Carrowdore","Newtownards","Holywood","Donaghadee","Comber"]){
+  for(const town of ["Bangor","Groomsport","Carrowdore","Newtownards","Holywood","Donaghadee","Millisle","Portaferry","Comber"]){
     assert.match(links,new RegExp("name: '"+town+"'"));
   }
   assert.match(links,/border-radius:0;/);
 });
-test("SEO service area and FAQ do not promise Millisle or Portaferry until owner confirms rounds",()=>{
+test("SEO coverage matches confirmed Millisle and Portaferry current rounds",()=>{
   const html=read("index.html");
-  assert.doesNotMatch(html,/["]name["]: ["](Millisle|Portaferry)["]/);
+  for(const town of ["Millisle","Portaferry"]) assert.ok(html.includes('"name": "'+town+'"'));
   assert.match(html,/"name": "Conlig"/);
   assert.match(html,/Exact property availability is checked/);
-  assert.ok(html.includes("privacy-link.js?v=20261104-covered-towns"));
+  assert.ok(html.includes("privacy-link.js?v=20261107-current-covered-towns"));
 });

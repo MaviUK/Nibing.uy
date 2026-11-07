@@ -230,7 +230,7 @@ test("menu and cache-busted assets preserve the real dynamic Areas section and n
   assert.match(areaMount,/target\.parentNode\.insertBefore\(section,target\)/);
   assert.match(areaMount,/dispatchEvent\(new Event\("nbg:areas-mounted"\)\)/);
   assert.match(html,/src="\/n64-areas-navigation\.js\?v=20261103-leaderboard-top-fix"\s+defer/);
-  assert.match(html,/src="\/privacy-link\.js\?v=20261104-covered-towns"\s+defer/);
+  assert.match(html,/src="\/privacy-link\.js\?v=20261107-current-covered-towns"\s+defer/);
   assert.match(html,/#site-section-menu a,\s*#site-section-menu button/);
   assert.match(html,/if \(event\.target\.closest\("a"\)\) closeMenu\(\)/);
   // Do not remove or hide the strips: customers still see completion

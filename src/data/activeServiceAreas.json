@@ -4,6 +4,8 @@
     "Holywood",
     "Newtownards",
     "Donaghadee",
+    "Millisle",
+    "Portaferry",
     "Carrowdore",
     "Comber",
     "Groomsport",
@@ -16,9 +18,6 @@
     "Cloughey",
     "Ballyhalbert"
   ],
-  "reviewTowns": [
-    "Millisle",
-    "Portaferry"
-  ],
-  "note": "Current NI Bin Guy active towns; Groomsport and Conlig remain Bangor-area routes. Millisle and Portaferry require owner verification before they can be advertised as covered. Historical removed towns must never be auto-booked."
+  "reviewTowns": [],
+  "note": "The active 31 October 2026 four-weekly rota includes Portaferry Round 11 and Millisle Rounds 12, 14 and 17. Automatic booking still requires an exact verified council property, postcode and collection-date match. Removed towns remain excluded."
 }

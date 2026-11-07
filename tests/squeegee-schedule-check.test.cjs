@@ -63,6 +63,22 @@ test("removed-service-area towns are not eligible for a Squeegee job", () => {
   assert.equal(result.readyCount, 0);
   assert.equal(result.holds[0].reason, "unverified_service_area");
 });
+test("active Millisle and Portaferry are eligible only when signed website and server dates match", () => {
+  for (const town of ["MILLISLE","PORTAFERRY"]) {
+    const srv=server();
+    srv.town=town;
+    for (const row of srv.results) row.town=town;
+    const valid=compareDisplayedSchedule(booking(),srv,client());
+    assert.equal(valid.readyCount,2,town);
+    assert.equal(valid.matched,true,town);
+    assert.equal(valid.jobGroupVerified,false,town);
+    const altered=client();
+    altered.results[0].assignedCleanDate="2026-11-03";
+    const held=compareDisplayedSchedule(booking(),srv,altered);
+    assert.equal(held.readyCount,1,town);
+    assert.equal(held.holds[0].reason,"displayed_date_changed");
+  }
+});
 test("unmatched bin order cannot create an appointment for the wrong bin", () => {
   const snap=client();
   snap.results.reverse();

@@ -77,6 +77,8 @@ function bookingFunction({rows=[],html="GREY BIN 10 NOVEMBER 2026 BLUE BIN 12 NO
 }
 const bangor={uprn:"100001",addressText:"17 Example Street, Bangor, BT20 4AA"};
 const millisle={uprn:"100002",addressText:"12 Bay Street, Millisle, BT22 2AA"};
+const portaferry={uprn:"100004",addressText:"16 Shore Street, Portaferry, BT22 1AA"};
+const kircubbin={uprn:"100005",addressText:"10 Main Street, Kircubbin, BT22 2AA"};
 const greyabbey={uprn:"100003",addressText:"12 Main Street, Greyabbey, BT22 2AA"};
 
 test("authorised towns and retired towns come from one reviewed policy",async()=>{
@@ -87,7 +89,8 @@ test("authorised towns and retired towns come from one reviewed policy",async()=
   for(const town of ["Greyabbey","Ballywalter","Portavogie","Cloughey","Ballyhalbert"])
     assert.equal(policy.areaStatusForTown(town),"removed");
   for(const town of ["Millisle","Portaferry"])
-    assert.equal(policy.areaStatusForTown(town),"review");
+    assert.equal(policy.areaStatusForTown(town),"active");
+  assert.equal(policy.areaStatusForTown("Kircubbin"),"review");
   assert.equal(policy.townFromAddress("7 Bangor Road, Comber, BT23 4AA"),"COMBER");
   assert.equal(policy.townFromAddress(bangor.addressText),"BANGOR");
   assert.equal(policy.matchesCouncilProperty(
@@ -111,11 +114,35 @@ test("verified Bangor postcode needs actual active council-town evidence",async(
 });
 
 test("a mixed active and uncertain postcode requires property selection, not blanket approval",async()=>{
-  const {body}=await postcodeFunction({rows:[bangor,millisle]})("BT20 4AA");
+  const {body}=await postcodeFunction({rows:[bangor,kircubbin]})("BT20 4AA");
   assert.equal(body.covered,false);
   assert.equal(body.possible,true);
   assert.equal(body.reason,"select_address_for_confirmation");
   assert.deepEqual(body.addresses.map(x=>x.status),["active","review"]);
+});
+
+test("Millisle and Portaferry verified council addresses are eligible for postcode booking",async()=>{
+  const checks=[
+    {town:"MILLISLE",row:millisle,postcode:"BT22 2AA",latitude:54.608,longitude:-5.529},
+    {town:"PORTAFERRY",row:portaferry,postcode:"BT22 1AA",latitude:54.3833,longitude:-5.55}
+  ];
+  for(const sample of checks){
+    const {body}=await postcodeFunction({
+      rows:[sample.row],latitude:sample.latitude,longitude:sample.longitude
+    })(sample.postcode);
+    assert.equal(body.covered,true,sample.town);
+    assert.equal(body.town,sample.town);
+    assert.equal(body.addresses[0].status,"active");
+    assert.equal(body.reason,"council_town_verified");
+  }
+});
+
+test("mixed serviced towns never approve an entire shared postcode without a property selection",async()=>{
+  const {body}=await postcodeFunction({rows:[bangor,millisle]})("BT20 4AA");
+  assert.equal(body.covered,false);
+  assert.equal(body.possible,true);
+  assert.equal(body.reason,"select_address_for_confirmation");
+  assert.deepEqual(body.addresses.map(x=>x.status),["active","active"]);
 });
 
 test("removed or unverified council towns cannot become covered just by being nearby",async()=>{
@@ -196,12 +223,48 @@ test("retired historical towns are always held, even with old round dates in exp
   assert.equal(result.observed.some(x=>x.includes("binCalendar?")),false);
 });
 
-test("an unconfirmed local town is held rather than automatically scheduled",async()=>{
-  const result=await bookingFunction({rows:[millisle]})({
-    address:"12 Bay Street, Millisle, BT22 2AA",postcode:"BT22 2AA",
+test("an unknown local town is held rather than automatically scheduled",async()=>{
+  const result=await bookingFunction({rows:[kircubbin]})({
+    address:"10 Main Street, Kircubbin, BT22 2AA",postcode:"BT22 2AA",
   });
   assert.equal(result.body.reason,"service_area_requires_confirmation");
   assert.equal(result.body.matched,false);
+  assert.equal(result.observed.some(x=>x.includes("binCalendar?")),false);
+});
+
+test("existing Millisle and Portaferry rounds can resolve first-clean dates only from an exact property and council collection",async()=>{
+  const cases=[
+    {
+      address:millisle.addressText,postcode:"BT22 2AA",row:millisle,
+      town:"MILLISLE",date:"2026-12-01",
+      council:"GREY BIN 01 DECEMBER 2026 BLUE BIN 03 DECEMBER 2026 GREEN/BROWN BIN 02 DECEMBER 2026"
+    },
+    {
+      address:portaferry.addressText,postcode:"BT22 1AA",row:portaferry,
+      town:"PORTAFERRY",date:"2026-11-30",
+      council:"GREY BIN 30 NOVEMBER 2026 BLUE BIN 02 DECEMBER 2026 GREEN/BROWN BIN 01 DECEMBER 2026"
+    }
+  ];
+  for(const sample of cases){
+    const result=await bookingFunction({rows:[sample.row],html:sample.council})({
+      address:sample.address,postcode:sample.postcode,
+    });
+    assert.equal(result.status,200,sample.town);
+    assert.equal(result.body.town,sample.town);
+    assert.equal(result.body.townSource,"matched_council_address");
+    assert.equal(result.body.addressMatchMethod,"exact_council_address");
+    assert.equal(result.body.results?.[0]?.assignedCleanDate,sample.date,sample.town);
+    assert.equal(result.body.results?.[0]?.automatic,true,sample.town);
+    assert.equal(result.body.matched,true,sample.town);
+    assert.equal(result.observed.filter(x=>x.includes("binCalendar?")).length,1);
+  }
+});
+test("an apparent Millisle address cannot borrow a nearby Donaghadee property and date",async()=>{
+  const result=await bookingFunction({rows:[millisle]})({
+    address:"12 Bay Street, Donaghadee, BT22 2AA",postcode:"BT22 2AA",
+  });
+  assert.equal(result.body.matched,false);
+  assert.equal(result.body.reason,"address_town_mismatch");
   assert.equal(result.observed.some(x=>x.includes("binCalendar?")),false);
 });
 

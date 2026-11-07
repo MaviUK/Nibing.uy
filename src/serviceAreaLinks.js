@@ -7,6 +7,8 @@
     { name: 'Bangor', href: '/bin-cleaning-bangor/' },
     { name: 'Groomsport', href: '/bin-cleaning-groomsport' },
     { name: 'Donaghadee', href: '/bin-cleaning-donaghadee' },
+    { name: 'Millisle', href: '/bin-cleaning-millisle' },
+    { name: 'Portaferry', href: '/bin-cleaning-portaferry' },
     { name: 'Newtownards', href: '/bin-cleaning-newtownards' },
     { name: 'Holywood', href: '/bin-cleaning-holywood/' },
     { name: 'Carrowdore', href: '/bin-cleaning-carrowdore/' },

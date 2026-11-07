@@ -7,29 +7,31 @@ const path = require("node:path");
 const read = p => fs.readFileSync(path.join(__dirname, "..", p), "utf8");
 const area = require("../src/data/activeServiceAreas.json");
 
-test("review-only and retired towns cannot be presented as verified SEO coverage", () => {
+test("current rota towns are advertised; removed towns remain excluded", () => {
   const sitemap = read("public/sitemap.xml");
   const schema = read("src/HomepageServiceSchema.jsx");
   for (const town of [...area.reviewTowns,...area.removedTowns]) {
     assert.doesNotMatch(sitemap, new RegExp("bin-cleaning-" + town.toLowerCase()));
     assert.doesNotMatch(schema, new RegExp('"' + town + '"'));
   }
-  for (const town of ["Bangor","Groomsport","Donaghadee","Newtownards","Comber","Holywood","Carrowdore"]) {
+  for (const town of ["Bangor","Groomsport","Donaghadee","Millisle","Portaferry","Newtownards","Comber","Holywood","Carrowdore"]) {
     assert.match(sitemap,new RegExp("bin-cleaning-" + town.toLowerCase()));
     assert.match(schema,new RegExp('"' + town + '"'));
   }
   for (const town of ["Millisle","Portaferry"]) {
     const page=read("public/bin-cleaning-"+town.toLowerCase());
-    assert.match(page, /<meta name="robots" content="noindex, follow">/);
-    assert.match(page, /Coverage currently requires confirmation/);
-    assert.match(page, /cannot confirm|have not yet been approved/i);
-    assert.doesNotMatch(page, /<script type="application\/ld\+json">/);
+    assert.doesNotMatch(page, /<meta name="robots" content="noindex, follow">/);
+    assert.match(page, /Exact address, postcode and collection-day availability/);
+    assert.match(page, /<script type="application\/ld\+json">/);
+    assert.match(page, /Book a Bin Clean/);
   }
   const headers=read("public/_headers");
   assert.doesNotMatch(headers, /\/bin-cleaning-\*\s+X-Robots-Tag:\s+index/i);
   for(const town of ["millisle","portaferry"])
-    assert.match(headers, new RegExp("/bin-cleaning-"+town+"\\n  Content-Type:[^\\n]+\\n  X-Robots-Tag: noindex, follow"));
-  assert.deepEqual(area.reviewTowns,["Millisle","Portaferry"]);
+    assert.match(headers, new RegExp("/bin-cleaning-"+town+"\\n  Content-Type:[^\\n]+\\n  X-Robots-Tag: index, follow"));
+  assert.deepEqual(area.reviewTowns,[]);
+  assert.ok(area.activeTowns.includes("Millisle"));
+  assert.ok(area.activeTowns.includes("Portaferry"));
   const policy=read("src/serviceAreaPolicy.mjs");
   assert.match(policy,/REVIEW_TOWNS/);
 });
