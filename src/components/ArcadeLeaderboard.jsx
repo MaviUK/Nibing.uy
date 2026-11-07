@@ -354,7 +354,7 @@ export default function ArcadeLeaderboard() {
         setHistoryStatus(data.status === "active_status_refresh_required" ? data.status : null);
         setScoreUpdatePending(data.scoreUpdatePending===true);
         const records=data.publicAchievements;
-        const colours=["Black","Blue","Brown","Green"];
+        const colours=["Black","Blue","Green & Brown"];
         const cleanCount=value=>Number.isSafeInteger(value)&&value>=0&&value<=100000;
         const validFirstName=value=>typeof value==="string"&&
           /^[\p{L}][\p{L}'’\-]{0,39}$/u.test(value);
@@ -371,7 +371,7 @@ export default function ArcadeLeaderboard() {
           records.period===selectedYear&&data.period===selectedYear&&
           /^20\d{2}-\d{2}-\d{2}$/.test(records.sourceAsOf||"")&&
           /^20\d{2}-\d{2}-\d{2}$/.test(records.periodEnd||"")&&
-          Array.isArray(records.colours)&&records.colours.length===4&&
+          Array.isArray(records.colours)&&records.colours.length===3&&
           records.colours.every((row,i)=>row?.colour===colours[i]&&
             cleanCount(row.current)&&cleanCount(row.highest)&&
             validTopFive(row.currentTop,row.current)&&
@@ -739,8 +739,8 @@ export default function ArcadeLeaderboard() {
           <div className="n64-public-record-grid">
             {publicAchievements.colours.map(row=>
               <article key={row.colour}
-                className={"n64-public-record n64-public-record--"+row.colour.toLowerCase()}>
-                <h4>{row.colour.toUpperCase()} BIN · TOP 5</h4>
+                className={"n64-public-record n64-public-record--"+(row.colour==="Green & Brown"?"greenbrown":row.colour.toLowerCase())}>
+                <h4>{row.colour.toUpperCase()} {row.colour==="Green & Brown"?"BINS":"BIN"} · TOP 5</h4>
                 <div className="n64-record-pair">
                   <div><span className="n64-record-stat-label">
                     {selectedYear!=="overall"&&publicAchievements.periodEnd!==publicAchievements.sourceAsOf
