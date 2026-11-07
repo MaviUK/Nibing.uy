@@ -84,7 +84,11 @@ self.onmessage=async e=>{
   const result=await convert(file,previous);
   self.postMessage({type:"complete",result});
  }catch(error){
+  const missingJob=error?.message==="missing_squeegee_recurring_job_id"||
+    error?.message==="invalid_or_conflicting_squeegee_job_id";
   self.postMessage({type:"error",
-   message:typeof error?.message==="string"?error.message:"Unable to process this backup safely."});
+   message:missingJob?
+    "The Squeegee backup did not provide a reliable recurring job ID for each clean. Per-job streaks cannot be verified, so NO scores have been replaced. Please ask NI Bin Guy to review the backup format.":
+    typeof error?.message==="string"?error.message:"Unable to process this backup safely."});
  }
 };
