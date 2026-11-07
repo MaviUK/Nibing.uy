@@ -109,6 +109,10 @@ test("different jobs on one customer earn independently and one skipped job does
  acceptSqueegeeRecord(state,{resourceType:"transactions",
   _id:invoice,customerId:firstId,transactionType:0,
   amount:5,invoice:{paid:true}});
+ // Keep the original customer's account balance at zero: the first
+ // source invoice is only marked 'invoiced' and requires zero balance.
+ acceptSqueegeeRecord(state,{resourceType:"transactions",
+  _id:uuid(999994),customerId:firstId,transactionType:1,amount:-5});
  // The original first job was completed on Nov 6. Second occurrence on
  // Nov 7 earns +22, despite a skip on a DIFFERENT Brown job the same day.
  acceptSqueegeeRecord(state,{resourceType:"joboccurrences",
