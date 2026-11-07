@@ -1,5 +1,5 @@
 // Runs in the owner's browser. The complete .sqg never leaves their device.
-export const SCORE_VERSION="2026-11-streak-20-plus-2-per-paid-bin-v1";
+export const SCORE_VERSION="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2";
 const UUID=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 const REF=/^(?:\d{1,12}|CUS\d{1,15}|[Aa]{2}\d{3,8})$/;
 const EMAIL=/^[^\s@]{1,80}@[^\s@]{1,160}\.[^\s@]{2,24}$/;
@@ -43,9 +43,30 @@ function quantityOf(service) {
  const q=service?.quantity===undefined||service.quantity===null?1:Number(service.quantity);
  return Number.isSafeInteger(q)&&q>=1&&q<=20?q:0;
 }
+// Each Squeegee job has a stable ID shared by its dated occurrences.
+// Never infer job identity from bin colour, customer ID or occurrence ID:
+// multiple Brown jobs can coexist on one customer account.
+function recurringJobId(row) {
+ const candidates=[row.jobId,row.job?._id,row.job?.id]
+  .filter(value=>value!==null&&value!==undefined&&value!=="");
+ if(!candidates.length)throw Error("missing_squeegee_recurring_job_id");
+ const keys=candidates.map(value=>String(value).toLowerCase());
+ if(keys.some(value=>!UUID.test(value))||new Set(keys).size!==1)
+  throw Error("invalid_or_conflicting_squeegee_job_id");
+ return keys[0];
+}
+function jobLabel(services) {
+ const names=[...new Set((services||[]).flatMap(service=>{
+  const upper=String(service?.description||"").toUpperCase();
+  return ["BLACK","BROWN","BLUE","GREEN"].filter(colour=>
+   new RegExp("\\b"+colour+"\\b").test(upper));
+ }))];
+ return names.length?names.map(name=>name[0]+name.slice(1).toLowerCase()).join(" + "):
+  "Other job";
+}
 export function makeState() {
  return {customers:new Map(),invoices:new Map(),balance:new Map(),
-  occurrences:[],records:0,types:new Map()};
+  occurrences:[],jobOwners:new Map(),occurrenceIds:new Map(),records:0,types:new Map()};
 }
 export function acceptSqueegeeRecord(state,row) {
  if(!row||typeof row!=="object")throw Error("invalid_export_record");
@@ -73,12 +94,28 @@ export function acceptSqueegeeRecord(state,row) {
   if(!UUID.test(String(row.customerId||"")))return;
   const date=String(row.isoDueDate||row.isoCompletedDate||"").slice(0,10);
   if(!validDay(date))return;
+  const jobId=recurringJobId(row);
+  const occurrenceId=String(row._id||"").toLowerCase();
+  if(!UUID.test(occurrenceId))
+   throw Error("missing_squeegee_occurrence_id");
+  const customerId=row.customerId.toLowerCase();
+  const registeredOwner=state.jobOwners.get(jobId);
+  if(registeredOwner&&registeredOwner!==customerId)
+   throw Error("squeegee_job_shared_by_multiple_customers");
+  state.jobOwners.set(jobId,customerId);
   const services=(row.services||[]).map(s=>({
     description:String(s?.description||""),quantity:s?.quantity}));
-  state.occurrences.push({id:String(row._id||""),
-   customerId:row.customerId.toLowerCase(),date,status:row.status,services,
+  const record={id:occurrenceId,jobId,customerId,date,status:row.status,services,
    invoiceId:String(row.invoiceTransactionId||"").toLowerCase(),
-   paymentStatus:row.paymentStatus,paidDate:row.paidDate||null});
+   paymentStatus:row.paymentStatus,paidDate:row.paidDate||null};
+  const signature=JSON.stringify(record);
+  const earlier=state.occurrenceIds.get(occurrenceId);
+  if(earlier!==undefined){
+   if(earlier!==signature)throw Error("conflicting_squeegee_occurrence");
+   return;
+  }
+  state.occurrenceIds.set(occurrenceId,signature);
+  state.occurrences.push(record);
  }
 }
 function cleanEmail(raw){
@@ -95,7 +132,7 @@ function makeCustomer(c,prior){
    old.firstName:firstName(c.name);
  return {id:c.id,ref,email:cleanEmail(c.email),firstName:name,town,
   points:0,paidCleans:0,currentStreak:0,nextBonus:20,
-  recordedSkips:0,events:[]};
+  recordedSkips:0,events:[],jobs:[]};
 }
 export function finishSqueegeeImport(state,asOf,previous={}){
  if(!validDay(asOf)||state.records<10000||state.customers.size<900||
@@ -129,31 +166,57 @@ export function finishSqueegeeImport(state,asOf,previous={}){
  }
  for(const [id,list] of events){
   const row=rows.get(id);
-  list.sort((a,b)=>a.date.localeCompare(b.date)||
-    (a.kind==="skip"?-1:b.kind==="skip"?1:0)||
-    a.id.localeCompare(b.id));
-  let streak=0,lastVisitDay=null;
-  for(const occ of list){
-   if(occ.kind==="skip"){
-    streak=0;lastVisitDay=null;row.recordedSkips++;
-    row.events.push({date:occ.date,event:"recorded_skip",
-     streak:0,quantity:0,points:0});
-    continue;
-   }
-   if(occ.kind==="non-bin"){
-    row.events.push({date:occ.date,event:"completed_non_bin_service",
-     streak,quantity:0,points:0});
-    continue;
-   }
-   if(occ.date!==lastVisitDay){streak++;lastVisitDay=occ.date;}
-   const paid=occ.kind==="paid",qty=occ.quantity;
-   const points=paid?qty*(20+2*(streak-1)):0;
-   row.events.push({date:occ.date,
-    event:paid?"paid_completed_clean":"completed_payment_not_verified",
-    points,streak,quantity:qty});
-   if(paid){row.points+=points;row.paidCleans+=qty;}
+  const jobs=new Map();
+  for(const occurrence of list){
+   if(!jobs.has(occurrence.jobId))jobs.set(occurrence.jobId,[]);
+   jobs.get(occurrence.jobId).push(occurrence);
   }
-  row.currentStreak=streak;row.nextBonus=20+2*streak;
+  const orderedJobs=[...jobs.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+  const allEvents=[];
+  for(let jobIndex=0;jobIndex<orderedJobs.length;jobIndex++){
+   const [jobId,occurrences]=orderedJobs[jobIndex];
+   occurrences.sort((a,b)=>a.date.localeCompare(b.date)||
+    (a.kind==="skip"?-1:b.kind==="skip"?1:0)||a.id.localeCompare(b.id));
+   let streak=0,lastVisitDay=null,jobPaidBins=0,jobPoints=0,jobSkips=0;
+   let lastCompletedOn=null;
+   const label=jobLabel(occurrences.flatMap(x=>x.services));
+   for(const occ of occurrences){
+    let event;
+    if(occ.kind==="skip"){
+     streak=0;lastVisitDay=null;jobSkips++;row.recordedSkips++;
+     event={date:occ.date,event:"recorded_skip",
+      streak:0,quantity:0,points:0,j:jobIndex};
+    }else if(occ.kind==="non-bin"){
+     event={date:occ.date,event:"completed_non_bin_service",
+      streak,quantity:0,points:0,j:jobIndex};
+    }else{
+     if(occ.date!==lastVisitDay){
+      streak++;lastVisitDay=occ.date;
+     }
+     lastCompletedOn=occ.date;
+     const paid=occ.kind==="paid",qty=occ.quantity;
+     const points=paid?qty*(20+2*(streak-1)):0;
+     event={date:occ.date,event:paid?
+      "paid_completed_clean":"completed_payment_not_verified",
+      points,streak,quantity:qty,j:jobIndex};
+     if(paid){
+      row.points+=points;row.paidCleans+=qty;
+      jobPoints+=points;jobPaidBins+=qty;
+     }
+    }
+    allEvents.push({...event,_id:occ.id});
+   }
+   row.jobs.push({id:jobId,label,currentStreak:streak,
+    nextBonus:20+2*streak,paidCleans:jobPaidBins,points:jobPoints,
+    recordedSkips:jobSkips,lastCompletedOn});
+  }
+  allEvents.sort((a,b)=>a.date.localeCompare(b.date)||a.j-b.j||
+   a._id.localeCompare(b._id));
+  row.events=allEvents.map(({_id,...e})=>e);
+  // Legacy account-wide fields are retained for version-compatible readers,
+  // but UI must display individual job streaks, never this maximum as a bonus.
+  row.currentStreak=Math.max(0,...row.jobs.map(job=>job.currentStreak));
+  row.nextBonus=20+2*row.currentStreak;
   if(row.events.length>2500)throw Error("unusual_history_needs_review");
  }
  const accounts=[...rows.values()].sort((a,b)=>a.id.localeCompare(b.id));
