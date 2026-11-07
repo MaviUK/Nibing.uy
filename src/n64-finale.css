@@ -915,3 +915,25 @@
 .n64-public-record-highlights .n64-record-no-results{font-size:13px;font-weight:850;color:#263b50;padding:8px 0}
 @media(max-width:650px){.n64-public-record-highlights .n64-public-record-grid,.n64-public-record-highlights .n64-public-record-extras{grid-template-columns:1fr}}
 @media(max-width:450px){.n64-public-record-highlights .n64-record-pair{grid-template-columns:1fr;gap:15px}.n64-public-record-highlights .n64-record-pair>div{border-top:2px solid #8294a3;padding-top:10px}.n64-public-leaderboard .n64-public-record-highlights ol.n64-record-ranks li>strong{font-size:16px}}
+
+/* Preview 77: three clearly separated leaderboard tabs and named record rows.
+   Existing production tab layout stays two-column until records are enabled. */
+.n64-public-leaderboard .n64-board-tabs--three{grid-template-columns:repeat(3,minmax(0,1fr));max-width:940px}
+.n64-public-leaderboard .n64-public-board-inner--records{max-width:1010px}
+.n64-public-leaderboard .n64-board-records-tab:not([hidden]){min-height:100svh;min-height:100dvh}
+.n64-public-leaderboard .n64-board-records-tab h2{margin:20px 0 10px}
+.n64-public-leaderboard .n64-board-records-tab .n64-records-intro{color:#e5f0fe;margin:0 auto 16px;font-size:.98rem;max-width:650px}
+.n64-public-leaderboard .n64-board-records-tab .n64-leaderboard-years{margin-bottom:20px}
+.n64-public-leaderboard .n64-board-records-tab .n64-records-wait{background:#e5f0fe;border:3px solid #7798bd;color:#183a58;font-size:1rem;font-weight:900;padding:18px;margin:20px auto;max-width:550px}
+.n64-public-leaderboard .n64-board-records-tab .n64-public-record-highlights{margin-top:18px}
+.n64-public-leaderboard .n64-board-records-tab .n64-record-pair{grid-template-columns:1fr;gap:13px}
+.n64-public-leaderboard .n64-board-records-tab .n64-record-pair>div{min-width:0}
+.n64-public-leaderboard .n64-board-records-tab ol.n64-record-ranks>li,
+.n64-public-leaderboard .n64-board-records-tab ol.n64-record-ranks>li:nth-child(-n+3){display:flex;align-items:center;gap:10px;padding:10px 0;min-width:0}
+.n64-public-leaderboard .n64-board-records-tab .n64-record-rank-number{color:#194b60;font-size:13px;font-weight:950;min-width:31px}
+.n64-public-leaderboard .n64-board-records-tab .n64-record-person{display:flex;flex:1 1 auto;min-width:0;flex-direction:column;gap:3px;overflow-wrap:anywhere;text-align:left;line-height:1.3}
+.n64-public-leaderboard .n64-board-records-tab .n64-record-person>strong{font-size:15px;line-height:1.3;color:#153b5b;font-weight:950}
+.n64-public-leaderboard .n64-board-records-tab .n64-record-person>span{color:#30455a;font-size:12px;line-height:1.35;font-weight:800}
+.n64-public-leaderboard .n64-board-records-tab .n64-record-rank-result{color:#0c493a;font-size:18px;font-weight:950;text-align:right;line-height:1.25;white-space:normal;flex:0 0 auto}
+.n64-public-leaderboard .n64-board-records-tab .n64-record-rank-result small{display:block;color:#30455a;font-size:12px;font-weight:850}
+@media(max-width:600px){.n64-public-leaderboard .n64-board-tabs--three{gap:5px}.n64-public-leaderboard .n64-board-tabs--three .n64-board-tab{font-size:.72rem;line-height:1.2;letter-spacing:0;padding:10px 4px;min-height:50px;box-shadow:2px 3px 0 #52759d}.n64-public-leaderboard .n64-board-records-tab .n64-record-person>strong{font-size:15px}.n64-public-leaderboard .n64-board-records-tab .n64-record-rank-result{font-size:17px}}
