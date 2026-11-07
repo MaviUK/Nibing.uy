@@ -244,17 +244,17 @@ test("town summary and filters read but never modify original imported records",
 test("town selector stays behind owner authentication and preserves the selected town in record links",()=>{
  const src=fs.readFileSync(path.join(__dirname,
   "../netlify/functions/squeegeePreviewOwnerCustomers.mjs"),"utf8");
- assert.match(src,/function achievementsPanel\(snapshot,selectedTown=""\)/);
+ assert.match(src,/function achievementsPanel\(snapshot,selectedTown="",selectedYear="overall"\)/);
  assert.match(src,/const town=groups\.has\(selectedTown\)\?selectedTown:""/);
  assert.match(src,/const subset=town\?groups\.get\(town\):snapshot\.accounts/);
  assert.match(src,/id="town-select"/);
  assert.match(src,/TOWN-BY-TOWN RECORDS/);
  assert.match(src,/Current · any job/);
  assert.match(src,/Historical best · any job/);
- assert.match(src,/url\(\{view:"records",town:row\.town\}\)/);
- assert.match(src,/url\(\{ref:item\.ref,view:"records",town\}\)/);
- assert.match(src,/achievementsPanel\(snapshot,safeString\(params\.get\("town"\),60\)\)/);
- assert.match(src,/fromRecords\?url\(\{view:"records",town:safeString\(params\.get\("town"\),60\)\}\)/);
+ assert.match(src,/url\(\{view:"records",town:row\.town,year\}\)/);
+ assert.match(src,/url\(\{ref:item\.ref,view:"records",town,year\}\)/);
+ assert.match(src,/achievementsPanel\(snapshot,safeString\(params\.get\("town"\),60\),\s*safeString\(params\.get\("year"\),10\)\)/);
+ assert.match(src,/fromRecords\?url\(\{view:"records",town:safeString\(params\.get\("town"\),60\),/);
  const auth=src.indexOf("if(!owner.verifyTestSessionCookie");
  const privateRead=src.indexOf("const snapshot=await getStore");
  assert.ok(auth>=0&&privateRead>auth);
@@ -277,9 +277,9 @@ test("admin displays the achievements only after owner-session verification",()=
  const src=fs.readFileSync(path.join(__dirname,
   "../netlify/functions/squeegeePreviewOwnerCustomers.mjs"),"utf8");
  assert.match(src,/import achievements from "\.\/lib\/squeegeePreviewOwnerAchievements\.js"/);
- assert.match(src,/function achievementsPanel\(snapshot,selectedTown=""\)/);
+ assert.match(src,/function achievementsPanel\(snapshot,selectedTown="",selectedYear="overall"\)/);
  assert.match(src,/if\(recordView\)/);
- assert.match(src,/achievementsPanel\(snapshot,safeString\(params\.get\("town"\),60\)\)/);
+ assert.match(src,/achievementsPanel\(snapshot,safeString\(params\.get\("town"\),60\),\s*safeString\(params\.get\("year"\),10\)\)/);
  assert.match(src,/stats\+nav\+filters\(q,mode,year\)/);
  assert.match(src,/url\(\{view:"records"\}\)/);
  assert.match(src,/fromRecords\?'← HIGH ACHIEVEMENTS':'← ALL CUSTOMERS'/);
