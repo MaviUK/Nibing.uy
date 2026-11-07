@@ -45,6 +45,8 @@ const css=[
  ".record-notes{font-size:12px;color:#d6e4f5;margin:14px 2px 0}.record-notes strong{color:#ffdf78}.record-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}.record-head small{font-size:11px;color:#dceafa}.award--wide{background:#f8e7a5;border-color:#c5a552}tr:target{outline:4px solid #e0b93a;outline-offset:-4px;background:#fff0b7}",
  ".award-extra{margin-top:13px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}",
  ".record-group{margin:25px 0 0;border-top:5px solid #8fc3d7;padding-top:15px}.record-group.alltime{border-color:#eec65e}.record-group.milestones{border-color:#8fbf9a}.record-group h3{font-size:19px;margin:0 0 7px;color:#ffe274}.record-group>p{color:#d9e8f7;font-size:13px;margin:0 0 14px}.award .award-mode{font-size:10px;font-weight:950;letter-spacing:.07em;text-transform:uppercase;color:#284461;padding:2px 0 8px}.record-group.current .award,.record-group.alltime .award{border-top-width:7px}",
+ ".town-picker{background:#dceafa;color:#263958;border:4px solid #7393bd;box-shadow:4px 5px #071d34;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;margin:15px 0 20px}.town-picker label{grid-column:1/-1;font-size:13px;font-weight:900}.town-picker select{min-width:0;width:100%}.town-index{border-color:#a3adca}.town-index table{background:#fff8dd}.town-index th{background:#dceafa}.town-index td{background:#fff8dd}.town-index td a{color:#204e84}.town-index small{font-size:11px;color:#536683}.town-index .no-record{color:#677590}",
+ "@media(max-width:580px){.town-picker{grid-template-columns:1fr}.town-picker label{grid-column:auto}.town-picker button{width:100%}}",
  " .admin-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0 21px}.admin-nav a{display:block;padding:11px 8px;text-align:center;text-decoration:none;font-weight:900;color:#233a5a;background:#dceafa;border:3px solid #97a8c0;box-shadow:3px 4px #081e3a}.admin-nav a.selected{background:#ffe274;border-color:#c4a347}.admin-nav a:focus-visible{outline:3px solid white;outline-offset:3px}",
 
  "footer{font-size:12px;color:#bed0e4;margin-top:30px}@media(max-width:720px){.search{grid-template-columns:1fr 1fr}.search .query,.search button{grid-column:1/-1}.stats{gap:7px}.stats .stat{padding:10px}.stats .stat b{font-size:20px}dl{grid-template-columns:1fr}dt{margin-bottom:-8px}}",
@@ -98,15 +100,45 @@ function filters(q,mode,year){
  '</select></div><button type="submit">★ SEARCH</button></form>';
 }
 
-function achievementsPanel(snapshot){
- // Owner-only, read-only awards calculated from verified per-job data.
- const awarded=achievements.awards(snapshot?.accounts,{asOf:snapshot?.asOf});
+function achievementsPanel(snapshot,selectedTown=""){
+ // Only choose towns in the private, validated Squeegee backup.
+ const groups=achievements.townGroups(snapshot?.accounts);
+ const town=groups.has(selectedTown)?selectedTown:"";
+ const subset=town?groups.get(town):snapshot.accounts;
+ const awarded=achievements.awards(subset,{asOf:snapshot?.asOf});
  if(!awarded)return '<section class="records" id="high-achievements">'+
    '<h2>★ HIGH ACHIEVEMENTS</h2><p>Per-job awards require a verified Squeegee per-job history.</p></section>';
+ const towns=achievements.townRecords(snapshot?.accounts,{asOf:snapshot.asOf});
+ const townSelector='<form action="'+PATH+'" method="get" class="town-picker">'+
+  '<input type="hidden" name="view" value="records">'+
+  '<label for="town-select">⌖ CHOOSE TOWN</label>'+
+  '<select name="town" id="town-select">'+
+  option("",town,"All towns · global records")+
+  towns.map(row=>option(row.town,town,row.town+" ("+fmt(row.customers)+")")).join("")+
+  '</select><button type="submit">SHOW TOWN RECORDS →</button></form>';
+ const townWinner=(entry,metric)=>{
+  if(!entry)return '<span class="no-record">No current streak</span>';
+  return '<strong>'+fmt(entry[metric])+' cleans</strong>'+
+   '<small style="display:block">'+esc(entry.firstName||"Customer")+
+   ' (REF '+esc(entry.ref)+')</small>';
+ };
+ const townTable=!town?
+  '<div class="record-group town-index" id="town-records">'+
+   '<h3>⌖ TOWN-BY-TOWN RECORDS</h3>'+
+   '<p>Select a town to view its own Black, Blue, Brown, Green, '+
+   'single-job and all-jobs record holders.</p>'+
+   '<div class="tablewrap"><table><thead><tr><th>Town</th><th>Customers</th>'+
+   '<th>Current · any job</th><th>Historical best · any job</th></tr></thead>'+
+   '<tbody>'+towns.map(row=>'<tr><td><a href="'+
+    esc(url({view:"records",town:row.town}))+'"><b>'+
+    esc(row.town)+'</b> →</a></td><td>'+fmt(row.customers)+'</td>'+
+    '<td>'+townWinner(row.current,"active")+'</td>'+
+    '<td>'+townWinner(row.highest,"best")+'</td></tr>').join("")+
+   '</tbody></table></div></div>':"";
  const holder=(item,jobSpecific=false)=>{
    const hash=jobSpecific&&Number.isSafeInteger(item.jobIndex)?
      "#owner-job-"+item.jobIndex:"#cleaning-history";
-   return '<a href="'+esc(url({ref:item.ref,view:"records"})+hash)+'">'+
+   return '<a href="'+esc(url({ref:item.ref,view:"records",town})+hash)+'">'+
      esc(item.firstName||"Customer")+' · '+esc(item.town||"Town unavailable")+
      ' (REF '+esc(item.ref)+')</a>';
  };
@@ -118,7 +150,7 @@ function achievementsPanel(snapshot){
    const dateField=isCurrent?"lastCompletedOn":"achievedOn";
    const rows=list.map((item,i)=>{
      const hash=isJob?"#owner-job-"+item.jobIndex:"#cleaning-history";
-     return '<li><a href="'+esc(url({ref:item.ref,view:"records"})+hash)+'">'+
+     return '<li><a href="'+esc(url({ref:item.ref,view:"records",town})+hash)+'">'+
        (i+1)+'. '+esc(item.firstName||"Customer")+' · '+
        esc(item.town||"Town unavailable")+'</a> · <b>'+
        fmt(item[key])+' '+esc(unit)+'</b>'+
@@ -174,7 +206,9 @@ function achievementsPanel(snapshot){
    '<div class="record-head"><h2>★ HIGH ACHIEVEMENT RECORDS</h2>'+
      '<small>BACKUP '+esc(awarded.asOf)+'</small></div>'+
    '<p><b>Current streaks</b> and <b>historical highest streaks</b> are separate '+
-     'leaderboards. Select a name to inspect the individual job.</p>'+
+     'leaderboards. '+(town?'Showing <b>'+esc(town)+'</b> ('+
+       fmt(subset.length)+' imported customers).':'Showing all imported towns.')+
+     ' Tap a name to inspect the individual job.</p>'+townSelector+
    '<div class="record-group current" id="current-achievements">'+
      '<h3>⚡ CURRENT STREAKS</h3>'+
      '<p>Still unbroken as of '+esc(awarded.asOf)+'. '+
@@ -191,13 +225,15 @@ function achievementsPanel(snapshot){
    '<div class="record-group milestones"><h3>◆ OTHER MILESTONES</h3>'+
      '<p>Lifetime achievements unrelated to consecutive streaks.</p>'+
      '<div class="award-extra">'+milestones+'</div></div>'+
+   townTable+
    '<div class="record-notes"><strong>Streak rules:</strong> A job streak counts completed '+
      'visits, not bins. Historical bests remain after skips. "Across all jobs" '+
      'counts one distinct cleaned date per customer and breaks when any job '+
      'has a recorded skip; it does not affect individual job XP. Mixed-colour '+
      'jobs compete in overall records, not single-colour categories. Current '+
      'means <b>current at the backup date</b>, not live Squeegee status. '+
-     'Awards include imported active customers only.</div></section>';
+     'Awards include imported active customers only, with their town as '+
+     'recorded in the verified Squeegee backup.</div></section>';
 }
 function listPage(snapshot,eligible,params){
  const q=safeString(params.get("q"),90);
@@ -227,7 +263,7 @@ function listPage(snapshot,eligible,params){
   return respond("High Achievements",'<h1>★ OWNER RECORDS</h1>'+
    '<p class="lead">Lifetime cleaning milestones from your imported customers. '+
    'Backup: <b>'+esc(snapshot.asOf)+'</b>.</p>'+stats+nav+
-   achievementsPanel(snapshot));
+   achievementsPanel(snapshot,safeString(params.get("town"),60)));
  }
  const entries=shown.map(({account,eligible:ranked,periodPoints,periodBins})=>
   '<li><a class="customer" href="'+esc(url({ref:account.ref,q,mode,year,page}))+'">'+
@@ -303,7 +339,7 @@ async function detailPage(snapshot,eligible,params,account){
  const years=[...new Set([...byYear.keys(),...Object.keys(summary?.yearly||{}).map(Number),2024,2025,2026])]
   .filter(year=>Number.isSafeInteger(year)&&year>=2000&&year<=2099).sort((a,b)=>b-a);
  const fromRecords=params.get("view")==="records";
- const back=fromRecords?url({view:"records"}):url({q:safeString(params.get("q"),90),
+ const back=fromRecords?url({view:"records",town:safeString(params.get("town"),60)}):url({q:safeString(params.get("q"),90),
   mode:params.get("mode")||"all",year:params.get("year")||"overall",page:params.get("page")||"1"});
  const name=contact?.name||account.firstName||"Customer";
  const total=summary?.points??clean.points;
