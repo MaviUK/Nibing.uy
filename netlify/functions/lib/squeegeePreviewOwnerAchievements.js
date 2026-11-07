@@ -44,37 +44,52 @@ function jobRecords(account,asOf,year=null) {
  return account.jobs.map((job,index)=>{
   let best=0,achievedOn=null;
   const cutoff=year===null?asOf:year+"-12-31"<asOf?year+"-12-31":asOf;
+  // Calendar-year records count documented cleaning VISITS inside that year,
+  // not the source's lifetime event.streak. A 32-clean lifetime run that
+  // reaches November 2026 must not show as 32 cleans in 2026.
   const timeline=new Map();
   for(const event of byJob[index]){
    const day=dateDay(event?.date);
-   if(day&&day<=cutoff){
+   if(!day||day>cutoff)continue;
+   if(year!==null){
+    if(!day.startsWith(year+"-"))continue;
     if(!timeline.has(day))timeline.set(day,{skip:false,streak:0});
     const dayEvents=timeline.get(day);
     if(event.event==="recorded_skip")dayEvents.skip=true;
     else if(CLEAN.has(event.event)&&Number.isSafeInteger(event.streak)&&event.streak>0)
-      dayEvents.streak=Math.max(dayEvents.streak,event.streak);
-   }
-   if(!CLEAN.has(event?.event)||!dateDay(event.date)||event.date>cutoff||
-      (year!==null&&!event.date.startsWith(year+"-"))||
-      !Number.isSafeInteger(event.streak)||event.streak<1)continue;
-   if(event.streak>best){
-    best=event.streak;
-    achievedOn=event.date;
-   }else if(event.streak===best && (!achievedOn||event.date<achievedOn)){
-    achievedOn=event.date;
+     dayEvents.streak=Math.max(dayEvents.streak,event.streak);
+   }else{
+    // Overall retains the original lifetime/Squeegee per-job streak record.
+    if(!CLEAN.has(event.event)||!Number.isSafeInteger(event.streak)||
+       event.streak<1)continue;
+    if(event.streak>best){
+     best=event.streak;
+     achievedOn=day;
+    }else if(event.streak===best&&(!achievedOn||day<achievedOn)){
+     achievedOn=day;
+    }
    }
   }
   let last=dateDay(job.lastCompletedOn);
-  // For an older year, reconstruct its year-end streak from dated events.
-  // Never mistake the 2026 snapshot's currentStreak for its 2024/25 value.
   let current=Number.isSafeInteger(job.currentStreak)&&job.currentStreak>0
    ?job.currentStreak:0;
   if(year!==null){
-   current=0;last=null;
+   let run=0,lastSourceStreak=0;
+   last=null;
    for(const [day,entry] of [...timeline].sort(([a],[b])=>a.localeCompare(b))){
-    if(entry.skip){current=0;last=null;}
-    else if(entry.streak>0){current=entry.streak;last=day;}
+    if(entry.skip){
+     // A skip on the same date as a clean takes precedence.
+     run=0;lastSourceStreak=0;last=null;
+    }else if(entry.streak>0){
+     // The original streak signals a break even if a skip wasn't imported.
+     // Never credit missing visits or multiple bins on the same day.
+     run=lastSourceStreak>0&&entry.streak<=lastSourceStreak?1:run+1;
+     lastSourceStreak=entry.streak;
+     last=day;
+     if(run>best){best=run;achievedOn=day;}
+    }
    }
+   current=run;
   }
   const active=last && cutoff<=addDays(last,35)?current:0;
   return {
@@ -95,7 +110,8 @@ function customerCleanDateRecord(account,asOf=null,year=null){
  const byDate=new Map();
  for(const e of Array.isArray(account.events)?account.events:[]){
   const day=dateDay(e?.date);
-  if(!day||(asOf!==null&&day>asOf))continue;
+  if(!day||(asOf!==null&&day>asOf)||
+     (year!==null&&!day.startsWith(year+"-")))continue;
   if(!byDate.has(day))byDate.set(day,{clean:false,skip:false});
   const record=byDate.get(day);
   if(CLEAN.has(e.event))record.clean=true;
@@ -106,7 +122,7 @@ function customerCleanDateRecord(account,asOf=null,year=null){
   const {clean,skip}=byDate.get(day);
   if(skip){run=0;lastCompletedOn=null;}
   else if(clean){run++;lastCompletedOn=day;}
-  if(run>best&&(year===null||day.startsWith(year+"-"))){best=run;achievedOn=day;}
+  if(run>best){best=run;achievedOn=day;}
  }
  // As-of is the verified backup date, not a live schedule lookup. A
  // record with no completed visit during the last 35 days is not current.
