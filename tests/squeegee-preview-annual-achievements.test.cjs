@@ -331,3 +331,22 @@ test("records use gold silver and bronze medals for ranks 1–3 only",()=>{
  assert.match(css,/\.n64-board-records-tab \.n64-record-medal/);
  assert.match(css,/\.n64-board-records-tab \.n64-record-rank-number/);
 });
+
+test("standard public XP leaderboard awards gold, silver and bronze only to the top three",()=>{
+ const ui=fs.readFileSync(path.join(__dirname,
+  "../src/components/ArcadeLeaderboard.jsx"),"utf8");
+ const standard=ui.slice(ui.indexOf('<ol aria-label="Public leaderboard rankings">'),
+  ui.indexOf("SHOW MORE PUBLIC SCORES"));
+ assert.match(standard,/players\.slice\(0,publicShownCount\)\.map\(\(player, i\) =>/);
+ assert.match(standard,/<strong>\{String\(i \+ 1\)\.padStart\(2, "0"\)\}<\/strong>/);
+ assert.match(standard,/!LIVE_N64 && i<3 && <span className="n64-board-medal"/);
+ assert.match(standard,/aria-label=\{\["Gold medal","Silver medal","Bronze medal"\]\[i\]\}/);
+ assert.match(standard,/\{\["🥇","🥈","🥉"\]\[i\]\}/);
+ assert.match(standard,/player\.points\.toLocaleString\("en-GB"\)\} XP/);
+ assert.match(standard,/className="n64-board-player-button" onClick=\{openHQ\}/);
+ const css=fs.readFileSync(path.join(__dirname,
+  "../src/n64-finale.css"),"utf8");
+ assert.match(css,/\.n64-rank-public \.n64-board-medal/);
+ // The Records tab keeps its separate existing top-three medals.
+ assert.match(ui,/i<3 && <span className="n64-record-medal"/);
+});
