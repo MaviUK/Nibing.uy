@@ -30,8 +30,10 @@ function fixture(){
       id,ref:String(2001+i),email:emails[i],
       firstName:namesList[i],town:towns[i],points:20,paidCleans:1,
       currentStreak:1,nextBonus:22,recordedSkips:0,
+      jobs:[{id,label:"Brown",currentStreak:1,nextBonus:22,
+        paidCleans:1,points:20,recordedSkips:0,lastCompletedOn:"2026-06-01"}],
       events:[{date:"2026-06-01",event:"paid_completed_clean",
-        quantity:1,streak:1,points:20}]
+        quantity:1,streak:1,points:20,j:0}]
     })),
   });
 }
