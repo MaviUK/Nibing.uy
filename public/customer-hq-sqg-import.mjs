@@ -14,8 +14,8 @@ if(form&&input&&error&&button&&progress){
  function check(file){
   if(!file)return "Choose your latest Squeegee backup (.sqg).";
   if(/\.json$/i.test(file.name)){
-   if(file.size<100||file.size>3000000)
-    return "The prepared JSON must be between 100 bytes and 3 MB.";
+   if(file.size<100||file.size>3800000)
+    return "The prepared JSON must be between 100 bytes and 3.8 MB.";
    return "";
   }
   if(!/\.sqg$/i.test(file.name))
@@ -64,7 +64,7 @@ if(form&&input&&error&&button&&progress){
    worker.terminate();worker=null;
    const text=JSON.stringify(result.snapshot);
    const bytes=new Blob([text],{type:"application/json"});
-   if(bytes.size<100||bytes.size>3000000)
+   if(bytes.size<100||bytes.size>3800000)
     throw Error("The verified Customer HQ data is unexpectedly large; no scores were changed.");
    progress.value=99;
    explain("Uploading "+result.summary.verifiedPaidBins.toLocaleString("en-GB")+
