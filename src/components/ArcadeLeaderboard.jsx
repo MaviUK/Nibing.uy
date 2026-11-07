@@ -28,6 +28,7 @@ export default function ArcadeLeaderboard() {
   const [connection, setConnection] = useState("connecting");
   const [updatedAt, setUpdatedAt] = useState(null);
   const [historyStatus, setHistoryStatus] = useState(null);
+  const [publicAchievements,setPublicAchievements]=useState(null);
   const [scoreUpdatePending,setScoreUpdatePending]=useState(false);
   const [nameConsentMode, setNameConsentMode] = useState(false);
   const [eligibilityPending, setEligibilityPending] = useState(false);
@@ -99,6 +100,7 @@ export default function ArcadeLeaderboard() {
     previousPlayers.current=null;
     setPublicShownCount(20);
     setConnection("connecting");
+    setPublicAchievements(null);
     setSelectedYear(period);
   };
   // Customer totals must come from a verified email-code session, NEVER from
@@ -330,6 +332,20 @@ export default function ArcadeLeaderboard() {
         setUpdatedAt(new Date());
         setHistoryStatus(data.status === "active_status_refresh_required" ? data.status : null);
         setScoreUpdatePending(data.scoreUpdatePending===true);
+        const records=data.publicAchievements;
+        const colours=["Black","Blue","Brown","Green"];
+        const cleanCount=value=>Number.isSafeInteger(value)&&value>=0&&value<=100000;
+        const safeRecords=records?.status==="anonymous_verified_records"&&
+          records.period===selectedYear&&data.period===selectedYear&&
+          /^20\d{2}-\d{2}-\d{2}$/.test(records.sourceAsOf||"")&&
+          /^20\d{2}-\d{2}-\d{2}$/.test(records.periodEnd||"")&&
+          Array.isArray(records.colours)&&records.colours.length===4&&
+          records.colours.every((row,i)=>row?.colour===colours[i]&&
+            cleanCount(row.current)&&cleanCount(row.highest))&&
+          cleanCount(records.longestJobCurrent)&&
+          cleanCount(records.longestJobHighest)&&
+          cleanCount(records.longestAllJobsHighest);
+        setPublicAchievements(safeRecords?records:null);
         setNameConsentMode(data.status === "consent_only" || data.status === "consent_pending" ||
           data.status === "public_eligible_scores" ||
           data.status === "preview_public_first_names");
@@ -344,7 +360,10 @@ export default function ArcadeLeaderboard() {
           ? Math.max(0,data.eligibleCleaningXp) : null);
         setConnection("live");
       } catch (_) {
-        if (mounted) setConnection("reconnecting");
+        if (mounted) {
+          setPublicAchievements(null);
+          setConnection("reconnecting");
+        }
       } finally {
         busy = false;
         if (refreshAgain) {
@@ -523,6 +542,42 @@ export default function ArcadeLeaderboard() {
             SHOW MORE PUBLIC SCORES ↓
           </button>
         </div>}
+        {!LIVE_N64 && publicAchievements && <section
+          className="n64-public-record-highlights"
+          aria-label="Verified anonymous bin cleaning achievements">
+          <h3>★ BIN CLEANING RECORDS · {selectedYear==="overall"?"ALL-TIME":selectedYear}</h3>
+          <p>Verified cleaning streaks, based on the {publicAchievements.sourceAsOf} backup.
+            {selectedYear==="overall"
+              ?" Current records are active at that backup date."
+              :" Highest records were reached during "+selectedYear+"; streaks may have begun earlier."}
+            {" "}Record holders are anonymous.</p>
+          <div className="n64-public-record-grid">
+            {publicAchievements.colours.map(row=>
+              <article key={row.colour}
+                className={"n64-public-record n64-public-record--"+row.colour.toLowerCase()}>
+                <h4>{row.colour.toUpperCase()} BIN</h4>
+                <div className="n64-record-pair">
+                  <div><span className="n64-record-stat-label">
+                    {selectedYear==="overall"||publicAchievements.periodEnd===publicAchievements.sourceAsOf
+                      ?"CURRENT STREAK":"YEAR-END STREAK"}
+                  </span><strong>{row.current?row.current.toLocaleString("en-GB"):"—"}</strong>
+                    <span className="n64-record-unit">cleans</span></div>
+                  <div><span className="n64-record-stat-label">HIGHEST REACHED</span>
+                    <strong>{row.highest?row.highest.toLocaleString("en-GB"):"—"}</strong>
+                    <span className="n64-record-unit">cleans</span></div>
+                </div>
+              </article>
+            )}
+          </div>
+          <div className="n64-public-record-extras">
+            <div><span>★ BEST SINGLE JOB</span><strong>
+              {publicAchievements.longestJobHighest.toLocaleString("en-GB")} cleans</strong></div>
+            <div><span>★ BEST ACROSS ALL JOBS</span><strong>
+              {publicAchievements.longestAllJobsHighest.toLocaleString("en-GB")} clean-days</strong></div>
+          </div>
+          <p className="n64-public-record-footnote">Current/year-end streaks and highest records are different.
+            A missed clean breaks a streak for its individual job. Historical records remain.</p>
+        </section>}
         {nameConsentMode && players.length>0 && <p className="n64-board-display-note">
           {publicNamedCount.toLocaleString("en-GB")} customers are displayed by first name and town on {LIVE_N64?"the public leaderboard":"this N64 preview"}.
         </p>}
