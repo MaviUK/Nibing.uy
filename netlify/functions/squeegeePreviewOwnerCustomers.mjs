@@ -296,5 +296,6 @@ export default async function handler(request,context){
  }
 }
 export const config={
- path:PATH,rateLimit:{action:"rate_limit",aggregateBy:"ip",windowSize:60,windowLimit:90}
+ path:"/api/squeegee-preview-owner-customers",
+ rateLimit:{action:"rate_limit",aggregateBy:"ip",windowSize:60,windowLimit:90}
 };
