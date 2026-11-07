@@ -25,9 +25,9 @@ if(form&&input&&error&&button&&progress){
        message=String(parsed.message||parsed.error||"");}catch{}
    }
    if(!message)message="The upload was rejected without a readable explanation.";
-   const cleaned=message.replace(/\\s+/g," ").trim().slice(0,420);
+   const cleaned=message.replace(/\s+/g," ").trim().slice(0,420);
    const safeCode=response.headers.get("X-Private-Import-Reason")||"";
-   return safeCode && /^[a-z_]+ \/ [a-z_]+$/.test(safeCode)&&
+   return safeCode && /^[a-z_]+\/[a-z_]+$/.test(safeCode)&&
      !cleaned.includes(safeCode)?cleaned+" ("+safeCode+")":cleaned;
  }
  function check(file){
