@@ -16,7 +16,7 @@ function today(){
 const id1="11111111-1111-4111-8111-111111111111";
 const id2="22222222-2222-4222-8222-222222222222";
 const paid=(date,quantity,streak)=>({date,event:"paid_completed_clean",
-  quantity,streak,points:quantity*(20+2*(streak-1)),j:0});
+  quantity,streak,points:quantity*(20+(streak-1)),j:0});
 const firstJob="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const secondJob="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 function source(){
@@ -24,8 +24,8 @@ function source(){
     accounts:[
       {id:id1,ref:"1001",email:"alice@example.test",firstName:"Alice",
         town:"Bangor",points:100,paidCleans:5,currentStreak:1,
-        nextBonus:22,recordedSkips:1,jobs:[{id:firstJob,label:"Brown",
-          currentStreak:1,nextBonus:22,paidCleans:5,points:100,
+        nextBonus:21,recordedSkips:1,jobs:[{id:firstJob,label:"Brown",
+          currentStreak:1,nextBonus:21,paidCleans:5,points:100,
           recordedSkips:1,lastCompletedOn:"2026-06-01"}],events:[
           paid("2024-03-10",2,1),
           {date:"2025-05-20",event:"recorded_skip",points:0,streak:0,quantity:0,j:0},
@@ -35,8 +35,8 @@ function source(){
         ]},
       {id:id2,ref:"1002",email:"bob@example.test",firstName:"Bob",
         town:"Comber",points:20,paidCleans:1,currentStreak:1,
-        nextBonus:22,recordedSkips:0,jobs:[{id:secondJob,label:"Blue",
-          currentStreak:1,nextBonus:22,paidCleans:1,points:20,
+        nextBonus:21,recordedSkips:0,jobs:[{id:secondJob,label:"Blue",
+          currentStreak:1,nextBonus:21,paidCleans:1,points:20,
           recordedSkips:0,lastCompletedOn:"2025-05-18"}],
         events:[paid("2025-05-18",1,1)]}
     ]};
@@ -69,7 +69,7 @@ test("per-job bonus projection and paid history remain separate from account tot
   assert.equal(alice.jobs.length,1);
   assert.equal(alice.jobs[0].label,"Brown");
   assert.equal(alice.jobs[0].currentStreak,1);
-  assert.equal(alice.jobs[0].nextBonus,22);
+  assert.equal(alice.jobs[0].nextBonus,21);
   assert.equal(alice.history[0].jobLabel,"Brown");
   const eligible=hq.eligibleRankedEmailAccounts(s);
   assert.equal(eligible.perJobScoringVerified,true);
