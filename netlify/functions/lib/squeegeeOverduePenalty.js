@@ -3,8 +3,11 @@
 // cleaning occurrence, never per customer and never per physical-bin quantity.
 // A verified zero/credit account balance supplies NO open occurrences.
 // Without a fresh verified backup we do not assume a still-unpaid balance.
-const VERSION="2026-11-escalating-overdue-per-job-v2";
+// V3 policy: 1 XP per unpaid job for each calendar day AFTER day 28.
+const VERSION="2026-11-flat-overdue-1xp-per-job-day-v3";
 const LEGACY_VERSION="2026-11-escalating-overdue-per-job-v1";
+const LEGACY_VERSION_V2="2026-11-escalating-overdue-per-job-v2";
+const LEGACY_VERSIONS=[LEGACY_VERSION,LEGACY_VERSION_V2];
 const DAY_MS=86400000;
 const DAY=/^\d{4}-\d{2}-\d{2}$/;
 function dayNumber(date){
@@ -17,11 +20,13 @@ function pointsThrough(dueOn,through){
   const start=dayNumber(dueOn),end=dayNumber(through);
   if(start===null||end===null||end<start||end-start>20000)
     throw Error("overdue_date_invalid");
-  // Days 1-28: free. Day 29: -1, day 30: -2, etc.
-  const days=Math.max(0,end-start-28);
-  return days*(days+1)/2;
+  // Days 1-28: free. Day 29: -1 total, day 30: -2 total, etc.
+  return Math.max(0,end-start-28);
 }
-function reconcileLedger(previous=[],pending=[],asOf,settled=[]){
+function reconcileLedger(previous=[],pending=[],asOf,settled=[],previousVersion=VERSION){
+  if(previousVersion!==VERSION&&!LEGACY_VERSIONS.includes(previousVersion))
+    throw Error("overdue_previous_policy_unrecognised");
+  const legacyPolicy=previousVersion!==VERSION;
   if(dayNumber(asOf)===null||!Array.isArray(previous)||
      !Array.isArray(pending)||!Array.isArray(settled)||
      previous.length>2500||pending.length>2500||settled.length>2500)
@@ -32,12 +37,16 @@ function reconcileLedger(previous=[],pending=[],asOf,settled=[]){
        ledger.has(row.id)||dayNumber(row.dueOn)===null||
        dayNumber(row.until)===null||row.until>asOf||
        !Number.isSafeInteger(row.points)||
-       row.points!==pointsThrough(row.dueOn,row.until)||
+       row.points!==(legacyPolicy?
+         pointsThrough(row.dueOn,row.until)*(pointsThrough(row.dueOn,row.until)+1)/2:
+         pointsThrough(row.dueOn,row.until))||
        (row.settledOn!==undefined&&(dayNumber(row.settledOn)===null||
           row.settledOn>asOf)))
       throw Error("overdue_previous_ledger_invalid");
     ledger.set(row.id,{id:row.id,dueOn:row.dueOn,
-      until:row.until,points:row.points,
+      // Convert older escalating penalties to the newly approved FLAT
+      // policy using the original dates, not the old deducted total.
+      until:row.until,points:pointsThrough(row.dueOn,row.until),
       ...(Number.isSafeInteger(row.j)?{j:row.j}:{}),
       ...(row.settledOn?{settledOn:row.settledOn}:{})});
   }
@@ -118,5 +127,6 @@ function netByYear(gross,penalties){
   }
   return net;
 }
-module.exports={VERSION,LEGACY_VERSION,dayNumber,pointsThrough,reconcileLedger,
+module.exports={VERSION,LEGACY_VERSION,LEGACY_VERSION_V2,LEGACY_VERSIONS,
+  dayNumber,pointsThrough,reconcileLedger,
   penaltyTotal,penaltyForYear,netByYear};
