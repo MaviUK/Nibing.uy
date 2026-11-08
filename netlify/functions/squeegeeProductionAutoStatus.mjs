@@ -219,6 +219,9 @@ export default async function handler(request,context){
       process.env,Date.now(),scope))
     return page(loginForm(ref),401);
   let inner=connectionForm()+lookupForm(ref)+
+    '<div class="notice"><strong>Customer leaderboard permissions</strong>'+
+    '<p>Use the existing customer email replies to record owner-verified public first-name, town and XP permissions. No customer emails or Squeegee jobs are changed.</p>'+
+    '<a href="/api/squeegee-preview-leaderboard-names">Open secure leaderboard permissions</a></div>'+
     '<form method="post"><input type="hidden" name="action" value="logout">'+
     '<button type="submit">Sign out</button></form>';
   if(url.searchParams.get("connectivity")==="1"){
