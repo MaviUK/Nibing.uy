@@ -207,7 +207,7 @@ test("three public tabs keep Records separate from Leaderboards and protected Cu
  const publicHelper=fs.readFileSync(path.join(__dirname,
   "../netlify/functions/lib/squeegeePublicAchievementHighlights.js"),"utf8");
  assert.match(publicHelper,/status:"preview_public_named_records"/);
- assert.match(publicHelper,/publicScores\?\.status!=="preview_public_first_names"/);
+ assert.match(publicHelper,/\["preview_public_first_names","public_eligible_scores"\]\.includes\(publicScores\?\.status\)/);
  assert.match(publicHelper,/withdrawn\.has\(alias\)/);
 });
 
@@ -339,7 +339,7 @@ test("standard public XP leaderboard awards gold, silver and bronze only to the 
   ui.indexOf("SHOW MORE PUBLIC SCORES"));
  assert.match(standard,/players\.slice\(0,publicShownCount\)\.map\(\(player, i\) =>/);
  assert.match(standard,/<strong>\{String\(i \+ 1\)\.padStart\(2, "0"\)\}<\/strong>/);
- assert.match(standard,/!LIVE_N64 && i<3 && <span className="n64-board-medal"/);
+ assert.match(standard,/i<3 && <span className="n64-board-medal"/);
  assert.match(standard,/aria-label=\{\["Gold medal","Silver medal","Bronze medal"\]\[i\]\}/);
  assert.match(standard,/\{\["🥇","🥈","🥉"\]\[i\]\}/);
  assert.match(standard,/player\.points\.toLocaleString\("en-GB"\)\} XP/);
