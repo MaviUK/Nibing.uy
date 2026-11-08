@@ -68,7 +68,7 @@ if(form&&input&&error&&button&&progress){
       paidJobDays:Array.isArray(r.paidJobDays)?r.paidJobDays:[]};
    }
    const result=await new Promise((resolve,reject)=>{
-    worker=new Worker("/customer-hq-sqg-worker.mjs?v=overdue-xp-flat-v3-20261108",{type:"module"});
+    worker=new Worker("/customer-hq-sqg-worker.mjs?v=streak-plus1-v3-20261108",{type:"module"});
     worker.onerror=()=>reject(Error("The secure archive decoder could not start on this device."));
     worker.onmessage=e=>{
       const data=e.data||{};
