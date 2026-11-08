@@ -160,7 +160,7 @@ export default async function handler(request,context) {
       public:getStore({name:"n64-preview-arcade-public",consistency:"strong"}),
       private:getStore({name:"n64-preview-arcade-private",consistency:"strong"}),
       links:getStore({name:"n64-preview1-squeegee-player-links",consistency:"strong"}),
-      activity:getStore({name:"n64-preview1-customer-hq-activity-private",consistency:"strong"}),
+      activity:getStore({name:"n64-preview1-customer-website-xp-private",consistency:"strong"}),
       history:getStore({name:historical.BLOB_STORE,consistency:"strong"})
     };
     let rank=null,yearRank=null,points=account.points;
