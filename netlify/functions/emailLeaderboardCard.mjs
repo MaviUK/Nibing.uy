@@ -11,7 +11,7 @@ import records from "./lib/squeegeePreviewOwnerAchievements.js";
 
 const REF="CUS52250834";
 const KEY="preview77-email-leaderboard-v1";
-const WIDTH=680,HEIGHT=823;
+const WIDTH=680,HEIGHT=955;
 const C={black:[10,12,14],panel:[33,36,39],white:[255,255,255],yellow:[255,212,0],green:[13,108,68],muted:[204,209,208],grey:[240,242,241]};
 const FONT={
 "A":["01110","10001","10001","11111","10001","10001","10001"],
@@ -109,30 +109,32 @@ function png(data){
   return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk("IHDR",ihdr),
     chunk("IDAT",zlib.deflateSync(rows,{level:6})),chunk("IEND",Buffer.alloc(0))]);
 }
-function show({rank,yearRank,points,job,asOf,note}){
+function show({rank,yearRank,yearPoints,points,job,asOf,note}){
   const g=img();
   g.rect(0,0,WIDTH,HEIGHT,C.black);
   g.rect(0,0,WIDTH,90,C.yellow);
   g.centered("YOUR STATS",WIDTH/2,17,8,C.black);
   g.box(20,104,640,120,"OVERALL RANK",rank||"UNAVAILABLE");
   g.box(20,236,640,120,"2026 RANK",yearRank||"UNAVAILABLE");
-  g.box(20,368,640,120,"TOTAL XP",
+  g.box(20,368,640,120,"2026 XP",
+    Number.isSafeInteger(yearPoints)?yearPoints.toLocaleString("en-GB"):"UNAVAILABLE");
+  g.box(20,500,640,120,"TOTAL XP",
     Number.isSafeInteger(points)?points.toLocaleString("en-GB"):"UNAVAILABLE");
   const jobLabel=job?.label&&job.label.length<=23?job.label:"BIN";
-  g.box(20,500,640,120,job?"CURRENT "+jobLabel+" STREAK":"CURRENT STREAK",
+  g.box(20,632,640,120,job?"CURRENT "+jobLabel+" STREAK":"CURRENT STREAK",
     job?job.active+" CLEANS":"UNAVAILABLE");
-  g.box(20,632,640,120,job?jobLabel+" PERSONAL BEST":"PERSONAL BEST",
+  g.box(20,764,640,120,job?jobLabel+" PERSONAL BEST":"PERSONAL BEST",
     job?job.best+" CLEANS":"UNAVAILABLE",C.green);
   const [year,month,day]=String(asOf||"").split("-");
   const mon=({"01":"JAN","02":"FEB","03":"MAR","04":"APR","05":"MAY",
     "06":"JUN","07":"JUL","08":"AUG","09":"SEP","10":"OCT","11":"NOV",
     "12":"DEC"})[month];
   const date=year&&mon&&day?day+" "+mon+" "+year:null;
-  g.centered(note||(date?"AS OF "+date:"DATA NOT READY"),WIDTH/2,780,5,C.muted);
+  g.centered(note||(date?"AS OF "+date:"DATA NOT READY"),WIDTH/2,912,5,C.muted);
   return png(g.data);
 }
 function unavailable(){
-  return show({rank:null,yearRank:null,points:null,job:null,asOf:""});
+  return show({rank:null,yearRank:null,yearPoints:null,points:null,job:null,asOf:""});
 }
 function verified(request,context){
   const url=new URL(request.url);
@@ -172,7 +174,7 @@ export default async function handler(request,context) {
       activity:getStore({name:"n64-preview1-customer-website-xp-private",consistency:"strong"}),
       history:getStore({name:historical.BLOB_STORE,consistency:"strong"})
     };
-    let rank=null,yearRank=null,points=account.points,rankingsReady=false;
+    let rank=null,yearRank=null,yearPoints=null,points=account.points,rankingsReady=false;
     if(eligible?.aliases?.has(historical.canonicalLegacyRef(account.id))){
       try {
         const boards=await annual.getDatedScoreBoards(rankingStores,snapshot,eligible.aliases);
@@ -182,6 +184,8 @@ export default async function handler(request,context) {
         const yearRows=boards.yearlyBoards.find(b=>b.year===2026)?.entries||[];
         const yearIndex=yearRows.findIndex(row=>row.customerRef===alias);
         yearRank=yearIndex>=0?yearIndex+1:null;
+        // Use the same authoritative 2026 board row as the displayed rank.
+        yearPoints=yearIndex>=0?yearRows[yearIndex].points:0;
         points=boards.overallBoard.entries.find(r=>r.customerRef===alias)?.points??points;
         rankingsReady=true;
       } catch {
@@ -193,7 +197,7 @@ export default async function handler(request,context) {
       .sort((a,b)=>(b.lastCompletedOn||"").localeCompare(a.lastCompletedOn||""))[0]||null;
     bytes=show({rank:rank?"#"+rank:rankingsReady?"NOT RANKED":"UNAVAILABLE",
       yearRank:yearRank?"#"+yearRank:rankingsReady?"NO 2026 XP":"UNAVAILABLE",
-      points,job:brown||jobs[0]||null,asOf:snapshot.asOf});
+      yearPoints,points,job:brown||jobs[0]||null,asOf:snapshot.asOf});
   }catch{
     bytes=unavailable();
   }
