@@ -521,18 +521,6 @@ export default function ArcadeLeaderboard() {
         </div>
 
 
-        <div className="n64-live-board-stats">
-          <strong>{updatedAt ? totalPlayers.toLocaleString("en-GB") + (totalPlayers === 1 ? " PUBLIC PLAYER" : " PUBLIC PLAYERS") : "— PLAYERS"}</strong>
-          <span>{connection === "live" && updatedAt
-            ? (verifiedPlayers !== null
-                ? verifiedPlayers.toLocaleString("en-GB") + " verified from backup · "
-                : eligiblePlayers !== null
-                  ? eligiblePlayers.toLocaleString("en-GB") + " email-eligible · " : "") +
-              (LIVE_N64 && verifiedAsOf ? "Verified history "+verifiedAsOf+" · " : "") +
-              "Checked " + updatedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
-            : "Checking scores…"}
-          </span>
-        </div>
         {scoreUpdatePending && <p className="n64-board-error" role="status">
           <strong>LEADERBOARD SCORE UPDATE PENDING.</strong> The current historical XP
           still uses the earlier customer-wide streak calculation. Each Squeegee
@@ -595,9 +583,6 @@ export default function ArcadeLeaderboard() {
             SHOW MORE PUBLIC SCORES ↓
           </button>
         </div>}
-        {nameConsentMode && players.length>0 && <p className="n64-board-display-note">
-          {publicNamedCount.toLocaleString("en-GB")} customers are displayed by first name and town on {LIVE_N64?"the public leaderboard":"this N64 preview"}.
-        </p>}
         {connection === "reconnecting" && (
           <p className="n64-board-error" role="status">
             The leaderboard server is temporarily unavailable. Your device XP is unaffected; retrying automatically.
