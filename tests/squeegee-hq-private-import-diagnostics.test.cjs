@@ -29,7 +29,7 @@ test("Android import error displays only human-readable HTML section, never raw 
 test("Android browser cannot post an obsolete customer-wide scoring snapshot",()=>{
  const s=file("public/customer-hq-sqg-import.mjs");
  const worker=file("public/customer-hq-sqg-worker.mjs");
- const expected="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2";
+ const expected="2026-11-streak-20-plus-1-per-job-per-paid-bin-v3";
  assert.ok(s.includes('scoringVersion!=="'+expected+'"'));
  assert.ok(worker.includes('SCORE_VERSION!=="'+expected+'"'));
  assert.ok(s.includes("customer-hq-sqg-worker.mjs?v=streak-plus1-v3-20261108"));
