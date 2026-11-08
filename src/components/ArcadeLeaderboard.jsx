@@ -62,7 +62,8 @@ export default function ArcadeLeaderboard() {
   const [eligibleCleaningXp, setEligibleCleaningXp] = useState(null);
   const [activePanel, setActivePanel] = useState("leaderboard");
   const [showPointsGuide,setShowPointsGuide]=useState(false);
-  const pointsGuideTriggerRef=useRef(null);
+  // Return focus to whichever tab's button opened the shared dialog.
+  const pointsGuideReturnFocusRef=useRef(null);
   const pointsGuideDialogRef=useRef(null);
 
   // Keep the XP explanation usable on Android and from a keyboard.
@@ -93,9 +94,13 @@ export default function ArcadeLeaderboard() {
     return ()=>{
       document.body.style.overflow=oldOverflow;
       document.removeEventListener("keydown",onKeyDown);
-      pointsGuideTriggerRef.current?.focus();
+      pointsGuideReturnFocusRef.current?.focus();
     };
   },[showPointsGuide]);
+  const openPointsGuide=(event)=>{
+    pointsGuideReturnFocusRef.current=event.currentTarget;
+    setShowPointsGuide(true);
+  };
   // A requested owner test starts on the private test panel, not the public
   // anonymous leaderboard while the owner session is being checked.
   const [rankingMode,setRankingMode]=useState(()=>
@@ -625,8 +630,7 @@ export default function ArcadeLeaderboard() {
           </p>
         )}
         <div className="n64-points-help-trigger">
-          <button type="button" ref={pointsGuideTriggerRef}
-            onClick={()=>setShowPointsGuide(true)}
+          <button type="button" onClick={openPointsGuide}
             aria-haspopup="dialog" aria-expanded={showPointsGuide}
             aria-controls="n64-points-guide-dialog">
             <span aria-hidden="true">★</span> HOW DO I EARN &amp; LOSE XP? <span aria-hidden="true">?</span>
@@ -882,9 +886,13 @@ export default function ArcadeLeaderboard() {
               </div>
             </div>
           </div>
-          <p className="n64-public-record-footnote">A single-job streak counts cleaning visits, not bins.
-            Across-all-jobs counts distinct cleaning dates and ends when any job is skipped.
-            Fewer than five entries appear where fewer qualify. Squeegee references and job details stay private.</p>
+          <div className="n64-points-help-trigger">
+            <button type="button" onClick={openPointsGuide}
+              aria-haspopup="dialog" aria-expanded={showPointsGuide}
+              aria-controls="n64-points-guide-dialog">
+              <span aria-hidden="true">★</span> HOW DO I EARN &amp; LOSE XP? <span aria-hidden="true">?</span>
+            </button>
+          </div>
         </section>}
           {!publicAchievements && <p className="n64-records-wait" role="status">
             {connection==="reconnecting"?"Records are temporarily unavailable. Checking again…":
