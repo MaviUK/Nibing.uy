@@ -806,7 +806,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
 
         {cleanDateRows.length > 0 ? (
           <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-left">
-            <div className="text-sm font-bold uppercase tracking-wide text-green-800">Council-matched first clean date{cleanDateRows.length > 1 ? "s" : ""}</div>
+            <div className="text-sm font-bold uppercase tracking-wide text-green-800">Your first clean date{cleanDateRows.length > 1 ? "s" : ""}</div>
             <div className="mt-2 space-y-2">
               {cleanDateRows.map((row, index) => (
                 <div key={`${row.bin}-${row.date}-${index}`} className="flex items-start justify-between gap-4">
@@ -815,15 +815,10 @@ function BookingForm({ onClose, initialAddress = "" }) {
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-sm leading-6 text-green-950">
-              We matched {cleanDateRows.length === 1 ? "this date" : "these dates"} to the council collection schedule.
-              The Squeegee appointment is confirmed separately once our account checks finish.
-              If anything needs manual review, we will contact you. Please don&apos;t submit another booking for the same bins.
-            </p>
           </div>
         ) : (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            We've received your booking request. We'll confirm your first clean date separately once it has been scheduled. Please don't submit another booking for the same bins.
+            We've received your booking. We'll email your first clean date shortly. Please don't submit another booking for the same bins.
           </div>
         )}
 
