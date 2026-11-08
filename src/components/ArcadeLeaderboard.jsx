@@ -449,12 +449,12 @@ export default function ArcadeLeaderboard() {
   return (
     <section ref={boardSectionRef} id="live-leaderboard" className="n64-public-leaderboard" aria-labelledby="n64-board-title">
       <div className={"n64-public-board-inner"+(activePanel==="hq"?" n64-public-board-inner--hq":activePanel==="records"?" n64-public-board-inner--records":"")}>
-        <div ref={boardTabsRef} className={"n64-board-tabs"+(!LIVE_N64?" n64-board-tabs--three":"")} role="group" aria-label="Leaderboard, Records and Customer HQ">
+        <div ref={boardTabsRef} className={"n64-board-tabs n64-board-tabs--three"} role="group" aria-label="Leaderboard, Records and Customer HQ">
           <button type="button" className={activePanel==="leaderboard"?"n64-board-tab n64-board-tab--selected":"n64-board-tab"}
             aria-pressed={activePanel==="leaderboard"} onClick={openBoard}>★ LEADERBOARDS</button>
-          {!LIVE_N64 && <button type="button"
+          <button type="button"
             className={activePanel==="records"?"n64-board-tab n64-board-tab--selected":"n64-board-tab"}
-            aria-pressed={activePanel==="records"} onClick={openRecords}>★ RECORDS</button>}
+            aria-pressed={activePanel==="records"} onClick={openRecords}>★ RECORDS</button>
           <button type="button" className={activePanel==="hq"?"n64-board-tab n64-board-tab--selected":"n64-board-tab"}
             aria-pressed={activePanel==="hq"} onClick={openHQ}>★ CUSTOMER HQ</button>
         </div>
@@ -571,7 +571,7 @@ export default function ArcadeLeaderboard() {
                 <button type="button" className="n64-board-player-button" onClick={openHQ}
                   title="Open your own secure points dashboard — this public entry does not grant access to another customer's account">
                   <strong>{String(i + 1).padStart(2, "0")}</strong>
-                  {!LIVE_N64 && i<3 && <span className="n64-board-medal" role="img"
+                  {i<3 && <span className="n64-board-medal" role="img"
                     aria-label={["Gold medal","Silver medal","Bronze medal"][i]}>
                     {["🥇","🥈","🥉"][i]}
                   </span>}
@@ -724,7 +724,7 @@ export default function ArcadeLeaderboard() {
           </>}
         </div>
         </div>
-        {!LIVE_N64 && <div className="n64-board-tab-content n64-board-records-tab"
+        <div className="n64-board-tab-content n64-board-records-tab"
           hidden={activePanel!=="records"} aria-labelledby="n64-records-title">
           <h2 id="n64-records-title">★ Cleaning Records</h2>
           <p className="n64-records-intro">The top five streak holders for each bin, individual job and all jobs combined.</p>
@@ -798,7 +798,7 @@ export default function ArcadeLeaderboard() {
               connection==="live"?"No verified records available for this period. Try another year or a newer backup.":
               "Loading verified cleaning records…"}
           </p>}
-        </div>}
+        </div>
         <div className="n64-board-tab-content n64-board-hq-tab" hidden={activePanel!=="hq"}>
           {hqOpened && <React.Suspense fallback={<p role="status">Loading your secure Customer HQ…</p>}>
             <CustomerHQ embedded/>
