@@ -49,6 +49,7 @@ const css=[
  ".town-picker{background:#dceafa;color:#263958;border:4px solid #7393bd;box-shadow:4px 5px #071d34;padding:14px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;margin:15px 0 20px}.town-picker label{grid-column:1/-1;font-size:13px;font-weight:900}.town-picker select{min-width:0;width:100%}.town-index{border-color:#a3adca}.town-index table{background:#fff8dd}.town-index th{background:#dceafa}.town-index td{background:#fff8dd}.town-index td a{color:#204e84}.town-index small{font-size:11px;color:#536683}.town-index .no-record{color:#677590}",
  "@media(max-width:580px){.town-picker{grid-template-columns:1fr}.town-picker label{grid-column:auto}.town-picker button{width:100%}}",
  " .admin-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0 21px}.admin-nav a{display:block;padding:11px 8px;text-align:center;text-decoration:none;font-weight:900;color:#233a5a;background:#dceafa;border:3px solid #97a8c0;box-shadow:3px 4px #081e3a}.admin-nav a.selected{background:#ffe274;border-color:#c4a347}.admin-nav a:focus-visible{outline:3px solid white;outline-offset:3px}",
+ ".admin-nav a.update-backup{grid-column:1/-1;background:#d0e8c1;border-color:#71936e;color:#1c4430;padding:13px 10px;min-height:56px}.admin-nav .update-backup small{display:block;font-size:11px;font-weight:800;line-height:1.4;color:#31563d}.admin-nav a.update-backup:hover{background:#e4f2d8}.admin-nav a.update-backup:focus-visible{outline:3px solid #ffe274}",
 
  "footer{font-size:12px;color:#bed0e4;margin-top:30px}@media(max-width:720px){.search{grid-template-columns:1fr 1fr}.search .query,.search button{grid-column:1/-1}.stats{gap:7px}.stats .stat{padding:10px}.stats .stat b{font-size:20px}dl{grid-template-columns:1fr}dt{margin-bottom:-8px}}",
  "@media(max-width:400px){main{padding:12px 10px}.panel{padding:12px}.search{grid-template-columns:1fr}.search .query,.search button{grid-column:auto}.customer{padding:10px}.customer .points{font-size:13px}.event{grid-template-columns:85px 1fr auto;gap:6px}.stat small{font-size:10px}.records{padding:11px}.award-grid,.award-extra{gap:8px}.award{padding:10px 8px;border-width:3px}.award .value{font-size:25px}.award .who{font-size:12px}}",
@@ -317,7 +318,10 @@ function listPage(snapshot,eligible,params){
    '>⌕ CUSTOMERS</a>'+
   '<a href="'+esc(url({view:"records"}))+'"'+
    (recordView?' class="selected" aria-current="page"':'')+
-   '>★ HIGH ACHIEVEMENTS</a></nav>';
+   '>★ HIGH ACHIEVEMENTS</a>'+
+  '<a class="update-backup" href="/api/squeegee-preview-hq-import">'+
+   '⬆ UPDATE LEADERBOARD'+
+   '<small>Upload a new Squeegee .sqg backup</small></a></nav>';
  if(recordView){
   return respond("High Achievements",'<h1>★ OWNER RECORDS</h1>'+
    '<p class="lead">Cleaning milestones from your imported customers, by year or overall. '+
