@@ -10,6 +10,21 @@ on:
       - 'src/components/ArcadeLeaderboard.jsx'
   workflow_dispatch:
 jobs:
+  verify-public-privacy-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify live leaderboard consent-only records and responsive UI
+        run: |
+          node --test tests/squeegee-production-n64-hq-board.test.cjs tests/squeegee-preview-annual-achievements.test.cjs
+          npm run build
   inspect-public-response:
     runs-on: ubuntu-latest
     timeout-minutes: 4
