@@ -80,14 +80,14 @@ test("private importer validates overdue evidence; paid balances cannot invent u
   const job="22222222-2222-4222-8222-222222222222";
   const occurrence="33333333-3333-4333-8333-333333333333";
   const row={id,ref:"1001",email:"test@example.test",
-    firstName:"Alex",town:"Bangor",points:22,paidCleans:1,
-    currentStreak:2,nextBonus:24,recordedSkips:0,balanceState:"outstanding",
-    jobs:[{id:job,label:"Brown",currentStreak:2,nextBonus:24,
-      paidCleans:1,points:22,recordedSkips:0,lastCompletedOn:paidDay}],
+    firstName:"Alex",town:"Bangor",points:21,paidCleans:1,
+    currentStreak:2,nextBonus:22,recordedSkips:0,balanceState:"outstanding",
+    jobs:[{id:job,label:"Brown",currentStreak:2,nextBonus:22,
+      paidCleans:1,points:21,recordedSkips:0,lastCompletedOn:paidDay}],
     events:[{date:due,event:"completed_payment_not_verified",
       j:0,quantity:1,streak:1,points:0},
       {date:paidDay,event:"paid_completed_clean",
-        j:0,quantity:1,streak:2,points:22}],
+        j:0,quantity:1,streak:2,points:21}],
     outstandingJobs:[{id:occurrence,dueOn:due,j:0}],settledJobs:[]};
   const source={version:1,asOf,scoringVersion:bin.VERSION,
     penaltySourceVersion:penalty.VERSION,accounts:[row]};
@@ -102,7 +102,7 @@ test("private importer validates overdue evidence; paid balances cannot invent u
   const annual=await yearly.getAnnualPreviewBoard({},{
     ...verified,accounts:[account]},new Set([alias]),year,Date.now(),
     new Map([[alias,new Map([[year,60]])]]));
-  assert.deepEqual(annual.entries.map(row=>row.points),[79]);
+  assert.deepEqual(annual.entries.map(row=>row.points),[78]);
   const zero=structuredClone(source);
   zero.accounts[0].balanceState="settled";
   assert.throws(()=>bin.validateBinSource(zero),/overdue_pending_job_invalid/);
@@ -114,8 +114,8 @@ test("private importer validates overdue evidence; paid balances cannot invent u
   account2.balanceState="settled";account2.outstandingJobs=[];
   account2.events[0]={date:due,event:"paid_completed_clean",quantity:1,
     points:20,streak:1,j:0};
-  account2.points=42;account2.paidCleans=2;
-  account2.jobs[0].points=42;account2.jobs[0].paidCleans=2;
+  account2.points=41;account2.paidCleans=2;
+  account2.jobs[0].points=41;account2.jobs[0].paidCleans=2;
   account2.settledJobs=[{id:occurrence,dueOn:due,paidOn:asOf,j:0}];
   const imported=bin.validateBinSource(latePaid);
   assert.equal(imported.accounts[0].settledJobs.length,1);
