@@ -1,7 +1,8 @@
 "use strict";
 const test=require("node:test");
 const assert=require("node:assert/strict");
-const {matchCustomers,matchCustomersAcrossPages,normalName,addressKey}=
+const {matchCustomers,matchCustomersAcrossPages,normalName,addressKey,
+  detectDuplicateSignals}=
   require("../netlify/functions/lib/squeegeeCustomerMatcher");
 
 const A="33333333-3333-4333-8333-333333333333";
@@ -134,4 +135,64 @@ test("same address + email and phone is NOT sufficient when the registered full 
   const found=matchCustomers(booking,[other]);
   assert.equal(found.status,"needs_review");
   assert.equal(found.reason,"same_address_contact_name_conflict");
+});
+
+
+test("legacy first-name-only customer matches exact property and unique phone despite new email",()=>{
+  const old={...existing,name:"Gavin",phoneNumber:booking.phone,
+    email:"gavin@example.org"};
+  const found=matchCustomers(booking,[old]);
+  assert.equal(found.status,"matched");
+  assert.equal(found.customerId,A);
+  assert.equal(found.reason,"exact_property_first_name_phone");
+  const flags=detectDuplicateSignals(booking,[old]);
+  assert.ok(!flags.includes("address_registered_to_other_name"));
+});
+test("first-name-only match works after scanning all Squeegee customer pages",async()=>{
+  const old={...existing,name:"Gavin",phoneNumber:booking.phone,
+    email:"gavin@example.org"};
+  const found=await matchCustomersAcrossPages(booking,async({page})=>({
+    customers:page===3?[old]:[],hasMore:page<3,page,
+  }),{maxPages:5});
+  assert.equal(found.status,"matched");
+  assert.equal(found.reason,"exact_property_first_name_phone");
+  assert.equal(found.pagesScanned,3);
+});
+test("first-name-only matching requires exact phone and never accepts email alone",()=>{
+  const row={...existing,name:"Gavin",email:booking.email};
+  const found=matchCustomers(booking,[row]);
+  assert.equal(found.status,"needs_review");
+  assert.equal(found.reason,"same_address_contact_name_conflict");
+});
+test("different full surname at same property still requires manual review",()=>{
+  const row={...existing,name:"Gavin McDonald",
+    phoneNumber:booking.phone,email:booking.email};
+  const found=matchCustomers(booking,[row]);
+  assert.equal(found.status,"needs_review");
+  assert.equal(found.reason,"same_address_contact_name_conflict");
+});
+test("a matching first name and phone never overrides duplicate residents at one property",()=>{
+  const row={...existing,name:"Gavin",phoneNumber:booking.phone,
+    email:"gavin@example.org"};
+  const housemate={...existing,_id:B,name:"Different Resident",
+    phoneNumber:"07444000123",email:"housemate@example.org"};
+  const found=matchCustomers(booking,[row,housemate]);
+  assert.equal(found.status,"needs_review");
+  const flags=detectDuplicateSignals(booking,[row,housemate]);
+  assert.ok(flags.includes("multiple_records_at_address"));
+});
+test("a first-name-only match does not reuse a phone shared with another account",()=>{
+  const row={...existing,name:"Gavin",phoneNumber:booking.phone};
+  const other={...existing,_id:B,name:"Different Customer",
+    address:{addressDescription:"21 Other Street, Bangor BT20 5NF"},
+    phoneNumber:booking.phone};
+  const found=matchCustomers(booking,[row,other]);
+  assert.equal(found.status,"needs_review");
+  assert.equal(found.reason,"same_address_contact_name_conflict");
+});
+test("first-name-only inactive account stays inactive and requires owner reactivation",()=>{
+  const row={...existing,name:"Gavin",phoneNumber:booking.phone,status:"inactive"};
+  const found=matchCustomers(booking,[row]);
+  assert.equal(found.status,"reactivation_required");
+  assert.equal(found.matchReason,"exact_property_first_name_phone");
 });
