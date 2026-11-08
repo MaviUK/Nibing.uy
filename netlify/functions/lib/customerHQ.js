@@ -200,7 +200,7 @@ function publicAccount(account,websiteXp=0,now=Date.now()){
     const projected=effectiveCleaningStreak(events,{now});
     const currentStreak=Math.min(job.currentStreak,projected.currentStreak);
     return {number:index+1,label:job.label,currentStreak,
-      nextBonus:20+2*currentStreak,paidCleans:job.paidCleans,
+      nextBonus:20+currentStreak,paidCleans:job.paidCleans,
       cleaningPoints:job.points,recordedSkips:job.recordedSkips,
       streakExpired:projected.expired,
       lastCompletedOn:projected.lastCompletedOn};
