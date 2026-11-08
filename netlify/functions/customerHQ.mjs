@@ -317,19 +317,31 @@ export default async function handler(request,context) {
       // challenge is indistinguishable from a fake challenge to the browser.
       let challengeId=null;
       const account=auth.accountForEmail(snapshot,email);
-      // Account existence, current status, and mail-delivery failures all
-      // return the SAME public response. Never disclose who is a customer.
+      // Internal-only troubleshooting: never log email, account identifiers,
+      // OTPs, tokens, customer names, or the browser's submitted address.
+      // Public responses MUST remain indistinguishable for unknown accounts.
+      let internalOutcome=account?"live_identity_not_verified":"no_unique_snapshot_match";
       if(account){
         try{
           if(await currentlyActive(account.id,email,access.reader)){
             const sent=await auth.issueCode({env:process.env,authStore:ledger,
               account,send:sendLoginCode});
-            if(sent.sent)challengeId=sent.challengeId;
+            if(sent.sent){
+              challengeId=sent.challengeId;
+              internalOutcome="otp_sent";
+            }else{
+              // Covers a 10-minute repeat throttle, conditional storage
+              // write failure, or rejected provider send. No details leak.
+              internalOutcome="otp_not_issued";
+            }
           }
         }catch{
-          // Fail closed, but do not reveal the presence of the account.
+          // Includes a live Squeegee read error. Fail closed without
+          // exposing the presence or state of any customer.
+          internalOutcome="identity_lookup_failed";
         }
       }
+      console.info("customer_hq_otp_outcome",internalOutcome);
       return respond(200,{accepted:true,
         challengeId:challengeId||crypto.randomBytes(16).toString("hex"),
         message:"If this address belongs to a verified active NI Bin Guy account, a code has been emailed.",
