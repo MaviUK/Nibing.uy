@@ -502,7 +502,7 @@ async function detailPage(snapshot,eligible,params,account){
       '<td>'+fmt(jobAwards[index]?.best||0)+
       (jobAwards[index]?.achievedOn?
         '<small style="display:block">'+esc(jobAwards[index].achievedOn)+'</small>':"")+'</td>'+
-      '<td><b>+'+fmt(20+2*(jobAwards[index]?.active||0))+' XP</b></td><td>'+fmt(job.paidCleans)+'</td>'+
+      '<td><b>+'+fmt(20+(jobAwards[index]?.active||0))+' XP</b></td><td>'+fmt(job.paidCleans)+'</td>'+
       '<td>'+fmt(job.points)+'</td><td>'+fmt(job.recordedSkips)+'</td></tr>').join("")+
     '</tbody></table></div>':'<p>No recorded job occurrences in this backup.</p>')+
   '<p class="note"><strong>Current streak</strong> is active at the backup date and resets to zero after a skip or more than 35 days without a clean. '+
