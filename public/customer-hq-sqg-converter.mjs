@@ -1,6 +1,6 @@
 // Runs in the owner's browser. The complete .sqg never leaves their device.
 export const SCORE_VERSION="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2";
-export const PENALTY_SOURCE_VERSION="2026-11-escalating-overdue-per-job-v1";
+export const PENALTY_SOURCE_VERSION="2026-11-escalating-overdue-per-job-v2";
 const UUID=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 const REF=/^(?:\d{1,12}|CUS\d{1,15}|[Aa]{2}\d{3,8})$/;
 const EMAIL=/^[^\s@]{1,80}@[^\s@]{1,160}\.[^\s@]{2,24}$/;
@@ -148,7 +148,7 @@ function makeCustomer(c,prior){
    old.firstName:firstName(c.name);
  return {id:c.id,ref,email:cleanEmail(c.email),firstName:name,town,
   points:0,paidCleans:0,currentStreak:0,nextBonus:20,
-  recordedSkips:0,events:[],jobs:[],balanceState:"unknown",outstandingJobs:[]};
+  recordedSkips:0,events:[],jobs:[],balanceState:"unknown",outstandingJobs:[],settledJobs:[]};
 }
 export function finishSqueegeeImport(state,asOf,previous={}){
  if(!validDay(asOf)||state.records<10000||state.customers.size<900||
@@ -235,6 +235,21 @@ export function finishSqueegeeImport(state,asOf,previous={}){
        invoice?.customerId===id&&!invoice.deleted&&
        invoice.paid===false&&occ.paymentStatus==="invoiced"){
       row.outstandingJobs.push({id:occ.id,dueOn:occ.date,j:jobIndex});
+    }
+    // The backup retains the original Squeegee paidDate for late-paid
+    // occurrences, even when today's account balance is £0. Rebuild
+    // the full historical penalty, but only with a linked settled invoice.
+    // Squeegee lets a payment settle many invoices on one later day.
+    const paidOn=typeof occ.paidDate==="string"?occ.paidDate.slice(0,10):"";
+    const paidDay=validDay(paidOn)?Date.parse(paidOn+"T00:00:00Z"):NaN;
+    const cleanDay=Date.parse(occ.date+"T00:00:00Z");
+    if(occ.kind==="paid"&&occ.paymentStatus==="paid"&&
+       invoice?.customerId===id&&!invoice.deleted&&invoice.paid===true&&
+       Number.isFinite(paidDay)&&paidOn<=asOf&&
+       Number.isInteger((paidDay-cleanDay)/86400000)&&
+       paidDay-cleanDay>28*86400000){
+      row.settledJobs.push({id:occ.id,dueOn:occ.date,
+       paidOn,j:jobIndex});
     }
     let event;
     if(occ.kind==="skip"){
