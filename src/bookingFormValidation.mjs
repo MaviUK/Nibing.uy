@@ -46,3 +46,34 @@ export function bookingFieldTarget(key) {
     terms:"booking-terms-open",
   })[key]||"booking-form-error-summary";
 }
+
+
+/**
+ * Carry the same council-matched date the customer saw in the booking form
+ * to the receipt screen. This is display evidence, NOT proof that Squeegee
+ * created an appointment. Never show an incomplete, stale or altered
+ * browser snapshot as a confirmed booking.
+ */
+export function matchedBookingDatePreview(snapshot,{address="",bins=[]}={}) {
+  const postcodeMatch=String(address).toUpperCase().match(/\bBT\d{1,2}[A-Z0-9]?\s*\d[A-Z]{2}\b/);
+  if(!postcodeMatch || snapshot?.version!==1 ||
+     snapshot?.matched!==true || !Array.isArray(snapshot.results) ||
+     !Array.isArray(bins) || bins.length<1 ||
+     snapshot.results.length!==bins.length)return null;
+  const normalizedPostcode=value=>String(value||"").toUpperCase().replace(/\s+/g,"");
+  if(normalizedPostcode(snapshot.postcode)!==
+     normalizedPostcode(postcodeMatch[0]))return null;
+  const normalizeBin=value=>String(value||"").trim().replace(/\s+bin$/i,"").toUpperCase();
+  const results=[];
+  for(let i=0;i<bins.length;i++){
+    const row=snapshot.results[i];
+    const date=String(row?.assignedCleanDate||"");
+    if(row?.automatic!==true || !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+       normalizeBin(row?.type)!==normalizeBin(bins[i]?.type))return null;
+    const parsed=new Date(date+"T12:00:00Z");
+    if(!Number.isFinite(parsed.getTime()) ||
+       parsed.toISOString().slice(0,10)!==date)return null;
+    results.push({bin:String(bins[i].type).trim(),assignedCleanDate:date});
+  }
+  return {source:"council_lookup_display_only",results};
+}
