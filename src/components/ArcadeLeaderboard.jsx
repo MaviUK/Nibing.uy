@@ -449,7 +449,7 @@ export default function ArcadeLeaderboard() {
   return (
     <section ref={boardSectionRef} id="live-leaderboard" className="n64-public-leaderboard" aria-labelledby="n64-board-title">
       <div className={"n64-public-board-inner"+(activePanel==="hq"?" n64-public-board-inner--hq":activePanel==="records"?" n64-public-board-inner--records":"")}>
-        <div ref={boardTabsRef} className={"n64-board-tabs n64-board-tabs--three"} role="group" aria-label="Leaderboard, Records and Customer HQ">
+        <div ref={boardTabsRef} className={"n64-board-tabs"+" n64-board-tabs--three"} role="group" aria-label="Leaderboard, Records and Customer HQ">
           <button type="button" className={activePanel==="leaderboard"?"n64-board-tab n64-board-tab--selected":"n64-board-tab"}
             aria-pressed={activePanel==="leaderboard"} onClick={openBoard}>★ LEADERBOARDS</button>
           <button type="button"
