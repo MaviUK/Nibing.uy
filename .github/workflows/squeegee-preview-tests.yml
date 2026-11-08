@@ -1,5 +1,14 @@
 name: Squeegee preview booking integration tests
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "netlify/functions/lib/squeegeeOverduePenalty.js"
+      - "tests/squeegee-overdue-penalty.test.cjs"
+      - "public/customer-hq-sqg-converter.mjs"
+      - "src/pages/CustomerHQ.jsx"
+      - "src/components/ArcadeLeaderboard.jsx"
+      - ".github/workflows/squeegee-preview-tests.yml"
   push:
     branches:
       - preview/n64-retro-site
@@ -99,6 +108,8 @@ on:
       - netlify/functions/lib/squeegeeActivePreviewSnapshot.js
       - netlify/functions/lib/squeegeeActivePreviewBoard.js
       - netlify/functions/lib/squeegeeYearlyPreviewBoard.js
+      - netlify/functions/lib/squeegeeOverduePenalty.js
+      - tests/squeegee-overdue-penalty.test.cjs
       - tests/squeegee-annual-leaderboards.test.cjs
       - src/n64-finale.css
       - netlify/functions/lib/arcadeCustomerMerge.js
@@ -220,3 +231,5 @@ jobs:
         run: npm ci
       - name: Test dates, prices, customer matching and job mapping (no live API calls)
         run: node --test tests/squeegee-*.test.cjs tests/pre-squeegee-history.test.cjs tests/owner-monthly-plan.test.cjs tests/daily-bin-counter.test.cjs
+      - name: Verify Preview 77 Vite production build (no deployment)
+        run: npm run build
