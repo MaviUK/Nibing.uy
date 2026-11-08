@@ -269,3 +269,28 @@ test("new unpaid job never reopens cleans paid when the account was previously z
   assert.equal(current.paidCleans,earlier.paidCleans);
   assert.deepEqual(current.outstandingJobs.map(e=>e.id),[jobId+"2026-10-01"]);
 });
+
+test("paid in November but cleaned in September stays settled AND records historical overdue evidence",async()=>{
+  const {state,uuid,customerIds,finishSqueegeeImport}=await seed();
+  const {acceptSqueegeeRecord}=await load();
+  const id=customerIds[0],invoice=uuid(999980),jobId=uuid(999981);
+  const occurrenceId=jobId+"2026-09-09";
+  acceptSqueegeeRecord(state,{resourceType:"transactions",_id:invoice,
+    customerId:id,transactionType:0,amount:5,invoice:{paid:true}});
+  acceptSqueegeeRecord(state,{resourceType:"transactions",_id:uuid(999982),
+    customerId:id,transactionType:1,amount:-5,date:"2026-11-05"});
+  acceptSqueegeeRecord(state,{resourceType:"joboccurrences",_id:occurrenceId,
+    jobId,customerId:id,status:1,isoDueDate:"2026-09-09",
+    paymentStatus:"paid",paidDate:"2026-11-05",
+    invoiceTransactionId:invoice,
+    services:[{description:"Brown",quantity:1}]});
+  const result=finishSqueegeeImport(state,"2026-11-07");
+  const account=result.snapshot.accounts.find(a=>a.id===id);
+  assert.equal(account.balanceState,"settled");
+  assert.equal(account.outstandingJobs.length,0);
+  assert.deepEqual(account.settledJobs,[{id:occurrenceId,
+    dueOn:"2026-09-09",paidOn:"2026-11-05",
+    j:account.jobs.findIndex(j=>j.id===jobId)}]);
+  assert.equal(result.snapshot.penaltySourceVersion,
+    "2026-11-escalating-overdue-per-job-v2");
+});
