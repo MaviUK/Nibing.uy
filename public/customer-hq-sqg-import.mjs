@@ -64,7 +64,8 @@ if(form&&input&&error&&button&&progress){
    const baseline=await refs.json(),previous={};
    for(const r of baseline.records||[]){
     if(typeof r?.id==="string")previous[r.id]={
-      ref:r.ref,town:r.town,firstName:r.firstName};
+      ref:r.ref,town:r.town,firstName:r.firstName,
+      paidJobDays:Array.isArray(r.paidJobDays)?r.paidJobDays:[]};
    }
    const result=await new Promise((resolve,reject)=>{
     worker=new Worker("/customer-hq-sqg-worker.mjs?v=overdue-xp-v1-20261108",{type:"module"});
