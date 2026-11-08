@@ -1,7 +1,9 @@
-// Preview 1 owner-only first-name leaderboard consent controls.
+// Owner-only first-name leaderboard consent controls for preview and production.
 // Never returns unconsented names in a public endpoint.
 import { getStore } from "@netlify/blobs";
 import owner from "./lib/squeegeePreviewTestSession.js";
+import productionOwner from "./lib/squeegeeProductionOwnerAuth.js";
+import productionGuard from "./lib/squeegeeProductionGuard.js";
 import api from "./lib/squeegeeApiV3.js";
 import names from "./lib/squeegeeLeaderboardNameConsent.js";
 import customerHQ from "./lib/customerHQ.js";
@@ -9,6 +11,7 @@ import privatePreview from "./lib/squeegeeOwnerLeaderboardPreview.js";
 
 const PATH="/api/squeegee-preview-leaderboard-names";
 const ORIGIN="https://deploy-preview-77--nibinguy.netlify.app";
+const LIVE_ORIGIN="https://nibing.uy";
 const pageHeaders={
   "Content-Type":"text/html; charset=utf-8",
   "Cache-Control":"private, no-store",
@@ -33,7 +36,7 @@ const page=(body,status=200)=>new Response(
   'button{background:#facc15;color:#111;border:0;font-weight:750;margin:13px 0}'+
   'strong,a{color:#facc15}small{color:#b8c5d7}</style><main>'+
   '<h1>NI Bin Guy • Private leaderboard permissions</h1>'+body+
-  '<p><small>Draft N64 Preview 1 only. This tool never changes Squeegee accounts or sends permission emails. '+ 
+  '<p><small>Owner-only leaderboard permission records. This tool never changes Squeegee accounts or sends permission emails. '+ 
   'Customer first names and original Squeegee references are stored only in owner-protected Netlify Blobs.</small></p></main>',
   {status,headers:pageHeaders}
 );
@@ -73,7 +76,7 @@ function renderDashboard(snapshot,note="",emailEligibility=null,preview=null){
   return (note?'<section><strong>'+safe(note)+'</strong></section>':'')+
     '<section><h2>Private first-name preparation</h2>'+
     '<p><a style="display:block;background:#f7d45a;color:#14213b;text-decoration:none;padding:13px;font-weight:900;text-align:center" '+
-    'href="/api/squeegee-preview-test?returnTo=%2F%3Fntl-drawer-state%3Dhidden%26owner-board%3D1%26owner-auth-complete%3D1%23live-leaderboard">'+
+    'href="/#live-leaderboard">'+
     '★ VIEW ALL VERIFIED CUSTOMERS IN THE N64 LEADERBOARD →</a></p>'+
     '<p><strong>'+stats.total+'</strong> imported • <strong>'+stats.consented+
     '</strong> permission granted • '+stats.pending+' pending • '+
@@ -100,7 +103,7 @@ function renderDashboard(snapshot,note="",emailEligibility=null,preview=null){
     '<input type="hidden" name="action" value="record-owner-reviewed-email-replies">'+
     '<label for="bulkEvidence">Where the original replies can be checked</label>'+
     '<input id="bulkEvidence" name="evidence" maxlength="120" minlength="12" '+
-    'value="Zoho Mail - owner manually verified positive replies on 6 Nov 2026" required>'+
+    'value="Zoho Mail - owner verified existing customer replies" required>'+
     '<label><input type="checkbox" name="confirm" value="yes" required> I individually checked the positive replies for these email-bearing customers. The replies explicitly covered public first name, town and XP. I will keep the replies as evidence, and customers may withdraw at any time.</label>'+
     '<button>Record verified email permissions for eligible customers</button>'+
     '</form></section>'+
@@ -143,17 +146,32 @@ function renderDashboard(snapshot,note="",emailEligibility=null,preview=null){
 }
 export default async function handler(request,ctx){
   const scope=runtimeScope(request,ctx);
-  if(!api.isExactPreview1(process.env,scope))
+  const isProduction=productionGuard.isVerifiedProductionScope(scope);
+  const isPreview=api.isExactPreview1(process.env,scope);
+  if(!isProduction&&!isPreview)
     return new Response("Not found",{status:404});
   if(!["GET","POST"].includes(request.method))
     return new Response("Method not allowed",{status:405});
-  const cookie=owner.sessionCookieFromHeader(request.headers.get("cookie"));
-  if(!owner.verifyTestSessionCookie(cookie,process.env,Date.now(),scope)){
-    if(request.method==="POST")return page("<section>Owner session expired. Nothing changed.</section>",403);
+  // Production uses the independent, production-only owner OTP session.
+  // Preview sessions are never accepted on the live website.
+  const authHeader=request.headers.get("cookie");
+  const permitted=isProduction
+    ?productionOwner.validCookie(productionOwner.fromHeader(authHeader),
+       process.env,Date.now(),scope)
+    :owner.verifyTestSessionCookie(
+       owner.sessionCookieFromHeader(authHeader),
+       process.env,Date.now(),scope);
+  if(!permitted){
+    if(request.method==="POST")
+      return page("<section>Owner session expired. No permissions changed.</section>",403);
     return page('<section><strong>Owner sign-in required.</strong>'+
-      '<p>Use the emailed owner code to access this private first-name list.</p>'+
-      '<a href="/api/squeegee-preview-test?returnTo='+
-      encodeURIComponent(PATH)+'">Sign in with your owner code</a></section>',403);
+      '<p>Use your existing emailed NI Bin Guy owner code. No customer emails are sent and no Squeegee jobs are changed.</p>'+
+      (isProduction
+        ?'<a href="/api/squeegee-production-auto-status">Sign in to the live owner area</a>'+
+          '<p>After entering the code, return to this leaderboard permissions page.</p>'
+        :'<a href="/api/squeegee-preview-test?returnTo='+
+          encodeURIComponent(PATH)+'">Sign in with your owner code</a>')+
+      '</section>',401);
   }
   const db=store();
   if(request.method==="GET"){
@@ -168,12 +186,13 @@ export default async function handler(request,ctx){
     );
     return page(renderDashboard(snapshot,"",eligible,preview));
   }
-  if(request.headers.get("origin")!==ORIGIN)
+  if(request.headers.get("origin")!==(isProduction?LIVE_ORIGIN:ORIGIN))
     return page("<section>Cross-site request blocked. Nothing changed.</section>",403);
   try{
     const form=await request.formData();
     const action=String(form.get("action")||"");
     if(action==="import"){
+      if(isProduction)return page("<section>Bulk CSV import is unavailable on the live site. Existing verified customer history is preserved.</section>",403);
       const file=form.get("file");
       if(!file || typeof file.text!=="function" ||
          file.size<50 || file.size>names.MAX_BYTES)
@@ -205,11 +224,20 @@ export default async function handler(request,ctx){
       const saved=await db.setJSON(names.KEY,result.snapshot,{
         onlyIfMatch:current.etag
       });
-      if(saved?.modified!==true)
-        return page("<section>Another permission update occurred. Nothing was overwritten; please refresh.</section>",409);
+      if(saved?.modified!==true || !saved?.etag)
+        return page("<section>Permission update could not be verified. No further action taken; please check the owner status.</section>",503);
+      const verified=await db.getWithMetadata(names.KEY,{
+        type:"json",consistency:"strong"
+      });
+      if(verified?.etag!==saved.etag ||
+         verified?.data?.updatedAt!==result.snapshot.updatedAt ||
+         verified?.data?.ownerEmailReplyAttestation?.evidenceRef!==
+            result.snapshot.ownerEmailReplyAttestation.evidenceRef)
+        return page("<section>Permission update read-back failed. Do not repeat; check the current owner status.</section>",503);
       const n=result.counts;
       const note="Owner-attested email replies recorded: "+n.approved+
-        " newly granted, "+n.alreadyApproved+" already granted, "+
+        " newly granted across "+n.qualifying+" ranked accounts, "+
+        n.alreadyApproved+" already granted, "+
         n.withdrawn+" existing withdrawals preserved, "+
         n.needsNameReview+" names requiring review. No missing-email accounts were granted.";
       return page(renderDashboard(result.snapshot,note,eligible));
@@ -232,8 +260,14 @@ export default async function handler(request,ctx){
         correctedFirstName:String(form.get("firstName")||""),
       },Date.now(),eligible?.aliases||null);
       const saved=await db.setJSON(names.KEY,next,{onlyIfMatch:current.etag});
-      if(saved?.modified!==true)
-        return page("<section>Another update was saved. Refresh and check again.</section>",409);
+      if(saved?.modified!==true || !saved?.etag)
+        return page("<section>Permission update could not be verified. Refresh the owner view before any further action.</section>",503);
+      const verified=await db.getWithMetadata(names.KEY,{
+        type:"json",consistency:"strong"
+      });
+      if(verified?.etag!==saved.etag ||
+         verified?.data?.updatedAt!==next.updatedAt)
+        return page("<section>Permission update not verified. Review the owner status before retrying.</section>",503);
       return page(renderDashboard(next,action==="grant"
         ?"Permission recorded. First name and town are now eligible for public display."
         :"Permission withdrawn. Entry removed from the public leaderboard.",
