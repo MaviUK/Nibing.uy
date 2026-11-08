@@ -133,7 +133,7 @@ function buildBookingEmailHtml({ bookingId, name, address, phone, bins, pricing,
           </td></tr>` : ""}
           <tr><td style="padding:26px 26px 8px;">
             <div style="font-family:Arial,sans-serif;color:#c41230;font-size:20px;font-weight:800;">Your first clean is one step closer.</div>
-            <div style="font-family:Arial,sans-serif;color:#333333;font-size:15px;line-height:1.6;margin-top:10px;">We couldn't automatically confirm your address or first clean date from the council system. Don't worry — your booking has still been received. We'll check it manually and you'll receive an email shortly confirming your cleaning date.</div>
+            <div style="font-family:Arial,sans-serif;color:#333333;font-size:15px;line-height:1.6;margin-top:10px;">We've received your booking request. Your first clean date is being checked against the collection schedule. We'll email you once it has been confirmed. There's no need to send another booking request.</div>
           </td></tr>
 
           <tr><td style="padding:18px 26px 0;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#090909;border-radius:14px;">
