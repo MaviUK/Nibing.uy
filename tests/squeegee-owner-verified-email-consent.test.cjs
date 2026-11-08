@@ -132,7 +132,7 @@ test("one-time bulk confirmation remains behind Preview 77 owner OTP and same-or
   assert.match(source,/onlyIfMatch:current\.etag/);
   assert.match(source,/owner\.sessionCookieFromHeader/);
   assert.match(source,/Record verified email permissions for eligible customers/);
-  assert.match(source,/Another permission update occurred/);
+  assert.match(source,/Permission update could not be verified/);
 });
 
 
@@ -143,11 +143,14 @@ test("email-eligible zero-score accounts do not block publishing other verified 
   source.accounts[1]={...source.accounts[1],points:0,paidCleans:0,
     currentStreak:0,nextBonus:20,events:[],jobs:[]};
   const eligible=hq.eligibleRankedEmailAccounts(source);
-  assert.equal(eligible.count,2);
+  assert.equal(eligible.count,1);
+  // The low-level attestation also defends against an upstream eligibility
+  // set that includes a valid-email account without any ranked points.
+  const allEmailAliases=new Set([refs[0],refs[1]]);
   const pending=names.initialiseFromPrivateCustomerHQ(source);
   assert.equal(pending.records.length,1);
   const attested=names.approveOwnerReviewedEmailReplies(
-    pending,source,eligible.aliases,{confirm:"yes",evidenceRef:evidence});
+    pending,source,allEmailAliases,{confirm:"yes",evidenceRef:evidence});
   assert.equal(attested.counts.eligible,2);
   assert.equal(attested.counts.qualifying,1);
   assert.equal(attested.counts.approved,1);
@@ -156,7 +159,7 @@ test("email-eligible zero-score accounts do not block publishing other verified 
   // Missing a positive-score consent row must still fail closed.
   const missing={...pending,records:[]};
   assert.throws(()=>names.approveOwnerReviewedEmailReplies(
-    missing,source,eligible.aliases,{confirm:"yes",evidenceRef:evidence}),
+    missing,source,allEmailAliases,{confirm:"yes",evidenceRef:evidence}),
     /consent_customer_mismatch/);
 });
 
