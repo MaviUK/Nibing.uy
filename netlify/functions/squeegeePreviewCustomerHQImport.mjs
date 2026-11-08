@@ -57,6 +57,7 @@ const OWNER_IMPORT_CODES=new Set([
   "overdue_settled_job_invalid","overdue_settled_job_not_late",
   "overdue_settled_job_reopened",
   "overdue_occurrence_due_date_changed","overdue_penalty_would_decrease",
+  "overdue_previous_policy_unrecognised",
   "hq_active_leaderboard_reconciliation_failed"
 ]);
 function safeImportReason(err){
@@ -195,7 +196,7 @@ export default async function handler(request,ctx){
     // Historical paidDate is authoritative for settled-invoice penalties;
     // a zero account balance only stops NEW deductions.
     // Old snapshot penalties are reconciled by stable occurrence ID.
-    if([overdue.VERSION,overdue.LEGACY_VERSION]
+    if([overdue.VERSION,...overdue.LEGACY_VERSIONS]
        .includes(previous?.penaltySourceVersion) &&
        validated.penaltySourceVersion!==overdue.VERSION)
       throw Error("overdue_evidence_invalid");
@@ -208,7 +209,8 @@ export default async function handler(request,ctx){
         const prior=earlier?.ref===account.ref?earlier.penaltyLedger||[]:[];
         const open=account.outstandingJobs||[];
         const settled=account.settledJobs||[];
-        const ledger=overdue.reconcileLedger(prior,open,validated.asOf,settled);
+        const ledger=overdue.reconcileLedger(prior,open,validated.asOf,settled,
+          prior.length?previous?.penaltySourceVersion:overdue.VERSION);
         const penaltyPoints=overdue.penaltyTotal(ledger);
         totalPenalty+=penaltyPoints;totalOpen+=open.length;
         totalSettled+=settled.length;
@@ -252,7 +254,7 @@ export default async function handler(request,ctx){
       validated.summary.historyEvents+' clean history entries. '+
       ' Verified overdue XP deductions: '+totalPenalty+
       ' across '+totalSettled+' historically late-paid jobs and '+totalOpen+
-      ' currently unpaid jobs (28 days free, then escalating daily). '+
+      ' currently unpaid jobs (28 days free, then 1 XP per overdue job per day). '+
       validated.summary.rankedWithEmail+' ranking-eligible customers have an email, '+
       'representing '+validated.summary.rankedWithEmailPoints+' cleaning XP. '+
       'No Squeegee customer/job/payment was changed.</p>'+
