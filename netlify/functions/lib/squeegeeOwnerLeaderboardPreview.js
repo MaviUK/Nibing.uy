@@ -6,6 +6,7 @@
 const {canonicalLegacyRef}=require("./squeegeeActiveLeaderboardImport");
 const {safeFirstName}=require("./squeegeeLeaderboardNameConsent");
 const binHistory=require("./squeegeePreviewBinHistory");
+const overdue=require("./squeegeeOverduePenalty");
 
 function ownerPrivateLeaderboardPreview(privateSnapshot,consentSnapshot,eligible,limit=20) {
   if(!privateSnapshot || !Array.isArray(privateSnapshot.accounts) ||
@@ -30,12 +31,12 @@ function ownerPrivateLeaderboardPreview(privateSnapshot,consentSnapshot,eligible
         customerReference:String(r.ref||""),
         firstName:approved?permission.firstName:(safeFirstName(r.firstName)||null),
         town:String(r.town||"Town unavailable"),
-        points:r.points,
+        points:Math.max(0,r.points-overdue.penaltyTotal(r.penaltyLedger)),
         verification:"verified_from_squeegee_backup",
         permission:approved?"approved":permission?.consent==="withdrawn"?"withdrawn":"pending",
       };
     })
-    .filter(r=>Number.isSafeInteger(r.points) && r.points>0 &&
+    .filter(r=>Number.isSafeInteger(r.points) && r.points>=0 &&
       typeof r.customerReference==="string")
     .sort((a,b)=>b.points-a.points ||
       a.customerReference.localeCompare(b.customerReference));
