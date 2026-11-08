@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { scrollToArcadeTabs, stabilizeArcadeTabScroll } from "./scrollToArcadeBoardStart.mjs";
 
 const REFRESH_MS = 10000;
@@ -60,6 +61,41 @@ export default function ArcadeLeaderboard() {
   const [verifiedAsOf, setVerifiedAsOf] = useState(null);
   const [eligibleCleaningXp, setEligibleCleaningXp] = useState(null);
   const [activePanel, setActivePanel] = useState("leaderboard");
+  const [showPointsGuide,setShowPointsGuide]=useState(false);
+  const pointsGuideTriggerRef=useRef(null);
+  const pointsGuideDialogRef=useRef(null);
+
+  // Keep the XP explanation usable on Android and from a keyboard.
+  useEffect(()=>{
+    if(!showPointsGuide)return;
+    const oldOverflow=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    pointsGuideDialogRef.current?.focus();
+    const onKeyDown=(event)=>{
+      if(event.key==="Escape"){
+        event.preventDefault();
+        setShowPointsGuide(false);
+        return;
+      }
+      if(event.key!=="Tab")return;
+      const focusable=Array.from(pointsGuideDialogRef.current?.querySelectorAll(
+        "button:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])"
+      )||[]);
+      if(focusable.length<1)return;
+      const first=focusable[0],last=focusable[focusable.length-1];
+      if(event.shiftKey&&document.activeElement===first){
+        event.preventDefault();last.focus();
+      }else if(!event.shiftKey&&document.activeElement===last){
+        event.preventDefault();first.focus();
+      }
+    };
+    document.addEventListener("keydown",onKeyDown);
+    return ()=>{
+      document.body.style.overflow=oldOverflow;
+      document.removeEventListener("keydown",onKeyDown);
+      pointsGuideTriggerRef.current?.focus();
+    };
+  },[showPointsGuide]);
   // A requested owner test starts on the private test panel, not the public
   // anonymous leaderboard while the owner session is being checked.
   const [rankingMode,setRankingMode]=useState(()=>
@@ -588,11 +624,86 @@ export default function ArcadeLeaderboard() {
             The leaderboard server is temporarily unavailable. Your device XP is unaffected; retrying automatically.
           </p>
         )}
-        <small>
-          {historyStatus ? "Active account-status verification is out of date; historical scores are temporarily hidden. " : ""}
-          Tap a player or choose My Customer HQ above to open the email-code sign-in in this section. You can only see the account verified by your own email code. Public rankings refresh every 10 seconds; historical Squeegee scores change after a verified import.
-          {nameConsentMode || eligibilityPending ? "A registered email is required to qualify. First name, town and points are visible on the "+(LIVE_N64?"public leaderboard.":"test leaderboard.")+" Squeegee references and contact details remain private." : "Full cleaning histories require secure sign-in. Public scores never grant access to another customer's account."}
-        </small>
+        <div className="n64-points-help-trigger">
+          <button type="button" ref={pointsGuideTriggerRef}
+            onClick={()=>setShowPointsGuide(true)}
+            aria-haspopup="dialog" aria-expanded={showPointsGuide}
+            aria-controls="n64-points-guide-dialog">
+            <span aria-hidden="true">★</span> HOW DO I EARN &amp; LOSE XP? <span aria-hidden="true">?</span>
+          </button>
+        </div>
+        {showPointsGuide && createPortal(
+          <div className="n64-points-guide-backdrop"
+            onClick={event=>{
+              if(event.target===event.currentTarget)setShowPointsGuide(false);
+            }}>
+            <section id="n64-points-guide-dialog" className="n64-points-guide"
+              role="dialog" aria-modal="true" tabIndex={-1}
+              aria-labelledby="n64-points-guide-title"
+              aria-describedby="n64-points-guide-intro"
+              ref={pointsGuideDialogRef}>
+              <header className="n64-points-guide-header">
+                <div>
+                  <span className="n64-points-guide-kicker">★ NI BIN GUY LOYALTY XP ★</span>
+                  <h2 id="n64-points-guide-title">How the Leaderboard Works</h2>
+                </div>
+                <button type="button" className="n64-points-guide-close"
+                  aria-label="Close points guide" onClick={()=>setShowPointsGuide(false)}>✕</button>
+              </header>
+              <div className="n64-points-guide-body">
+                <p id="n64-points-guide-intro" className="n64-points-guide-intro">
+                  Earn XP for clean bins and website activities. Keep up your cleaning streak to climb the leaderboard!
+                </p>
+                <div className="n64-points-guide-rule n64-points-guide-rule--earn">
+                  <h3>★ Earn XP for paid cleans</h3>
+                  <p><strong>+20 XP per bin</strong> on the first completed, paid clean of a job.</p>
+                  <p>Each consecutive clean on that job earns <strong>1 extra XP per bin</strong>.</p>
+                  <div className="n64-points-guide-example" aria-label="Example of growing cleaning rewards">
+                    <span>1st clean <strong>20 XP</strong></span>
+                    <span>2nd <strong>21 XP</strong></span>
+                    <span>3rd <strong>22 XP</strong></span>
+                    <span>4th <strong>23 XP</strong></span>
+                  </div>
+                  <p>Multiple paid bins earn points for each bin. A clean that has not been verified as paid does not earn cleaning XP yet.</p>
+                </div>
+                <div className="n64-points-guide-rule n64-points-guide-rule--streak">
+                  <h3>★ Keep your cleaning streak</h3>
+                  <p>Consecutive cleans build a streak. <strong>A recorded skipped clean resets that job's streak</strong>, so its next paid clean starts at 20 XP per bin again.</p>
+                  <p>The <strong>all-jobs-combined record streak</strong> also starts again if any job is skipped. Previously earned XP is not removed just because of a skip.</p>
+                </div>
+                <div className="n64-points-guide-rule n64-points-guide-rule--bonus">
+                  <h3>★ Bonus website XP</h3>
+                  <ul>
+                    <li><strong>+150 XP</strong> for each bin in a successful 4-weekly website booking.</li>
+                    <li><strong>+60 XP</strong> for each bin in a successful one-off website booking.</li>
+                    <li><strong>+50 XP</strong> for completing a website level (once per level each month).</li>
+                    <li><strong>+35 XP</strong> for checking your bin day, and <strong>+25 XP</strong> for checking your service area (once each).</li>
+                    <li><strong>+25 XP</strong> each day for playing Free Bin Clean, visiting Customer HQ, or opening Contact Us (each activity once per day).</li>
+                  </ul>
+                </div>
+                <div className="n64-points-guide-rule n64-points-guide-rule--lose">
+                  <h3>★ Lose XP for overdue payments</h3>
+                  <p>Each unpaid cleaning job has <strong>28 days</strong> before an overdue penalty starts.</p>
+                  <div className="n64-points-guide-example" aria-label="Example overdue penalties per unpaid job">
+                    <span>Days 1–28 <strong>0 XP</strong></span>
+                    <span>Day 29 <strong>−1 XP</strong></span>
+                    <span>Day 30 <strong>−2 XP total</strong></span>
+                    <span>Day 31 <strong>−3 XP total</strong></span>
+                  </div>
+                  <p>After day 28, you lose <strong>1 XP per day for each overdue job</strong> — not an increasing number of points each day. Two jobs overdue for three penalty days cost 6 XP altogether.</p>
+                  <p>Once the balance is paid, no further daily penalty is added for those jobs. Earlier penalties stay recorded, and your total XP cannot go below zero.</p>
+                </div>
+                <p className="n64-points-guide-footer-note">
+                  Cleaning scores are updated from verified Squeegee backups. Website XP can sync to your account once verified. Public rankings show approved first name, town and XP only; your private cleaning history stays in Customer HQ.
+                </p>
+              </div>
+              <footer className="n64-points-guide-actions">
+                <button type="button" onClick={()=>setShowPointsGuide(false)}>GOT IT ✓</button>
+              </footer>
+            </section>
+          </div>,
+          document.body
+        )}
         </div>
         <div className="n64-owner-ranking" hidden={rankingMode!=="owner"}>
           <p className="n64-owner-private-notice" role="status">
