@@ -40,6 +40,30 @@ const fs=require("node:fs");
   await page.getByRole("button",{name:"Check whether we cover your postcode"}).click();
   await page.getByRole("dialog").first().waitFor({state:"visible",timeout:15000});
   await page.screenshot({path:"mobile-qa/coverage-dialog.png",fullPage:false});
+  // Production-only endpoints must be invisible to preview browsers. GET only.
+  for (const pathname of [
+    "/api/squeegee-production-auto-status",
+    "/api/squeegee-production-auto-sync"
+  ]) {
+    const blocked = await page.request.get(origin+pathname,{timeout:15000});
+    if(blocked.status()!==404)
+      throw Error("Preview production endpoint unexpectedly accessible: "+
+        pathname+" HTTP "+blocked.status());
+  }
+  // Read-only Customer HQ mobile check; never request or verify a login code.
+  const hqResponse=await page.goto(origin+"/customer-hq",{
+    waitUntil:"domcontentloaded",timeout:45000});
+  if(!hqResponse||hqResponse.status()!==200)
+    throw Error("Customer HQ HTTP "+hqResponse?.status());
+  await page.getByRole("heading",{name:/customer\\s+hq/i}).first()
+    .waitFor({state:"visible",timeout:20000});
+  const hqDimensions=await page.evaluate(()=>({
+    width:window.innerWidth,
+    scrollWidth:document.documentElement.scrollWidth
+  }));
+  if(hqDimensions.scrollWidth>hqDimensions.width+5)
+    throw Error("Customer HQ horizontal overflow "+JSON.stringify(hqDimensions));
+  await page.screenshot({path:"mobile-qa/customer-hq-readonly.png",fullPage:false});
   const timings={
    homepageNavigation:homeNavigation,
    safeTwoDialogJourneyMs:Date.now()-start,
@@ -47,7 +71,10 @@ const fs=require("node:fs");
    documentWidth:dimensions.scrollWidth,
    hiddenSkipLinkBottom:dimensions.skip,
    safeBookingDialog:"opened_without_submission",
-   safeCoverageDialog:"opened_without_submission"
+   safeCoverageDialog:"opened_without_submission",
+   customerHQ:"opened_without_login",
+   previewProductionEndpoints:"both_return_404",
+   customerHQScrollWidth:hqDimensions.scrollWidth
   };
   fs.writeFileSync("mobile-qa/results.json",JSON.stringify(timings,null,2));
   console.log("PASS "+JSON.stringify(timings));
