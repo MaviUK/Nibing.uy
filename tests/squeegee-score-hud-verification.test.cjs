@@ -185,7 +185,7 @@ test("the profile accepts corrected totals in both directions and refreshes date
   assert.match(source,/n64:request-verified-total/);
   assert.match(source,/verifiedSnapshotRef/);
   assert.match(source,/detail\.customerReference!==current\.customerReference/);
-  assert.match(source,/websiteXp:Math\.max\(0,detail\.points-current\.cleaningPoints\)/);
+  // A smaller net score must not overwrite previously verified website rewards.\n  assert.match(source,/const next=\\{\\.\\.\\.current,points:detail\\.points\\}/);\n  assert.doesNotMatch(source,/websiteXp:Math\\.max\\(0,detail\\.points-current\\.cleaningPoints\\)/);
   assert.match(source,/void refresh\(\)\.catch/);
   assert.match(scoreboard,/publishVerifiedTotal\(\)/);
 });
