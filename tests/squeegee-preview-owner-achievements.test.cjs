@@ -280,7 +280,7 @@ test("admin displays the achievements only after owner-session verification",()=
  assert.match(src,/function achievementsPanel\(snapshot,selectedTown="",selectedYear="overall"\)/);
  assert.match(src,/if\(recordView\)/);
  assert.match(src,/achievementsPanel\(snapshot,safeString\(params\.get\("town"\),60\),\s*safeString\(params\.get\("year"\),10\)\)/);
- assert.match(src,/stats\+nav\+filters\(q,mode,year\)/);
+ assert.match(src,/stats\+scoreBanner\+nav\+filters\(q,mode,year\)/);
  assert.match(src,/url\(\{view:"records"\}\)/);
  assert.match(src,/fromRecords\?'← HIGH ACHIEVEMENTS':'← ALL CUSTOMERS'/);
  assert.match(src,/id="high-achievements"/);
