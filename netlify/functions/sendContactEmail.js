@@ -9,6 +9,7 @@
 //   RECAPTCHA_MIN_SCORE (default 0.5)
 
 import { Resend } from "resend";
+import previewChallenge from "./previewBookingChallenge.js";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -119,10 +120,21 @@ export default async function handler(req) {
   const recaptchaToken = body.recaptchaToken || null;
   const recaptchaAction = body.recaptchaAction || "contact_submit";
 
-  const recaptcha = await verifyRecaptcha({
-    token: recaptchaToken,
-    expectedAction: recaptchaAction,
-  });
+  const isPreview1 = new URL(req.url).hostname === "deploy-preview-77--nibinguy.netlify.app";
+  const recaptcha = isPreview1
+    ? await previewChallenge.verifyPreviewBooking({
+        headers: {
+          host: req.headers.get("host"),
+          origin: req.headers.get("origin"),
+          "user-agent": req.headers.get("user-agent"),
+          "x-nf-client-connection-ip": req.headers.get("x-nf-client-connection-ip"),
+          "x-forwarded-for": req.headers.get("x-forwarded-for"),
+        },
+      }, body.previewProof)
+    : await verifyRecaptcha({
+        token: recaptchaToken,
+        expectedAction: recaptchaAction,
+      });
 
   if (!recaptcha.ok) {
     // Keep response generic so bots don’t learn

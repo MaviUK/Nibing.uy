@@ -1,0 +1,109 @@
+name: N64 Preview 77 Section 3 read-only postcode and date smoke
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/n64-preview-coverage-runtime-smoke.yml
+permissions:
+  contents: read
+jobs:
+  read-only-council:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Verify real council coverage and first-clean date endpoints without booking
+        shell: bash
+        run: |
+          node <<'NODE'
+          const assert=require("node:assert/strict");
+          const origin="https://6aeaeec732a32e410616baa0--nibinguy.netlify.app";
+          const {performance}=require("node:perf_hooks");
+          const observed=[];
+          async function ask(name,pathname,opts={}) {
+            const started=performance.now();
+            try {
+              const response=await fetch(origin+pathname,{
+                ...opts,redirect:"error",signal:AbortSignal.timeout(25000),
+              });
+              const text=await response.text();
+              let data=null;
+              try {data=JSON.parse(text);}catch{}
+              const item={name,http:response.status,ms:Math.round(performance.now()-started),
+                valid:data?.valid??null,covered:data?.covered??null,
+                possible:data?.possible??null,reason:data?.reason??null,
+                town:data?.town??null,
+                addresses:Array.isArray(data?.addresses)?data.addresses.length:null,
+                results:Array.isArray(data?.results)?data.results.length:null,
+                automatic:Array.isArray(data?.results)?
+                  data.results.filter(x=>x.automatic===true).length:null,
+                cache:response.headers.get("cache-status")||null};
+              console.log("READ_ONLY "+JSON.stringify(item));
+              observed.push(item);
+              return {response,data,item};
+            }catch(error) {
+              console.error("READ_ONLY "+name+" failed: "+
+                (error?.name||"network_error"));
+              return null;
+            }
+          }
+          async function main(){
+            console.log("SAFETY: postcode GETs plus booking-schedule POST read-only. No sendBookingEmail or Squeegee endpoints.");
+            const places=[
+              {postcode:"BT20 4AA",kind:"active-bangor"},
+              {postcode:"BT23 4AA",kind:"active-ards"},
+              {postcode:"BT22 2AA",kind:"east-ards-review"},
+            ];
+            let success=0,readOnlySchedules=0;
+            for(const {postcode,kind} of places) {
+              const path="/.netlify/functions/serviceAreaPostcode?postcode="+encodeURIComponent(postcode);
+              const result=await ask(kind,path);
+              if(!result||result.response.status!==200||result.data?.valid!==true){
+                console.error("Unable to verify coverage endpoint for "+postcode);
+                continue;
+              }
+              success++;
+              if(kind==="active-bangor"){
+                assert.equal(result.data.covered,true,
+                  "Known Bangor postcode should be verified from council town, not just geospatial radius.");
+              }
+              const address=result.data.addresses?.find(x=>x.status==="active"&&x.uprn&&x.label);
+              if(!address)continue;
+              // The date endpoint only reads council rows/rota; this is not
+              // the website booking/Resend/Squeegee submission handler.
+              const schedule=await ask("read-only-date-"+postcode,"/api/booking-schedule",{
+                method:"POST",headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({
+                  address:address.label,postcode,bins:[{type:"Black Bin"},{type:"Blue Bin"}],
+                }),
+              });
+              if(!schedule||schedule.response.status!==200){
+                console.error("Failed to check schedule for "+postcode);
+                continue;
+              }
+              readOnlySchedules++;
+              assert.equal(schedule.data?.town,
+                address.town,"The council property's town must remain authoritative");
+              for(const row of schedule.data?.results||[]){
+                if(row.automatic){
+                  assert.match(row.assignedCleanDate,/^\d{4}-\d{2}-\d{2}$/);
+                  assert.notEqual(new Date(row.assignedCleanDate+"T12:00:00Z").getUTCDay(),0);
+                  console.log("VERIFIED_DAY "+postcode+" "+row.bin+
+                    " "+row.assignedCleanDate);
+                }else{
+                  console.log("PENDING_DAY "+postcode+" "+(row.bin||"unknown")+
+                    " To be confirmed");
+                }
+              }
+            }
+            console.log("SMOKE_SUMMARY "+JSON.stringify({
+              validPostcodeResults:success,successfulReadOnlySchedules:readOnlySchedules,
+              totalSamples:observed.length,
+              noCustomerOrJobWrites:true,
+            }));
+            assert.ok(success>=2,"Two known BT postcodes must respond without errors");
+            assert.ok(readOnlySchedules>=1,
+              "At least one genuine council property must yield a read-only schedule response");
+          }
+          main().catch(error=>{console.error(error);process.exitCode=1});
+          NODE

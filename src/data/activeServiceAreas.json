@@ -1,0 +1,23 @@
+{
+  "activeTowns": [
+    "Bangor",
+    "Holywood",
+    "Newtownards",
+    "Donaghadee",
+    "Millisle",
+    "Portaferry",
+    "Carrowdore",
+    "Comber",
+    "Groomsport",
+    "Conlig"
+  ],
+  "removedTowns": [
+    "Greyabbey",
+    "Ballywalter",
+    "Portavogie",
+    "Cloughey",
+    "Ballyhalbert"
+  ],
+  "reviewTowns": [],
+  "note": "The active 31 October 2026 four-weekly rota includes Portaferry Round 11 and Millisle Rounds 12, 14 and 17. Automatic booking still requires an exact verified council property, postcode and collection-date match. Removed towns remain excluded."
+}

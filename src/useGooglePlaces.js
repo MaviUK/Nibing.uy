@@ -1,22 +1,60 @@
-// src/useGooglePlaces.js
+// Shared Maps loader: one script and one promise for all booking dialogs.
+// Reuse a script even if another component started loading it first.
+let pendingGooglePlaces = null;
+
 export function loadGooglePlaces(apiKey) {
-  return new Promise((resolve, reject) => {
-    if (window.google?.maps?.places) return resolve(window.google);
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Google Places requires a browser."));
+  }
+  if (window.google?.maps?.places) return Promise.resolve(window.google);
+  if (!apiKey) return Promise.reject(new Error("Missing Google Maps browser key."));
+  if (pendingGooglePlaces) return pendingGooglePlaces;
 
-    const existing = document.querySelector('script[data-gmaps]');
-    if (existing) {
-      existing.addEventListener('load', () => resolve(window.google));
-      existing.addEventListener('error', reject);
-      return;
+  pendingGooglePlaces = new Promise((resolve, reject) => {
+    let settled = false;
+    let script = document.querySelector("script[data-gmaps]");
+    const existing = Boolean(script);
+    if (!script) script = document.createElement("script");
+
+    let timeout;
+    const complete = () => {
+      if (settled) return;
+      if (!window.google?.maps?.places) {
+        fail();
+        return;
+      }
+      settled = true;
+      window.clearTimeout(timeout);
+      resolve(window.google);
+    };
+    const fail = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      reject(new Error("Unable to initialise Google Places."));
+    };
+
+    script.addEventListener("load", complete, { once: true });
+    script.addEventListener("error", fail, { once: true });
+    timeout = window.setTimeout(() => {
+      if (window.google?.maps?.places) complete();
+      else fail();
+    }, 10000);
+
+    if (!existing) {
+      script.dataset.gmaps = "1";
+      script.src = "https://maps.googleapis.com/maps/api/js?key=" +
+        encodeURIComponent(apiKey) + "&libraries=places&v=weekly";
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    } else if (window.google?.maps?.places) {
+      complete();
     }
-
-    const s = document.createElement('script');
-    s.dataset.gmaps = '1';
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-    s.async = true;
-    s.defer = true;
-    s.onload = () => resolve(window.google);
-    s.onerror = reject;
-    document.head.appendChild(s);
+  }).catch((error) => {
+    pendingGooglePlaces = null;
+    throw error;
   });
+
+  return pendingGooglePlaces;
 }

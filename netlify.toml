@@ -103,13 +103,51 @@
   [headers.values]
     Cache-Control = "public, max-age=86400, stale-while-revalidate=604800"
 
+# Keep the N64 test scoreboard script fresh: the generic JS cache rule above
+# previously let Android retain an older local-XP-only HUD after deploys.
+# Customer HQ needs this script to load promptly to display verified total XP.
+[[headers]]
+  for = "/n64-scoreboard.js"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, max-age=0, must-revalidate"
+
+# Preview 1 PR #77 safety gate: run fake-only Squeegee regression tests
+# before publishing any function that can write to the owner's Squeegee account.
+# This file is modified ONLY on preview/n64-retro-site, not main or Preview 2.
 [build]
-  command = "npm run build"
+  command = "node --test tests/squeegee-*.test.cjs && npm run build"
   publish = "dist"
 
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+# Package the existing NI Bin Guy logo only with functions that create
+# signed Terms PDFs. This removes the live-site fetch on each booking without
+# adding a 1 MB image to every Netlify function.
+[functions.sendBookingEmail]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
+
+[functions.sendStreetBookingEmail]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
+
+[functions.sendStreetBookingEmailV2]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
+
+[functions.sendAutomaticBookingConfirmation]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
+
+[functions.sendTosReceipt]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
+
+[functions.sheilaTermsAcceptance]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
+
+[functions.evelynTermsAcceptance]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
+
+[functions.grahamTermsAcceptance]
+  included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
 
 # Keep one canonical URL for every town page. Without these rules, a trailing
 # slash on an extensionless static town file can fall through to the SPA
@@ -167,6 +205,16 @@
 # Unknown URLs are left unmatched so Netlify serves 404.html with HTTP 404.
 [[redirects]]
   from = "/street-booking"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/customer-hq"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/squeegee-portal"
   to = "/index.html"
   status = 200
 

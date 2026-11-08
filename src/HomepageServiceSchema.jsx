@@ -4,12 +4,12 @@ const areas = [
   ["Bangor", "https://nibing.uy/bin-cleaning-bangor/"],
   ["Groomsport", "https://nibing.uy/bin-cleaning-groomsport"],
   ["Donaghadee", "https://nibing.uy/bin-cleaning-donaghadee"],
+  ["Millisle", "https://nibing.uy/bin-cleaning-millisle"],
+  ["Portaferry", "https://nibing.uy/bin-cleaning-portaferry"],
   ["Newtownards", "https://nibing.uy/bin-cleaning-newtownards"],
   ["Holywood", "https://nibing.uy/bin-cleaning-holywood/"],
   ["Carrowdore", "https://nibing.uy/bin-cleaning-carrowdore/"],
   ["Comber", "https://nibing.uy/bin-cleaning-comber"],
-  ["Millisle", "https://nibing.uy/bin-cleaning-millisle"],
-  ["Portaferry", "https://nibing.uy/bin-cleaning-portaferry"],
 ]
 
 const graph = {

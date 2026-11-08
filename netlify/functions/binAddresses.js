@@ -29,7 +29,13 @@ export default async function handler(req) {
 
     return new Response(JSON.stringify({ data }), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // Council address data is public and postcode-specific. Reuse successful
+        // lookups for six hours across regions; never cache errors.
+        "Cache-Control": "public, max-age=0, must-revalidate",
+        "Netlify-CDN-Cache-Control": "public, durable, max-age=21600, stale-while-revalidate=300",
+      },
     });
   } catch (e) {
     return new Response(JSON.stringify({ error: e?.message || "Server error" }), {

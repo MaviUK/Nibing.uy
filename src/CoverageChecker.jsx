@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
+import {areaStatusForTown,townFromAddress} from "./serviceAreaPolicy.mjs";
 
 const BINS = [
   { key: "BLACK", label: "Black bin", dot: "bg-zinc-900", border: "border-zinc-300" },
   { key: "BROWN", label: "Brown / Green bin", dot: "bg-amber-800", border: "border-amber-500/50" },
   { key: "BLUE", label: "Blue bin", dot: "bg-blue-600", border: "border-blue-500/50" },
 ];
+
+const addressCollator=new Intl.Collator("en-GB",{numeric:true,sensitivity:"base"});
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   timeZone: "Europe/London",
@@ -90,6 +93,14 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
     setCheckingDates(true);
     setDates(null);
     setMessage("");
+    const councilTown=townFromAddress(address?.label);
+    if(areaStatusForTown(councilTown)!=="active") {
+      setCheckingDates(false);
+      setMessage(councilTown
+        ? "We cannot confirm a current cleaning round for this council address. Please contact NI Bin Guy."
+        : "The council address did not provide a verified town. Contact us to check availability.");
+      return;
+    }
     try {
       const response = await fetch("/api/booking-schedule", {
         method: "POST",
@@ -106,36 +117,43 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
 
       if (!response.ok || !Array.isArray(data?.results)) {
         setDates({ results: [] });
-        setMessage("We cover this address, but couldn't verify the next dates automatically. We can confirm them when you book.");
+        setMessage(data?.reason==="service_area_not_covered" ||
+          data?.reason==="service_area_requires_confirmation"
+          ? "This property is not confirmed on a current cleaning round. Please contact NI Bin Guy."
+          : "The council's collection dates are temporarily unavailable. We'll need to verify the next clean date.");
         return;
       }
 
       setDates(data);
       if (!data.results.some((item) => item?.automatic && item?.assignedCleanDate)) {
-        setMessage("We cover this address. Please book and we'll confirm the next available clean dates.");
+        setMessage("We couldn't confirm a first clean date for this property. You can request a clean and we'll check the rota.");
       } else if (!data.results.every((item) => item?.automatic && item?.assignedCleanDate)) {
-        setMessage("Some dates need manual confirmation. You can still book any of these bins.");
+        setMessage("Some dates need manual confirmation. Unverified bins are marked To be confirmed.");
       }
     } catch (error) {
       if (error?.name === "AbortError" || sequence !== sequenceRef.current) return;
       setDates({ results: [] });
-      setMessage("We couldn't check the next dates right now. We can confirm them when you book.");
+      setMessage("The council lookup is temporarily unavailable. No automatic clean date has been assigned.");
     } finally {
       if (sequence === sequenceRef.current) setCheckingDates(false);
     }
   }
 
-  async function findAddresses(pc, sequence, signal) {
-    let list = [];
-    try {
-      const response = await fetch(
-        "/.netlify/functions/binAddresses?postcode=" + encodeURIComponent(pc),
-        { signal }
-      );
-      const data = await response.json().catch(() => null);
-      if (response.ok) list = normaliseAddresses(data);
-    } catch (error) {
-      if (error?.name === "AbortError") return;
+  async function findAddresses(pc, sequence, signal, preloaded = []) {
+    // The postcode endpoint already queried the council. On a warm result,
+    // reuse those UPRNs instead of sending the same network request twice.
+    let list = normaliseAddresses({addresses:preloaded});
+    if(!list.length) {
+      try {
+        const response = await fetch(
+          "/.netlify/functions/binAddresses?postcode=" + encodeURIComponent(pc),
+          { signal }
+        );
+        const data = await response.json().catch(() => null);
+        if (response.ok) list = normaliseAddresses(data);
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+      }
     }
 
     if (!list.length) {
@@ -155,12 +173,12 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
     setAddresses(list);
 
     if (!list.length) {
-      setMessage("We cover this postcode, but couldn't retrieve the council address list. You can still book and we'll confirm your dates.");
+      setMessage("The council address list is unavailable. We can't confirm coverage from the postcode alone; contact us for a manual check.");
     } else if (list.length === 1) {
       setSelectedUprn(list[0].uprn);
       await fetchDates(list[0], pc, sequence, signal);
     } else {
-      setMessage("Choose your address below to see the next clean for each bin.");
+      setMessage("Choose your exact address. Coverage and first clean dates depend on the property, not just the postcode.");
     }
   }
 
@@ -202,15 +220,19 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
         return;
       }
 
+      // Award once for an actual verified postcode lookup, covered or not.
+      window.n64Score?.awardAction("coverage");
       setCheckedPostcode(data.postcode || pc);
-      if (data.covered !== true) {
+      if (data.covered !== true && data.possible !== true) {
         setStatus("outside");
         return;
       }
 
-      setTown(data.town || "your area");
+      setTown(data.town || "");
+      // A qualifying postcode is preliminary; only the selected council
+      // property can confirm a currently served town.
       setStatus("covered");
-      await findAddresses(pc, sequence, controller.signal);
+      await findAddresses(pc, sequence, controller.signal, data.addresses);
     } catch (error) {
       if (error?.name === "AbortError" || sequence !== sequenceRef.current) return;
       setStatus("error");
@@ -231,12 +253,19 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
     if (chosen) void fetchDates(chosen, checkedPostcode, sequence, controller.signal);
   }
 
+  const sortedAddresses=[...addresses].sort((a,b)=>addressCollator.compare(a.label,b.label));
   const chosenAddress = addresses.find((address) => address.uprn === selectedUprn);
+  const selectedTown=townFromAddress(chosenAddress?.label);
+  const selectedActive=Boolean(chosenAddress &&
+    areaStatusForTown(selectedTown)==="active" &&
+    !["service_area_not_covered","service_area_requires_confirmation",
+      "council_address_ambiguous"].includes(dates?.reason));
   const confirmedCount = Array.isArray(dates?.results)
     ? dates.results.filter((item) => item?.automatic && item?.assignedCleanDate).length
     : 0;
 
   function openBooking() {
+    if(!selectedActive)return;
     let address = chosenAddress?.label || "";
     if (address && checkedPostcode && !address.toUpperCase().replace(/\s+/g, "").includes(checkedPostcode.toUpperCase().replace(/\s+/g, ""))) {
       address += ", " + checkedPostcode;
@@ -245,18 +274,19 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
   }
 
   return (
-    <section aria-label="Check bin cleaning coverage" className={compact ? "relative w-full rounded-xl bg-zinc-900 p-4 sm:p-5 text-left" : "relative w-full max-w-2xl mt-5 rounded-2xl border border-green-500/40 bg-zinc-900/95 p-4 sm:p-5 shadow-2xl text-left"}>
+    <section aria-label="Check bin cleaning coverage" className={compact ? "relative w-full rounded-none bg-zinc-900 p-4 sm:p-5 text-left" : "relative w-full max-w-2xl mt-5 rounded-none border border-green-500/40 bg-zinc-900/95 p-4 sm:p-5 shadow-2xl text-left"}>
       {onClose && (
         <button
           type="button"
           onClick={onClose}
           aria-label="Close coverage checker"
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg text-2xl leading-none text-zinc-300 hover:bg-zinc-800 hover:text-white"
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-none text-2xl leading-none text-zinc-300 hover:bg-zinc-800 hover:text-white"
         >
           ×
         </button>
       )}
-      <h2 id="coverage-checker-title" className="pr-9 text-lg sm:text-xl font-extrabold text-white">Do we cover your area?</h2>
+      <p className="text-xs font-black uppercase tracking-[0.22em] text-yellow-300">LEVEL 03 · CHECK YOUR AREA</p>
+      <h2 id="coverage-checker-title" className="pr-9 text-xl sm:text-2xl font-black uppercase text-white">Do we cover your area?</h2>
       <p className="text-sm text-zinc-300 mt-1">
         Enter your postcode to check coverage and our next black, brown/green and blue bin cleaning dates.
       </p>
@@ -273,9 +303,9 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
           maxLength={9}
           aria-invalid={status === "invalid"}
           aria-describedby="home-coverage-help"
-          className="min-w-0 flex-1 rounded-xl border border-zinc-500 bg-white px-4 py-3 text-base font-medium text-zinc-900 placeholder-zinc-500 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+          className="min-w-0 flex-1 rounded-none border border-zinc-500 bg-white px-4 py-3 text-base font-medium text-zinc-900 placeholder-zinc-500 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500"
         />
-        <button type="submit" disabled={status === "checking"} className="rounded-xl bg-green-500 px-5 py-3 font-extrabold text-black transition hover:bg-green-400 focus:outline-none focus:ring-2 focus:ring-green-300 disabled:opacity-60">
+        <button type="submit" disabled={status === "checking"} className="rounded-none border-[3px] border-[#142b4b] bg-[#ffdb4d] px-5 py-3 font-black uppercase text-[#142b4b] shadow-[4px_4px_0_#091b32] hover:bg-[#ffe886] focus-visible:outline focus-visible:outline-4 focus-visible:outline-white disabled:opacity-60 disabled:shadow-none">
           {status === "checking" ? "Checking..." : "Check postcode"}
         </button>
       </form>
@@ -288,22 +318,30 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
           <p className="mt-4 text-sm text-zinc-300" role="status">Checking your area...</p>
         )}
         {(status === "invalid" || status === "error") && (
-          <p className="mt-4 rounded-xl border border-amber-400/50 bg-amber-950/40 p-3 text-sm text-amber-100" role="alert">{message}</p>
+          <p className="mt-4 rounded-none border border-amber-400/50 bg-amber-950/40 p-3 text-sm text-amber-100" role="alert">{message}</p>
         )}
         {status === "outside" && (
-          <div className="mt-4 rounded-xl border border-zinc-600 bg-zinc-800 p-4">
-            <p className="font-bold text-white">Sorry, we don't cover {checkedPostcode} at the moment.</p>
-            <p className="mt-1 text-sm text-zinc-300">Please check back as we expand our cleaning rounds.</p>
+          <div className="mt-4 rounded-none border border-zinc-600 bg-zinc-800 p-4">
+            <p className="font-bold text-white">We can't confirm an active cleaning round for {checkedPostcode}.</p>
+            <p className="mt-1 text-sm text-zinc-300">Some nearby areas aren't on our current rota. Contact us if you believe your address should be included.</p>
           </div>
         )}
         {status === "covered" && (
           <div className="mt-4 space-y-3">
-            <p className="rounded-xl border border-green-500/50 bg-green-950/40 p-3 font-bold text-green-200">
-              <span aria-hidden="true">✓ </span> Yes! We cover {town}.
+            <p role="status" className={
+              "rounded-none border-2 p-3 font-bold " +
+              (selectedActive ? "border-green-400 bg-green-950/40 text-green-200" :
+                "border-amber-400 bg-amber-950/40 text-amber-100")
+            }>
+              {selectedActive
+                ? "✓ Your council address is in our current "+selectedTown+" service area."
+                : chosenAddress
+                  ? "We haven't confirmed an active cleaning round for this property."
+                  : "Postcode checked — select your council address to verify coverage."}
             </p>
 
             {addresses.length > 1 && (
-              <div>
+              <div className="space-y-2">
                 <label htmlFor="home-coverage-address" className="mb-2 block text-sm font-semibold text-white">
                   Select your address for accurate clean dates
                 </label>
@@ -311,10 +349,10 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
                   id="home-coverage-address"
                   value={selectedUprn}
                   onChange={(event) => chooseAddress(event.target.value)}
-                  className="w-full min-w-0 rounded-xl border border-zinc-500 bg-white px-3 py-3 text-base text-zinc-900 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full min-w-0 rounded-none border border-zinc-500 bg-white px-3 py-3 text-base text-zinc-900 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="">Choose your address...</option>
-                  {addresses.map((address) => <option key={address.uprn} value={address.uprn}>{address.label}</option>)}
+                  {sortedAddresses.map((address) => <option key={address.uprn} value={address.uprn}>{address.label}</option>)}
                 </select>
               </div>
             )}
@@ -331,7 +369,7 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
                     const match = dates.results?.find((item) => binKey(item?.bin) === bin.key);
                     const nextDate = match?.automatic ? formatDate(match.assignedCleanDate) : "";
                     return (
-                      <div key={bin.key} className={"rounded-xl border bg-zinc-950/70 p-3 " + bin.border}>
+                      <div key={bin.key} className={"rounded-none border bg-zinc-950/70 p-3 " + bin.border}>
                         <div className="flex items-center gap-2 text-xs font-bold text-white">
                           <span className={"h-3.5 w-3.5 shrink-0 rounded-full border border-white/40 " + bin.dot} aria-hidden="true" />
                           {bin.label}
@@ -352,8 +390,9 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
             )}
 
             {message && <p className="text-sm text-amber-200">{message}</p>}
-            <button type="button" onClick={openBooking} className="w-full rounded-xl bg-green-500 px-5 py-3 font-extrabold text-black hover:bg-green-400 focus:outline-none focus:ring-2 focus:ring-green-300">
-              Book a Clean
+            <button type="button" onClick={openBooking} disabled={!selectedActive}
+              className="w-full rounded-none border-[3px] border-[#142b4b] bg-[#ffdb4d] px-5 py-3 font-black uppercase tracking-wide text-[#142b4b] shadow-[5px_5px_0_#091b32] hover:bg-[#ffe886] focus-visible:outline focus-visible:outline-4 focus-visible:outline-white disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed">
+              {selectedActive ? "Book a Clean" : "Choose a covered property"}
             </button>
           </div>
         )}

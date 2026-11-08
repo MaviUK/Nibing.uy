@@ -29,6 +29,13 @@
 # homepage with a 200 status (soft 404).
 /street-booking /street-booking.html 200
 /street-booking/ /street-booking.html 200
+# N64 Preview 1 Customer HQ is a React SPA route, NOT a short document code.
+# Public _redirects takes precedence over netlify.toml and must win BEFORE /:shortcode.
+/customer-hq /index.html 200
+/customer-hq/ /index.html 200
+# Keep Squeegee's own login on a direct route, not the short document wildcard.
+/squeegee-portal /index.html 200
+/squeegee-portal/ /index.html 200
 /standee/* /index.html 200
 /admin /index.html 200
 /admin/* /index.html 200

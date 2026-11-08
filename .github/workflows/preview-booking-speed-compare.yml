@@ -1,0 +1,94 @@
+name: Read-only booking lookup speed comparison
+on:
+  push:
+    branches:
+      - preview/n64-retro-site
+    paths:
+      - .github/workflows/preview-booking-speed-compare.yml
+permissions:
+  contents: read
+jobs:
+  compare-immutable-previews:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Measure old and updated council lookup paths without making bookings
+        shell: bash
+        run: |
+          node <<'NODE'
+          const {performance}=require('node:perf_hooks');
+          const before='https://6ae9fc411f1058209258c7d1--nibinguy.netlify.app';
+          const after='https://6aea0236e9117b7fa450f579--nibinguy.netlify.app';
+          const post='BT20 4AA';
+          const metric={address:{before:[],after:[]},calendar:{before:[],after:[]},schedule:{before:[],after:[]}};
+          const median=a=>a.length?Math.round([...a].sort((x,y)=>x-y)[Math.floor((a.length-1)/2)]):null;
+          async function sample(stage,version,base,path,opts){
+            const started=performance.now();
+            try{
+              const res=await fetch(base+path,{
+                ...opts,
+                signal:AbortSignal.timeout(20000),
+                redirect:'error',
+              });
+              const body=await res.text();
+              const ms=Math.round(performance.now()-started);
+              const cache=res.headers.get('cache-status')||'none';
+              const age=res.headers.get('age')||'-';
+              if(!metric[stage])throw Error('unknown stage');
+              metric[stage][version].push(ms);
+              console.log(stage+' '+version+' '+ms+'ms HTTP '+res.status+
+                ' Cache-Status='+cache+' Age='+age);
+              let json=null;
+              try{json=JSON.parse(body)}catch{}
+              return {ok:res.ok,json,ms,cache};
+            }catch(error){
+              console.warn(stage+' '+version+' failed ('+String(error?.message||error)+')');
+              return {ok:false,json:null};
+            }
+          }
+          async function main(){
+            const adrPath='/.netlify/functions/binAddresses?postcode='+encodeURIComponent(post);
+            let lastAddress=null;
+            console.log('SAFE TEST: no POST to sendBookingEmail, no Squeegee writes or customer records.');
+            console.log('CONTROL: historical deploy fc8d771 versus optimised 73c63ac, sampled from one runner.');
+            for(let i=0;i<4;i++){
+              await sample('address','before',before,adrPath);
+              const next=await sample('address','after',after,adrPath);
+              if(next.json)lastAddress=next.json;
+            }
+            const raw=lastAddress?.data?.addresses||lastAddress?.addresses||[];
+            const rows=Array.isArray(raw)?raw:Object.values(raw);
+            const one=rows.find(x=>(x?.uprn||x?.UPRN)&&
+              (x?.addressText||x?.address||x?.label));
+            if(!one){
+              console.log('No address records available; calendar and schedule comparison skipped safely.');
+            }else{
+              const uprn=String(one.uprn||one.UPRN);
+              const address=String(one.addressText||one.address||one.label);
+              const calPath='/.netlify/functions/binCalendar?uprn='+encodeURIComponent(uprn);
+              for(let i=0;i<4;i++){
+                await sample('calendar','before',before,calPath);
+                await sample('calendar','after',after,calPath);
+              }
+              const postBody=JSON.stringify({address,postcode:post,bins:[{type:'Black Bin'}]});
+              const opts={method:'POST',headers:{'content-type':'application/json'},body:postBody};
+              for(let i=0;i<4;i++){
+                await sample('schedule','before',before,'/api/booking-schedule',opts);
+                await sample('schedule','after',after,'/api/booking-schedule',opts);
+              }
+            }
+            console.log('====== READ-ONLY LOOKUP SPEED RESULTS (milliseconds) ======');
+            for(const [stage,entries] of Object.entries(metric)){
+              const old=entries.before,newer=entries.after;
+              const oldWarm=median(old.slice(1)),newWarm=median(newer.slice(1));
+              const pct=oldWarm&&newWarm!==null?Math.round(100*(oldWarm-newWarm)/oldWarm):null;
+              console.log(stage+': BEFORE first '+(old[0]??'n/a')+
+                ', warm median '+(oldWarm??'n/a')+
+                ' | AFTER first '+(newer[0]??'n/a')+
+                ', warm median '+(newWarm??'n/a')+
+                ' | speed gain '+(pct===null?'n/a':pct+'%'));
+            }
+            console.log('These are read-only lookup timings from GitHub; not full booking submissions or Android browser timings.');
+          }
+          main().catch(e=>{console.error(e);process.exitCode=1;});
+          NODE

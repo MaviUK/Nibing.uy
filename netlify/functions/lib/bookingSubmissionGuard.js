@@ -1,6 +1,6 @@
 const MAX_SUBMISSION_AGE_MS = 15 * 60 * 1000;
 const MAX_FUTURE_SKEW_MS = 2 * 60 * 1000;
-const BOOKING_ID_RE = /^NBG-[A-Z0-9]+-[A-Z0-9]{8,12}$/i;
+const BOOKING_ID_RE = /^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i;
 
 let getStoreSafe = null;
 try {
@@ -19,11 +19,11 @@ try {
   // Netlify Blobs is expected in production. Freshness validation still works if unavailable.
 }
 
-function validateBookingSubmission(payload) {
+function validateBookingSubmission(payload, { now = Date.now() } = {}) {
   const bookingId = String(payload?.bookingId || "").trim();
   const submittedAt = String(payload?.submittedAt || "").trim();
   const submittedMs = Date.parse(submittedAt);
-  const receivedMs = Date.now();
+  const receivedMs = Number(now);
   const serverReceivedAt = new Date(receivedMs).toISOString();
 
   if (!BOOKING_ID_RE.test(bookingId)) {
@@ -42,39 +42,54 @@ function validateBookingSubmission(payload) {
   return { ok: true, bookingId, submittedAt: new Date(submittedMs).toISOString(), serverReceivedAt };
 }
 
-async function claimBookingSubmission({ bookingId, submittedAt, serverReceivedAt, channel }) {
-  if (!getStoreSafe) {
-    console.warn("Booking replay guard unavailable: Netlify Blobs module not available");
-    return { ok: true, dedupeUnavailable: true };
+async function claimBookingSubmission({ bookingId, submittedAt, serverReceivedAt, channel, sourceHost }, { store } = {}) {
+  // An unavailable replay guard must NEVER fail open. Every accepted
+  // submission needs one atomic reservation before emails, XP or Squeegee.
+  if (!store && !getStoreSafe) {
+    console.error("Booking replay guard module unavailable");
+    return { ok: false, reason: "booking_guard_not_ready", retryable: true };
   }
-
   try {
-    const store = getStoreSafe("booking-submission-ids");
-    const existing = await store.get(bookingId, { type: "json" });
-    if (existing) return { ok: false, duplicate: true, existing };
-
-    await store.setJSON(bookingId, {
+    const handle = store || getStoreSafe("booking-submission-ids");
+    const claimed = await handle.setJSON(bookingId, {
       bookingId,
       submittedAt,
       serverReceivedAt,
       channel: channel || "unknown",
+      sourceHost: sourceHost === "deploy-preview-77--nibinguy.netlify.app" ?
+        sourceHost : "other",
       claimedAt: new Date().toISOString(),
-    });
-    return { ok: true };
+    }, { onlyIfNew: true });
+    if (claimed?.modified === false)
+      return { ok: false, duplicate: true, reason: "duplicate_submission" };
+    if (claimed?.modified !== true || !claimed.etag)
+      return { ok: false, reason: "booking_reservation_uncertain" };
+    return { ok: true, etag: claimed.etag };
   } catch (error) {
-    console.warn("Booking replay guard could not use Netlify Blobs:", error.message);
-    return { ok: true, dedupeUnavailable: true };
+    // A timeout or uncertain Blob response might occur AFTER a reservation
+    // was written. Never permit another POST with this booking reference.
+    console.error("Booking reservation result uncertain:", error?.name || "storage_error");
+    return { ok: false, reason: "booking_reservation_uncertain" };
   }
 }
 
 function submissionErrorResponse(submission) {
+  const reason = submission?.reason ||
+    (submission?.duplicate ? "duplicate_submission" : "invalid_submission");
+  const notReady = reason === "booking_guard_not_ready";
+  const uncertain = reason === "booking_reservation_uncertain";
   return {
-    statusCode: 409,
+    statusCode: notReady || uncertain ? 503 : 409,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
     body: JSON.stringify({
-      error: "This booking submission is no longer valid. Please refresh the booking form and submit again.",
-      reason: submission?.reason || (submission?.duplicate ? "duplicate_submission" : "invalid_submission"),
+      error: notReady
+        ? "Booking security storage is temporarily unavailable. Nothing was submitted."
+        : uncertain
+          ? "The booking reservation may have succeeded. Do not submit again until it is checked."
+          : "This booking submission is no longer valid. Check your existing booking reference before trying again.",
+      reason,
       bookingId: submission?.bookingId || null,
+      safeToRetry: notReady,
     }),
   };
 }

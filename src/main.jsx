@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import PreviewErrorBoundary from './components/PreviewErrorBoundary';
 import './index.css';
 import './bookingScheduleBridge.js';
 import './bookingScheduleDebug.js';
@@ -13,7 +14,9 @@ import './serviceAreaLinks.js';
 // a customer submits the booking form. LandingPage also has its own loader,
 // so this is intentionally defensive rather than a replacement.
 const recaptchaSiteKey = import.meta.env?.VITE_RECAPTCHA_SITE_KEY;
-if (recaptchaSiteKey && !document.getElementById('recaptcha-script')) {
+// Production reCAPTCHA keys cannot render on Netlify preview hostnames.
+const isNetlifyPreview = /--nibinguy\\.netlify\\.app$/.test(window.location.hostname);
+if (recaptchaSiteKey && !isNetlifyPreview && !document.getElementById('recaptcha-script')) {
   const script = document.createElement('script');
   script.id = 'recaptcha-script';
   script.src = `https://www.google.com/recaptcha/api.js?render=${recaptchaSiteKey}`;
@@ -24,9 +27,11 @@ if (recaptchaSiteKey && !document.getElementById('recaptcha-script')) {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <PreviewErrorBoundary>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </PreviewErrorBoundary>
   </React.StrictMode>
 );
 
