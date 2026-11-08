@@ -1,0 +1,39 @@
+name: Verify one-time owner consent publication (read-only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-one-time-owner-consent.yml'
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Check only public aggregate score and consent counts
+        shell: bash
+        run: |
+          set -eu
+          for i in $(seq 1 28); do
+            if curl -fsSL --connect-timeout 5 --max-time 15               'https://nibing.uy/api/n64-production-leaderboard' -o /tmp/board.json; then
+              RESULT="$(node - <<'NODE'
+          const d=JSON.parse(require("fs").readFileSync("/tmp/board.json","utf8"));
+          console.log(JSON.stringify({
+            public:d.publicNamedCount,
+            grants:d.recordedConsentGrants,
+            qualified:d.eligibleWithPoints,
+            eligible:d.eligiblePlayers,
+            status:d.status
+          }));
+          NODE
+              )"
+              echo "$RESULT"
+              if echo "$RESULT" | grep -Eq '"grants":[2-9][0-9]*|"grants":[1-9][0-9]{2,}'; then
+                echo "CONSENT_GRANTED_AGGREGATES_VERIFIED"
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "CONSENT_PUBLIC_AGGREGATE_NOT_YET_CHANGED"
+          exit 1
