@@ -1392,7 +1392,7 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
             </div>
           </div>
 
-          <div className="n64-kicker">★ THE 4-WEEKLY CLEANING ADVENTURE ★</div>
+          <div className="n64-kicker">★ JOIN OUR 4-WEEKLY CLEANING SCHEDULE ★</div>
           <h1 id="n64-hero-title" className="n64-headline">
             BIN CLEANING<br />
             <span>LEVELLED UP.</span>
