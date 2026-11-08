@@ -126,7 +126,7 @@ test("one-time bulk confirmation remains behind Preview 77 owner OTP and same-or
   const source=fs.readFileSync(path.join(__dirname,
     "../netlify/functions/squeegeePreviewLeaderboardNames.mjs"),"utf8");
   const gate=source.indexOf("verifyTestSessionCookie(");
-  const origin=source.indexOf('request.headers.get("origin")!==ORIGIN');
+  const origin=source.indexOf('request.headers.get("origin")!==(isProduction?LIVE_ORIGIN:ORIGIN)');
   const action=source.indexOf('if(action==="record-owner-reviewed-email-replies")');
   assert.ok(gate>=0 && origin>gate && action>origin);
   assert.match(source,/onlyIfMatch:current\.etag/);
