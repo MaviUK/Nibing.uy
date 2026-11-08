@@ -8,6 +8,8 @@ on:
       - 'netlify/functions/lib/n64ProductionPublicBoard.js'
       - 'netlify/functions/lib/squeegeePublicAchievementHighlights.js'
       - 'src/components/ArcadeLeaderboard.jsx'
+      - 'tests/squeegee-preview-annual-achievements.test.cjs'
+      - 'tests/squeegee-production-n64-hq-board.test.cjs'
   workflow_dispatch:
 jobs:
   verify-public-privacy-and-build:
