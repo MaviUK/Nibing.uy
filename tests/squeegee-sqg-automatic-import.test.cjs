@@ -53,9 +53,9 @@ test("only owner Squeegee .sqg is accepted; browser and worker never upload raw 
  assert.ok(page.includes("verifyTestSessionCookie"));
  assert.ok(page.includes("uploadCsrf.isAllowedOwnerUpload"));
  assert.ok(page.includes("worker-src 'self'"));
- assert.ok(ui.includes('new Worker("/customer-hq-sqg-worker.mjs?v=overdue-xp-v1-20261108"'));
+ assert.ok(ui.includes('new Worker("/customer-hq-sqg-worker.mjs?v=overdue-xp-v2-20261108"'));
  assert.ok(ui.includes('result?.snapshot?.scoringVersion!=="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2"'));
- assert.ok(worker.includes('customer-hq-sqg-converter.mjs?v=overdue-xp-v1-20261108'));
+ assert.ok(worker.includes('customer-hq-sqg-converter.mjs?v=overdue-xp-v2-20261108'));
  assert.ok(worker.includes('SCORE_VERSION!=="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2"'));
  assert.ok(ui.includes('fetch(form.action,{method:"POST"'));
  assert.ok(ui.includes('body.append("history",bytes,'));
