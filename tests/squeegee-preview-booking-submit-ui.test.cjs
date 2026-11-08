@@ -255,3 +255,60 @@ test("owner booking receipt shows concise acceptance and attaches customer certi
   assert.match(preview,/ownerAlerts\.notifyOwnerOfCompletedBooking\(/);
   assert.match(preview,/id,verifiedOwnerReceipt,\{\.\.\.alertOptions,attachments,attention\}/);
 });
+
+
+test("booking receipt carries valid council-matched dates through to the success modal",async()=>{
+  const {matchedBookingDatePreview}=await import("../src/bookingFormValidation.mjs");
+  const address="8 Example Street, Bangor BT20 5NF";
+  const bins=[{type:"Black",planId:"domestic_4w",count:1}];
+  const snapshot={
+    version:1,postcode:"BT20 5NF",matched:true,
+    results:[{type:"Black",automatic:true,assignedCleanDate:"2026-11-17"}],
+  };
+  assert.deepEqual(matchedBookingDatePreview(snapshot,{address,bins}),{
+    source:"council_lookup_display_only",
+    results:[{bin:"Black",assignedCleanDate:"2026-11-17"}],
+  });
+  assert.match(booking,/datePreview: matchedBookingDatePreview\(/);
+  assert.match(booking,/emailBookingPayload\.bookingScheduleSnapshot,\{address,bins\}/);
+  assert.match(booking,/bookingConfirmation\?\.datePreview\?\.results/);
+  assert.match(booking,/Council-matched first clean date/);
+  assert.match(booking,/The Squeegee appointment is confirmed separately/);
+  assert.doesNotMatch(booking,/schedule: null/);
+});
+test("receipt never displays missing, stale or mismatched booking dates as confirmed",async()=>{
+  const {matchedBookingDatePreview}=await import("../src/bookingFormValidation.mjs");
+  const address="8 Example Street, Bangor BT20 5NF";
+  const bins=[{type:"Black",count:1}];
+  const snapshot={
+    version:1,postcode:"BT20 5NF",matched:true,
+    results:[{type:"Black",automatic:true,assignedCleanDate:"2026-11-17"}],
+  };
+  const preview=(s,a=address,b=bins)=>
+    matchedBookingDatePreview(s,{address:a,bins:b});
+  assert.equal(preview({...snapshot,matched:false}),null);
+  assert.equal(preview({...snapshot,postcode:"BT20 5NG"}),null);
+  assert.equal(preview(snapshot,"8 Example Street, Bangor BT20 5NG"),null);
+  assert.equal(preview(snapshot,address,[{type:"Brown",count:1}]),null);
+  assert.equal(preview({...snapshot,results:[]}),null);
+  assert.equal(preview({...snapshot,results:[{...snapshot.results[0],automatic:false}]}),null);
+  assert.equal(preview({...snapshot,results:[{...snapshot.results[0],assignedCleanDate:"2026-02-30"}]}),null);
+  assert.equal(preview(null),null);
+});
+test("receipt preserves each separately council-matched bin date",async()=>{
+  const {matchedBookingDatePreview}=await import("../src/bookingFormValidation.mjs");
+  const rows=matchedBookingDatePreview({
+    version:1,matched:true,postcode:"BT20 5NF",
+    results:[
+      {type:"Black",automatic:true,assignedCleanDate:"2026-11-17"},
+      {type:"Brown",automatic:true,assignedCleanDate:"2026-11-18"},
+    ],
+  },{
+    address:"8 Example Street, Bangor BT20 5NF",
+    bins:[{type:"Black"},{type:"Brown"}],
+  });
+  assert.deepEqual(rows?.results,[
+    {bin:"Black",assignedCleanDate:"2026-11-17"},
+    {bin:"Brown",assignedCleanDate:"2026-11-18"},
+  ]);
+});
