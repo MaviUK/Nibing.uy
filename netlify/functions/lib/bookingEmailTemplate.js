@@ -184,7 +184,7 @@ function buildBookingEmailHtml({ bookingId, name, address, phone, bins, pricing,
           </td></tr>` : ""}
           ${firstCleanDateBlock}
           <tr><td style="padding:26px 26px 8px;">
-            <div style="font-family:Arial,sans-serif;color:#c41230;font-size:20px;font-weight:800;">${hasCleanDate?"Your clean is booked in.":"Your first clean is one step closer."}</div>
+            <div style="font-family:Arial,sans-serif;color:#c41230;font-size:20px;font-weight:800;">${hasCleanDate?"Here’s your first clean date.":"Your first clean is one step closer."}</div>
             <div style="font-family:Arial,sans-serif;color:#333333;font-size:15px;line-height:1.6;margin-top:10px;">${hasCleanDate?"We'll contact you if anything changes. There's no need to send another booking request.":"We've received your booking request. Your first clean date is being checked against the collection schedule. We'll email you once it has been confirmed. There's no need to send another booking request."}</div>
           </td></tr>
 
