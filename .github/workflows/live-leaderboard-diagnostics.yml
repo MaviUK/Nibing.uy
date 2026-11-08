@@ -10,6 +10,10 @@ on:
       - 'src/components/ArcadeLeaderboard.jsx'
       - 'tests/squeegee-preview-annual-achievements.test.cjs'
       - 'tests/squeegee-production-n64-hq-board.test.cjs'
+      - 'netlify/functions/squeegeePreviewLeaderboardNames.mjs'
+      - 'netlify/functions/lib/squeegeeLeaderboardNameConsent.js'
+      - 'netlify/functions/squeegeeProductionAutoStatus.mjs'
+      - 'tests/squeegee-owner-verified-email-consent.test.cjs'
   workflow_dispatch:
 jobs:
   verify-public-privacy-and-build:
