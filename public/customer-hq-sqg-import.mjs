@@ -67,7 +67,7 @@ if(form&&input&&error&&button&&progress){
       ref:r.ref,town:r.town,firstName:r.firstName};
    }
    const result=await new Promise((resolve,reject)=>{
-    worker=new Worker("/customer-hq-sqg-worker.mjs?v=per-job-transfer-v4-20261107",{type:"module"});
+    worker=new Worker("/customer-hq-sqg-worker.mjs?v=overdue-xp-v1-20261108",{type:"module"});
     worker.onerror=()=>reject(Error("The secure archive decoder could not start on this device."));
     worker.onmessage=e=>{
       const data=e.data||{};
@@ -84,6 +84,7 @@ if(form&&input&&error&&button&&progress){
    // Fail closed if an old Android cache supplies the previous customer-wide
    // converter. Do not POST a misleading or incompatible scoring snapshot.
    if(result?.snapshot?.scoringVersion!=="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2"||
+       result?.snapshot?.penaltySourceVersion!=="2026-11-escalating-overdue-per-job-v1"||
       !Array.isArray(result?.snapshot?.accounts)||
       result.snapshot.accounts.some(record=>!Array.isArray(record.jobs))){
      throw Error("Your browser loaded an older cleaning-points engine. Refresh this owner import page and select the .sqg backup again. No points were changed.");
