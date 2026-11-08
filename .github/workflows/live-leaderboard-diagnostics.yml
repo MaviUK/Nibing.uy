@@ -28,6 +28,7 @@ jobs:
             publicNamedCount:x.publicNamedCount,
             eligiblePlayers:x.eligiblePlayers,
             verifiedPlayers:x.verifiedPlayers,
+            eligibleCleaningXp:x.eligibleCleaningXp,
             sourceAsOf:x.sourceAsOf,
             sourceWarning:x.sourceWarning,
             publicAchievementsPresent:!!x.publicAchievements,
