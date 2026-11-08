@@ -32,12 +32,12 @@ test("Android browser cannot post an obsolete customer-wide scoring snapshot",()
  const expected="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2";
  assert.ok(s.includes('scoringVersion!=="'+expected+'"'));
  assert.ok(worker.includes('SCORE_VERSION!=="'+expected+'"'));
- assert.ok(s.includes("customer-hq-sqg-worker.mjs?v=overdue-xp-flat-v3-20261108"));
- assert.ok(worker.includes("customer-hq-sqg-converter.mjs?v=overdue-xp-flat-v3-20261108"));
+ assert.ok(s.includes("customer-hq-sqg-worker.mjs?v=streak-plus1-v3-20261108"));
+ assert.ok(worker.includes("customer-hq-sqg-converter.mjs?v=streak-plus1-v3-20261108"));
  const headers=file("public/_headers");
  for(const asset of ["import","worker","converter"]){
   assert.ok(headers.includes("/customer-hq-sqg-"+asset+".mjs\n  Cache-Control: no-store"));
  }
  const page=file("netlify/functions/squeegeePreviewCustomerHQImport.mjs");
- assert.ok(page.includes("customer-hq-sqg-import.mjs?v=overdue-xp-flat-v3-20261108"));
+ assert.ok(page.includes("customer-hq-sqg-import.mjs?v=streak-plus1-v3-20261108"));
 });
