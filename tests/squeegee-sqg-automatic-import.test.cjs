@@ -245,3 +245,27 @@ test("known November 6 audit cannot be silently overwritten by an invalid reconc
  assert.throws(()=>finishSqueegeeImport(state,"2026-11-06"),
    /known_6_nov_backup_mismatch/);
 });
+
+test("new unpaid job never reopens cleans paid when the account was previously zero",async()=>{
+  const {result,state,uuid,customerIds,finishSqueegeeImport}=await seed();
+  const {acceptSqueegeeRecord}=await load();
+  const id=customerIds[0],earlier=result.snapshot.accounts.find(a=>a.id===id);
+  assert.equal(earlier.balanceState,"settled");
+  const previous={[id]:{ref:earlier.ref,
+    paidJobDays:earlier.events.filter(e=>e.event==="paid_completed_clean")
+      .map(e=>earlier.jobs[e.j].id+":"+e.date)}};
+  const invoice=uuid(999990),jobId=uuid(999991);
+  acceptSqueegeeRecord(state,{resourceType:"transactions",_id:invoice,
+    customerId:id,transactionType:0,amount:5,invoice:{paid:false}});
+  acceptSqueegeeRecord(state,{resourceType:"joboccurrences",
+    _id:jobId+"2026-10-01",jobId,customerId:id,status:1,
+    isoDueDate:"2026-10-01",paymentStatus:"invoiced",paidDate:null,
+    invoiceTransactionId:invoice,
+    services:[{description:"Black",quantity:1}]});
+  const current=finishSqueegeeImport(state,"2026-11-07",previous)
+    .snapshot.accounts.find(a=>a.id===id);
+  assert.equal(current.balanceState,"outstanding");
+  assert.equal(current.points,earlier.points);
+  assert.equal(current.paidCleans,earlier.paidCleans);
+  assert.deepEqual(current.outstandingJobs.map(e=>e.id),[jobId+"2026-10-01"]);
+});
