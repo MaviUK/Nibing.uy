@@ -165,11 +165,15 @@ export default async function handler(request,context) {
     };
     let rank=null,yearRank=null,points=account.points;
     if(eligible?.aliases?.has(historical.canonicalLegacyRef(account.id))){
-      const boards=await annual.getDatedScoreBoards(rankingStores,snapshot,eligible.aliases);
-      const alias=historical.canonicalLegacyRef(account.id);
-      rank=boards.overallBoard.entries.find(r=>r.customerRef===alias)?.rank||null;
-      yearRank=boards.yearlyBoards.find(b=>b.year===2026)?.entries.find(r=>r.customerRef===alias)?.rank||null;
-      points=boards.overallBoard.entries.find(r=>r.customerRef===alias)?.points||points;
+      try {
+        const boards=await annual.getDatedScoreBoards(rankingStores,snapshot,eligible.aliases);
+        const alias=historical.canonicalLegacyRef(account.id);
+        rank=boards.overallBoard.entries.find(r=>r.customerRef===alias)?.rank||null;
+        yearRank=boards.yearlyBoards.find(b=>b.year===2026)?.entries.find(r=>r.customerRef===alias)?.rank||null;
+        points=boards.overallBoard.entries.find(r=>r.customerRef===alias)?.points||points;
+      } catch {
+        // A website-XP storage outage must not hide verified cleaning streaks.
+      }
     }
     const jobs=records.jobRecords(account,snapshot.asOf);
     const brown=jobs.filter(j=>/\b(Brown|Green)\b/i.test(j.label))
