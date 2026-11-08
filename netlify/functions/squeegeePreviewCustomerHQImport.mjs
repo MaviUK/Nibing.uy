@@ -162,6 +162,7 @@ export default async function handler(request,ctx){
       '<progress id="hq-upload-progress" value="0" max="100" style="width:100%;display:none"></progress>'+
       '<button id="hq-import-button" type="submit" disabled>Process Squeegee backup and update points</button></form>'+
       '<p><small>The usual Squeegee archive can be up to 65 MB. The reduced private import must fit below 3.8 MB. Customer names, emails, invoices and raw backup files are never sent to the archive decoder. Updated scores replace the last verified snapshot without doubling points, and existing withdrawals are preserved.</small></p></section>'+
+      '<p><a href="/api/squeegee-preview-owner-customers">← Back to Leaderboard Admin</a></p>'+
       '<p><a href="/customer-hq?ntl-drawer-state=hidden">Open Customer HQ</a></p>');
   }
   // Some Samsung/Android in-app browser uploads send Origin: null (or
@@ -264,6 +265,7 @@ export default async function handler(request,ctx){
       '<p>Customer sign-ins can now be tested on the N64 preview. '+
       'No-email accounts are excluded from the public leaderboard but their historical XP is retained. '+
       validated.summary.duplicateEmailCount+' shared-email addresses require manual identity verification for portal sign-in.</p></section>'+
+      '<p><a href="/api/squeegee-preview-owner-customers">← Back to Leaderboard Admin</a></p>'+
       '<p><a href="/customer-hq?ntl-drawer-state=hidden">Open Customer HQ</a></p>');
   }catch(error){
     return importFailure(stage,error);
