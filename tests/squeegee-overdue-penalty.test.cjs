@@ -88,7 +88,7 @@ test("private importer validates overdue evidence; paid balances cannot invent u
       j:0,quantity:1,streak:1,points:0},
       {date:paidDay,event:"paid_completed_clean",
         j:0,quantity:1,streak:2,points:22}],
-    outstandingJobs:[{id:occurrence,dueOn:due,j:0}]};
+    outstandingJobs:[{id:occurrence,dueOn:due,j:0}],settledJobs:[]};
   const source={version:1,asOf,scoringVersion:bin.VERSION,
     penaltySourceVersion:penalty.VERSION,accounts:[row]};
   const verified=bin.validateBinSource(source);
@@ -109,4 +109,54 @@ test("private importer validates overdue evidence; paid balances cannot invent u
   const forged=structuredClone(source);
   forged.accounts[0].outstandingJobs[0].dueOn=paidDay;
   assert.throws(()=>bin.validateBinSource(forged),/overdue_pending_job_invalid/);
+  const latePaid=structuredClone(source);
+  const account2=latePaid.accounts[0];
+  account2.balanceState="settled";account2.outstandingJobs=[];
+  account2.events[0]={date:due,event:"paid_completed_clean",quantity:1,
+    points:20,streak:1,j:0};
+  account2.points=42;account2.paidCleans=2;
+  account2.jobs[0].points=42;account2.jobs[0].paidCleans=2;
+  account2.settledJobs=[{id:occurrence,dueOn:due,paidOn:asOf,j:0}];
+  const imported=bin.validateBinSource(latePaid);
+  assert.equal(imported.accounts[0].settledJobs.length,1);
+  const deduction=penalty.reconcileLedger([],[],asOf,imported.accounts[0].settledJobs);
+  assert.equal(penalty.penaltyTotal(deduction),6);
+  const badPaid=structuredClone(latePaid);
+  badPaid.accounts[0].settledJobs[0].paidOn=due;
+  assert.throws(()=>bin.validateBinSource(badPaid),/overdue_settled_job_invalid/);
+});
+
+test("a November payment retains 842 XP deducted for September and October jobs",()=>{
+  const settlements=[
+    {id:"sep-09",dueOn:"2026-09-09",paidOn:"2026-11-05",j:0},
+    {id:"sep-10",dueOn:"2026-09-10",paidOn:"2026-11-05",j:1},
+    {id:"oct-07",dueOn:"2026-10-07",paidOn:"2026-11-05",j:0}
+  ];
+  const historical=penalty.reconcileLedger([],[],"2026-11-06",settlements);
+  assert.equal(penalty.penaltyTotal(historical),842);
+  assert.deepEqual(historical.map(row=>row.points).sort((a,b)=>b-a),[435,406,1]);
+  assert.ok(historical.every(x=>x.settledOn==="2026-11-05"));
+  assert.equal(penalty.penaltyTotal(penalty.reconcileLedger(
+    historical,[],"2026-11-08",settlements)),842);
+  assert.equal(penalty.penaltyForYear(historical,2026),842);
+});
+test("historical settled date overrides an older provisional unpaid penalty",()=>{
+  const candidate={id:"sep-09",dueOn:"2026-09-09"};
+  const provisional=penalty.reconcileLedger([],[candidate],"2026-11-02");
+  const done=penalty.reconcileLedger(provisional,[],"2026-11-08",
+    [{...candidate,paidOn:"2026-11-05",j:1}]);
+  assert.equal(done[0].points,435);
+  assert.equal(done[0].settledOn,"2026-11-05");
+  assert.equal(done[0].j,1);
+  assert.deepEqual(penalty.reconcileLedger(done,[],"2026-11-08"),done);
+});
+test("settled evidence must be dated, attributable and non-duplicated",()=>{
+  const paid={id:"a",dueOn:"2026-09-01",paidOn:"2026-10-20"};
+  assert.throws(()=>penalty.reconcileLedger([],[],"2026-10-01",[paid]),
+    /settled_job_invalid/);
+  assert.throws(()=>penalty.reconcileLedger([],[],"2026-11-01",[
+    paid,paid]),/settled_job_invalid/);
+  assert.throws(()=>penalty.reconcileLedger([],[{
+    id:"a",dueOn:"2026-09-01"}],"2026-11-01",[paid]),
+    /pending_job_invalid/);
 });
