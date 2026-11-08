@@ -4,6 +4,7 @@
 // through the owner's authenticated, CSRF-protected private Netlify upload.
 const {canonicalLegacyRef}=require("./squeegeeActiveLeaderboardImport");
 const {safePublicTown}=require("./arcadePublicIdentity");
+const overdue=require("./squeegeeOverduePenalty");
 const VERSION="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2";
 const LEGACY_VERSION="2026-11-streak-20-plus-2-per-paid-bin-v1";
 const UUID=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
@@ -48,6 +49,10 @@ function isBinSnapshot(raw){
 function validateBinSource(raw,{now=Date.now()}={}){
   if(!isBinSnapshot(raw)||raw.scoringVersion!==VERSION||!fresh(raw.asOf,now))
     throw Error("per_job_history_source_invalid_or_stale");
+  if(Object.hasOwn(raw,"penaltySourceVersion")&&
+     raw.penaltySourceVersion!==overdue.VERSION)
+    throw Error("overdue_evidence_invalid");
+  const hasOverdueSource=raw.penaltySourceVersion===overdue.VERSION;
   const accounts=[],ids=new Set(),refs=new Set(),aliases=new Set();
   const globalJobOwners=new Map();
   const emailCounts=new Map();
@@ -67,7 +72,9 @@ function validateBinSource(raw,{now=Date.now()}={}){
        row.nextBonus!==20+2*row.currentStreak||
        !Number.isSafeInteger(row.recordedSkips)||row.recordedSkips<0||
        !Array.isArray(row.events)||row.events.length>2500||
-       !Array.isArray(row.jobs)||row.jobs.length>200)
+       !Array.isArray(row.jobs)||row.jobs.length>200||
+       (hasOverdueSource&&(!["settled","outstanding","unknown"].includes(row.balanceState)||
+         !Array.isArray(row.outstandingJobs)||row.outstandingJobs.length>2500)))
       throw Error("per_bin_customer_invalid");
     const id=row.id.toLowerCase(), ref=row.ref.toUpperCase();
     const alias=canonicalLegacyRef(id);
@@ -147,12 +154,38 @@ function validateBinSource(raw,{now=Date.now()}={}){
        skips!==row.recordedSkips||
        row.currentStreak!==Math.max(0,...jobs.map(j=>j.currentStreak)))
       throw Error("per_job_reconciliation_failed");
+    const pending=[];
+    if(hasOverdueSource){
+      const unpaid=new Set(events.filter(e=>e.event==="completed_payment_not_verified")
+        .map(e=>e.j+":"+e.date));
+      const seenCandidates=new Set(),seenJobsOnDay=new Set();
+      for(const candidate of row.outstandingJobs){
+        const id=String(candidate?.id||"").toLowerCase();
+        const j=candidate?.j,dueOn=candidate?.dueOn;
+        const signature=j+":"+dueOn;
+        const occurrenceUUID=UUID.test(id);
+        const qualified=id===jobs[j]?.id+dueOn;
+        if(row.balanceState!=="outstanding" ||
+           !Number.isSafeInteger(j)||j<0||j>=jobs.length||
+           dateValue(dueOn)===null||dueOn>raw.asOf||
+           (!occurrenceUUID&&!qualified)||
+           seenCandidates.has(id)||seenJobsOnDay.has(signature)||
+           !unpaid.has(signature))throw Error("overdue_pending_job_invalid");
+        seenCandidates.add(id);seenJobsOnDay.add(signature);
+        pending.push({id,dueOn});
+      }
+      if(row.balanceState==="settled"&&pending.length)
+        throw Error("overdue_zero_balance_conflict");
+    }
     if(score>0&&row.town!=="Town unavailable")ranked++;
     points+=score;paidBins+=units;paidVisits+=visits;historyEvents+=events.length;
     accounts.push({id,ref:row.ref,email:row.email,firstName:row.firstName,
       town:row.town,points:score,paidCleans:units,
       currentStreak:row.currentStreak,nextBonus:row.nextBonus,
-      recordedSkips:skips,events,jobs,historyAsOf:raw.asOf});
+      recordedSkips:skips,events,jobs,historyAsOf:raw.asOf,
+      ...(hasOverdueSource?{balanceState:row.balanceState,
+        outstandingJobs:pending}:{}),
+    });
   }
   // Lock the initial 5 November source to independently verified totals.
   // Later weekly backups are dynamic and require owner authentication.
@@ -166,7 +199,8 @@ function validateBinSource(raw,{now=Date.now()}={}){
     a.points>0 && a.town!=="Town unavailable");
   const rankedWithEmail=qualified.length;
   const rankedWithEmailPoints=qualified.reduce((s,a)=>s+a.points,0);
-  return {version:1,asOf:raw.asOf,scoringVersion:VERSION,accounts,
+  return {version:1,asOf:raw.asOf,scoringVersion:VERSION,
+    ...(hasOverdueSource?{penaltySourceVersion:overdue.VERSION}:{}),accounts,
     summary:{activeAccounts:accounts.length,rankedCustomers:ranked,
       rankedPoints:points,historyEvents,allHistoricalPoints:points,
       emailAvailable:accounts.filter(x=>x.email).length,
