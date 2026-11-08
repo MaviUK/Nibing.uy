@@ -11,7 +11,7 @@ import records from "./lib/squeegeePreviewOwnerAchievements.js";
 
 const REF="CUS52250834";
 const KEY="preview77-email-leaderboard-v1";
-const WIDTH=680,HEIGHT=470;
+const WIDTH=680,HEIGHT=823;
 const C={black:[10,12,14],panel:[33,36,39],white:[255,255,255],yellow:[255,212,0],green:[13,108,68],muted:[204,209,208],grey:[240,242,241]};
 const FONT={
 "A":["01110","10001","10001","11111","10001","10001","10001"],
@@ -82,11 +82,12 @@ function img(){
     const value=String(s).toUpperCase();
     write(value,Math.floor(cx-value.length*6*scale/2),y,scale,color);
   }
-  function box(x,y,w,h,label,value){
-    rect(x,y,w,h,C.panel);
-    centered(label,x+w/2,y+19,2,C.yellow);
-    const scale=String(value).length>12?3:5;
-    centered(value,x+w/2,y+56,scale,C.white);
+  function box(x,y,w,h,label,value,fill=C.panel){
+    // Full-width, tall rows keep the pixel text readable in narrow mobile emails.
+    rect(x,y,w,h,fill);
+    centered(label,x+w/2,y+11,5,C.yellow);
+    const size=Math.max(4,Math.min(9,Math.floor((w-36)/(6*Math.max(1,String(value).length)))));
+    centered(value,x+w/2,y+49,size,C.white);
   }
   return {data,rect,write,centered,box};
 }
@@ -111,19 +112,27 @@ function png(data){
 function show({rank,yearRank,points,job,asOf,note}){
   const g=img();
   g.rect(0,0,WIDTH,HEIGHT,C.black);
-  g.rect(0,0,WIDTH,76,C.yellow);
-  g.centered("YOUR LEADERBOARD STATS",WIDTH/2,25,4,C.black);
-  g.box(20,98,313,125,"OVERALL POSITION",rank||"NOT RANKED");
-  g.box(347,98,313,125,"2026 POSITION",yearRank||"NOT RANKED");
-  g.box(20,237,313,125,"TOTAL XP",Number.isSafeInteger(points)?points.toLocaleString("en-GB"):"UNAVAILABLE");
-  g.box(347,237,313,125,"CURRENT STREAK",job?" "+job.active+" CLEANS":"UNAVAILABLE");
-  g.rect(20,380,640,44,C.green);
-  g.centered(job?job.label+" BEST: "+job.best+" CLEANS":"STREAK RECORD NOT AVAILABLE",340,395,3,C.white);
-  g.centered(note||"DATA AS OF "+asOf,340,440,2,C.muted);
+  g.rect(0,0,WIDTH,90,C.yellow);
+  g.centered("YOUR STATS",WIDTH/2,17,8,C.black);
+  g.box(20,104,640,120,"OVERALL RANK",rank||"UNAVAILABLE");
+  g.box(20,236,640,120,"2026 RANK",yearRank||"UNAVAILABLE");
+  g.box(20,368,640,120,"TOTAL XP",
+    Number.isSafeInteger(points)?points.toLocaleString("en-GB"):"UNAVAILABLE");
+  const jobLabel=job?.label&&job.label.length<=23?job.label:"BIN";
+  g.box(20,500,640,120,job?"CURRENT "+jobLabel+" STREAK":"CURRENT STREAK",
+    job?job.active+" CLEANS":"UNAVAILABLE");
+  g.box(20,632,640,120,job?jobLabel+" PERSONAL BEST":"PERSONAL BEST",
+    job?job.best+" CLEANS":"UNAVAILABLE",C.green);
+  const [year,month,day]=String(asOf||"").split("-");
+  const mon=({"01":"JAN","02":"FEB","03":"MAR","04":"APR","05":"MAY",
+    "06":"JUN","07":"JUL","08":"AUG","09":"SEP","10":"OCT","11":"NOV",
+    "12":"DEC"})[month];
+  const date=year&&mon&&day?day+" "+mon+" "+year:null;
+  g.centered(note||(date?"AS OF "+date:"DATA NOT READY"),WIDTH/2,780,5,C.muted);
   return png(g.data);
 }
-function unavailable(reason="RANKINGS TEMPORARILY UNAVAILABLE"){
-  return show({rank:null,yearRank:null,points:null,job:null,asOf:"",note:reason});
+function unavailable(){
+  return show({rank:null,yearRank:null,points:null,job:null,asOf:""});
 }
 function verified(request,context){
   const url=new URL(request.url);
@@ -163,26 +172,30 @@ export default async function handler(request,context) {
       activity:getStore({name:"n64-preview1-customer-website-xp-private",consistency:"strong"}),
       history:getStore({name:historical.BLOB_STORE,consistency:"strong"})
     };
-    let rank=null,yearRank=null,points=account.points;
+    let rank=null,yearRank=null,points=account.points,rankingsReady=false;
     if(eligible?.aliases?.has(historical.canonicalLegacyRef(account.id))){
       try {
         const boards=await annual.getDatedScoreBoards(rankingStores,snapshot,eligible.aliases);
         const alias=historical.canonicalLegacyRef(account.id);
         rank=boards.overallBoard.entries.find(r=>r.customerRef===alias)?.rank||null;
-        yearRank=boards.yearlyBoards.find(b=>b.year===2026)?.entries.find(r=>r.customerRef===alias)?.rank||null;
-        points=boards.overallBoard.entries.find(r=>r.customerRef===alias)?.points||points;
+        // Annual board rows are sorted but do not carry a rank field.
+        const yearRows=boards.yearlyBoards.find(b=>b.year===2026)?.entries||[];
+        const yearIndex=yearRows.findIndex(row=>row.customerRef===alias);
+        yearRank=yearIndex>=0?yearIndex+1:null;
+        points=boards.overallBoard.entries.find(r=>r.customerRef===alias)?.points??points;
+        rankingsReady=true;
       } catch {
         // A website-XP storage outage must not hide verified cleaning streaks.
       }
     }
     const jobs=records.jobRecords(account,snapshot.asOf);
-    const brown=jobs.filter(j=>/\b(Brown|Green)\b/i.test(j.label))
+    const brown=jobs.filter(j=>/\bBrown\b/i.test(j.label))
       .sort((a,b)=>(b.lastCompletedOn||"").localeCompare(a.lastCompletedOn||""))[0]||null;
-    bytes=show({rank:rank?"#"+rank:null,yearRank:yearRank?"#"+yearRank:null,
-      points,job:brown||jobs[0]||null,asOf:snapshot.asOf,
-      note:"DATA AS OF "+snapshot.asOf});
+    bytes=show({rank:rank?"#"+rank:rankingsReady?"NOT RANKED":"UNAVAILABLE",
+      yearRank:yearRank?"#"+yearRank:rankingsReady?"NO 2026 XP":"UNAVAILABLE",
+      points,job:brown||jobs[0]||null,asOf:snapshot.asOf});
   }catch{
-    bytes=unavailable("STATS NOT READY - TRY AGAIN LATER");
+    bytes=unavailable();
   }
   return new Response(bytes,{headers:{"Content-Type":"image/png",
     "Cache-Control":"private, max-age=300","X-Content-Type-Options":"nosniff",
