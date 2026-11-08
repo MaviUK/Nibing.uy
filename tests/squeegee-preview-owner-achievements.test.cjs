@@ -270,7 +270,7 @@ test("admin headings and private customer detail explicitly separate both streak
  ])assert.ok(src.includes(label),label);
  assert.ok(src.includes("jobAwards[index]?.active||0"));
  assert.ok(src.includes("jobAwards[index]?.best||0"));
- assert.ok(src.includes("20+2*(jobAwards[index]?.active||0)"));
+ assert.ok(src.includes("20+(jobAwards[index]?.active||0)"));
 });
 
 test("admin displays the achievements only after owner-session verification",()=>{
