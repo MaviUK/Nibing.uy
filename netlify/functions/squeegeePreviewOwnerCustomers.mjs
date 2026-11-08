@@ -10,6 +10,7 @@ import consent from "./lib/squeegeeLeaderboardNameConsent.js";
 import personal from "./lib/squeegeePersonalLeaderboard.js";
 import directory from "./lib/squeegeePreviewOwnerCustomerDirectory.js";
 import achievements from "./lib/squeegeePreviewOwnerAchievements.js";
+import overdue from "./lib/squeegeeOverduePenalty.js";
 
 const PATH="/api/squeegee-preview-owner-customers";
 const ORIGIN="https://deploy-preview-77--nibinguy.netlify.app";
@@ -82,7 +83,9 @@ const css=[
  ".award .award-top-five .award-entry-name a{color:#113f65;text-decoration:underline;text-underline-offset:2px;font-weight:900}",
  ".award .award-top-five .award-entry-score{color:#0c493a;font-size:15px;font-weight:950;text-align:right;white-space:normal;line-height:1.3}",
  ".award .award-top-five .award-entry-detail{display:block;grid-column:1/-1;color:#263b50;font-size:12px;line-height:1.45;font-weight:650}",
- "@media(max-width:600px){.records .award-grid,.records .award-extra{grid-template-columns:minmax(0,1fr)}.award .award-top-five .award-entry-name{font-size:15px}.award .award-top-five .award-entry-score{font-size:16px}.award .award-top-five .award-entry-detail{font-size:13px}}"
+ "@media(max-width:600px){.records .award-grid,.records .award-extra{grid-template-columns:minmax(0,1fr)}.award .award-top-five .award-entry-name{font-size:15px}.award .award-top-five .award-entry-score{font-size:16px}.award .award-top-five .award-entry-detail{font-size:13px}}",
+  ".penalty-note{background:#fff0d5;border-left:5px solid #ae5d30;padding:10px;font-weight:650}.penalty-neg{color:#9a3025!important}.overdue-table th{background:#f5d9c9}.overdue-table td{vertical-align:top}.overdue-table strong{color:#a1372b}.penalty-detail{margin-top:11px}.penalty-detail summary{cursor:pointer;font-weight:850}",
+  "@media(max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.overdue-table th,.overdue-table td{font-size:12px;padding:8px 5px}}"
 ].join("");
 const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;")
  .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -400,7 +403,8 @@ async function detailPage(snapshot,eligible,params,account){
   year:safeString(params.get("year"),10)}):url({q:safeString(params.get("q"),90),
   mode:params.get("mode")||"all",year:params.get("year")||"overall",page:params.get("page")||"1"});
  const name=contact?.name||account.firstName||"Customer";
- const total=summary?.points??clean.points;
+ const overduePoints=overdue.penaltyTotal(account.penaltyLedger);
+ const total=summary?.points??Math.max(0,clean.points-overduePoints);
  const intro='<a class="btn alt" href="'+esc(back)+'">'+
  (fromRecords?'← HIGH ACHIEVEMENTS':'← ALL CUSTOMERS')+'</a>'+
  '<h1 style="margin-top:20px">★ '+esc(name)+'</h1>'+
@@ -410,7 +414,8 @@ async function detailPage(snapshot,eligible,params,account){
  const stats='<div class="stats">'+
  '<div class="stat"><b>'+fmt(total)+' XP</b><small>'+(summary?"Verified total XP":"Cleaning XP")+'</small></div>'+
  '<div class="stat"><b>'+fmt(clean.points)+' XP</b><small>Cleaning XP</small></div>'+
- '<div class="stat"><b>'+fmt(clean.paidBins)+'</b><small>Paid physical bins</small></div></div>';
+ '<div class="stat"><b>'+fmt(clean.paidBins)+'</b><small>Paid physical bins</small></div>'+
+ '<div class="stat"><b class="penalty-neg">−'+fmt(overduePoints)+' XP</b><small>Overdue deductions</small></div></div>';
  const profile='<section class="panel blue"><h2>Customer details</h2><dl>'+
  '<dt>Name</dt><dd>'+field(contact?.name||account.firstName)+'</dd>'+
  '<dt>Squeegee customer ref</dt><dd>'+esc(account.ref)+'</dd>'+
@@ -426,24 +431,67 @@ async function detailPage(snapshot,eligible,params,account){
  '<dt>Next bonus</dt><dd>'+(Array.isArray(account.jobs)?
   "Calculated separately for each job":"Awaiting corrected import")+'</dd>'+
  '<dt>Recorded skips</dt><dd>'+fmt(account.recordedSkips)+'</dd>'+
+ '<dt>Historically lost XP</dt><dd>−'+fmt(overduePoints)+' XP</dd>'+
+ '<dt>Currently unpaid jobs (at backup)</dt><dd>'+fmt(account.outstandingJobs?.length||0)+'</dd>'+
  '</dl><p class="note">Contact details come from a read-only Squeegee lookup when available. '+
  'The original imported customer history contains first names, towns, email addresses and references.</p></section>';
  const table=years.map(year=>{
   const row=byYear.get(year)||{points:0,paidBins:0};
   const xp=summary?.yearly?.[year]?.points;
   const full=Number.isSafeInteger(xp)?xp:row.points;
-  const web=Math.max(0,full-row.points);
+  const backedWeb=summary?.grossWebsiteByYear?.[year];
+  const web=Number.isSafeInteger(backedWeb)&&backedWeb>=0
+   ?backedWeb:Math.max(0,full-row.points);
+  const late=overdue.penaltyForYear(account.penaltyLedger,year);
   const rank=summary?.yearly?.[year]?.rank;
   return '<tr><td><b>'+year+'</b></td><td>'+fmt(row.paidBins)+'</td>'+
    '<td>'+fmt(row.points)+'</td><td>'+(summary?fmt(web):"—")+'</td>'+
+   '<td class="penalty-neg">−'+fmt(late)+'</td>'+
    '<td><b>'+fmt(full)+' XP</b></td><td>'+(rank?"#"+fmt(rank):"—")+'</td></tr>';
  }).join("");
  const annual='<section class="panel"><h2>XP by year</h2><div class="tablewrap">'+
  '<table><thead><tr><th>Year</th><th>Paid bins</th><th>Cleaning XP</th>'+
- '<th>Website XP</th><th>Total XP</th><th>Public position</th></tr></thead>'+
+ '<th>Website XP</th><th>Overdue XP</th><th>Net total XP</th>'+
+ '<th>Public position</th></tr></thead>'+
  '<tbody>'+table+'</tbody></table></div>'+
  (summary?"":'<p class="note">Website XP could not be verified just now; cleaning XP remains accurate from the import.</p>')+
- '<p class="note">Dated verified XP only. Undated legacy website awards are not counted as earned on a specific day.</p></section>';
+ '<p class="note">Historical penalty column shows XP lost during that calendar year. Net overall XP carries unpaid penalty debt between years and never drops below zero. Undated website awards are excluded.</p></section>';
+ const ledger=Array.isArray(account.penaltyLedger)?
+  account.penaltyLedger.filter(x=>Number.isSafeInteger(x?.points)&&x.points>0)
+    .sort((a,b)=>b.points-a.points||a.dueOn.localeCompare(b.dueOn)):[];
+ const paidLate=ledger.filter(row=>typeof row.settledOn==="string").length;
+ const activeLate=ledger.filter(row=>!row.settledOn&&
+    account.outstandingJobs?.some(x=>x.id===row.id)).length;
+ const penaltyRow=row=>{
+  const days=Math.max(0,(overdue.dayNumber(row.until)-
+    overdue.dayNumber(row.dueOn))-28);
+  const job=Number.isSafeInteger(row.j)?account.jobs?.[row.j]:null;
+  return '<tr><td>'+esc(job?.label||"Recorded job")+'</td>'+
+   '<td>'+esc(row.dueOn)+'</td><td>'+esc(row.settledOn||row.until)+
+   (row.settledOn?'<small style="display:block">Paid</small>':
+     '<small style="display:block">Last confirmed</small>')+'</td>'+
+   '<td>'+fmt(days)+'</td><td><strong>−'+fmt(row.points)+' XP</strong></td></tr>';
+ };
+ const penaltyHead='<thead><tr><th>Job</th><th>Clean date</th>'+
+  '<th>Paid / last checked</th><th>Penalty days</th><th>Lost XP</th></tr></thead>';
+ const penaltyTable=rows=>'<div class="tablewrap"><table class="overdue-table">'+
+   penaltyHead+'<tbody>'+rows.map(penaltyRow).join("")+'</tbody></table></div>';
+ const overduePanel='<section class="panel" id="overdue-xp">'+
+  '<h2>Overdue XP history</h2>'+
+  '<p class="penalty-note">Gross cleaning XP: '+fmt(clean.points)+
+   ' · Lifetime overdue deductions: −'+fmt(overduePoints)+
+   ' XP · Net leaderboard XP: '+fmt(total)+
+   '. Payment stops the daily deductions but does not refund points already lost.</p>'+
+  (Array.isArray(account.penaltyLedger)?
+   '<p>'+fmt(paidLate)+' late-paid jobs; '+fmt(activeLate)+
+   ' still overdue at the date of the imported backup. Each job has 28 free days, then loses 1, 2, 3… extra XP each day. Amounts are based on verified Squeegee payment dates.</p>'+
+   (ledger.length?penaltyTable(ledger.slice(0,10))+
+     (ledger.length>10?'<details class="penalty-detail"><summary>SHOW ALL '+
+       fmt(ledger.length)+' PENALTY EVENTS</summary>'+
+       penaltyTable(ledger.slice(10))+'</details>':""):
+     '<p>No verified overdue deductions in this backup.</p>'):
+   '<p>Historical deductions are not included in this older backup. Reimport a fresh Squeegee .sqg file to calculate them.</p>')+
+  '</section>';
  const jobAwards=achievements.jobRecords(account,snapshot.asOf);
  const perJobPanel=Array.isArray(account.jobs)?
   '<section class="panel" id="job-records"><h2>Current vs historical streaks by job</h2>'+
@@ -488,7 +536,7 @@ async function detailPage(snapshot,eligible,params,account){
  (eventRows||"<p>No events in this backup.</p>")+more+
  '<p class="note">The scoring import records physical-bin quantities and dates, '+
  'but not the colour of each historical bin.</p></section>';
- return respond("Customer "+account.ref,intro+stats+profile+perJobPanel+annual+visitHistory);
+ return respond("Customer "+account.ref,intro+stats+profile+overduePanel+perJobPanel+annual+visitHistory);
 }
 function runtimeScope(req,ctx){
  return {hostname:new URL(req.url).hostname,deployContext:ctx?.deploy?.context,siteId:ctx?.site?.id};
