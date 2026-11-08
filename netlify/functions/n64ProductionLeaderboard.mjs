@@ -6,6 +6,7 @@ import historical from "./lib/squeegeeActiveLeaderboardImport.js";
 import names from "./lib/squeegeeLeaderboardNameConsent.js";
 import customerWebsite from "./lib/arcadeCustomerMerge.js";
 import board from "./lib/n64ProductionPublicBoard.js";
+import publicRecords from "./lib/squeegeePublicAchievementHighlights.js";
 
 const HEADERS={"Content-Type":"application/json; charset=utf-8",
  "Cache-Control":"no-store","X-Robots-Tag":"noindex, nofollow",
@@ -47,7 +48,19 @@ export default async function handler(request,context){
     :await score.getAnnualPreviewBoard(stores,privateData,eligible.aliases,Number(year),now);
   const result=board.approvedBoard(privateData,full,eligible.aliases,ledger,key);
   if(!result)return send(503,{error:"verified_leaderboard_unavailable"});
+  // The records are computed only from the ALREADY-PUBLISHED score
+  // identities. A customer without evidenced permission cannot appear.
+  const publicAchievements=result.entries.length?
+    publicRecords.highlights(privateData,eligible.aliases,ledger,period,result,key):
+    null;
+  // Only aggregate counts are public. Never expose consent evidence, IDs,
+  // owner status, individual histories or private customer records.
+  const recordedConsentGrants=ledger.records.filter(row=>
+    row?.consent==="granted"&&!row.withdrawnAt).length;
   return send(200,{...result,period,availableYears,
+    ...(publicAchievements?{publicAchievements}:{}),
+    recordedConsentGrants,
+    eligibleWithPoints:full.entries.length,
     eligiblePlayers:eligible.count,verifiedPlayers:eligible.verifiedCount,
     eligibleCleaningXp:eligible.historicalPoints,
     publicNamedCount:result.entries.length,
