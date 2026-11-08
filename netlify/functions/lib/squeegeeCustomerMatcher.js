@@ -68,6 +68,30 @@ function normalPhone(value) {
   if (digits.startsWith("44")) digits = "0" + digits.slice(2);
   return digits;
 }
+// Legacy Squeegee customers sometimes store only a first name. Accept
+// that abbreviation ONLY when the booking supplies a longer name, the
+// telephone is an exact match, the property has one registered customer,
+// and the telephone belongs to exactly one scanned customer record.
+function firstNameOnlyPhoneMatch(booking,row) {
+  const parts=normalName(booking?.name).split(" ").filter(Boolean);
+  const saved=normalName(row?.name);
+  if(parts.length<2 || !saved || saved.includes(" ") ||
+     saved!==parts[0])return false;
+  const phone=normalPhone(booking?.phone);
+  return phone.length>=10 &&
+    [row?.phoneNumber,row?.phoneNumberOther]
+      .some(value=>normalPhone(value)===phone);
+}
+function uniqueShortNamePhoneCustomer(booking,rows,propertyRows) {
+  if(propertyRows.length!==1 ||
+     !firstNameOnlyPhoneMatch(booking,propertyRows[0]))return null;
+  const phone=normalPhone(booking.phone);
+  const matchingPhone=rows.filter(row=>
+    [row.phoneNumber,row.phoneNumberOther]
+      .some(value=>normalPhone(value)===phone));
+  return matchingPhone.length===1 &&
+    matchingPhone[0]._id===propertyRows[0]._id?propertyRows[0]:null;
+}
 function propertyNumber(value) {
   return stringValue(value).toUpperCase().match(/\b\d{1,4}[A-Z]?\b/)?.[0] || "";
 }
@@ -129,6 +153,8 @@ function matchCustomers(booking, customerList) {
   // or phone. A nonblank name is mandatory; never equate two empty names.
   const nameMatches=wantedName?sameProperty.filter(c=>
     normalName(c.name)===wantedName):[];
+  const verifiedShortName=uniqueShortNamePhoneCustomer(
+    booking,rows,sameProperty);
   const contactMatches=sameProperty.filter(c=>
     (wantedEmail && normalEmail(c.email)===wantedEmail) ||
     (wantedPhone.length>=10 && [c.phoneNumber,c.phoneNumberOther]
@@ -155,9 +181,11 @@ function matchCustomers(booking, customerList) {
     // Even an externally linked customer reference does not make two
     // different full names at one property the same person.
     const refName=normalName(byRef[0].name);
-    if(wantedName && refName && refName!==wantedName)
+    const safeShortName=verifiedShortName?._id===byRef[0]._id;
+    if(wantedName && refName && refName!==wantedName && !safeShortName)
       return {status:"needs_review",reason:"same_address_contact_name_conflict"};
-    return checkedCustomer(byRef[0],"external_reference");
+    return checkedCustomer(byRef[0],safeShortName?
+      "exact_property_first_name_phone":"external_reference");
   }
   if(nameMatches.length===1)
     return checkedCustomer(nameMatches[0],"exact_property_and_name");
@@ -166,9 +194,11 @@ function matchCustomers(booking, customerList) {
     // full names are the same customer. Hold for the owner rather than
     // quietly attaching a new booking to somebody else\x27s Squeegee record.
     const storedName=normalName(contactMatches[0].name);
-    if(wantedName && storedName && wantedName!==storedName)
+    const safeShortName=verifiedShortName?._id===contactMatches[0]._id;
+    if(wantedName && storedName && wantedName!==storedName && !safeShortName)
       return {status:"needs_review",reason:"same_address_contact_name_conflict"};
-    return checkedCustomer(contactMatches[0],"exact_property_and_contact");
+    return checkedCustomer(contactMatches[0],safeShortName?
+      "exact_property_first_name_phone":"exact_property_and_contact");
   }
 
   return {status:"needs_review",
@@ -205,6 +235,8 @@ function detectDuplicateSignals(booking,customerRows) {
   const flags=new Set();
   const sameAddress=rows.filter(row=>wantedAddress &&
     addressKey(row.address)===wantedAddress);
+  const verifiedShortName=uniqueShortNamePhoneCustomer(
+    booking,rows,sameAddress);
   const sameEmail=rows.filter(row=>wantedEmail &&
     normalEmail(row.email)===wantedEmail);
   const samePhone=rows.filter(row=>wantedPhone.length>=10 &&
@@ -216,7 +248,8 @@ function detectDuplicateSignals(booking,customerRows) {
   if(sameEmail.length>1)flags.add("multiple_records_with_email");
   if(sameAddress.length)flags.add("address_already_registered");
   if(sameAddress.some(row=>!wantedName ||
-       normalName(row.name)!==wantedName))
+       (normalName(row.name)!==wantedName &&
+        verifiedShortName?._id!==row._id)))
     flags.add("address_registered_to_other_name");
   if(sameAddress.length>1)flags.add("multiple_records_at_address");
   if(sameAddress.some(row=>wantedName &&
@@ -302,5 +335,5 @@ async function matchCustomersAcrossPages(booking, listPage, { maxPages = 40 } = 
 }
 
 module.exports={addressKey,normalName,normalEmail,normalPhone,
-  DUPLICATE_SIGNAL_CODES,detectDuplicateSignals,
+  firstNameOnlyPhoneMatch,DUPLICATE_SIGNAL_CODES,detectDuplicateSignals,
   matchCustomers,matchCustomersAcrossPages};
