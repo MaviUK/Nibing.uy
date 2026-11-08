@@ -272,6 +272,10 @@ test("booking receipt carries valid council-matched dates through to the success
   assert.match(booking,/datePreview: matchedBookingDatePreview\(/);
   assert.match(booking,/emailBookingPayload\.bookingScheduleSnapshot,\{address,bins\}/);
   assert.match(booking,/bookingConfirmation\?\.datePreview\?\.results/);
+  // Avoid a render-time crash: the field checked above must also be the
+  // field dereferenced in the success-state ternary.
+  assert.match(booking,/const scheduleResults = Array\.isArray\(bookingConfirmation\?\.datePreview\?\.results\)\s*\? bookingConfirmation\.datePreview\.results\s*: \[\]/);
+  assert.doesNotMatch(booking,/bookingConfirmation\.schedule\.results/);
   assert.match(booking,/Council-matched first clean date/);
   assert.match(booking,/The Squeegee appointment is confirmed separately/);
   assert.doesNotMatch(booking,/schedule: null/);
