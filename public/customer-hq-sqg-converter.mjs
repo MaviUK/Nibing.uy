@@ -174,6 +174,17 @@ export function finishSqueegeeImport(state,asOf,previous={}){
    ?"unknown":amount>0.005?"outstanding":"settled";
   rows.set(id,account);
  }
+ // A verified paid Squeegee job remains paid after a new invoice increases
+ // the total account balance. Only an identical prior customer reference,
+ // recurring job and cleaning date may preserve that earlier evidence.
+ const previousPaid=new Map();
+ for(const [id,account] of rows){
+  const prior=previous?.[id];
+  if(prior?.ref!==account.ref||!Array.isArray(prior.paidJobDays)||
+     prior.paidJobDays.length>2500)continue;
+  previousPaid.set(id,new Set(prior.paidJobDays.filter(x=>
+   typeof x==="string"&&x.length<70)));
+ }
  const events=new Map(),audit={paidBins:0,heldOccurrences:0,
   completedOccurrences:0,skippedOccurrences:0,unknownServices:0};
  for(const occ of state.occurrences){
@@ -191,6 +202,7 @@ export function finishSqueegeeImport(state,asOf,previous={}){
   const linkedInvoice=inv?.customerId===occ.customerId&&!inv.deleted;
   const paid=linkedInvoice&&
    (rows.get(occ.customerId).balanceState==="settled"||
+    previousPaid.get(occ.customerId)?.has(occ.jobId+":"+occ.date)||
     (occ.paymentStatus==="paid"&&occ.paidDate&&inv.paid)||
     (occ.paymentStatus==="invoiced"&&inv.paid===true));
   const kind=qty===0?"non-bin":paid?"paid":"unpaid";
