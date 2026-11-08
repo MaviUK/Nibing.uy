@@ -25,7 +25,7 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Verify live leaderboard consent-only records and responsive UI
         run: |
-          node --test tests/squeegee-production-n64-hq-board.test.cjs tests/squeegee-preview-annual-achievements.test.cjs
+          node --test tests/squeegee-*.test.cjs
           npm run build
   inspect-public-response:
     runs-on: ubuntu-latest
