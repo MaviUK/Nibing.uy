@@ -1,5 +1,5 @@
 // Runs in the owner's browser. The complete .sqg never leaves their device.
-export const SCORE_VERSION="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2";
+export const SCORE_VERSION="2026-11-streak-20-plus-1-per-job-per-paid-bin-v3";
 export const PENALTY_SOURCE_VERSION="2026-11-flat-overdue-1xp-per-job-day-v3";
 const UUID=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 const REF=/^(?:\d{1,12}|CUS\d{1,15}|[Aa]{2}\d{3,8})$/;
@@ -265,7 +265,7 @@ export function finishSqueegeeImport(state,asOf,previous={}){
      }
      lastCompletedOn=occ.date;
      const paid=occ.kind==="paid",qty=occ.quantity;
-     const points=paid?qty*(20+2*(streak-1)):0;
+     const points=paid?qty*(20+(streak-1)):0;
      event={date:occ.date,event:paid?
       "paid_completed_clean":"completed_payment_not_verified",
       points,streak,quantity:qty,j:jobIndex};
@@ -277,7 +277,7 @@ export function finishSqueegeeImport(state,asOf,previous={}){
     allEvents.push({...event,_id:occ.id});
    }
    row.jobs.push({id:jobId,label,currentStreak:streak,
-    nextBonus:20+2*streak,paidCleans:jobPaidBins,points:jobPoints,
+    nextBonus:20+streak,paidCleans:jobPaidBins,points:jobPoints,
     recordedSkips:jobSkips,lastCompletedOn});
   }
   allEvents.sort((a,b)=>a.date.localeCompare(b.date)||a.j-b.j||
@@ -287,7 +287,7 @@ export function finishSqueegeeImport(state,asOf,previous={}){
   // Legacy account-wide fields are retained for version-compatible readers,
   // but UI must display individual job streaks, never this maximum as a bonus.
   row.currentStreak=Math.max(0,...row.jobs.map(job=>job.currentStreak));
-  row.nextBonus=20+2*row.currentStreak;
+  row.nextBonus=20+row.currentStreak;
   if(row.events.length>2500)throw Error("unusual_history_needs_review");
  }
  const accounts=[...rows.values()].sort((a,b)=>a.id.localeCompare(b.id));
