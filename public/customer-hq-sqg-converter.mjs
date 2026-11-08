@@ -1,5 +1,6 @@
 // Runs in the owner's browser. The complete .sqg never leaves their device.
 export const SCORE_VERSION="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2";
+export const PENALTY_SOURCE_VERSION="2026-11-escalating-overdue-per-job-v1";
 const UUID=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 const REF=/^(?:\d{1,12}|CUS\d{1,15}|[Aa]{2}\d{3,8})$/;
 const EMAIL=/^[^\s@]{1,80}@[^\s@]{1,160}\.[^\s@]{2,24}$/;
@@ -147,7 +148,7 @@ function makeCustomer(c,prior){
    old.firstName:firstName(c.name);
  return {id:c.id,ref,email:cleanEmail(c.email),firstName:name,town,
   points:0,paidCleans:0,currentStreak:0,nextBonus:20,
-  recordedSkips:0,events:[],jobs:[]};
+  recordedSkips:0,events:[],jobs:[],balanceState:"unknown",outstandingJobs:[]};
 }
 export function finishSqueegeeImport(state,asOf,previous={}){
  if(!validDay(asOf)||state.records<10000||state.customers.size<900||
@@ -164,7 +165,15 @@ export function finishSqueegeeImport(state,asOf,previous={}){
   if(activeOwners>1)throw Error("squeegee_job_shared_active_customers");
  }
  const rows=new Map();
- for(const [id,c] of state.customers)rows.set(id,makeCustomer(c,previous));
+ for(const [id,c] of state.customers){
+  const account=makeCustomer(c,previous);
+  // A zero/credit balance means all linked completed cleans are paid.
+  // No transaction ledger means UNKNOWN, never automatically settled.
+  const amount=state.balance.get(id);
+  account.balanceState=!state.balance.has(id)||!Number.isFinite(amount)
+   ?"unknown":amount>0.005?"outstanding":"settled";
+  rows.set(id,account);
+ }
  const events=new Map(),audit={paidBins:0,heldOccurrences:0,
   completedOccurrences:0,skippedOccurrences:0,unknownServices:0};
  for(const occ of state.occurrences){
@@ -179,9 +188,11 @@ export function finishSqueegeeImport(state,asOf,previous={}){
   const qty=occ.services.reduce((s,item)=>s+quantityOf(item),0);
   if(qty>20)throw Error("review_oversized_service_quantity");
   const inv=state.invoices.get(occ.invoiceId);
-  const paid=inv?.customerId===occ.customerId&&!inv.deleted&&
-   ((occ.paymentStatus==="paid"&&occ.paidDate&&inv.paid)||
-     (occ.paymentStatus==="invoiced"&&(state.balance.get(occ.customerId)||0)<0.005));
+  const linkedInvoice=inv?.customerId===occ.customerId&&!inv.deleted;
+  const paid=linkedInvoice&&
+   (rows.get(occ.customerId).balanceState==="settled"||
+    (occ.paymentStatus==="paid"&&occ.paidDate&&inv.paid)||
+    (occ.paymentStatus==="invoiced"&&inv.paid===true));
   const kind=qty===0?"non-bin":paid?"paid":"unpaid";
   if(qty===0)audit.unknownServices++;
   if(kind==="paid")audit.paidBins+=qty;
@@ -205,6 +216,14 @@ export function finishSqueegeeImport(state,asOf,previous={}){
    let lastCompletedOn=null;
    const label=jobLabel(occurrences.flatMap(x=>x.services));
    for(const occ of occurrences){
+    // Each unpaid cleaning occurrence has a stable ID. A positive balance
+    // and verified unpaid invoice are both required before a penalty.
+    const invoice=state.invoices.get(occ.invoiceId);
+    if(occ.kind==="unpaid"&&row.balanceState==="outstanding"&&
+       invoice?.customerId===id&&!invoice.deleted&&
+       invoice.paid===false&&occ.paymentStatus==="invoiced"){
+      row.outstandingJobs.push({id:occ.id,dueOn:occ.date,j:jobIndex});
+    }
     let event;
     if(occ.kind==="skip"){
      streak=0;lastVisitDay=null;jobSkips++;row.recordedSkips++;
@@ -252,7 +271,8 @@ export function finishSqueegeeImport(state,asOf,previous={}){
   throw Error("known_6_nov_backup_mismatch");
  const points=accounts.reduce((t,a)=>t+a.points,0);
  if(points<=0)throw Error("scoring_not_ready");
- return {snapshot:{version:1,asOf,scoringVersion:SCORE_VERSION,accounts},
+ return {snapshot:{version:1,asOf,scoringVersion:SCORE_VERSION,
+  penaltySourceVersion:PENALTY_SOURCE_VERSION,accounts},
   summary:{activeAccounts:accounts.length,verifiedPaidBins:paidBins,points,
    heldOccurrences:audit.heldOccurrences,
    unknownServices:audit.unknownServices}};
