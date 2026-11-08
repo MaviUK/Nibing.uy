@@ -69,7 +69,45 @@ function randomBinJoke() {
   return BIN_JOKES[Math.floor(Math.random() * BIN_JOKES.length)];
 }
 
-function buildBookingEmailHtml({ bookingId, name, address, phone, bins, pricing, discountCode, termsVersion, termsTimestamp, termsPdfAttached }) {
+// Read the matched dates already shown by the council lookup in the form.
+// These dates are customer-facing schedule estimates, not proof that a
+// Squeegee job has been created. Validate before rendering or emailing.
+function bookingReceiptDates(snapshot,{address="",bins=[]}={}) {
+  const postcodeMatch=String(address).toUpperCase()
+    .match(/\bBT\d{1,2}[A-Z0-9]?\s*\d[A-Z]{2}\b/);
+  if(!postcodeMatch || snapshot?.version!==1 ||
+     snapshot?.matched!==true || !Array.isArray(snapshot.results) ||
+     !Array.isArray(bins) || bins.length<1 || bins.length>12 ||
+     snapshot.results.length!==bins.length)return [];
+  const normalizedPostcode=value=>
+    String(value||"").toUpperCase().replace(/\s+/g,"");
+  if(normalizedPostcode(snapshot.postcode)!==
+     normalizedPostcode(postcodeMatch[0]))return [];
+  const normalizedBin=value=>
+    String(value||"").trim().replace(/\s+bin$/i,"").toUpperCase();
+  const rows=[];
+  for(let i=0;i<bins.length;i++){
+    const row=snapshot.results[i];
+    const iso=String(row?.assignedCleanDate||"");
+    if(row?.automatic!==true ||
+       !/^\d{4}-\d{2}-\d{2}$/.test(iso) ||
+       normalizedBin(row?.type)!==normalizedBin(bins[i]?.type))return [];
+    const date=new Date(iso+"T12:00:00Z");
+    if(!Number.isFinite(date.getTime()) ||
+       date.toISOString().slice(0,10)!==iso)return [];
+    rows.push({
+      bin:String(bins[i].type||"").trim().replace(/\s+Bin$/i,""),
+      isoDate:iso,
+      date:date.toLocaleDateString("en-GB",{
+        weekday:"long",day:"numeric",month:"long",year:"numeric",
+        timeZone:"Europe/London",
+      }),
+    });
+  }
+  return rows;
+}
+
+function buildBookingEmailHtml({ bookingId, name, address, phone, bins, pricing, discountCode, termsVersion, termsTimestamp, termsPdfAttached, firstCleanDates=[] }) {
   const reference=String(bookingId||"").trim();
   const visibleReference=/^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i.test(reference)?
     reference:"";
@@ -85,6 +123,19 @@ function buildBookingEmailHtml({ bookingId, name, address, phone, bins, pricing,
   const brandGreen = "#0b6b44";
   const brandGreenBorder = "#14865b";
   const yellow = "#ffd400";
+  const datedBins=Array.isArray(firstCleanDates)?firstCleanDates.filter(row=>
+    typeof row?.date==="string" && /^\d{4}-\d{2}-\d{2}$/.test(String(row?.isoDate||"")) &&
+    typeof row?.bin==="string").slice(0,12):[];
+  const hasCleanDate=datedBins.length>0;
+  const firstCleanDateBlock=hasCleanDate?`
+          <tr><td style="padding:18px 26px 0;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#e8f7ed;border:2px solid #178149;">
+              <tr><td style="padding:18px 19px;">
+                <div style="font-family:Arial,sans-serif;color:#146735;font-size:17px;font-weight:900;text-transform:uppercase;">YOUR FIRST CLEAN DATE${datedBins.length>1?"S":""}</div>
+                ${datedBins.map(row=>`<div style="font-family:Arial,sans-serif;color:#152c1e;font-size:17px;font-weight:700;margin-top:10px;line-height:1.45;">${escapeHtml(row.bin)}: ${escapeHtml(row.date)}</div>`).join("")}
+              </td></tr>
+            </table>
+          </td></tr>`: "";
 
   const binCards = filteredBins.length
     ? filteredBins.map((bin) => `
@@ -119,7 +170,7 @@ function buildBookingEmailHtml({ bookingId, name, address, phone, bins, pricing,
 
           <tr><td style="background:${yellow};padding:18px 24px;text-align:center;">
             <div style="font-family:Arial Black,Arial,sans-serif;color:#050505;font-size:24px;font-weight:900;text-transform:uppercase;">✓ BOOKING REQUEST RECEIVED</div>
-            <div style="font-family:Arial,sans-serif;color:#050505;font-size:14px;margin-top:4px;font-weight:700;">We've got your details. We'll check your address and cleaning schedule now.</div>
+            <div style="font-family:Arial,sans-serif;color:#050505;font-size:14px;margin-top:4px;font-weight:700;">${hasCleanDate?"Your first clean date is below.":"We've got your details. We'll confirm your first clean date shortly."}</div>
           </td></tr>
 
           ${visibleReference ? `<tr><td style="padding:19px 22px 0;text-align:center;background:#ffffff;">
@@ -131,9 +182,10 @@ function buildBookingEmailHtml({ bookingId, name, address, phone, bins, pricing,
               </td></tr>
             </table>
           </td></tr>` : ""}
+          ${firstCleanDateBlock}
           <tr><td style="padding:26px 26px 8px;">
-            <div style="font-family:Arial,sans-serif;color:#c41230;font-size:20px;font-weight:800;">Your first clean is one step closer.</div>
-            <div style="font-family:Arial,sans-serif;color:#333333;font-size:15px;line-height:1.6;margin-top:10px;">We've received your booking request. Your first clean date is being checked against the collection schedule. We'll email you once it has been confirmed. There's no need to send another booking request.</div>
+            <div style="font-family:Arial,sans-serif;color:#c41230;font-size:20px;font-weight:800;">${hasCleanDate?"Your clean is booked in.":"Your first clean is one step closer."}</div>
+            <div style="font-family:Arial,sans-serif;color:#333333;font-size:15px;line-height:1.6;margin-top:10px;">${hasCleanDate?"We'll contact you if anything changes. There's no need to send another booking request.":"We've received your booking request. Your first clean date is being checked against the collection schedule. We'll email you once it has been confirmed. There's no need to send another booking request."}</div>
           </td></tr>
 
           <tr><td style="padding:18px 26px 0;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#090909;border-radius:14px;">
@@ -149,7 +201,7 @@ function buildBookingEmailHtml({ bookingId, name, address, phone, bins, pricing,
 
           <tr><td style="padding:28px 26px 4px;text-align:center;"><div style="font-family:Arial Black,Arial,sans-serif;color:#111111;font-size:23px;font-weight:900;text-transform:uppercase;">WHAT HAPPENS NEXT?</div></td></tr>
           <tr><td style="padding:12px 20px 6px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>
-            <td width="20%" valign="top" align="center" style="padding:6px;"><div style="width:30px;height:30px;line-height:30px;background:${yellow};border-radius:50%;font-family:Arial,sans-serif;font-weight:900;">1</div><div style="font-family:Arial,sans-serif;font-size:13px;font-weight:700;margin-top:8px;">DATE CONFIRMED</div><div style="font-family:Arial,sans-serif;font-size:11px;line-height:1.4;color:#555;margin-top:4px;">We'll email your confirmed cleaning date shortly.</div></td>
+            <td width="20%" valign="top" align="center" style="padding:6px;"><div style="width:30px;height:30px;line-height:30px;background:${yellow};border-radius:50%;font-family:Arial,sans-serif;font-weight:900;">1</div><div style="font-family:Arial,sans-serif;font-size:13px;font-weight:700;margin-top:8px;">DATE CONFIRMED</div><div style="font-family:Arial,sans-serif;font-size:11px;line-height:1.4;color:#555;margin-top:4px;">${hasCleanDate?"Your first clean date is shown above.":"We'll email your confirmed cleaning date shortly."}</div></td>
             <td width="20%" valign="top" align="center" style="padding:6px;"><div style="width:30px;height:30px;line-height:30px;background:${yellow};border-radius:50%;font-family:Arial,sans-serif;font-weight:900;">2</div><div style="font-family:Arial,sans-serif;font-size:13px;font-weight:700;margin-top:8px;">REMINDER</div><div style="font-family:Arial,sans-serif;font-size:11px;line-height:1.4;color:#555;margin-top:4px;">We'll remind you before your clean.</div></td>
             <td width="20%" valign="top" align="center" style="padding:6px;"><div style="width:30px;height:30px;line-height:30px;background:${yellow};border-radius:50%;font-family:Arial,sans-serif;font-weight:900;">3</div><div style="font-family:Arial,sans-serif;font-size:13px;font-weight:700;margin-top:8px;">BIN EMPTIED</div><div style="font-family:Arial,sans-serif;font-size:11px;line-height:1.4;color:#555;margin-top:4px;">Put it out as normal.</div></td>
             <td width="20%" valign="top" align="center" style="padding:6px;"><div style="width:30px;height:30px;line-height:30px;background:${yellow};border-radius:50%;font-family:Arial,sans-serif;font-weight:900;">4</div><div style="font-family:Arial,sans-serif;font-size:13px;font-weight:700;margin-top:8px;">WE CLEAN IT</div><div style="font-family:Arial,sans-serif;font-size:11px;line-height:1.4;color:#555;margin-top:4px;">Leave it accessible and we'll do the rest.</div></td>
@@ -171,4 +223,4 @@ function buildBookingEmailHtml({ bookingId, name, address, phone, bins, pricing,
   </div>`;
 }
 
-module.exports = { buildBookingEmailHtml };
+module.exports = { buildBookingEmailHtml, bookingReceiptDates };
