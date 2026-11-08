@@ -84,7 +84,7 @@ if(form&&input&&error&&button&&progress){
    worker.terminate();worker=null;
    // Fail closed if an old Android cache supplies the previous customer-wide
    // converter. Do not POST a misleading or incompatible scoring snapshot.
-   if(result?.snapshot?.scoringVersion!=="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2"||
+   if(result?.snapshot?.scoringVersion!=="2026-11-streak-20-plus-1-per-job-per-paid-bin-v3"||
        result?.snapshot?.penaltySourceVersion!=="2026-11-flat-overdue-1xp-per-job-day-v3"||
       !Array.isArray(result?.snapshot?.accounts)||
       result.snapshot.accounts.some(record=>!Array.isArray(record.jobs))){
