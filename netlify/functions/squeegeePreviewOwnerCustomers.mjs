@@ -484,7 +484,7 @@ async function detailPage(snapshot,eligible,params,account){
    '. Payment stops the daily deductions but does not refund points already lost.</p>'+
   (Array.isArray(account.penaltyLedger)?
    '<p>'+fmt(paidLate)+' late-paid jobs; '+fmt(activeLate)+
-   ' still overdue at the date of the imported backup. Each job has 28 free days, then loses 1, 2, 3… extra XP each day. Amounts are based on verified Squeegee payment dates.</p>'+
+   ' still overdue at the date of the imported backup. Each job has 28 free days, then loses exactly 1 XP for each additional overdue day. No increasing daily deduction. Amounts are based on verified Squeegee payment dates.</p>'+
    (ledger.length?penaltyTable(ledger.slice(0,10))+
      (ledger.length>10?'<details class="penalty-detail"><summary>SHOW ALL '+
        fmt(ledger.length)+' PENALTY EVENTS</summary>'+
