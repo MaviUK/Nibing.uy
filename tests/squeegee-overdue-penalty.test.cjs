@@ -22,7 +22,7 @@ test("day 28 is free, then -1, -2, -3 daily (cumulative 1, 3, 6)",()=>{
   assert.equal(penalty.pointsThrough(due,"2026-10-30"),1);
   assert.equal(penalty.pointsThrough(due,"2026-10-31"),3);
   assert.equal(penalty.pointsThrough(due,"2026-11-01"),6);
-  assert.equal(penalty.pointsThrough(due,"2026-11-10"),55);
+  assert.equal(penalty.pointsThrough(due,"2026-11-08"),55);
 });
 test("two unpaid jobs incur two independent penalties, not one per customer",()=>{
   const candidates=[
