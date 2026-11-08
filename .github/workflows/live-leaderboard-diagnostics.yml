@@ -29,6 +29,8 @@ jobs:
             eligiblePlayers:x.eligiblePlayers,
             verifiedPlayers:x.verifiedPlayers,
             eligibleCleaningXp:x.eligibleCleaningXp,
+            eligibleWithPoints:x.eligibleWithPoints,
+            recordedConsentGrants:x.recordedConsentGrants,
             sourceAsOf:x.sourceAsOf,
             sourceWarning:x.sourceWarning,
             publicAchievementsPresent:!!x.publicAchievements,
