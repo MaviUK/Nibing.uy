@@ -17,7 +17,7 @@ const {prepareReadOnlyBooking}=require("./squeegeeBookingPreparation");
 const {groupedSqueegeeJobs}=require("./squeegeeJobGrouping");
 const jobReadback=require("./squeegeeCreatedJobVerification");
 const {fetchAuthoritativeSchedule}=require("./squeegeeBookingStage");
-const {matchCustomersAcrossPages,addressKey,normalName,normalEmail,normalPhone}=require("./squeegeeCustomerMatcher");
+const {matchCustomersAcrossPages,addressKey,normalName,normalEmail,normalPhone,firstNameOnlyPhoneMatch}=require("./squeegeeCustomerMatcher");
 const {resolveSqueegeeServiceIds}=require("./squeegeeServiceCatalog");
 const {normalizedBinType}=require("./squeegeeBookingPlan");
 const {customerKey,jobKey,activeBinKey,additionalBinKey,additionalJobKey,binServiceIdentity,claimOnce,changeClaimState}=require("./squeegeeIdempotencyClaims");
@@ -463,6 +463,14 @@ async function executeAutomaticPreviewBooking(payload,{
           normalName(record.name)!==normalName(payload.name))) {
         return await held("existing_customer_name_unverified");
       }
+      // A list row with only a first name is not enough for a write.
+      // The authoritative customer detail must independently confirm
+      // that first name and the exact booking phone at this property.
+      const matchedByShortName=
+        customerMatch.reason==="exact_property_first_name_phone" ||
+        customerMatch.matchReason==="exact_property_first_name_phone";
+      if(matchedByShortName && !firstNameOnlyPhoneMatch(payload,record))
+        return await held("existing_customer_identity_unverified");
       const recordStatus=String(record?.status||"").trim().toLowerCase();
       // Squeegee currently documents an in-app Activate action, but the
       // verified public v3 API does NOT expose customer reactivation. Hold
