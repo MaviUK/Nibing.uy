@@ -8,6 +8,7 @@ import nameConsents from "./lib/squeegeeLeaderboardNameConsent.js";
 import {getStore} from "@netlify/blobs";
 import crypto from "node:crypto";
 import uploadCsrf from "./lib/squeegeePreviewHQImportCsrf.js";
+import overdue from "./lib/squeegeeOverduePenalty.js";
 
 const PATH="/api/squeegee-preview-hq-import";
 const HOST="https://deploy-preview-77--nibinguy.netlify.app";
@@ -51,6 +52,9 @@ const OWNER_IMPORT_CODES=new Set([
   "incomplete_portal_consents_source","unexpected_ranked_hq_customer",
   "hq_event_validation_failed","hq_history_balance_mismatch",
   "hq_customer_validation_failed","hq_public_score_mismatch",
+  "overdue_evidence_invalid","overdue_pending_job_invalid",
+  "overdue_zero_balance_conflict","overdue_previous_ledger_invalid",
+  "overdue_occurrence_due_date_changed","overdue_penalty_would_decrease",
   "hq_active_leaderboard_reconciliation_failed"
 ]);
 function safeImportReason(err){
@@ -59,7 +63,7 @@ function safeImportReason(err){
 }
 function importFailure(stage,err){
   const safeStage=["parse_json","verify_history","load_previous","load_consents",
-    "prepare_consents","save_consents","save_history"].includes(stage)?stage:"upload";
+    "prepare_consents","save_consents","save_history","calculate_overdue"].includes(stage)?stage:"upload";
   const reason=safeImportReason(err);
   console.warn("preview77_private_hq_import_rejected",safeStage,reason);
   const verification=safeStage==="parse_json"||safeStage==="verify_history";
@@ -175,6 +179,27 @@ export default async function handler(request,ctx){
     const previous=await store.get(hq.DATA_KEY,{type:"json",consistency:"strong"});
     if(previous?.asOf && validated.asOf<previous.asOf)
       return page("<section>Older customer history cannot replace newer data.</section>",409);
+    stage="calculate_overdue";
+    // Charge only verified unpaid work. Freeze old accrued deductions when
+    // a cleaning occurrence is paid, and never debit it twice on reimport.
+    if(previous?.penaltySourceVersion===overdue.VERSION &&
+       validated.penaltySourceVersion!==overdue.VERSION)
+      throw Error("overdue_evidence_invalid");
+    const previousById=new Map((previous?.accounts||[])
+      .filter(a=>typeof a?.id==="string").map(a=>[a.id,a]));
+    let totalPenalty=0,totalOpen=0;
+    const withOverdue=validated.penaltySourceVersion===overdue.VERSION
+      ?{...validated,accounts:validated.accounts.map(account=>{
+        const earlier=previousById.get(account.id);
+        const prior=earlier?.ref===account.ref?earlier.penaltyLedger||[]:[];
+        const open=account.outstandingJobs||[];
+        const ledger=overdue.reconcileLedger(prior,open,validated.asOf);
+        const penaltyPoints=overdue.penaltyTotal(ledger);
+        totalPenalty+=penaltyPoints;totalOpen+=open.length;
+        return {...account,penaltyLedger:ledger,penaltyPoints};
+      })}:validated;
+    const scored={...withOverdue,summary:{...withOverdue.summary,
+      overduePenaltyPoints:totalPenalty,outstandingJobs:totalOpen}};
     const hash=crypto.createHash("sha256").update(source).digest("hex");
     if(previous?.sourceHash===hash)
       return page("<section>Already imported — no duplicate points awarded.</section>"+
@@ -189,7 +214,7 @@ export default async function handler(request,ctx){
     });
     stage="prepare_consents";
     const nextConsent=nameConsents.initialiseFromPrivateCustomerHQ(
-      validated,oldConsent?.data||null);
+      scored,oldConsent?.data||null);
     stage="save_consents";
     const permissionsSaved=await consentStore.setJSON(
       nameConsents.KEY,nextConsent,oldConsent?.etag
@@ -199,7 +224,7 @@ export default async function handler(request,ctx){
       return page("<section>Leaderboard consent records changed elsewhere. No private history was replaced. Please try again.</section>",409);
     stage="save_history";
     const saved=await store.setJSON(hq.DATA_KEY,{
-      ...validated,sourceHash:hash,importedAt:new Date().toISOString()
+      ...scored,sourceHash:hash,importedAt:new Date().toISOString()
     });
     if(saved?.modified!==true)
       return page("<section>Unable to save private history. Public scoring is withheld until a successful retry.</section>",503);
@@ -208,6 +233,8 @@ export default async function handler(request,ctx){
       validated.summary.verifiedPaidBins+' fully paid physical bins, '+
       validated.summary.allHistoricalPoints+' cleaning XP (calculated separately per recurring Squeegee job) and '+
       validated.summary.historyEvents+' clean history entries. '+
+      ' Verified overdue XP deductions: '+totalPenalty+
+      ' across '+totalOpen+' currently unpaid jobs (28 days free, then escalating daily). '+
       validated.summary.rankedWithEmail+' ranking-eligible customers have an email, '+
       'representing '+validated.summary.rankedWithEmailPoints+' cleaning XP. '+
       'No Squeegee customer/job/payment was changed.</p>'+
