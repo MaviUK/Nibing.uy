@@ -179,7 +179,8 @@ export default async function handler(request,context){
             from:process.env.RESEND_FROM||"NI Bin Guy <noreply@nibing.uy>",
             to,subject:"NI Bin Guy - secure owner access code",
             text:"Your one-time NI Bin Guy owner code is: "+code+
-              "\n\nThis code signs you into owner tools for 20 minutes."+\n              "\nSqueegee booking status is read-only; recording customer email permissions requires a separate owner action."+
+              "\n\nThis code signs you into owner tools for 20 minutes."+
+              "\nSqueegee booking status is read-only; recording customer email permissions requires a separate owner action."+
               "\nIt cannot create or retry Squeegee jobs."+
               "\nIf you didn't request this, ignore the message.",
           });
