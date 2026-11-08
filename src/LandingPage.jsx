@@ -1421,7 +1421,7 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
           <div className="n64-bin n64-bin--right">
             <N64GameBin front="#e49a55" side="#aa663a" lid="#ffd28b" />
           </div>
-          <span className="n64-scene-label">3 BINS · 1 CLEAN MISSION</span>
+          <span className="n64-scene-label">Your Dirty Bins - Our Problem</span>
         </div>
       </div>
 
