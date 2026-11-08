@@ -899,7 +899,6 @@
 .n64-public-record-extras>div{background:#fff0bc;color:#14283e;border:3px solid #b28e35;padding:13px;display:flex;flex-direction:column;gap:8px}
 .n64-public-record-extras span{font-size:.78rem;font-weight:950;color:#263b50}
 .n64-public-record-extras strong{font-size:1.14rem;color:#0c493a;line-height:1.3}
-.n64-public-leaderboard .n64-public-record-highlights .n64-public-record-footnote{color:#d8e8fb;font-size:.81rem;line-height:1.5;margin:14px 0 0}
 @media(max-width:480px){.n64-public-record-highlights{padding:13px}.n64-public-record-grid,.n64-public-record-extras{grid-template-columns:1fr;gap:12px}.n64-public-record{padding:14px}.n64-record-pair .n64-record-stat-label{font-size:.78rem}}
 
 /* Explicit TOP FIVE rankings, keeping card colours and text readable. */
