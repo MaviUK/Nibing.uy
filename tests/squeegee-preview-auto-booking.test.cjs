@@ -2689,3 +2689,76 @@ test("same Squeegee address and phone with a different full name is held, not at
   assert.equal(alerts.length,1);
   assert.equal(alerts[0].reason,"customer_match_ambiguous_or_incomplete");
 });
+
+
+test("first-name-only existing Squeegee account receives a new Black bin job",async()=>{
+  const b=sampleBooking({
+    bins:[{type:"Black Bin",planId:"domestic_4w",count:1}],
+    modified:booking=>({...booking,name:"Gavin Stevenson",email:"gav@example.org"}),
+  });
+  const existingRow={
+    _id:customerId,name:"Gavin",email:"gavin@example.org",
+    phoneNumber:b.phone,address:{addressDescription:b.address},
+    status:"active",
+  };
+  const h=makeHarness(b,{
+    existingRows:[existingRow],
+    existingCustomer:{
+      name:"Gavin",email:"gavin@example.org",phoneNumber:b.phone,
+      address:{text:b.address},status:"active",
+      jobs:[{services:[brownService]}],
+    },
+  });
+  const result=await h.run();
+  assert.equal(result.status,"completed");
+  assert.equal(result.createdCustomer,false);
+  assert.equal(result.createdJobs,1);
+  assert.equal(h.posts.length,1);
+  assert.equal(h.posts[0].kind,"job");
+  assert.equal(h.posts[0].id,customerId);
+  assert.deepEqual(h.posts[0].job.services,[blackService]);
+  assert.equal(h.statuses.at(-1).customerMode,"existing");
+});
+test("first-name-only account must pass authoritative phone verification before any writes",async()=>{
+  const b=sampleBooking({
+    modified:booking=>({...booking,name:"Gavin Stevenson",email:"gav@example.org"}),
+  });
+  const row={
+    _id:customerId,name:"Gavin",email:"gavin@example.org",
+    phoneNumber:b.phone,address:{addressDescription:b.address},
+    status:"active",
+  };
+  const h=makeHarness(b,{
+    existingRows:[row],
+    existingCustomer:{
+      name:"Gavin",email:row.email,phoneNumber:"07700999000",
+      address:{text:b.address},status:"active",jobs:[],
+    },
+  });
+  const result=await h.run();
+  assert.equal(result.status,"held");
+  assert.equal(result.reason,"existing_customer_identity_unverified");
+  assert.equal(h.posts.length,0);
+  assert.equal(h.ledger.records.size,0);
+});
+test("first-name-only existing Squeegee account stays held if inactive",async()=>{
+  const b=sampleBooking({
+    modified:booking=>({...booking,name:"Gavin Stevenson",email:"gav@example.org"}),
+  });
+  const row={
+    _id:customerId,name:"Gavin",email:"gavin@example.org",
+    phoneNumber:b.phone,address:{addressDescription:b.address},
+    status:"inactive",
+  };
+  const h=makeHarness(b,{
+    existingRows:[row],
+    existingCustomer:{
+      name:"Gavin",email:row.email,phoneNumber:b.phone,
+      address:{text:b.address},status:"inactive",jobs:[],
+    },
+  });
+  const result=await h.run();
+  assert.equal(result.status,"held");
+  assert.equal(result.reason,"existing_customer_reactivation_required");
+  assert.equal(h.posts.length,0);
+});
