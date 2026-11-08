@@ -734,7 +734,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
 
   if (bookingStatus === "confirmed") {
     const scheduleResults = Array.isArray(bookingConfirmation?.datePreview?.results)
-      ? bookingConfirmation.schedule.results
+      ? bookingConfirmation.datePreview.results
       : [];
 
     const cleanDateRows = scheduleResults
