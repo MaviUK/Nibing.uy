@@ -54,9 +54,9 @@ test("only owner Squeegee .sqg is accepted; browser and worker never upload raw 
  assert.ok(page.includes("uploadCsrf.isAllowedOwnerUpload"));
  assert.ok(page.includes("worker-src 'self'"));
  assert.ok(ui.includes('new Worker("/customer-hq-sqg-worker.mjs?v=streak-plus1-v3-20261108"'));
- assert.ok(ui.includes('result?.snapshot?.scoringVersion!=="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2"'));
+ assert.ok(ui.includes('result?.snapshot?.scoringVersion!=="2026-11-streak-20-plus-1-per-job-per-paid-bin-v3"'));
  assert.ok(worker.includes('customer-hq-sqg-converter.mjs?v=streak-plus1-v3-20261108'));
- assert.ok(worker.includes('SCORE_VERSION!=="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2"'));
+ assert.ok(worker.includes('SCORE_VERSION!=="2026-11-streak-20-plus-1-per-job-per-paid-bin-v3"'));
  assert.ok(ui.includes('fetch(form.action,{method:"POST"'));
  assert.ok(ui.includes('body.append("history",bytes,'));
  assert.ok(!ui.includes('body.append("history",file'));
@@ -90,7 +90,7 @@ test("automatic conversion matches physical bin quantities with independent job 
  assert.equal(first.paidCleans,24);
  assert.equal(first.points,480);
  assert.equal(first.currentStreak,1);
- assert.equal(first.nextBonus,22);
+ assert.equal(first.nextBonus,21);
  assert.equal(first.events.filter(x=>x.event==="paid_completed_clean").length,12);
  assert.ok(first.events.every(x=>x.streak===1));
  assert.equal(result.summary.points,901*480);
@@ -117,7 +117,7 @@ test("different jobs on one customer earn independently and one skipped job does
  acceptSqueegeeRecord(state,{resourceType:"transactions",
   _id:uuid(999994),customerId:firstId,transactionType:1,amount:-5});
  // The original first job was completed on Nov 6. Second occurrence on
- // Nov 7 earns +22, despite a skip on a DIFFERENT Brown job the same day.
+ // Nov 7 earns +21, despite a skip on a DIFFERENT Brown job the same day.
  acceptSqueegeeRecord(state,{resourceType:"joboccurrences",
   _id:uuid(999992),jobId:uuid(501000),customerId:firstId,
   status:1,isoDueDate:"2026-11-07",
@@ -131,15 +131,15 @@ test("different jobs on one customer earn independently and one skipped job does
  const brownA=customer.jobs.find(j=>j.id===uuid(501000));
  const brownB=customer.jobs.find(j=>j.id===uuid(501001));
  assert.equal(brownA.currentStreak,2);
- assert.equal(brownA.nextBonus,24);
+ assert.equal(brownA.nextBonus,22);
  assert.equal(brownB.currentStreak,0);
  assert.equal(brownB.nextBonus,20);
  assert.equal(customer.paidCleans,25);
- assert.equal(customer.points,502);
+ assert.equal(customer.points,501);
  assert.equal(customer.recordedSkips,1);
  assert.equal(next.summary.verifiedPaidBins,901*24+1);
  assert.equal(next.snapshot.scoringVersion,
-  "2026-11-streak-20-plus-2-per-job-per-paid-bin-v2");
+  "2026-11-streak-20-plus-1-per-job-per-paid-bin-v3");
 });
 test("genuine Squeegee .sqg occurrence IDs bind the recurring job UUID and YYYY-MM-DD",async()=>{
  const {makeState,acceptSqueegeeRecord}=await load();
