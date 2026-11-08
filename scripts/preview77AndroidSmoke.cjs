@@ -55,7 +55,7 @@ const fs=require("node:fs");
     waitUntil:"domcontentloaded",timeout:45000});
   if(!hqResponse||hqResponse.status()!==200)
     throw Error("Customer HQ HTTP "+hqResponse?.status());
-  await page.getByRole("heading",{name:/customer\\s+hq/i}).first()
+  await page.getByRole("heading",{name:/customer.*hq/i}).first()
     .waitFor({state:"visible",timeout:20000});
   const hqDimensions=await page.evaluate(()=>({
     width:window.innerWidth,
