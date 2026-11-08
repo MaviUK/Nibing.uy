@@ -1,6 +1,6 @@
 // Runs in the owner's browser. The complete .sqg never leaves their device.
 export const SCORE_VERSION="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2";
-export const PENALTY_SOURCE_VERSION="2026-11-escalating-overdue-per-job-v2";
+export const PENALTY_SOURCE_VERSION="2026-11-flat-overdue-1xp-per-job-day-v3";
 const UUID=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 const REF=/^(?:\d{1,12}|CUS\d{1,15}|[Aa]{2}\d{3,8})$/;
 const EMAIL=/^[^\s@]{1,80}@[^\s@]{1,160}\.[^\s@]{2,24}$/;
