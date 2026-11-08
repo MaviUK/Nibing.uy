@@ -29,7 +29,7 @@ test("two unpaid jobs incur two independent penalties, not one per customer",()=
     {id:"job-black",dueOn:"2026-10-01"},
     {id:"job-brown",dueOn:"2026-10-01"}];
   const ledger=penalty.reconcileLedger([],candidates,"2026-11-01");
-  assert.equal(penalty.penaltyTotal(ledger),3);
+  assert.equal(penalty.penaltyTotal(ledger),6);
   assert.equal(ledger.length,2);
 });
 test("repeated import never deducts twice; later unpaid import adds only delta",()=>{
@@ -95,7 +95,7 @@ test("private importer validates overdue evidence; paid balances cannot invent u
   assert.equal(verified.accounts[0].outstandingJobs.length,1);
   const ledger=penalty.reconcileLedger([],
     verified.accounts[0].outstandingJobs,asOf);
-  assert.equal(penalty.penaltyTotal(ledger),6);
+  assert.equal(penalty.penaltyTotal(ledger),3);
   const account={...verified.accounts[0],penaltyLedger:ledger};
   const year=Number(paidDay.slice(0,4));
   const alias=canonicalLegacyRef(id);
