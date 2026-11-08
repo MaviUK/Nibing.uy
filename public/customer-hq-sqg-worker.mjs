@@ -77,7 +77,7 @@ async function convert(file,previous){
  const outcome=finishSqueegeeImport(state,asOf,previous||{});
  if(outcome?.snapshot?.scoringVersion!==SCORE_VERSION||
      outcome?.snapshot?.penaltySourceVersion!==PENALTY_SOURCE_VERSION||
-    SCORE_VERSION!=="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2")
+    SCORE_VERSION!=="2026-11-streak-20-plus-1-per-job-per-paid-bin-v3")
    throw Error("The Squeegee scoring module is outdated. Reload the import page before retrying.");
  emit("Verified private per-job points ready to import",98);
  return outcome;
