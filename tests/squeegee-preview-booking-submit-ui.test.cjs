@@ -276,8 +276,10 @@ test("booking receipt carries valid council-matched dates through to the success
   // field dereferenced in the success-state ternary.
   assert.match(booking,/const scheduleResults = Array\.isArray\(bookingConfirmation\?\.datePreview\?\.results\)\s*\? bookingConfirmation\.datePreview\.results\s*: \[\]/);
   assert.doesNotMatch(booking,/bookingConfirmation\.schedule\.results/);
-  assert.match(booking,/Council-matched first clean date/);
-  assert.match(booking,/The Squeegee appointment is confirmed separately/);
+  assert.match(booking,/Your first clean date/);
+  assert.doesNotMatch(booking,/Council-matched first clean date/);
+  assert.doesNotMatch(booking,/The Squeegee appointment is confirmed separately/);
+  assert.doesNotMatch(booking,/If anything needs manual review, we will contact you/);
   assert.doesNotMatch(booking,/schedule: null/);
 });
 test("receipt never displays missing, stale or mismatched booking dates as confirmed",async()=>{
