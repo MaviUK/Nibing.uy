@@ -4,6 +4,7 @@ const crypto=require("node:crypto");
 const {canonicalLegacyRef}=require("./squeegeeActiveLeaderboardImport");
 const history=require("./squeegeeActivePreviewSnapshot");
 const binHistory=require("./squeegeePreviewBinHistory");
+const overdue=require("./squeegeeOverduePenalty");
 const {safePublicTown}=require("./arcadePublicIdentity");
 const {RULE_VERSION,effectiveCleaningStreak}=require("./squeegeeCleaningStreak");
 
@@ -213,9 +214,14 @@ function publicAccount(account,websiteXp=0,now=Date.now()){
     return {...rest,jobNumber:j+1,
       jobLabel:jobStreaks[j]?.label||"Job "+String(j+1)};
   }).reverse();
+  const penaltyPoints=overdue.penaltyTotal(account.penaltyLedger);
+  const grossPoints=account.points+xp;
   return {firstName:account.firstName||null,town:account.town,
-    customerReference:account.ref,points:account.points+xp,
+    customerReference:account.ref,points:Math.max(0,grossPoints-penaltyPoints),
     cleaningPoints:account.points,websiteXp:xp,
+    ...(Array.isArray(account.penaltyLedger)?{
+      overduePenaltyPoints:penaltyPoints,
+      outstandingJobs:account.outstandingJobs?.length||0}:{}),
     paidCleans:account.paidCleans,
     streakModel:byJob?"per_job":"legacy_customer",
     jobs:jobStreaks,
