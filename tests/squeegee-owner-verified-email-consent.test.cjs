@@ -134,3 +134,44 @@ test("one-time bulk confirmation remains behind Preview 77 owner OTP and same-or
   assert.match(source,/Record verified email permissions for eligible customers/);
   assert.match(source,/Another permission update occurred/);
 });
+
+
+test("email-eligible zero-score accounts do not block publishing other verified replies",()=>{
+  // The private consent ledger intentionally excludes accounts with no
+  // verified cleaning points, but email eligibility still counts them.
+  const source=fixture();
+  source.accounts[1]={...source.accounts[1],points:0,paidCleans:0,
+    currentStreak:0,nextBonus:20,events:[],jobs:[]};
+  const eligible=hq.eligibleRankedEmailAccounts(source);
+  assert.equal(eligible.count,2);
+  const pending=names.initialiseFromPrivateCustomerHQ(source);
+  assert.equal(pending.records.length,1);
+  const attested=names.approveOwnerReviewedEmailReplies(
+    pending,source,eligible.aliases,{confirm:"yes",evidenceRef:evidence});
+  assert.equal(attested.counts.eligible,2);
+  assert.equal(attested.counts.qualifying,1);
+  assert.equal(attested.counts.approved,1);
+  assert.equal(attested.snapshot.records.length,1);
+  assert.equal(attested.snapshot.records[0].consent,"granted");
+  // Missing a positive-score consent row must still fail closed.
+  const missing={...pending,records:[]};
+  assert.throws(()=>names.approveOwnerReviewedEmailReplies(
+    missing,source,eligible.aliases,{confirm:"yes",evidenceRef:evidence}),
+    /consent_customer_mismatch/);
+});
+
+test("live bulk consent route requires a production-only owner session and verified ETag write",()=>{
+ const source=fs.readFileSync(path.join(__dirname,
+   "../netlify/functions/squeegeePreviewLeaderboardNames.mjs"),"utf8");
+ assert.match(source,/productionGuard\.isVerifiedProductionScope\(scope\)/);
+ assert.match(source,/productionOwner\.validCookie\(/);
+ assert.match(source,/productionOwner\.fromHeader\(authHeader\)/);
+ assert.match(source,/isProduction\?LIVE_ORIGIN:ORIGIN/);
+ assert.match(source,/if\(request\.method==="POST"\)/);
+ assert.match(source,/onlyIfMatch:current\.etag/);
+ assert.match(source,/saved\?\.modified!==true \|\| !saved\?\.etag/);
+ assert.match(source,/verified\?\.etag!==saved\.etag/);
+ assert.match(source,/if\(isProduction\)return page\("<section>Bulk CSV import is unavailable on the live site/);
+ assert.match(source,/ownerEmailReplyAttestation/);
+ assert.match(source,/Record verified email permissions for eligible customers/);
+});
