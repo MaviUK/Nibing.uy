@@ -292,5 +292,5 @@ test("paid in November but cleaned in September stays settled AND records histor
     dueOn:"2026-09-09",paidOn:"2026-11-05",
     j:account.jobs.findIndex(j=>j.id===jobId)}]);
   assert.equal(result.snapshot.penaltySourceVersion,
-    "2026-11-escalating-overdue-per-job-v2");
+    "2026-11-flat-overdue-1xp-per-job-day-v3");
 });
