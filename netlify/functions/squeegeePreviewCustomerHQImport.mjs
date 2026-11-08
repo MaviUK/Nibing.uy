@@ -106,9 +106,17 @@ export default async function handler(request,ctx){
     try{existing=await store.get(hq.DATA_KEY,{type:"json",consistency:"strong"});}
     catch{return page("<section>Private storage temporarily unavailable. No changes made.</section>",503);}
     if(new URL(request.url).searchParams.get("referenceMap")==="1"){
+      // Owner-only proof that an older cleaning occurrence was already
+      // verified paid in the LAST imported snapshot. A new unpaid invoice
+      // must not make a previously settled service suddenly unpaid again.
+      // Job IDs never enter public leaderboard responses.
       const records=Array.isArray(existing?.accounts)
         ?existing.accounts.map(a=>({id:a.id,ref:a.ref,
-          firstName:a.firstName,town:a.town})): [];
+          firstName:a.firstName,town:a.town,
+          paidJobDays:Array.isArray(a.jobs)&&Array.isArray(a.events)
+            ?[...new Set(a.events.filter(e=>e?.event==="paid_completed_clean"&&
+              Number.isSafeInteger(e.j)&&a.jobs[e.j]?.id)
+              .map(e=>a.jobs[e.j].id+":"+e.date))]:[]})): [];
       return new Response(JSON.stringify({sourceAsOf:existing?.asOf||null,records}),{
         status:200,headers:{
           "Content-Type":"application/json; charset=utf-8",
