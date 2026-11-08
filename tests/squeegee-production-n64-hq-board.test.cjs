@@ -100,3 +100,58 @@ test("live and preview route selection is separate; privacy explains participati
  const estimated=read("src/data/dailyBinCounter.mjs");
  assert.match(estimated,/OWNER_ESTIMATED_BINS_PER_DAY = 200/);
 });
+
+test("live Records tab uses only already consented public names",()=>{
+ const highlights=require("../netlify/functions/lib/squeegeePublicAchievementHighlights");
+ const data=fixture();
+ const sarah=data.privateData.accounts[0];
+ sarah.jobs=[{id:"BLACK-1",label:"Black",currentStreak:1,
+   lastCompletedOn:asOf,paidCleans:1}];
+ sarah.events=[{j:0,date:asOf,event:"paid_completed_clean",
+   streak:1,points:20,quantity:1}];
+ const john=data.privateData.accounts[1];
+ john.jobs=[{id:"BLACK-2",label:"Black",currentStreak:20,
+   lastCompletedOn:asOf,paidCleans:20}];
+ john.events=[{j:0,date:asOf,event:"paid_completed_clean",
+   streak:20,points:30,quantity:1}];
+ // Consent only Sarah; even John's much higher private streak must
+ // never appear in public records, just as it cannot appear in ranks.
+ data.ledger.records[1]={...data.ledger.records[1],
+   consent:"pending",consentAt:null,method:null,evidenceRef:null};
+ const publicScores=prod.approvedBoard(
+   data.privateData,data.scores,data.eligible,data.ledger,key);
+ assert.equal(publicScores.entries.length,1);
+ assert.equal(publicScores.entries[0].displayName,"Sarah");
+ const record=highlights.highlights(
+   data.privateData,data.eligible,data.ledger,"overall",publicScores,key);
+ assert.equal(record.status,"preview_public_named_records");
+ assert.equal(record.colours[0].colour,"Black");
+ assert.equal(record.colours[0].highestTop.length,1);
+ assert.equal(record.colours[0].highestTop[0].displayName,"Sarah");
+ assert.ok(!JSON.stringify(record).includes("John"));
+ assert.ok(!JSON.stringify(record).includes("@"));
+ assert.ok(!JSON.stringify(record).includes("BLACK-2"));
+ const live=read("netlify/functions/n64ProductionLeaderboard.mjs");
+ assert.match(live,/publicRecords\.highlights\(privateData,eligible\.aliases,ledger,period,result,key\)/);
+ const ui=read("src/components/ArcadeLeaderboard.jsx");
+ assert.match(ui,/★ RECORDS<\/button>/);
+ assert.match(ui,/n64-board-tab-content n64-board-records-tab/);
+ assert.doesNotMatch(ui,/!LIVE_N64 && <button type="button"\s+className=\{activePanel==="records"/);
+ assert.doesNotMatch(ui,/!LIVE_N64 && i<3 && <span className="n64-board-medal"/);
+});
+test("revoked public permission removes both ranking and cleaning records",()=>{
+ const highlights=require("../netlify/functions/lib/squeegeePublicAchievementHighlights");
+ const data=fixture();
+ data.privateData.accounts[0].jobs=[{id:"BLACK-1",label:"Black",
+   currentStreak:1,lastCompletedOn:asOf,paidCleans:1}];
+ data.privateData.accounts[0].events=[{j:0,date:asOf,
+   event:"paid_completed_clean",streak:1,points:20,quantity:1}];
+ data.ledger.records=data.ledger.records.map(x=>({
+   ...x,consent:"withdrawn",withdrawnAt:asOf+"T12:00:00Z"
+ }));
+ const publicScores=prod.approvedBoard(
+   data.privateData,data.scores,data.eligible,data.ledger,key);
+ assert.equal(publicScores.entries.length,0);
+ assert.equal(highlights.highlights(
+   data.privateData,data.eligible,data.ledger,"overall",publicScores,key),null);
+});
