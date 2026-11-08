@@ -132,7 +132,7 @@ export default async function handler(request,ctx){
     }
     const summary=existing?.summary;
     const perJobReady=existing?.scoringVersion===
-      "2026-11-streak-20-plus-2-per-job-per-paid-bin-v2";
+      "2026-11-streak-20-plus-1-per-job-per-paid-bin-v3";
     const eligible=hq.eligibleRankedEmailAccounts(existing);
     return page('<section><strong>'+(summary?"PRIVATE HISTORY IMPORTED":"NOT IMPORTED")+
       '</strong><p>'+(summary?
@@ -222,7 +222,8 @@ export default async function handler(request,ctx){
     const hash=crypto.createHash("sha256").update(source).digest("hex");
     // Re-importing the same backup with a NEW scoring policy must refresh
     // the private ledger. Only skip an exact repeat under the same policy.
-    if(previous?.sourceHash===hash && previous?.penaltySourceVersion===overdue.VERSION)
+    if(previous?.sourceHash===hash && previous?.penaltySourceVersion===overdue.VERSION &&
+       previous?.scoringVersion===validated.scoringVersion)
       return page("<section>Already imported — no duplicate points awarded.</section>"+
         '<p><a href="'+PATH+'">Return to setup</a></p>');
     // Save the refreshed permissions before the refreshed history. Any
