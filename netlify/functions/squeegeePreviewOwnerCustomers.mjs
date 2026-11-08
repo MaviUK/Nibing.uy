@@ -573,9 +573,54 @@ export default async function handler(request,context){
  const cookie=owner.sessionCookieFromHeader(request.headers.get("cookie"));
  if(!owner.verifyTestSessionCookie(cookie,process.env,Date.now(),scope))return login();
  if(request.method==="POST"){
+  const length=Number(request.headers.get("content-length")||0);
+  if(!Number.isFinite(length)||length>10000)
+    return respond("Too large","<h1>Invalid form data</h1>",413);
+  const body=await request.formData();
+  if(body.get("action")==="recalculate_plus1"){
+    // Owner session is validated above. Explicitly verify a private
+    // session-bound form token before changing the saved leaderboard.
+    if(!uploadCsrf.isAllowedOwnerUpload({
+      cookie,token:body.get("csrf"),env:process.env,headers:request.headers
+    }))return respond("Forbidden",
+      '<h1>Owner session verification failed</h1>'+
+      '<a class="btn" href="'+PATH+'">Return to admin</a>',403);
+    try{
+      const store=getStore({name:hq.DATA_STORE,consistency:"strong"});
+      const previous=await store.getWithMetadata(hq.DATA_KEY,{
+        type:"json",consistency:"strong"
+      });
+      if(previous?.data?.scoringVersion===scorePolicy.NEW)
+        return new Response(null,{status:303,
+          headers:{"Location":PATH,"Cache-Control":"no-store"}});
+      if(!previous?.etag||previous.data?.scoringVersion!==scorePolicy.OLD)
+        return respond("Reimport needed",
+          '<h1>Saved history requires a fresh backup</h1>'+
+          '<p>No scores changed. Use the secure Squeegee backup importer.</p>'+
+          '<a class="btn" href="/api/squeegee-preview-hq-import">UPDATE LEADERBOARD</a>',409);
+      const revised=scorePolicy.migrate(previous.data);
+      // Conditional write protects against an overlapping owner import.
+      const saved=await store.setJSON(hq.DATA_KEY,revised,{
+        onlyIfMatch:previous.etag
+      });
+      if(saved?.modified!==true)
+        return respond("Update conflict",
+          '<h1>Another update was saved first</h1>'+
+          '<p>No scores were overwritten. Reload admin and try again.</p>'+
+          '<a class="btn" href="'+PATH+'">RELOAD ADMIN</a>',409);
+      return new Response(null,{status:303,
+        headers:{"Location":PATH,"Cache-Control":"no-store"}});
+    }catch{
+      // Never print private backup records, emails, IDs or customer details.
+      console.warn("Preview77 saved streak XP recalculation withheld");
+      return respond("Recalculation withheld",
+        '<h1>Unable to verify saved history</h1>'+
+        '<p>No scores changed. Reimport the original .sqg backup to refresh all totals.</p>'+
+        '<a class="btn" href="/api/squeegee-preview-hq-import">UPDATE LEADERBOARD</a>',409);
+    }
+  }
   if(request.headers.get("origin")!==ORIGIN)
    return respond("Forbidden","<h1>Invalid sign-out request</h1>",403);
-  const body=await request.formData();
   if(body.get("action")!=="logout")
    return respond("Bad request","<h1>Unknown action</h1>",400);
   const headers=new Headers({"Location":PATH,"Cache-Control":"no-store"});
