@@ -6,7 +6,7 @@ const { autoEnrollBooking } = require("./arcadeLeaderboard");
 const { verifyPreviewBooking } = require("./previewBookingChallenge");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 const { annualBookingBreakdown } = require("./lib/annualBookingBreakdown");
-const { buildBookingEmailHtml } = require("./lib/bookingEmailTemplate");
+const { buildBookingEmailHtml, bookingReceiptDates } = require("./lib/bookingEmailTemplate");
 const { buildOwnerTermsSummary } = require("./lib/ownerBookingTermsSummary");
 const ownerCertificate=require("./lib/squeegeeOwnerCertificate");
 const { validateBookingSubmission, claimBookingSubmission, submissionErrorResponse } = require("./lib/bookingSubmissionGuard");
@@ -430,12 +430,24 @@ exports.handler = async (event) => {
           "outside_approved_preview_email_pilot")||adminEmailMessage:
         adminEmailMessage);
 
+    // The council-matched dates visible in the form belong in BOTH parts
+    // of the customer receipt. This is a read-only display snapshot, not
+    // authority to create a Squeegee job; the worker re-verifies separately.
+    const firstCleanDates=bookingReceiptDates(payload.bookingScheduleSnapshot,{
+      address,bins:filteredBins,
+    });
+    const firstCleanDatesText=firstCleanDates.length?
+      "Your first clean date"+(firstCleanDates.length>1?"s":"")+":\n"+
+      firstCleanDates.map(row=>row.bin+": "+row.date).join("\n")+
+      "\n\nWe'll contact you if anything changes.":
+      "We’ll be in touch shortly to confirm your cleaning schedule.";
+
     const customerEmailPromise = email
       ? resend.emails.send({
           from: FROM_DEFAULT,
           to: email,
           subject: `🗑️ Booking received — ${submission.bookingId}`,
-          text: `Thanks ${name},\n\nYour Ni Bin Guy booking has been received.\n\nBooking reference: ${submission.bookingId}\n\nName: ${name}\nPhone: ${phone}\nAddress: ${address}\n\nBins:\n${binsText}\n\n${pricingBlocks.text}\n\nTerms:\nAccepted: ${termsAccepted ? "yes" : "no"}\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\n\n${termsPdfAttachment ? "Your signed Terms & Conditions Acceptance Certificate PDF is attached to this email.\n\n" : ""}We’ll be in touch shortly to confirm your cleaning schedule.`,
+          text: `Thanks ${name},\n\nYour Ni Bin Guy booking has been received.\n\nBooking reference: ${submission.bookingId}\n\nName: ${name}\nPhone: ${phone}\nAddress: ${address}\n\nBins:\n${binsText}\n\n${pricingBlocks.text}\n\nTerms:\nAccepted: ${termsAccepted ? "yes" : "no"}\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\n\n${termsPdfAttachment ? "Your signed Terms & Conditions Acceptance Certificate PDF is attached to this email.\n\n" : ""}${firstCleanDatesText}`,
           html: buildBookingEmailHtml({
             bookingId: submission.bookingId,
             name,
@@ -447,6 +459,7 @@ exports.handler = async (event) => {
             termsVersion,
             termsTimestamp,
             termsPdfAttached: Boolean(termsPdfAttachment),
+            firstCleanDates,
           }),
           replyTo: TO_ADMIN,
           attachments,
