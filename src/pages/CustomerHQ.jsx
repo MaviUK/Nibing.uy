@@ -200,7 +200,7 @@ export default function CustomerHQ({embedded=false}){
         "Sign-in isn't available yet. Please try later.":
         "Please enter a valid email address.");
       setChallenge(data.challengeId);setCode("");
-      setMessage("If your email matches a current NI Bin Guy account, a sign-in code has been sent. Check your inbox and junk folder.");
+      setMessage("For privacy, this page always shows the code entry step. A code is emailed only when the address exactly matches one active Squeegee customer account. If no email arrives, use the registered Squeegee email rather than a different address used for a website booking.");
     }catch(err){setError(err.message);}
     finally{setBusy(false);}
   }
@@ -291,6 +291,7 @@ export default function CustomerHQ({embedded=false}){
             <div className="hq-heading"><span className="hq-icon">✉</span>
               <h2>{challenge?"CHECK YOUR EMAIL":"SECURE CUSTOMER LOGIN"}</h2></div>
             <p className="hq-intro">Use the email address on your existing Squeegee account. You won't need to create a new cleaning account.</p>
+            {challenge && <p className="hq-small">Email address entered: <strong>{email.trim()}</strong>. Check that this is the email currently registered in Squeegee. If it is different, select “Use another email or request a new code” below.</p>}
             {challenge?
               <form onSubmit={verify} className="hq-form">
                 <label htmlFor="hq-code">8-digit sign-in code</label>
