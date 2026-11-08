@@ -1,5 +1,5 @@
 import SevenZip from "./vendor/sqg-7zip/7zz.es6.js";
-import {SCORE_VERSION,PENALTY_SOURCE_VERSION,makeState,acceptSqueegeeRecord,finishSqueegeeImport} from "./customer-hq-sqg-converter.mjs?v=overdue-xp-v1-20261108";
+import {SCORE_VERSION,PENALTY_SOURCE_VERSION,makeState,acceptSqueegeeRecord,finishSqueegeeImport} from "./customer-hq-sqg-converter.mjs?v=overdue-xp-v2-20261108";
 
 // Pinned upstream open-source 7-Zip WASM. The decoder alone is downloaded;
 // Squeegee customer data is never uploaded to GitHub or the decoder provider.
