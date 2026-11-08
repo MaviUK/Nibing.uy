@@ -54,6 +54,8 @@ const OWNER_IMPORT_CODES=new Set([
   "hq_customer_validation_failed","hq_public_score_mismatch",
   "overdue_evidence_invalid","overdue_pending_job_invalid",
   "overdue_zero_balance_conflict","overdue_previous_ledger_invalid",
+  "overdue_settled_job_invalid","overdue_settled_job_not_late",
+  "overdue_settled_job_reopened",
   "overdue_occurrence_due_date_changed","overdue_penalty_would_decrease",
   "hq_active_leaderboard_reconciliation_failed"
 ]);
@@ -142,6 +144,8 @@ export default async function handler(request,ctx){
         ' · Cleaning history events: '+summary.historyEvents+
         ' · Active accounts with registered email: '+summary.emailAvailable+
         ' · Shared-email conflicts held for review: '+summary.duplicateEmailCount+
+        ' · Overdue XP deductions: '+(summary.overduePenaltyPoints??'Awaiting corrected import')+
+        ' · Historical late-paid jobs: '+(summary.historicalLatePaidJobs??'Awaiting corrected import')+
         ' · Source: '+escape(existing.asOf):
         'Upload the latest private Customer HQ JSON prepared from the verified Squeegee backup. Only an owner can replace cleaning scores. No customer can sign in until history is privately imported.')+
       '</p>'+(summary?'<p><strong>STREAK SCORING:</strong> '+
@@ -188,26 +192,31 @@ export default async function handler(request,ctx){
     if(previous?.asOf && validated.asOf<previous.asOf)
       return page("<section>Older customer history cannot replace newer data.</section>",409);
     stage="calculate_overdue";
-    // Charge only verified unpaid work. Freeze old accrued deductions when
-    // a cleaning occurrence is paid, and never debit it twice on reimport.
-    if(previous?.penaltySourceVersion===overdue.VERSION &&
+    // Historical paidDate is authoritative for settled-invoice penalties;
+    // a zero account balance only stops NEW deductions.
+    // Old snapshot penalties are reconciled by stable occurrence ID.
+    if([overdue.VERSION,overdue.LEGACY_VERSION]
+       .includes(previous?.penaltySourceVersion) &&
        validated.penaltySourceVersion!==overdue.VERSION)
       throw Error("overdue_evidence_invalid");
     const previousById=new Map((previous?.accounts||[])
       .filter(a=>typeof a?.id==="string").map(a=>[a.id,a]));
-    let totalPenalty=0,totalOpen=0;
+    let totalPenalty=0,totalOpen=0,totalSettled=0;
     const withOverdue=validated.penaltySourceVersion===overdue.VERSION
       ?{...validated,accounts:validated.accounts.map(account=>{
         const earlier=previousById.get(account.id);
         const prior=earlier?.ref===account.ref?earlier.penaltyLedger||[]:[];
         const open=account.outstandingJobs||[];
-        const ledger=overdue.reconcileLedger(prior,open,validated.asOf);
+        const settled=account.settledJobs||[];
+        const ledger=overdue.reconcileLedger(prior,open,validated.asOf,settled);
         const penaltyPoints=overdue.penaltyTotal(ledger);
         totalPenalty+=penaltyPoints;totalOpen+=open.length;
+        totalSettled+=settled.length;
         return {...account,penaltyLedger:ledger,penaltyPoints};
       })}:validated;
     const scored={...withOverdue,summary:{...withOverdue.summary,
-      overduePenaltyPoints:totalPenalty,outstandingJobs:totalOpen}};
+      overduePenaltyPoints:totalPenalty,outstandingJobs:totalOpen,
+      historicalLatePaidJobs:totalSettled}};
     const hash=crypto.createHash("sha256").update(source).digest("hex");
     if(previous?.sourceHash===hash)
       return page("<section>Already imported — no duplicate points awarded.</section>"+
@@ -242,7 +251,8 @@ export default async function handler(request,ctx){
       validated.summary.allHistoricalPoints+' cleaning XP (calculated separately per recurring Squeegee job) and '+
       validated.summary.historyEvents+' clean history entries. '+
       ' Verified overdue XP deductions: '+totalPenalty+
-      ' across '+totalOpen+' currently unpaid jobs (28 days free, then escalating daily). '+
+      ' across '+totalSettled+' historically late-paid jobs and '+totalOpen+
+      ' currently unpaid jobs (28 days free, then escalating daily). '+
       validated.summary.rankedWithEmail+' ranking-eligible customers have an email, '+
       'representing '+validated.summary.rankedWithEmailPoints+' cleaning XP. '+
       'No Squeegee customer/job/payment was changed.</p>'+
