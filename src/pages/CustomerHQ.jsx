@@ -361,7 +361,7 @@ export default function CustomerHQ({embedded=false}){
                 <strong>−{number(account.overduePenaltyPoints)} XP</strong></div>}
             <div className="hq-balance-line hq-total"><span>Total XP</span>
               <strong>{number(account.points)} XP</strong></div>
-            <p className="hq-small">Each Squeegee job starts at 20 XP per paid bin and rises by 2 XP per consecutive completed visit on that job. A recorded skip resets only that job. A 35-day attendance gap resets only the next bonus. Separately, each verified unpaid job loses 1 XP on day 29 after its scheduled due date, then 2 more on day 30, 3 more on day 31, and so on. A new Squeegee backup is needed to verify payments and refresh deductions.</p>
+            <p className="hq-small">Each Squeegee job starts at 20 XP per paid bin and rises by 2 XP per consecutive completed visit on that job. A recorded skip resets only that job. A 35-day attendance gap resets only the next bonus. Separately, each unpaid job loses 1 XP per overdue day after a 28-day grace period: 1 point total on day 29, 2 total on day 30, 3 total on day 31. No compounding. A new Squeegee backup is needed to verify payments and refresh deductions.</p>
             {account.streakModel!=="per_job"&&
               <p className="hq-small" role="status"><strong>Score update pending:</strong> These historical totals were imported using the older customer-wide streak calculation. The owner must reimport a Squeegee backup before corrected per-job points are shown.</p>}
             <p className="hq-small">Source: Squeegee backup of {formatDate(account.historyAsOf)}. New payments and cleans are not automatically added until the next verified import.</p>
