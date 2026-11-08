@@ -1,5 +1,5 @@
 "use strict";
-// Preview 77 records: use ONLY identities and annual XP already displayed
+// Live and preview records: use ONLY identities and annual XP already displayed
 // on the exact same public leaderboard. No new consent or permission is granted.
 // All private refs, job details, email addresses and UUIDs stay server-side.
 const crypto=require("node:crypto");
@@ -17,7 +17,7 @@ function highlights(snapshot,eligibleAliases,permissions,period="overall",public
    permissions?.version!==1||
    permissions.sourceAsOf!==snapshot.asOf||
    !Array.isArray(permissions.records)||
-   publicScores?.status!=="preview_public_first_names"||
+   !["preview_public_first_names","public_eligible_scores"].includes(publicScores?.status)||
    publicScores?.sourceAsOf!==snapshot.asOf||
    !Array.isArray(publicScores.entries)||
    !Buffer.isBuffer(secretKey)||secretKey.length<16)return null;
