@@ -94,7 +94,7 @@ test("fresh test confirmation reports queue acceptance without claiming job crea
   assert.doesNotMatch(booking,/Squeegee syncing was not confirmed/);
   assert.doesNotMatch(booking,/bookingConfirmation\.squeegeePilot\.reason/);
   assert.match(booking,/Booking received/);
-  assert.match(booking,/confirm your first clean date separately/);
+  assert.match(booking,/email your first clean date shortly/i);
   assert.match(booking,/Please don't submit another booking for the same bins/);
   // The customer-facing Submit Booking path never asks for an owner access
   // code, opens a second recovery tab, or calls a Squeegee POST itself.
