@@ -11,6 +11,8 @@ import personal from "./lib/squeegeePersonalLeaderboard.js";
 import directory from "./lib/squeegeePreviewOwnerCustomerDirectory.js";
 import achievements from "./lib/squeegeePreviewOwnerAchievements.js";
 import overdue from "./lib/squeegeeOverduePenalty.js";
+import uploadCsrf from "./lib/squeegeePreviewHQImportCsrf.js";
+import scorePolicy from "./lib/squeegeeSavedStreakMigration.js";
 
 const PATH="/api/squeegee-preview-owner-customers";
 const ORIGIN="https://deploy-preview-77--nibinguy.netlify.app";
@@ -86,7 +88,8 @@ const css=[
  ".award .award-top-five .award-entry-detail{display:block;grid-column:1/-1;color:#263b50;font-size:12px;line-height:1.45;font-weight:650}",
  "@media(max-width:600px){.records .award-grid,.records .award-extra{grid-template-columns:minmax(0,1fr)}.award .award-top-five .award-entry-name{font-size:15px}.award .award-top-five .award-entry-score{font-size:16px}.award .award-top-five .award-entry-detail{font-size:13px}}",
   ".penalty-note{background:#fff0d5;border-left:5px solid #ae5d30;padding:10px;font-weight:650}.penalty-neg{color:#9a3025!important}.overdue-table th{background:#f5d9c9}.overdue-table td{vertical-align:top}.overdue-table strong{color:#a1372b}.penalty-detail{margin-top:11px}.penalty-detail summary{cursor:pointer;font-weight:850}",
-  "@media(max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.overdue-table th,.overdue-table td{font-size:12px;padding:8px 5px}}"
+  "@media(max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.overdue-table th,.overdue-table td{font-size:12px;padding:8px 5px}}",
+  ".scoring-banner{background:#fff2cf;border:4px solid #cf8336;box-shadow:4px 4px #0d2242;color:#263958;padding:14px;margin:14px 0 20px}.scoring-banner strong{display:block;font-size:18px;font-weight:950}.scoring-banner p{margin:6px 0 12px;font-size:14px}.scoring-banner button{display:block;width:100%;min-height:52px;background:#ffe274}.scoring-current{background:#dcefd1;border:3px solid #759c70;padding:10px;color:#21472f;font-weight:800;font-size:13px;margin:13px 0}",
 ].join("");
 const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;")
  .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
@@ -109,7 +112,7 @@ function respond(title,body,status=200,headers={}){
  '<body><main><header><b>★ NI BIN GUY · OWNER ADMIN</b>'+
  '<a href="/?ntl-drawer-state=hidden#live-leaderboard">← BACK TO PREVIEW 77</a></header>'+
  body+'<footer>Owner-only, read-only data from a verified Squeegee backup. '+
- 'This page cannot change customer permissions, bookings or cleaning scores.</footer></main></body></html>';
+ 'Customer records are read-only except owner-authorised XP recalculation. No Squeegee bookings, payments or jobs are changed.</footer></main></body></html>';
  return new Response(doc,{status,headers:{...HEADERS,...headers}});
 }
 function login(){
@@ -295,7 +298,23 @@ function achievementsPanel(snapshot,selectedTown="",selectedYear="overall"){
      'Awards include imported active customers only, with their town as '+
      'recorded in the verified Squeegee backup.</div></section>';
 }
-function listPage(snapshot,eligible,params){
+function savedScoreBanner(snapshot,cookie){
+ if(snapshot.scoringVersion===scorePolicy.NEW)
+  return '<p class="scoring-current">✓ Correct streak scoring active: 20 XP for the first clean, then +1 XP per consecutive paid clean per bin.</p>';
+ if(snapshot.scoringVersion!==scorePolicy.OLD)
+  return '<section class="scoring-banner" role="alert"><strong>OLD XP SCORING</strong>'+
+   '<p>This history cannot be safely recalculated from saved events. Use Update Leaderboard to re-upload a verified Squeegee .sqg backup.</p></section>';
+ const token=uploadCsrf.tokenForOwnerSession(cookie,process.env);
+ return '<section class="scoring-banner" role="alert"><strong>⚠ SAVED XP STILL USES +2 PER STREAK</strong>'+
+  '<p>Your imported history still awards 20, 22, 24 XP per bin. The current rule is <b>20, 21, 22 XP</b>. Recalculate verified cleans from the stored history — no backup upload required. Paid-bin quantities, payment penalties and permissions remain unchanged.</p>'+
+  (token?'<form method="post" action="'+PATH+'">'+
+    '<input type="hidden" name="action" value="recalculate_plus1">'+
+    '<input type="hidden" name="csrf" value="'+esc(token)+'">'+
+    '<button type="submit">↻ RECALCULATE SAVED XP TO +1 RULE</button></form>':
+    '<p>Owner session expired. Sign in again to recalculate securely.</p>')+
+  '</section>';
+}
+function listPage(snapshot,eligible,params,scoreBanner=""){
  const q=safeString(params.get("q"),90);
  const mode=["all","eligible","other"].includes(params.get("mode"))?params.get("mode"):"all";
  const year=["2024","2025","2026"].includes(params.get("year"))?params.get("year"):"overall";
@@ -325,7 +344,7 @@ function listPage(snapshot,eligible,params){
  if(recordView){
   return respond("High Achievements",'<h1>★ OWNER RECORDS</h1>'+
    '<p class="lead">Cleaning milestones from your imported customers, by year or overall. '+
-   'Backup: <b>'+esc(snapshot.asOf)+'</b>.</p>'+stats+nav+
+   'Backup: <b>'+esc(snapshot.asOf)+'</b>.</p>'+stats+scoreBanner+nav+
    achievementsPanel(snapshot,safeString(params.get("town"),60),
     safeString(params.get("year"),10)));
  }
@@ -346,7 +365,7 @@ function listPage(snapshot,eligible,params){
  return respond("Customer directory",
  '<h1>★ CUSTOMER DIRECTORY</h1>'+
  '<p class="lead">Click any record to view private cleaning and XP history. Backup date: <b>'+
- esc(snapshot.asOf)+'</b>.</p>'+stats+nav+filters(q,mode,year)+
+ esc(snapshot.asOf)+'</b>.</p>'+stats+scoreBanner+nav+filters(q,mode,year)+
  '<div class="tools"><span>'+fmt(rows.length)+' matching customers</span>'+signout+'</div>'+
  (entries?'<ol class="list">'+entries+'</ol>'+paging:
  '<section class="panel"><h2>No matching customers</h2><p>Try a different first name, email, town or Squeegee customer reference.</p></section>')+
@@ -370,7 +389,7 @@ function contactDetails(row){
   status:safeString(row.status,40)
  };
 }
-async function detailPage(snapshot,eligible,params,account){
+async function detailPage(snapshot,eligible,params,account,scoreBanner=""){
  const alias=history.canonicalLegacyRef(account.id);
  const eligibleForBoard=Boolean(eligible?.aliases?.has(alias));
  const stored={
@@ -540,7 +559,7 @@ async function detailPage(snapshot,eligible,params,account){
  (eventRows||"<p>No events in this backup.</p>")+more+
  '<p class="note">The scoring import records physical-bin quantities and dates, '+
  'but not the colour of each historical bin.</p></section>';
- return respond("Customer "+account.ref,intro+stats+profile+overduePanel+perJobPanel+annual+visitHistory);
+ return respond("Customer "+account.ref,scoreBanner+intro+stats+profile+overduePanel+perJobPanel+annual+visitHistory);
 }
 function runtimeScope(req,ctx){
  return {hostname:new URL(req.url).hostname,deployContext:ctx?.deploy?.context,siteId:ctx?.site?.id};
@@ -572,16 +591,17 @@ export default async function handler(request,context){
     '<p class="lead">Upload the latest verified Squeegee backup first.</p>'+
     '<a class="btn" href="/api/squeegee-preview-hq-import">OPEN PRIVATE IMPORT →</a>',503);
   const eligible=hq.eligibleRankedEmailAccounts(snapshot);
+  const scoreBanner=savedScoreBanner(snapshot,cookie);
   const params=new URL(request.url).searchParams;
   const ref=safeString(params.get("ref"),32);
   if(ref){
    const account=snapshot.accounts.find(row=>String(row.ref).toLowerCase()===ref.toLowerCase());
-   return account?await detailPage(snapshot,eligible,params,account):
+   return account?await detailPage(snapshot,eligible,params,account,scoreBanner):
     respond("Not found",'<h1>Customer not found</h1>'+
      '<p>This reference is not present in the imported history.</p>'+
      '<a class="btn" href="'+PATH+'">ALL CUSTOMERS →</a>',404);
   }
-  return listPage(snapshot,eligible,params);
+  return listPage(snapshot,eligible,params,scoreBanner);
  }catch{
   // Do not log the owner's cookies or any private imported customer data.
   console.warn("Private owner directory temporarily unavailable");
