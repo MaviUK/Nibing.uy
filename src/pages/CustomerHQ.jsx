@@ -172,8 +172,8 @@ export default function CustomerHQ({embedded=false}){
          detail.customerReference!==current.customerReference ||
          !Number.isSafeInteger(detail.points) ||
          detail.points===current.points)return;
-      const next={...current,points:detail.points,
-        websiteXp:Math.max(0,detail.points-current.cleaningPoints)};
+      // Net-XP changes must not erase previously earned website XP.
+      const next={...current,points:detail.points};
       verifiedSnapshotRef.current=next;
       setAccount(next);
       if(timer)window.clearTimeout(timer);
@@ -337,7 +337,7 @@ export default function CustomerHQ({embedded=false}){
           </section>
           <div className="hq-stats">
             <Score label="TOTAL REWARDS" value={number(account.points)+" XP"}
-              highlight sub="Historical cleans + website XP"/>
+              highlight sub="Paid cleans + website XP minus overdue deductions"/>
             <Score label={account.streakModel==="per_job"?"TRACKED JOBS":"JOB STREAKS"}
               value={account.streakModel==="per_job"?number(account.jobs?.length||0):"UPDATE DUE"}
               sub={account.streakModel==="per_job"?
@@ -355,9 +355,13 @@ export default function CustomerHQ({embedded=false}){
               <strong>{number(account.cleaningPoints)} XP</strong></div>
             <div className="hq-balance-line"><span>Website rewards (levels and bookings)</span>
               <strong>+{number(account.websiteXp)} XP</strong></div>
+            {Number.isSafeInteger(account.overduePenaltyPoints)&&
+              account.overduePenaltyPoints>0&&
+              <div className="hq-balance-line"><span>Overdue job deductions</span>
+                <strong>−{number(account.overduePenaltyPoints)} XP</strong></div>}
             <div className="hq-balance-line hq-total"><span>Total XP</span>
               <strong>{number(account.points)} XP</strong></div>
-            <p className="hq-small">Each Squeegee job starts at 20 XP per paid bin and rises by 2 XP per consecutive completed visit on that job. A recorded skip resets only that job. An overdue gap of more than 35 days resets that job's next bonus projection; already-earned XP is not deducted.</p>
+            <p className="hq-small">Each Squeegee job starts at 20 XP per paid bin and rises by 2 XP per consecutive completed visit on that job. A recorded skip resets only that job. A 35-day attendance gap resets only the next bonus. Separately, each verified unpaid job loses 1 XP on day 29 after its scheduled due date, then 2 more on day 30, 3 more on day 31, and so on. A new Squeegee backup is needed to verify payments and refresh deductions.</p>
             {account.streakModel!=="per_job"&&
               <p className="hq-small" role="status"><strong>Score update pending:</strong> These historical totals were imported using the older customer-wide streak calculation. The owner must reimport a Squeegee backup before corrected per-job points are shown.</p>}
             <p className="hq-small">Source: Squeegee backup of {formatDate(account.historyAsOf)}. New payments and cleans are not automatically added until the next verified import.</p>
