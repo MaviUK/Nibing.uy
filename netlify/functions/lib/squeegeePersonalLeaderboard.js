@@ -8,6 +8,7 @@ const historical=require("./squeegeeActiveLeaderboardImport");
 const overallPreview=require("./squeegeeActivePreviewBoard");
 const annual=require("./squeegeeYearlyPreviewBoard");
 const names=require("./squeegeeLeaderboardNameConsent");
+const overdue=require("./squeegeeOverduePenalty");
 
 function publicRef(alias,secretKey){
   if(!/^NBG-[A-F0-9]{10}$/.test(String(alias||"")) ||
@@ -42,7 +43,7 @@ function firstRecordedServiceYear(events,asOf){
 }
 function fromBoards({customerId,privateCustomers,eligibleAliases,
                      consentSnapshot,secretKey,overallBoard,yearlyBoards=[],
-                     allowPublicRanks=true}){
+                     allowPublicRanks=true,verifiedWebsiteXp=null}){
   const alias=historical.canonicalLegacyRef(customerId);
   const eligible=Boolean(alias && eligibleAliases instanceof Set &&
     eligibleAliases.has(alias));
@@ -71,14 +72,24 @@ function fromBoards({customerId,privateCustomers,eligibleAliases,
   // Only the sum of dated yearly awards may be displayed as Overall.
   // A positive undated legacy balance is intentionally never credited.
   const points=eligible ? (matched?.points||0) : cleanTotal;
-  if(!Number.isSafeInteger(points)||points<cleanTotal ||
-     (eligible&&points!==yearlyTotal))
+  const penalty=overdue.penaltyTotal(account.penaltyLedger);
+  const hasPenaltySource=Array.isArray(account.penaltyLedger);
+  const verifiedWeb=verifiedWebsiteXp instanceof Map?
+    [...verifiedWebsiteXp.values()].reduce((a,b)=>a+b,0):null;
+  const websiteXp=verifiedWeb===null?Math.max(0,points-cleanTotal):verifiedWeb;
+  const gross=cleanTotal+websiteXp;
+  const penaltyApplied=Math.min(gross,penalty);
+  if(!Number.isSafeInteger(points)||
+     (eligible&&points!==yearlyTotal)||
+     (hasPenaltySource?points!==gross-penaltyApplied:points<cleanTotal))
     throw new Error("personal_dated_total_mismatch");
-  const websiteXp=points-cleanTotal;
   const hasPublicBoard=allowPublicRanks===true &&
     overallBoard?.status!=="active_status_refresh_required";
   return {
     points,cleaningPoints:cleanTotal,websiteXp,
+    ...(hasPenaltySource?{
+      overduePenaltyPoints:penalty,
+      grossWebsiteByYear:Object.fromEntries(verifiedWebsiteXp||new Map())}:{}),
     rank:eligible&&hasPublicBoard?visibleRank({
       privateCustomers,eligibleAliases,consentSnapshot,secretKey,
       board:overallBoard,customerAlias:alias
@@ -114,16 +125,24 @@ async function getPersonalSummary({stores,privateCustomers,customerId,
         yearTotals.set(year,(yearTotals.get(year)||0)+xp);
       }
     }
-    const yearly={};
-    let points=0,cleaningPoints=0;
-    for(const [year,xp] of yearTotals){
-      yearly[String(year)]={points:xp,rank:null};
+    const yearly={},net=overdue.netByYear(yearTotals,
+      overdue.penaltyTotal(account.penaltyLedger));
+    let points=0,cleaningPoints=0,websiteXp=0;
+    for(const [year,xp] of net){
+      if(xp>0)yearly[String(year)]={points:xp,rank:null};
       points+=xp;
     }
     for(const xp of cleaningByYear.values())cleaningPoints+=xp;
+    for(const [year,gross] of yearTotals){
+      websiteXp+=gross-(cleaningByYear.get(year)||0);
+    }
     if(points>100000||!Number.isSafeInteger(points))
       throw new Error("personal_dated_total_needs_review");
-    return {points,cleaningPoints,websiteXp:points-cleaningPoints,
+    return {points,cleaningPoints,websiteXp,
+      ...(Array.isArray(account.penaltyLedger)?{
+        overduePenaltyPoints:overdue.penaltyTotal(account.penaltyLedger),
+        grossWebsiteByYear:Object.fromEntries([...yearTotals].map(
+          ([year,total])=>[year,total-(cleaningByYear.get(year)||0)]))}:{}),
       rank:null,yearly,yearlyXpTotal:points,rankingAvailable:false,
       firstRecordedServiceYear:firstRecordedServiceYear(
         account.events,privateCustomers.asOf)};
@@ -133,11 +152,12 @@ async function getPersonalSummary({stores,privateCustomers,customerId,
     stores.history.get(historical.PUBLISHED_KEY,{type:"json",consistency:"strong"})
   ]);
   const allowPublicRanks=mode?.activeOnly!==true || Boolean(published);
-  const {overallBoard,yearlyBoards}=await annual.getDatedScoreBoards(
+  const {overallBoard,yearlyBoards,verifiedWebsiteXP}=await annual.getDatedScoreBoards(
     stores,privateCustomers,eligible.aliases,now);
   return fromBoards({customerId,privateCustomers,
     eligibleAliases:eligible.aliases,consentSnapshot,secretKey,
-    overallBoard,yearlyBoards,allowPublicRanks});
+    overallBoard,yearlyBoards,allowPublicRanks,
+    verifiedWebsiteXp:verifiedWebsiteXP.get(alias)||new Map()});
 }
 module.exports={
   publicRef,visibleRank,fromBoards,getPersonalSummary,firstRecordedServiceYear
