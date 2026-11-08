@@ -85,7 +85,7 @@ if(form&&input&&error&&button&&progress){
    // Fail closed if an old Android cache supplies the previous customer-wide
    // converter. Do not POST a misleading or incompatible scoring snapshot.
    if(result?.snapshot?.scoringVersion!=="2026-11-streak-20-plus-2-per-job-per-paid-bin-v2"||
-       result?.snapshot?.penaltySourceVersion!=="2026-11-escalating-overdue-per-job-v2"||
+       result?.snapshot?.penaltySourceVersion!=="2026-11-flat-overdue-1xp-per-job-day-v3"||
       !Array.isArray(result?.snapshot?.accounts)||
       result.snapshot.accounts.some(record=>!Array.isArray(record.jobs))){
      throw Error("Your browser loaded an older cleaning-points engine. Refresh this owner import page and select the .sqg backup again. No points were changed.");
