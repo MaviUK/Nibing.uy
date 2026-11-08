@@ -78,3 +78,21 @@ test("owner email-code return path is explicit and doesn't permit arbitrary URLs
  const code=fs.readFileSync(path.join(__dirname,"../netlify/functions/squeegeePreviewTest.mjs"),"utf8");
  assert.match(code,/if\(value==="\/api\/squeegee-preview-owner-customers"\)return value;/);
 });
+
+test("owner customer directory has a full-width update button to the secure .sqg importer",()=>{
+ const source=fs.readFileSync(path.join(__dirname,
+  "../netlify/functions/squeegeePreviewOwnerCustomers.mjs"),"utf8");
+ const upload=fs.readFileSync(path.join(__dirname,
+  "../netlify/functions/squeegeePreviewCustomerHQImport.mjs"),"utf8");
+ const firstNav=source.indexOf('const nav=');
+ const button=source.indexOf('class="update-backup"',firstNav);
+ const lists=source.indexOf('if(recordView)',firstNav);
+ assert.ok(firstNav>=0&&button>firstNav&&lists>button);
+ assert.ok(source.includes('href="/api/squeegee-preview-hq-import"'));
+ assert.ok(source.includes("⬆ UPDATE LEADERBOARD"));
+ assert.ok(source.includes("Upload a new Squeegee .sqg backup"));
+ assert.ok(source.includes(".admin-nav a.update-backup{grid-column:1/-1"));
+ assert.ok(upload.includes('verifyTestSessionCookie(cookie,process.env'));
+ assert.ok(upload.includes('name="history"'));
+ assert.ok(upload.includes('href="/api/squeegee-preview-owner-customers"'));
+});
