@@ -7,7 +7,7 @@ import LevelWasher from "./components/LevelWasher.jsx";
 import { CustomerReviews, CustomerQuestions } from "./components/CustomerTrustSections.jsx";
 import BookingAddressAutocomplete, { findNiPostcode } from "./components/BookingAddressAutocomplete.jsx";
 import { createFriendlyBookingReference } from "./bookingReference.mjs";
-import { validateArcadeBookingFields, bookingFieldTarget } from "./bookingFormValidation.mjs";
+import { validateArcadeBookingFields, bookingFieldTarget, matchedBookingDatePreview } from "./bookingFormValidation.mjs";
 
 const TenSecondChallenge = lazy(() => import("./TenSecondChallenge.jsx"));
 const BinCheckerModal = lazy(() => import("./BinCheckerModal.jsx"));
@@ -700,7 +700,10 @@ function BookingForm({ onClose, initialAddress = "" }) {
         ...result,
         bookingId: result.bookingId || emailSubmissionMeta.bookingId,
         source: "website",
-        schedule: null,
+        // Show the actual council-matched date displayed in the form.
+        // The asynchronous Squeegee job is NOT confirmed by this preview.
+        datePreview: matchedBookingDatePreview(
+          emailBookingPayload.bookingScheduleSnapshot,{address,bins}),
       });
       setBookingStatus("confirmed");
       // Intentionally keep the submission ref locked after a successful send.
@@ -730,7 +733,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
       : "Preparing your booking…";
 
   if (bookingStatus === "confirmed") {
-    const scheduleResults = Array.isArray(bookingConfirmation?.schedule?.results)
+    const scheduleResults = Array.isArray(bookingConfirmation?.datePreview?.results)
       ? bookingConfirmation.schedule.results
       : [];
 
@@ -803,7 +806,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
 
         {cleanDateRows.length > 0 ? (
           <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-left">
-            <div className="text-sm font-bold uppercase tracking-wide text-green-800">Your clean date{cleanDateRows.length > 1 ? "s" : ""}</div>
+            <div className="text-sm font-bold uppercase tracking-wide text-green-800">Council-matched first clean date{cleanDateRows.length > 1 ? "s" : ""}</div>
             <div className="mt-2 space-y-2">
               {cleanDateRows.map((row, index) => (
                 <div key={`${row.bin}-${row.date}-${index}`} className="flex items-start justify-between gap-4">
@@ -812,6 +815,11 @@ function BookingForm({ onClose, initialAddress = "" }) {
                 </div>
               ))}
             </div>
+            <p className="mt-3 text-sm leading-6 text-green-950">
+              We matched {cleanDateRows.length === 1 ? "this date" : "these dates"} to the council collection schedule.
+              The Squeegee appointment is confirmed separately once our account checks finish.
+              If anything needs manual review, we will contact you. Please don&apos;t submit another booking for the same bins.
+            </p>
           </div>
         ) : (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
