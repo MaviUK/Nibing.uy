@@ -294,3 +294,35 @@ test("paid in November but cleaned in September stays settled AND records histor
   assert.equal(result.snapshot.penaltySourceVersion,
     "2026-11-flat-overdue-1xp-per-job-day-v3");
 });
+
+
+test("each consecutive paid visit on the SAME job increases per-bin XP by exactly one",async()=>{
+  const {state,uuid,customerIds,finishSqueegeeImport}=await seed();
+  const {acceptSqueegeeRecord}=await load();
+  const id=customerIds[0],jobId=uuid(501000);
+  const dates=["2026-11-07","2026-11-08"];
+  for(let i=0;i<dates.length;i++){
+    const date=dates[i],invoice=uuid(999830+i*2);
+    acceptSqueegeeRecord(state,{resourceType:"transactions",_id:invoice,
+      customerId:id,transactionType:0,amount:5,invoice:{paid:true}});
+    acceptSqueegeeRecord(state,{resourceType:"transactions",_id:uuid(999831+i*2),
+      customerId:id,transactionType:1,amount:-5});
+    acceptSqueegeeRecord(state,{resourceType:"joboccurrences",
+      _id:jobId+date,jobId,customerId:id,status:1,isoDueDate:date,
+      paymentStatus:"paid",paidDate:date,invoiceTransactionId:invoice,
+      services:[{description:"Brown",quantity:1}]});
+  }
+  const customer=finishSqueegeeImport(state,"2026-11-08")
+    .snapshot.accounts.find(a=>a.id===id);
+  const job=customer.jobs.find(j=>j.id===jobId);
+  const earns=customer.events.filter(e=>e.j===
+    customer.jobs.findIndex(j=>j.id===jobId)&&e.event==="paid_completed_clean");
+  assert.deepEqual(earns.map(e=>({streak:e.streak,points:e.points})),[
+    {streak:1,points:40},{streak:2,points:21},{streak:3,points:22}
+  ]);
+  assert.equal(job.points,83);
+  assert.equal(job.paidCleans,4);
+  assert.equal(job.nextBonus,23);
+  assert.equal(customer.points,523);
+  assert.equal(customer.balanceState,"settled");
+});
