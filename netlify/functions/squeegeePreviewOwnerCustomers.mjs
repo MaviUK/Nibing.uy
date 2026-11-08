@@ -458,7 +458,7 @@ async function detailPage(snapshot,eligible,params,account){
  '<p class="note">Historical penalty column shows XP lost during that calendar year. Net overall XP carries unpaid penalty debt between years and never drops below zero. Undated website awards are excluded.</p></section>';
  const ledger=Array.isArray(account.penaltyLedger)?
   account.penaltyLedger.filter(x=>Number.isSafeInteger(x?.points)&&x.points>0)
-    .sort((a,b)=>b.points-a.points||a.dueOn.localeCompare(b.dueOn)):[];
+    .sort((a,b)=>b.dueOn.localeCompare(a.dueOn)||b.points-a.points):[];
  const paidLate=ledger.filter(row=>typeof row.settledOn==="string").length;
  const activeLate=ledger.filter(row=>!row.settledOn&&
     account.outstandingJobs?.some(x=>x.id===row.id)).length;
