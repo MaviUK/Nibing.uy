@@ -13,6 +13,7 @@ const active=require("./squeegeeActiveLeaderboardImport");
 const snapshot=require("./squeegeeActivePreviewSnapshot");
 const binHistory=require("./squeegeePreviewBinHistory");
 const merge=require("./arcadeCustomerMerge");
+const overdue=require("./squeegeeOverduePenalty");
 
 const FIRST_YEAR=2024;
 const FIRST_VERIFIED_YEAR=2000;
@@ -56,6 +57,27 @@ function annualCleaningXP(events,year,asOf){
        event.points<=0||event.points>1000)return sum;
     return sum+event.points;
   },0);
+}
+// Subtract the customer-wide overdue debt only ONCE, then allocate it
+// against the most recent earned year first. This preserves the identity:
+// Overall XP === sum of displayed annual XP, even with large penalties.
+function netCustomerYears(account,webYears,asOf,now=Date.now()){
+  const gross=new Map();
+  for(const event of Array.isArray(account?.events)?account.events:[]){
+    if(event?.event!=="paid_completed_clean"||
+       typeof event.date!=="string"||event.date>asOf||
+       !Number.isSafeInteger(event.points)||event.points<=0)continue;
+    const year=Number(event.date.slice(0,4));
+    if(!validVerifiedYear(year,now))continue;
+    gross.set(year,(gross.get(year)||0)+event.points);
+  }
+  for(const [year,points] of webYears instanceof Map?webYears:new Map()){
+    if(!validVerifiedYear(year,now)||!Number.isSafeInteger(points)||
+       points<0)continue;
+    gross.set(year,(gross.get(year)||0)+points);
+  }
+  const loss=overdue.penaltyTotal(account?.penaltyLedger);
+  return overdue.netByYear(gross,loss);
 }
 function validEarnedDate(at,now){
   const time=typeof at==="string"?Date.parse(at):NaN;
@@ -165,9 +187,8 @@ async function getAnnualPreviewBoard(stores,privateCustomers,eligibleAliases,yea
     if(!UUID.test(String(account?.id||"").toLowerCase()))continue;
     const alias=active.canonicalLegacyRef(account.id);
     if(!eligibleAliases.has(alias))continue;
-    const clean=annualCleaningXP(account.events,year,privateCustomers.asOf);
-    const web=annualWeb.get(alias)?.get(year)||0;
-    const points=Math.min(MAX_SCORE,clean+web);
+    const net=netCustomerYears(account,annualWeb.get(alias),privateCustomers.asOf,now);
+    const points=net.get(year)||0;
     // Someone with no earnings during this calendar year is not ranked.
     if(points===0)continue;
     rows.push({customerRef:alias,town:account.town,points});
@@ -234,9 +255,9 @@ async function getDatedScoreBoards(stores,privateCustomers,eligibleAliases,now=D
       sourceAsOf:privateCustomers.asOf,
       lastUpdatedAt:privateCustomers.asOf+"T23:59:59Z"
     },
-    yearlyBoards
+    yearlyBoards,verifiedWebsiteXP:annualWeb
   };
 }
 module.exports={FIRST_YEAR,FIRST_VERIFIED_YEAR,availableYears,validYear,
-  validVerifiedYear,annualCleaningXP,validEarnedDate,datedWebsiteXP,
+  validVerifiedYear,annualCleaningXP,netCustomerYears,validEarnedDate,datedWebsiteXP,
   getAnnualPreviewBoard,getDatedScoreBoards};
