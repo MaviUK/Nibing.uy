@@ -97,8 +97,8 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
     if(areaStatusForTown(councilTown)!=="active") {
       setCheckingDates(false);
       setMessage(councilTown
-        ? "We cannot confirm a current cleaning round for this council address. Please contact NI Bin Guy."
-        : "The council address did not provide a verified town. Contact us to check availability.");
+        ? "We cannot confirm a current cleaning round for this address. Please contact NI Bin Guy."
+        : "The address did not provide a verified town. Contact us to check availability.");
       return;
     }
     try {
@@ -173,7 +173,7 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
     setAddresses(list);
 
     if (!list.length) {
-      setMessage("The council address list is unavailable. We can't confirm coverage from the postcode alone; contact us for a manual check.");
+      setMessage("The address list is unavailable. We can't confirm coverage from the postcode alone; contact us for a manual check.");
     } else if (list.length === 1) {
       setSelectedUprn(list[0].uprn);
       await fetchDates(list[0], pc, sequence, signal);
@@ -334,10 +334,10 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
                 "border-amber-400 bg-amber-950/40 text-amber-100")
             }>
               {selectedActive
-                ? "✓ Your council address is in our current "+selectedTown+" service area."
+                ? "✓ Your address is in our current "+selectedTown+" service area."
                 : chosenAddress
                   ? "We haven't confirmed an active cleaning round for this property."
-                  : "Postcode checked — select your council address to verify coverage."}
+                  : "Postcode checked — select your address to verify coverage."}
             </p>
 
             {addresses.length > 1 && (
@@ -358,7 +358,7 @@ export default function CoverageChecker({ onBook, compact = false, onClose }) {
             )}
 
             {addresses.length === 1 && <p className="text-xs text-zinc-300">Address: {addresses[0].label}</p>}
-            {!addresses.length && status === "covered" && !message && <p className="text-sm text-zinc-300">Finding council addresses...</p>}
+            {!addresses.length && status === "covered" && !message && <p className="text-sm text-zinc-300">Finding addresses...</p>}
             {checkingDates && <p className="text-sm text-zinc-300" role="status">Checking next cleaning dates...</p>}
 
             {dates && !checkingDates && (
