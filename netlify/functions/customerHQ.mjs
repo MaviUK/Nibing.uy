@@ -164,7 +164,9 @@ function allRewardsHistory(cleaningHistory,websiteHistory,summary,cleaningEvents
   const budgets=new Map();
   for(const [year,entry] of Object.entries(summary.yearly||{})){
     const clean=personalRanksAnnualCleaning(cleaningEvents,Number(year),asOf);
-    budgets.set(year,Math.max(0,entry.points-clean));
+    const originalWeb=summary.grossWebsiteByYear?.[year];
+    budgets.set(year,Number.isSafeInteger(originalWeb)&&originalWeb>=0
+      ?originalWeb:Math.max(0,entry.points-clean));
   }
   const verified=[];
   for(const entry of Array.isArray(websiteHistory)?websiteHistory:[]){
@@ -179,9 +181,9 @@ function allRewardsHistory(cleaningHistory,websiteHistory,summary,cleaningEvents
     budgets.set(year,left-entry.points);
     verified.push(entry);
   }
-  const years=new Set(Object.keys(summary.yearly||{}));
-  const cleaning=(Array.isArray(cleaningHistory)?cleaningHistory:[])
-    .filter(entry=>entry?.points===0 || years.has(String(entry.date||"").slice(0,4)));
+  // Verified earned cleans remain visible after an overdue deduction
+  // reduces their current net-XP year to zero.
+  const cleaning=Array.isArray(cleaningHistory)?cleaningHistory:[];
   return merge.sortedRewardsHistory(cleaning,verified);
 }
 function personalRanksAnnualCleaning(events,year,asOf){
