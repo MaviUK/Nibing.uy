@@ -8,8 +8,8 @@ const output=(status,body)=>new Response(JSON.stringify(body),{
   status,headers:{"Content-Type":"application/json","Cache-Control":"no-store",
     "X-Content-Type-Options":"nosniff"},
 });
-const PROBE_KEY="probe-v1/2026-11-08-live-cas";
-const PASS_KEY="probe-v1/2026-11-08-live-cas-passed";
+const PROBE_KEY="probe-v2/2026-11-08-live-cas";
+const PASS_KEY="probe-v2/2026-11-08-live-cas-passed";
 
 export default async function handler(request,context) {
   let hostname;
@@ -39,8 +39,18 @@ export default async function handler(request,context) {
       return output(409,{passed:false,stage:"reservation_not_acquired"});
     const duplicate=await store.setJSON(PROBE_KEY,{step:"not_allowed"},
       {onlyIfNew:true});
-    if(duplicate?.modified===true)
-      return output(503,{passed:false,stage:"duplicate_create_allowed"});
+    if(duplicate?.modified===true){
+      let value="unavailable";
+      try{
+        const readback=await store.get(PROBE_KEY,{
+          type:"json",consistency:"strong"});
+        value=readback?.step==="not_allowed"?"overwritten":
+          readback?.step==="reserved"?"unchanged":"other";
+      }catch{}
+      return output(503,{passed:false,
+        stage:duplicate?.etag?"duplicate_create_committed":"duplicate_create_uncertain",
+        readback:value});
+    }
     const update=await store.setJSON(PROBE_KEY,{step:"updated"},
       {onlyIfMatch:first.etag});
     if(update?.modified!==true || !update.etag)
