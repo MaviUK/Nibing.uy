@@ -68,3 +68,18 @@ test("owner review inbox remains behind one-time owner authentication and read-o
   assert.match(owner,/booking-submission-ids/);
   assert.doesNotMatch(owner,/\.post\(/);
 });
+
+test("customer booking receipt does not falsely claim a council date lookup failure",()=>{
+  const {buildBookingEmailHtml}=require("../netlify/functions/lib/bookingEmailTemplate.js");
+  const html=buildBookingEmailHtml({
+    bookingId:"NBG-K7P4R2XM",
+    name:"Test Booking",address:"1 Test Street, Bangor BT20 5NF",
+    phone:"",bins:[{type:"Black Bin",count:1,planId:"4w"}],
+    pricing:{total:5,subtotal:5,lines:[]},
+    termsVersion:"2026-09",termsTimestamp:"2026-11-08T00:00:00Z",
+    termsPdfAttached:true
+  });
+  assert.match(html,/Your first clean date is being checked against the collection schedule/);
+  assert.match(html,/There's no need to send another booking request/);
+  assert.doesNotMatch(html,/We couldn't automatically confirm your address or first clean date/);
+});
