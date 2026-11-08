@@ -27,7 +27,7 @@ function page(html,status=200,extraHeaders={}){
   return new Response('<!doctype html><html lang="en"><meta charset="utf-8">'+
     '<meta name="viewport" content="width=device-width,initial-scale=1">'+
     '<title>Customer HQ • Private History Setup</title>'+
-    '<script type="module" src="/customer-hq-sqg-import.mjs?v=private-import-transfer-v4-20261107"></script>'+
+    '<script type="module" src="/customer-hq-sqg-import.mjs?v=overdue-xp-v1-20261108"></script>'+
     '<style>body{background:#121728;color:white;font:16px/1.5 system-ui;'+
     'margin:0;padding:18px}main{max-width:620px;margin:auto}h1{font-size:27px}'+
     'section{padding:16px;margin:16px 0;background:#28334c;border-left:4px solid #f7c948}'+
