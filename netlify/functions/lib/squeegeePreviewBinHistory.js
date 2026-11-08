@@ -74,7 +74,8 @@ function validateBinSource(raw,{now=Date.now()}={}){
        !Array.isArray(row.events)||row.events.length>2500||
        !Array.isArray(row.jobs)||row.jobs.length>200||
        (hasOverdueSource&&(!["settled","outstanding","unknown"].includes(row.balanceState)||
-         !Array.isArray(row.outstandingJobs)||row.outstandingJobs.length>2500)))
+         !Array.isArray(row.outstandingJobs)||row.outstandingJobs.length>2500||
+         !Array.isArray(row.settledJobs)||row.settledJobs.length>2500)))
       throw Error("per_bin_customer_invalid");
     const id=row.id.toLowerCase(), ref=row.ref.toUpperCase();
     const alias=canonicalLegacyRef(id);
@@ -154,9 +155,11 @@ function validateBinSource(raw,{now=Date.now()}={}){
        skips!==row.recordedSkips||
        row.currentStreak!==Math.max(0,...jobs.map(j=>j.currentStreak)))
       throw Error("per_job_reconciliation_failed");
-    const pending=[];
+    const pending=[],settled=[];
     if(hasOverdueSource){
       const unpaid=new Set(events.filter(e=>e.event==="completed_payment_not_verified")
+        .map(e=>e.j+":"+e.date));
+      const paid=new Set(events.filter(e=>e.event==="paid_completed_clean")
         .map(e=>e.j+":"+e.date));
       const seenCandidates=new Set(),seenJobsOnDay=new Set();
       for(const candidate of row.outstandingJobs){
@@ -172,7 +175,25 @@ function validateBinSource(raw,{now=Date.now()}={}){
            seenCandidates.has(id)||seenJobsOnDay.has(signature)||
            !unpaid.has(signature))throw Error("overdue_pending_job_invalid");
         seenCandidates.add(id);seenJobsOnDay.add(signature);
-        pending.push({id,dueOn});
+        pending.push({id,dueOn,j});
+      }
+      const seenSettled=new Set(),seenPaidVisits=new Set();
+      for(const candidate of row.settledJobs){
+        const id=String(candidate?.id||"").toLowerCase();
+        const j=candidate?.j,dueOn=candidate?.dueOn,paidOn=candidate?.paidOn;
+        const signature=j+":"+dueOn;
+        const occurrenceUUID=UUID.test(id);
+        const qualified=id===jobs[j]?.id+dueOn;
+        const start=dateValue(dueOn),finish=dateValue(paidOn);
+        if(!Number.isSafeInteger(j)||j<0||j>=jobs.length||
+           start===null||finish===null||dueOn>raw.asOf||paidOn>raw.asOf||
+           finish-start<=28*86400000||
+           (!occurrenceUUID&&!qualified)||seenSettled.has(id)||
+           seenCandidates.has(id)||seenPaidVisits.has(signature)||
+           !paid.has(signature))
+          throw Error("overdue_settled_job_invalid");
+        seenSettled.add(id);seenPaidVisits.add(signature);
+        settled.push({id,dueOn,paidOn,j});
       }
       if(row.balanceState==="settled"&&pending.length)
         throw Error("overdue_zero_balance_conflict");
@@ -184,7 +205,7 @@ function validateBinSource(raw,{now=Date.now()}={}){
       currentStreak:row.currentStreak,nextBonus:row.nextBonus,
       recordedSkips:skips,events,jobs,historyAsOf:raw.asOf,
       ...(hasOverdueSource?{balanceState:row.balanceState,
-        outstandingJobs:pending}:{}),
+        outstandingJobs:pending,settledJobs:settled}:{}),
     });
   }
   // Lock the initial 5 November source to independently verified totals.
