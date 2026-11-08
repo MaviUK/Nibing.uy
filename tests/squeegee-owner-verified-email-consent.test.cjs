@@ -148,14 +148,15 @@ test("email-eligible zero-score accounts do not block publishing other verified 
   // set that includes a valid-email account without any ranked points.
   const allEmailAliases=new Set([refs[0],refs[1]]);
   const pending=names.initialiseFromPrivateCustomerHQ(source);
-  assert.equal(pending.records.length,1);
+  assert.equal(pending.records.length,2);
   const attested=names.approveOwnerReviewedEmailReplies(
     pending,source,allEmailAliases,{confirm:"yes",evidenceRef:evidence});
   assert.equal(attested.counts.eligible,2);
   assert.equal(attested.counts.qualifying,1);
   assert.equal(attested.counts.approved,1);
-  assert.equal(attested.snapshot.records.length,1);
-  assert.equal(attested.snapshot.records[0].consent,"granted");
+  assert.equal(attested.snapshot.records.length,2);
+  assert.equal(attested.snapshot.records.find(r=>r.alias===refs[0]).consent,"granted");
+  assert.equal(attested.snapshot.records.find(r=>r.alias===refs[2]).consent,"pending");
   // Missing a positive-score consent row must still fail closed.
   const missing={...pending,records:[]};
   assert.throws(()=>names.approveOwnerReviewedEmailReplies(
