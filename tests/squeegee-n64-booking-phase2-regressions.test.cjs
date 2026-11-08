@@ -83,3 +83,64 @@ test("customer booking receipt does not falsely claim a council date lookup fail
   assert.match(html,/There's no need to send another booking request/);
   assert.doesNotMatch(html,/We couldn't automatically confirm your address or first clean date/);
 });
+
+test("customer receipt includes first-clean dates in HTML and plain text when council lookup matched",()=>{
+  const {bookingReceiptDates,buildBookingEmailHtml}=
+    require("../netlify/functions/lib/bookingEmailTemplate.js");
+  const address="8 Example Street, Bangor BT20 5NF";
+  const bins=[{type:"Black Bin",planId:"domestic_4w",count:1}];
+  const snapshot={
+    version:1,matched:true,postcode:"BT20 5NF",
+    results:[{type:"Black Bin",automatic:true,assignedCleanDate:"2026-11-17"}],
+  };
+  const dates=bookingReceiptDates(snapshot,{address,bins});
+  assert.deepEqual(dates,[{
+    bin:"Black",isoDate:"2026-11-17",date:"Tuesday, 17 November 2026",
+  }]);
+  const html=buildBookingEmailHtml({
+    bookingId:"NBG-K7P4R2XM",name:"Test Booking",address,bins,
+    firstCleanDates:dates,pricing:{total:5,subtotal:5,lines:[]},
+    termsVersion:"September 2026",termsTimestamp:"2026-11-08T00:00:00Z",
+    termsPdfAttached:true,
+  });
+  assert.match(html,/YOUR FIRST CLEAN DATE/);
+  assert.match(html,/Black: Tuesday, 17 November 2026/);
+  assert.doesNotMatch(html,/The Squeegee appointment/);
+  assert.doesNotMatch(html,/Your first clean date is being checked against the collection schedule/);
+  assert.match(sender,/const firstCleanDates=bookingReceiptDates\(payload\.bookingScheduleSnapshot/);
+  assert.match(sender,/const firstCleanDatesText=firstCleanDates\.length/);
+  assert.match(sender,/\$\{firstCleanDatesText\}/);
+  assert.match(sender,/firstCleanDates,\s*\}\)/);
+});
+test("customer receipt shows each clean date, never a mismatched or fabricated date",()=>{
+  const {bookingReceiptDates,buildBookingEmailHtml}=
+    require("../netlify/functions/lib/bookingEmailTemplate.js");
+  const address="8 Example Street, Bangor BT20 5NF";
+  const bins=[{type:"Black Bin"},{type:"Brown Bin"}];
+  const snapshot={
+    version:1,matched:true,postcode:"BT20 5NF",results:[
+      {type:"Black Bin",automatic:true,assignedCleanDate:"2026-11-17"},
+      {type:"Brown Bin",automatic:true,assignedCleanDate:"2026-11-18"},
+    ],
+  };
+  const dates=bookingReceiptDates(snapshot,{address,bins});
+  assert.equal(dates.length,2);
+  const html=buildBookingEmailHtml({
+    bookingId:"NBG-K7P4R2XM",name:"Test Booking",address,bins,
+    firstCleanDates:dates,pricing:{total:10,subtotal:10,lines:[]},
+    termsVersion:"September 2026",termsTimestamp:"2026-11-08T00:00:00Z",
+  });
+  assert.match(html,/Black: Tuesday, 17 November 2026/);
+  assert.match(html,/Brown: Wednesday, 18 November 2026/);
+  const inspect=(s,a=address,b=bins)=>bookingReceiptDates(s,{address:a,bins:b});
+  assert.deepEqual(inspect({...snapshot,matched:false}),[]);
+  assert.deepEqual(inspect({...snapshot,postcode:"BT20 5NG"}),[]);
+  assert.deepEqual(inspect(snapshot,"8 Example Street, Bangor BT20 5NG"),[]);
+  assert.deepEqual(inspect(snapshot,address,[{type:"Black Bin"}]),[]);
+  assert.deepEqual(inspect({...snapshot,results:[
+    {...snapshot.results[0],automatic:false},snapshot.results[1],
+  ]}),[]);
+  assert.deepEqual(inspect({...snapshot,results:[
+    {...snapshot.results[0],assignedCleanDate:"2026-02-30"},snapshot.results[1],
+  ]}),[]);
+});
