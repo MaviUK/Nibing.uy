@@ -1173,15 +1173,6 @@
 .n64-points-guide-rule--lose .n64-points-guide-example strong {
   color:#a23b30;
 }
-.n64-points-guide-footer-note {
-  margin:2px 0 0;
-  padding:10px 12px;
-  border-left:4px solid #6587b5;
-  background:#edf2fa;
-  color:#344964;
-  font-size:.8rem;
-  line-height:1.5;
-}
 .n64-points-guide-actions {
   flex:none;
   background:#fff0c1;
