@@ -220,7 +220,9 @@ export default async function handler(request,ctx){
       overduePenaltyPoints:totalPenalty,outstandingJobs:totalOpen,
       historicalLatePaidJobs:totalSettled}};
     const hash=crypto.createHash("sha256").update(source).digest("hex");
-    if(previous?.sourceHash===hash)
+    // Re-importing the same backup with a NEW scoring policy must refresh
+    // the private ledger. Only skip an exact repeat under the same policy.
+    if(previous?.sourceHash===hash && previous?.penaltySourceVersion===overdue.VERSION)
       return page("<section>Already imported — no duplicate points awarded.</section>"+
         '<p><a href="'+PATH+'">Return to setup</a></p>');
     // Save the refreshed permissions before the refreshed history. Any
