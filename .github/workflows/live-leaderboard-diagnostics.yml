@@ -1,0 +1,39 @@
+name: Read-only live public leaderboard diagnostics
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/live-leaderboard-diagnostics.yml'
+      - 'netlify/functions/n64ProductionLeaderboard.mjs'
+      - 'netlify/functions/lib/n64ProductionPublicBoard.js'
+      - 'netlify/functions/lib/squeegeePublicAchievementHighlights.js'
+      - 'src/components/ArcadeLeaderboard.jsx'
+  workflow_dispatch:
+jobs:
+  inspect-public-response:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Fetch only public JSON, print aggregate counts with no identities
+        shell: bash
+        run: |
+          set -eu
+          curl -fsSL --connect-timeout 5 --max-time 20             'https://nibing.uy/api/n64-production-leaderboard' -o /tmp/public-board.json
+          node - <<'NODE'
+          const fs=require("node:fs");
+          const x=JSON.parse(fs.readFileSync("/tmp/public-board.json","utf8"));
+          const safe={
+            status:x.status,period:x.period,
+            totalPlayers:x.totalPlayers,
+            publicNamedCount:x.publicNamedCount,
+            eligiblePlayers:x.eligiblePlayers,
+            verifiedPlayers:x.verifiedPlayers,
+            sourceAsOf:x.sourceAsOf,
+            sourceWarning:x.sourceWarning,
+            publicAchievementsPresent:!!x.publicAchievements,
+            recordsColourCount:x.publicAchievements?.colours?.length||0,
+            availableYears:x.availableYears,
+          };
+          console.log("PUBLIC_AGGREGATES",JSON.stringify(safe));
+          if(x.status!=="public_eligible_scores")process.exit(1);
+          NODE
