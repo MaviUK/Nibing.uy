@@ -247,6 +247,8 @@ export default function ArcadeLeaderboard() {
           throw new Error("personal_xp_years_do_not_reconcile");
         setCustomerSummary({
           points:sum.points,
+          overduePenaltyPoints:Number.isSafeInteger(sum.overduePenaltyPoints)
+            ?sum.overduePenaltyPoints:0,
           rank:Number.isSafeInteger(sum.rank)&&sum.rank>0?sum.rank:null,
           rankingAvailable:sum.rankingAvailable===true,
           firstRecordedServiceYear:Number.isSafeInteger(sum.firstRecordedServiceYear) &&
@@ -505,6 +507,8 @@ export default function ArcadeLeaderboard() {
                   ?"No customer history recorded for "+selectedYear+"."
                   :"No verified XP recorded for "+selectedYear+"."}
               </p>}
+            {selectedYear==="overall" && customerSummary.overduePenaltyPoints>0 &&
+              <small>Includes {customerSummary.overduePenaltyPoints.toLocaleString("en-GB")} XP in verified overdue-job deductions.</small>}
             {customerSummary.rankingAvailable===false && !noCustomerXpInYear &&
               <small>Your verified XP is available, but the public ranking is temporarily unavailable.</small>}
           </> : <small>
