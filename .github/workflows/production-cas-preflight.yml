@@ -16,7 +16,7 @@ jobs:
         shell: bash
         run: |
           set -eu
-          for attempt in $(seq 1 60); do
+          for attempt in $(seq 1 2); do
             body="$(curl -sSL --connect-timeout 5 --max-time 12               'https://nibing.uy/api/squeegee-production-preflight' 2>/dev/null || true)"
             if printf '%s' "$body" | grep -q '"passed":true'; then
               echo 'PASS: production-only Netlify Blobs create-once, ETag CAS, stale-ETag rejection and readback'
