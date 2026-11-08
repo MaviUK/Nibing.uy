@@ -693,9 +693,6 @@ export default function ArcadeLeaderboard() {
                   <p>After day 28, you lose <strong>1 XP per day for each overdue job</strong> — not an increasing number of points each day. Two jobs overdue for three penalty days cost 6 XP altogether.</p>
                   <p>Once the balance is paid, no further daily penalty is added for those jobs. Earlier penalties stay recorded, and your total XP cannot go below zero.</p>
                 </div>
-                <p className="n64-points-guide-footer-note">
-                  Cleaning scores are updated from verified Squeegee backups. Website XP can sync to your account once verified. Public rankings show approved first name, town and XP only; your private cleaning history stays in Customer HQ.
-                </p>
               </div>
               <footer className="n64-points-guide-actions">
                 <button type="button" onClick={()=>setShowPointsGuide(false)}>GOT IT ✓</button>
