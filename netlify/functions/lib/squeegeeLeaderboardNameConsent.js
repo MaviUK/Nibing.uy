@@ -262,9 +262,17 @@ function approveOwnerReviewedEmailReplies(snapshot,privateCustomers,eligibleAlia
   }
   if(byAlias.size!==eligibleAliases.size)
     throw new Error("consent_customer_mismatch");
+  // The private permission ledger deliberately omits zero-score customers
+  // and accounts with no usable town. Email eligibility counts all email
+  // holders, so the ledger cannot be expected to contain every alias.
+  // Never silently ignore a MISSING positive-score, named-town record.
+  const qualifying=new Set([...byAlias].filter(([,account])=>
+    Number.isSafeInteger(account.points) && account.points>0 &&
+    account.town!=="Town unavailable").map(([alias])=>alias));
+  if(qualifying.size===0)throw new Error("consent_customer_mismatch");
   const used=new Set();
-  const counts={eligible:eligibleAliases.size,approved:0,alreadyApproved:0,
-    withdrawn:0,needsNameReview:0};
+  const counts={eligible:eligibleAliases.size,qualifying:qualifying.size,
+    approved:0,alreadyApproved:0,withdrawn:0,needsNameReview:0};
   const stamped=new Date(now).toISOString();
   const records=snapshot.records.map(row=>{
     if(!eligibleAliases.has(row.alias))return row;
@@ -293,7 +301,8 @@ function approveOwnerReviewedEmailReplies(snapshot,privateCustomers,eligibleAlia
       withdrawnAt:null,method:"email_reply",evidenceRef:evidence,
       noticeVersion:NOTICE_VERSION};
   });
-  if(used.size!==eligibleAliases.size)
+  if(used.size!==qualifying.size ||
+     [...qualifying].some(alias=>!used.has(alias)))
     throw new Error("consent_customer_mismatch");
   return {
     snapshot:{...snapshot,updatedAt:stamped,
