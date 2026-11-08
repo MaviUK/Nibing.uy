@@ -71,12 +71,13 @@ function ownerPreviewSection(preview){
     '<ol style="list-style:none;margin:0;padding:0">'+entries+'</ol></section>';
 }
 
-function renderDashboard(snapshot,note="",emailEligibility=null,preview=null){
+function renderDashboard(snapshot,note="",emailEligibility=null,preview=null,isProduction=false){
   const stats=names.consentStats(snapshot);
   return (note?'<section><strong>'+safe(note)+'</strong></section>':'')+
     '<section><h2>Private first-name preparation</h2>'+
     '<p><a style="display:block;background:#f7d45a;color:#14213b;text-decoration:none;padding:13px;font-weight:900;text-align:center" '+
-    'href="/#live-leaderboard">'+
+    'href="'+(isProduction?"/#live-leaderboard":
+      "/api/squeegee-preview-test?returnTo=%2F%3Fntl-drawer-state%3Dhidden%26owner-board%3D1%26owner-auth-complete%3D1%23live-leaderboard")+'">'+
     '★ VIEW ALL VERIFIED CUSTOMERS IN THE N64 LEADERBOARD →</a></p>'+
     '<p><strong>'+stats.total+'</strong> imported • <strong>'+stats.consented+
     '</strong> permission granted • '+stats.pending+' pending • '+
@@ -184,7 +185,7 @@ export default async function handler(request,ctx){
     const preview=privatePreview.ownerPrivateLeaderboardPreview(
       customerSnapshot,snapshot,eligible,20
     );
-    return page(renderDashboard(snapshot,"",eligible,preview));
+    return page(renderDashboard(snapshot,"",eligible,preview,isProduction));
   }
   if(request.headers.get("origin")!==(isProduction?LIVE_ORIGIN:ORIGIN))
     return page("<section>Cross-site request blocked. Nothing changed.</section>",403);
@@ -240,7 +241,7 @@ export default async function handler(request,ctx){
         n.alreadyApproved+" already granted, "+
         n.withdrawn+" existing withdrawals preserved, "+
         n.needsNameReview+" names requiring review. No missing-email accounts were granted.";
-      return page(renderDashboard(result.snapshot,note,eligible));
+      return page(renderDashboard(result.snapshot,note,eligible,null,isProduction));
     }
     if(action==="grant"||action==="withdraw"){
       const current=await db.getWithMetadata(names.KEY,{type:"json",consistency:"strong"});
@@ -271,7 +272,7 @@ export default async function handler(request,ctx){
       return page(renderDashboard(next,action==="grant"
         ?"Permission recorded. First name and town are now eligible for public display."
         :"Permission withdrawn. Entry removed from the public leaderboard.",
-        eligible));
+        eligible,null,isProduction));
     }
     return page("<section>Unsupported action.</section>",400);
   }catch(err){
