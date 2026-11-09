@@ -1,4 +1,4 @@
-# Production deploy trigger: 2026-08-11T20:39+01:00
+# Production release: 2026-11-09 approved Squeegee API auto-booking flags
 
 [[headers]]
   for = "/*"
