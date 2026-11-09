@@ -55,6 +55,7 @@ function emailHtmlEscape(value){
 function inactiveSignupEmailContent(bookingId,reason,extra={},options={}){
   if(!BOOKING_RE.test(String(bookingId||""))||
      !CUSTOMER_REVIEW_REASONS.has(reason))return null;
+  const isProduction=options?.mode==="production";
   const ambiguous=reason==="customer_match_ambiguous_or_incomplete";
   const name=cleanOwnerField(extra.customerName,120);
   const address=cleanOwnerField(extra.serviceAddress,250);
@@ -91,9 +92,11 @@ function inactiveSignupEmailContent(bookingId,reason,extra={},options={}){
     needsReactivation?
       "Locate the existing Squeegee customer and reactivate them manually if appropriate.":
       "Locate the existing Squeegee customer and review whether the account can be restored.";
-  const statusUrl="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId="+bookingId;
+  const statusUrl=(isProduction?
+    "https://nibing.uy/api/squeegee-production-auto-status?bookingId=":
+    "https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId=")+bookingId;
   const day=String(extra.bookingSubmittedDay||"");
-  const recoveryUrl=needsReactivation && /^\d{4}-\d{2}-\d{2}$/.test(day)?
+  const recoveryUrl=!isProduction && needsReactivation && /^\d{4}-\d{2}-\d{2}$/.test(day)?
     ownerLink.issueLink(bookingId,day,{
       env:options.env||process.env,
       now:Number.isSafeInteger(options.now)?options.now:Date.now(),
@@ -131,7 +134,8 @@ function inactiveSignupEmailContent(bookingId,reason,extra={},options={}){
     "No Squeegee customer or job was created for this submission.",
     recoveryUrl?"PROCESS BOOKING AFTER REACTIVATION: "+recoveryUrl:"",
     "Read-only booking status: "+statusUrl,
-    "Preview 1 only. Production and Preview 2 are unchanged.",
+    isProduction?"Production Squeegee booking alert — owner only.":
+      "Preview 1 only. Production and Preview 2 are unchanged.",
   ].filter(x=>x!==null&&x!==undefined&&x!=="").join("\n");
   const row=(label,value)=>value?
     '<tr><td style="font-size:13px;color:#596176;padding:8px 12px 8px 0;vertical-align:top;width:42%">'+emailHtmlEscape(label)+'</td>'+
@@ -174,7 +178,8 @@ function inactiveSignupEmailContent(bookingId,reason,extra={},options={}){
     '<a href="'+emailHtmlEscape(statusUrl)+'" style="display:block;background:#111;color:#f5d84f;font-size:14px;text-align:center;font-weight:800;padding:14px;text-decoration:none;margin-top:16px">VIEW READ-ONLY BOOKING STATUS</a>'+
     '<p style="font-size:13px;line-height:1.6;color:#72530c;background:#fff6d8;padding:12px;margin:18px 0 0">No Squeegee customer or job has been created for this submission. Reactivate the existing customer in Squeegee first; processing requires reviewing the original booking and your one-time confirmation.</p>'+
     '</td></tr><tr><td style="background:#f2f3f5;padding:18px 25px;font-size:12px;color:#676767">'+
-    'Preview 1 integration notification · Owner only · No change to the live site'+
+    (isProduction?'Production Squeegee booking alert · Owner only':
+      'Preview 1 integration notification · Owner only · No change to the live site')+
     '</td></tr></table></td></tr></table></body></html>';
   return {
     subject:ambiguous?
@@ -328,7 +333,8 @@ const UNCERTAIN_REASONS=new Set([
   "unexpected_auto_sync_failure","worker_failed_unsafely_no_retry",
   "dispatch_uncertain_reconcile","dispatch_not_accepted",
 ]);
-function genericReviewContent(bookingId,reason,extra={}){
+function genericReviewContent(bookingId,reason,extra={},options={}){
+  const isProduction=options?.mode==="production";
   const help=REVIEW_HELP[reason]||{
     category:"Squeegee job not automatically confirmed",
     action:"Check the full booking against the customer and jobs in Squeegee, then create or correct the booking manually when safe.",
@@ -391,7 +397,9 @@ function genericReviewContent(bookingId,reason,extra={}){
   const errorCode=Number.isSafeInteger(extra.squeegeeErrorCode) &&
     extra.squeegeeErrorCode>=0 && extra.squeegeeErrorCode<=999999?
     String(extra.squeegeeErrorCode):"";
-  const refUrl="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId="+bookingId;
+  const refUrl=(isProduction?
+    "https://nibing.uy/api/squeegee-production-auto-status?bookingId=":
+    "https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId=")+bookingId;
   const subject=uncertain?
     "NI Bin Guy — URGENT: SQUEEGEE IMPORT UNCONFIRMED — "+bookingId:
     "NI Bin Guy — Squeegee booking needs review: "+bookingId;
@@ -427,7 +435,8 @@ function genericReviewContent(bookingId,reason,extra={}){
       "This booking is held and will not automatically retry.",
     "Do NOT submit a new website booking or retry an uncertain Squeegee POST.",
     "Read-only booking status: "+refUrl,
-    "Preview 1 only. Production and Preview 2 are unchanged.",
+    isProduction?"Production Squeegee booking alert — owner only.":
+      "Preview 1 only. Production and Preview 2 are unchanged.",
   ].filter(Boolean).join("\n");
   const row=(label,value)=>value?
     '<tr><td style="font-size:13px;color:#596176;padding:8px 12px 8px 0;vertical-align:top;width:40%">'+emailHtmlEscape(label)+'</td>'+
@@ -472,7 +481,8 @@ function genericReviewContent(bookingId,reason,extra={}){
     '<p style="font-size:13px;line-height:1.6;color:#72530c;background:#fff6d8;padding:12px;margin:18px 0 0">'+
       'Do not submit the website booking again. No automatic Squeegee retry has been scheduled.</p>'+
     '</td></tr><tr><td style="background:#f2f3f5;padding:18px 25px;font-size:12px;color:#676767">'+
-      'Preview 1 integration notification · Owner only · Production unchanged'+
+      (isProduction?'Production Squeegee booking alert · Owner only':
+        'Preview 1 integration notification · Owner only · Production unchanged')+
     '</td></tr></table></td></tr></table></body></html>';
   return {subject,text,html};
 }
@@ -482,13 +492,13 @@ function emailContent(bookingId,reason,extra={},options={}) {
      !CODE_RE.test(String(reason||"")))return null;
   if(CUSTOMER_REVIEW_REASONS.has(reason))
     return inactiveSignupEmailContent(bookingId,reason,extra,options);
-  return genericReviewContent(bookingId,reason,extra);
+  return genericReviewContent(bookingId,reason,extra,options);
 }
 
 async function notifyOwnerOfSyncHold(bookingId,reason,extra={},{
-  env=process.env,send=null,
+  env=process.env,send=null,mode="preview",
 }={}) {
-  const email=emailContent(bookingId,reason,extra,{env});
+  const email=emailContent(bookingId,reason,extra,{env,mode});
   if(!email)return {sent:false,reason:"invalid_alert_details"};
   return deliverOwnerEmail(email,{env,send});
 }
