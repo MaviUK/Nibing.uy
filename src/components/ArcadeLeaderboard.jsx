@@ -582,15 +582,6 @@ export default function ArcadeLeaderboard() {
                 : nameConsentMode
                 ? "Public scores are being prepared."
                 : "No registered public players yet."}</span>
-              {nameConsentMode && <small>
-                {verifiedPlayers!==null
-                  ? verifiedPlayers.toLocaleString("en-GB")+" Squeegee accounts are verified from the "+
-                    (verifiedAsOf||"imported")+" backup. "
-                  : eligiblePlayers!==null
-                    ? eligiblePlayers.toLocaleString("en-GB")+" customers are email-eligible. " : ""}
-                {eligibleCleaningXp!==null ? eligibleCleaningXp.toLocaleString("en-GB")+" cleaning XP are safely recorded. " : ""}
-                First name, town and cleaning points appear on the {LIVE_N64?"public leaderboard":"N64 test leaderboard"}. Sign in to My Customer HQ for your own private breakdown.
-              </small>}
             </li>
           ) : players.slice(0,publicShownCount).map((player, i) => {
             const change = changes[player.customerRef];
