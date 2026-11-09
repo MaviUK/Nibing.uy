@@ -1,0 +1,54 @@
+name: Live Squeegee booking release checks
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "netlify/functions/sendBookingEmail.js"
+      - "netlify/functions/squeegeeProductionAutoSync.mjs"
+      - "netlify/functions/lib/squeegeeSyncOwnerAlert.js"
+      - "netlify/functions/lib/squeegeeProductionGuard.js"
+      - "netlify/functions/lib/squeegeeProductionDispatch.js"
+      - "netlify/functions/lib/squeegeeProductionApi.js"
+      - "netlify/functions/lib/squeegeeIdempotencyClaims.js"
+      - "netlify/functions/lib/squeegeeAutomaticBooking.js"
+      - "tests/squeegee-production-*.test.cjs"
+      - "tests/squeegee-booking-replay-atomic.test.cjs"
+      - "tests/squeegee-sync-owner-alert.test.cjs"
+      - ".github/workflows/squeegee-production-release-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "netlify/functions/sendBookingEmail.js"
+      - "netlify/functions/squeegeeProductionAutoSync.mjs"
+      - "netlify/functions/lib/squeegeeSyncOwnerAlert.js"
+      - ".github/workflows/squeegee-production-release-tests.yml"
+permissions:
+  contents: read
+jobs:
+  test-without-live-writes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Test production admission, atomic claims, owner alerts and dispatch
+        run: |
+          node --test \
+            tests/squeegee-production-live-alerts.test.cjs \
+            tests/squeegee-production-guard.test.cjs \
+            tests/squeegee-production-api.test.cjs \
+            tests/squeegee-production-dispatch.test.cjs \
+            tests/squeegee-production-owner-status.test.cjs \
+            tests/squeegee-production-readonly-preflight.test.cjs \
+            tests/squeegee-idempotency-claims.test.cjs \
+            tests/squeegee-booking-replay-atomic.test.cjs \
+            tests/squeegee-sync-owner-alert.test.cjs \
+            tests/squeegee-owner-certificate.test.cjs \
+            tests/squeegee-created-job-verification.test.cjs
+      - name: Verify production website compiles
+        run: npm run build
