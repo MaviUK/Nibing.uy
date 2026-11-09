@@ -27,6 +27,7 @@
 <h1 id="town-title">Wheelie Bin Cleaning in <span>Portaferry</span></h1>
 <p class="lead">An empty bin can still leave you with stuck-on waste and unpleasant smells. We wash, sanitise and deodorise your wheelie bins after collection.</p>
 <div class="town-price"><strong>£5</strong><span>PER BIN<br>EVERY 4 WEEKS</span></div>
+<p class="town-availability">Exact address, postcode and collection-day availability are checked when you book. Confirm the date shown for your property before submitting.</p>
 <p class="town-oneoff">One-off cleans: <strong>£15 per bin</strong>. Check the first-clean date for your address before confirming.</p>
 </div><div class="town-scene" aria-hidden="true"><span class="town-star">★</span><img src="/town-arcade-bins.svg" alt="" width="600" height="480"><span class="town-scene-label">Your Dirty Bins - Our Problem</span></div></div>
 <div class="town-actions"><a class="btn" href="/?book=1">★ Check Your Date &amp; Book</a><a class="btn secondary" href="tel:07555178484">Call 07555 178484</a></div>
@@ -61,7 +62,7 @@
 <section class="section-black"><div class="wrap">
 <span class="town-level">FINAL LEVEL / MISSION READY?</span><h2>Book a cleaner bin</h2>
 <p class="lead">NI Bin Guy is based in Bangor and serves Portaferry and nearby County Down towns. Check your address for an available clean, choose your bins and join our 4-weekly cleaning schedule or book a one-off visit.</p>
-<div class="cta"><a class="btn" href="/?book=1">Book Your Portaferry Clean</a><a class="btn secondary" href="mailto:info@nibing.uy">Email NI Bin Guy</a></div>
+<div class="cta"><a class="btn" href="/?book=1">Book a Bin Clean</a><a class="btn secondary" href="mailto:info@nibing.uy">Email NI Bin Guy</a></div>
 <p>Already a customer? Visit <a href="/customer-hq">Customer HQ</a> for your cleaning information.</p>
 <nav class="areas" aria-label="Nearby service areas"><a href="/bin-cleaning-carrowdore/">Carrowdore</a><a href="/bin-cleaning-millisle">Millisle</a><a href="/bin-cleaning-newtownards">Newtownards</a><a href="/bin-cleaning-comber">Comber</a></nav>
 </div></section>
