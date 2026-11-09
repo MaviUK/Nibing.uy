@@ -91,6 +91,7 @@ export default async function handler(request,context){
   const provider=new Resend(process.env.RESEND_API_KEY);
   const alertOptions={
     env:process.env,
+    mode:"production",
     send:message=>provider.emails.send(message),
   };
   let ownerNoticeAttempted=false;
