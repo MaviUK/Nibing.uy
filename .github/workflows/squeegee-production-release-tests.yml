@@ -50,5 +50,7 @@ jobs:
             tests/squeegee-sync-owner-alert.test.cjs \
             tests/squeegee-owner-certificate.test.cjs \
             tests/squeegee-created-job-verification.test.cjs
+      - name: Run full Squeegee regression suite (same as Netlify build)
+        run: node --test tests/squeegee-*.test.cjs
       - name: Verify production website compiles
         run: npm run build
