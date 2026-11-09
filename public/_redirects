@@ -21,6 +21,13 @@
 /bin-cleaning-portaferry/ /bin-cleaning-portaferry 301!
 /commercial-bin-cleaning /commercial-bin-cleaning/ 301!
 
+# Legacy guide URLs in older sitemaps now resolve to the existing articles.
+# These must precede the one-segment certificate shortcode fallback.
+/guides /bin-cleaning-guides 301!
+/guides/ /bin-cleaning-guides 301!
+/guides/stop-wheelie-bin-smells-and-maggots /guides/how-to-stop-wheelie-bin-smells-and-maggots 301!
+/guides/how-professional-wheelie-bin-cleaning-works /guides/how-professional-bin-cleaning-works 301!
+
 # Stored street-signup Terms & Conditions certificates (legacy long URLs).
 /customer-documents/street-terms/* /.netlify/functions/streetTermsDocument?id=:splat 200
 

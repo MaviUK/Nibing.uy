@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+# Form submission endpoint, not a public content page.
+Disallow: /.netlify/functions/sendBookingEmail
 
 Sitemap: https://nibing.uy/sitemap.xml
