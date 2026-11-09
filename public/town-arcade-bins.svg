@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 480"><path d="M65 370 L470 320 610 390 475 445 135 450 20 410Z" fill="#ffdc64" stroke="#23365b" stroke-width="7"/><svg x="10" y="150" width="240" height="283.64" class="n64-game-bin" viewBox="0 0 220 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <ellipse cx="117" cy="236" rx="79" ry="12" fill="#234168" opacity=".18" />
+      <g stroke="#23365b" stroke-linejoin="round" stroke-width="6">
+        <path d="M60 172 L55 211" stroke-linecap="round" />
+        <path d="M159 176 L165 213" stroke-linecap="round" />
+        <circle cx="63" cy="208" r="17" fill="#29314d" />
+        <circle cx="166" cy="208" r="17" fill="#29314d" />
+        <circle cx="63" cy="208" r="6" fill="#a4bad6" stroke-width="3" />
+        <circle cx="166" cy="208" r="6" fill="#a4bad6" stroke-width="3" />
+        <path d="M67 50 Q70 23 91 22 L144 22 Q160 23 165 52" fill="none" stroke-width="10" stroke-linecap="round" />
+        <polygon points="48,63 157,62 184,77 75,82" fill="#94e7ff" />
+        <polygon points="157,75 184,77 172,190 150,207" fill="#2576ad" />
+        <polygon points="52,76 157,75 150,207 64,197" fill="#58b8ec" />
+      </g>
+      <path d="M72 93 L138 91 L133 170 L78 164 Z" fill="#ffffff" opacity=".14" />
+      <path d="M79 102 L106 101" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity=".35" />
+      <path d="M118 101 L132 100" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity=".35" />
+      <polygon points="48,63 157,62 184,77 75,82" fill="#ffffff" opacity=".16" />
+      <rect x="83" y="122" width="51" height="37" rx="5" fill="#fffcf0" stroke="#273860" stroke-width="4" transform="rotate(2 108 140)" />
+      <text x="108" y="138" fill="#293b68" text-anchor="middle" font-family="Verdana, sans-serif" font-size="10" font-weight="900">NI BIN</text>
+      <text x="108" y="151" fill="#293b68" text-anchor="middle" font-family="Verdana, sans-serif" font-size="10" font-weight="900">GUY</text>
+    </svg><svg x="200" y="45" width="280" height="330.91" class="n64-game-bin" viewBox="0 0 220 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <ellipse cx="117" cy="236" rx="79" ry="12" fill="#234168" opacity=".18" />
+      <g stroke="#23365b" stroke-linejoin="round" stroke-width="6">
+        <path d="M60 172 L55 211" stroke-linecap="round" />
+        <path d="M159 176 L165 213" stroke-linecap="round" />
+        <circle cx="63" cy="208" r="17" fill="#29314d" />
+        <circle cx="166" cy="208" r="17" fill="#29314d" />
+        <circle cx="63" cy="208" r="6" fill="#a4bad6" stroke-width="3" />
+        <circle cx="166" cy="208" r="6" fill="#a4bad6" stroke-width="3" />
+        <path d="M67 50 Q70 23 91 22 L144 22 Q160 23 165 52" fill="none" stroke-width="10" stroke-linecap="round" />
+        <polygon points="48,63 157,62 184,77 75,82" fill="#baf198" />
+        <polygon points="157,75 184,77 172,190 150,207" fill="#359359" />
+        <polygon points="52,76 157,75 150,207 64,197" fill="#68cf70" />
+      </g>
+      <path d="M72 93 L138 91 L133 170 L78 164 Z" fill="#ffffff" opacity=".14" />
+      <path d="M79 102 L106 101" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity=".35" />
+      <path d="M118 101 L132 100" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity=".35" />
+      <polygon points="48,63 157,62 184,77 75,82" fill="#ffffff" opacity=".16" />
+      <rect x="83" y="122" width="51" height="37" rx="5" fill="#fffcf0" stroke="#273860" stroke-width="4" transform="rotate(2 108 140)" />
+      <text x="108" y="138" fill="#293b68" text-anchor="middle" font-family="Verdana, sans-serif" font-size="10" font-weight="900">NI BIN</text>
+      <text x="108" y="151" fill="#293b68" text-anchor="middle" font-family="Verdana, sans-serif" font-size="10" font-weight="900">GUY</text>
+    </svg><svg x="390" y="140" width="220" height="260.00" class="n64-game-bin" viewBox="0 0 220 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <ellipse cx="117" cy="236" rx="79" ry="12" fill="#234168" opacity=".18" />
+      <g stroke="#23365b" stroke-linejoin="round" stroke-width="6">
+        <path d="M60 172 L55 211" stroke-linecap="round" />
+        <path d="M159 176 L165 213" stroke-linecap="round" />
+        <circle cx="63" cy="208" r="17" fill="#29314d" />
+        <circle cx="166" cy="208" r="17" fill="#29314d" />
+        <circle cx="63" cy="208" r="6" fill="#a4bad6" stroke-width="3" />
+        <circle cx="166" cy="208" r="6" fill="#a4bad6" stroke-width="3" />
+        <path d="M67 50 Q70 23 91 22 L144 22 Q160 23 165 52" fill="none" stroke-width="10" stroke-linecap="round" />
+        <polygon points="48,63 157,62 184,77 75,82" fill="#ffd28b" />
+        <polygon points="157,75 184,77 172,190 150,207" fill="#aa663a" />
+        <polygon points="52,76 157,75 150,207 64,197" fill="#e49a55" />
+      </g>
+      <path d="M72 93 L138 91 L133 170 L78 164 Z" fill="#ffffff" opacity=".14" />
+      <path d="M79 102 L106 101" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity=".35" />
+      <path d="M118 101 L132 100" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity=".35" />
+      <polygon points="48,63 157,62 184,77 75,82" fill="#ffffff" opacity=".16" />
+      <rect x="83" y="122" width="51" height="37" rx="5" fill="#fffcf0" stroke="#273860" stroke-width="4" transform="rotate(2 108 140)" />
+      <text x="108" y="138" fill="#293b68" text-anchor="middle" font-family="Verdana, sans-serif" font-size="10" font-weight="900">NI BIN</text>
+      <text x="108" y="151" fill="#293b68" text-anchor="middle" font-family="Verdana, sans-serif" font-size="10" font-weight="900">GUY</text>
+    </svg></svg>

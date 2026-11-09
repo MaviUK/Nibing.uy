@@ -1,0 +1,51 @@
+/* Standalone town page using the homepage's palette, artwork and shared FAQs. */
+body.donaghadee-page{background:#fff6da;color:#20335c}
+.donaghadee-page button{font-family:inherit}
+.skip-link{position:fixed;top:-100px;left:12px;z-index:20;background:#ffdc64;color:#20335c;padding:12px;border:3px solid #20335c}
+.skip-link:focus{top:12px}
+#main-content{overflow:hidden}
+#main-content > section{border:0;scroll-margin-top:16px;position:relative}
+#main-content > section:not(:first-child){padding-top:58px}
+#main-content > section:not(:first-child)::before{content:"";position:absolute;top:0;left:0;right:0;height:48px;background:repeating-conic-gradient(#fffbed 0 25%,#20335c 0 50%) 0 0/24px 24px;border-top:3px solid #20335c;border-bottom:3px solid #20335c}
+#main-content > .town-hero{padding:20px 22px 90px;background:radial-gradient(circle at 88% 10%,#fffbb3 0 43px,#ffe36c 44px 61px,transparent 63px),linear-gradient(180deg,#61bbfa 0%,#b1e9ff 60%,#effcce 82%,#8ed76c 100%);isolation:isolate}
+#main-content > .town-hero::before{content:"";position:absolute;left:-5%;right:-5%;bottom:0;height:140px;background:#67bb75;clip-path:polygon(0 80%,12% 40%,25% 70%,36% 10%,50% 65%,64% 30%,78% 60%,90% 20%,100% 55%,100% 100%,0 100%);z-index:-1}
+.town-hero .wrap{max-width:1180px;width:100%;padding:0}
+.town-hero-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);align-items:center;gap:20px;margin-top:24px}
+.town-brand{display:inline-flex;align-items:center;gap:12px;padding:7px 16px 7px 7px;background:#fffdf4;border:4px solid #20335c;box-shadow:6px 7px 0 #3978a0;transform:rotate(-1deg)}
+.town-brand img{width:58px;height:58px;object-fit:contain;background:#17273f;border:3px solid #20335c}
+.town-brand strong{display:block;font-size:1.35rem;font-weight:1000;line-height:1}
+.town-brand small{display:block;font-size:.55rem;letter-spacing:.06em;font-weight:900;margin-top:6px}
+.town-kicker{display:table;margin:28px 0 22px;padding:8px 11px;background:#fa7f83;border:4px solid #20335c;box-shadow:4px 5px 0 #ae4062;transform:rotate(-1deg);font:900 .68rem/1.5 Verdana,sans-serif;color:#20335c}
+#town-title{font:1000 clamp(2.6rem,5.8vw,5.3rem)/1.02 "Arial Black","Trebuchet MS",sans-serif;letter-spacing:-.06em;color:#fff;text-shadow:-2px -2px 0 #253a6a,2px -2px 0 #253a6a,-2px 2px 0 #253a6a,2px 2px 0 #253a6a,1px 7px 0 #2b65b5;margin:0 0 22px}
+#town-title span{display:block;color:#ffe15a;text-shadow:inherit}
+.town-hero .lead{font-size:1.05rem;line-height:1.6;max-width:50ch}
+.town-price{display:inline-flex;align-items:center;gap:14px;padding:10px 20px;background:#fff9e8;border:4px solid #20335c;box-shadow:5px 6px 0 #6998b1}
+.town-price strong{font:1000 3.4rem/1 "Arial Black",sans-serif;color:#20335c}
+.town-price span{font:1000 .72rem/1.5 Verdana,sans-serif}
+.town-oneoff{max-width:50ch;font-size:.9rem;font-weight:800;margin-top:18px}
+.town-scene{position:relative;min-width:0}
+.town-scene > img{width:100%;height:auto;filter:drop-shadow(6px 12px 0 #427c9c30)}
+.town-star{position:absolute;right:12%;top:0;color:#ffdc3d;font-size:3rem;-webkit-text-stroke:2px #38436b;text-shadow:3px 4px 0 #ce9a37;transform:rotate(12deg)}
+.town-scene-label{display:block;width:fit-content;max-width:100%;margin:0 auto;padding:9px 13px;background:#fffbed;border:4px solid #20335c;box-shadow:5px 6px 0 #5774a1;font-size:.77rem;font-weight:1000;text-align:center;transform:rotate(2deg)}
+.town-actions{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin:30px 0 20px}
+.town-actions .btn{min-height:60px;font-size:1.1rem;background:#ffd34e}
+.page-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-top:20px}
+.page-nav a{display:flex;align-items:center;justify-content:center;text-align:center;min-height:53px;padding:10px 12px;border:4px solid #20335c;background:#fff0b2;box-shadow:0 6px 0 #bd9d53;font-weight:1000;text-decoration:none;color:#20335c}
+.page-nav a:nth-child(2){background:#d9f8ff;box-shadow:0 6px 0 #6aaec2}.page-nav a:nth-child(3){background:#d8ffcf;box-shadow:0 6px 0 #81b97b}.page-nav a:nth-child(4){background:#ffe3a0;box-shadow:0 6px 0 #bd9d53}
+#prices{background:#fff6db}#your-clean{background:#c7f4f0}#main-content > section:last-child{background:#e4f3fd}
+#main-content > section > .wrap{max-width:1100px}
+.town-level{display:block;font:900 .7rem/1.4 Verdana,sans-serif;letter-spacing:.12em;color:#355779;margin-bottom:14px}
+#main-content > section:not(:first-child) > .wrap > h2{font-size:clamp(1.9rem,4vw,3rem);max-width:26ch;margin-bottom:28px}
+.price-table{width:100%;border-collapse:collapse;background:#fffefa;color:#253a63;box-shadow:6px 7px 0 #c4a866;margin:16px 0 25px}
+.price-table th,.price-table td{padding:17px 14px;text-align:left;border:3px solid #23365d;vertical-align:middle}
+.price-table caption{text-align:left;margin:0 0 14px;font-weight:900}.price-table thead th{background:#ffdc64}.price-table tbody th{background:#fff0bd}.price-table td strong{white-space:nowrap;font-size:1.25rem}
+.bin-images{display:flex;flex-wrap:wrap;gap:20px;justify-content:center;align-items:end;margin:30px 0}
+.bin-images figure{margin:0;padding:15px;background:#fffbed;border:4px solid #20335c;box-shadow:5px 6px 0 #7eaba7;text-align:center;font-weight:900}.bin-images img{max-width:100%;width:150px;height:130px;object-fit:contain}
+#questions .n64-help-hero h2{max-width:none}#questions .n64-help-action__button{text-decoration:none}
+#questions [hidden]{display:none!important}
+#questions summary{list-style:none}#questions summary::-webkit-details-marker{display:none}
+#questions details[open]{background:#f5fff9}#questions details[open] .n64-help-answer__toggle{background:#18b68b;color:#fff}
+#questions .n64-help-answer__content{padding-top:0}
+@media(max-width:800px){.town-hero-grid{grid-template-columns:1fr}.town-scene{max-width:450px;margin:0 auto;width:100%}.town-hero-copy{max-width:650px;margin:0 auto}.town-scene>img{max-height:280px}.town-kicker{font-size:.62rem}.page-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.town-actions{grid-template-columns:1fr}.town-brand strong{font-size:1.1rem}}
+@media(max-width:600px){#main-content > .town-hero{padding:18px 18px 65px}.town-hero .back{margin-bottom:10px}.town-hero-grid{margin-top:18px;gap:10px}#town-title{font-size:clamp(2.5rem,10vw,3.7rem)}.town-brand{max-width:100%;gap:8px;padding-right:9px}.town-brand small{font-size:.48rem}.town-brand img{width:48px;height:48px}.town-hero .lead{font-size:.96rem}.town-kicker{margin-top:25px;font-size:.58rem}.town-price strong{font-size:2.7rem}.town-price{padding:9px 14px}.page-nav a{font-size:.82rem;padding:9px 7px;min-height:53px}.town-actions .btn{font-size:.95rem}.price-table th,.price-table td{padding:12px 8px;font-size:.84rem}.price-table td strong{font-size:1.05rem}.bin-images{gap:12px}.bin-images figure{padding:10px}.bin-images img{width:110px;height:105px}#main-content > section:not(:first-child){padding-top:48px}#main-content > section:not(:first-child)::before{height:36px;background-size:18px 18px}.town-star{font-size:2rem}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}

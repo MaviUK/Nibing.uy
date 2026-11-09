@@ -127,6 +127,7 @@ export default defineConfig({
     react(),
     viteStaticCopy({
       targets: [
+        { src: 'src/n64-trust.css', dest: '.' },
         {
           src: 'public/_redirects',
           dest: '.' // copy to the root of dist/
