@@ -308,6 +308,7 @@ exports.handler = async (event) => {
     // the customer. Stage those exact bytes BEFORE accepting the booking.
     const syncHost=String(event?.headers?.host||event?.headers?.Host||"").toLowerCase();
     const isPreview1=syncHost==="deploy-preview-77--nibinguy.netlify.app";
+    const isProductionHost=syncHost===productionGuard.PRODUCTION_HOST;
     const productionSyncEnabled=productionDispatch.issuerConfigured(
       process.env,syncHost);
     const previewSyncEnabled=isPreview1 &&
@@ -381,14 +382,15 @@ exports.handler = async (event) => {
       ownerReceipt.ownerPdfSha256=stagedOwnerPdfSha;
     }
     const recordAutoNoDispatch=async(details)=>{
-      if(!productionSyncEnabled)return recordNoDispatch(
+      if(!isProductionHost)return recordNoDispatch(
         submission.bookingId,details);
       if(!getStoreSafe)return;
       try{
         await getStoreSafe(productionGuard.STATUS_STORE,"strong").setJSON(
           submission.bookingId,{
             bookingId:submission.bookingId,
-            stage:"requires_reconciliation",
+            stage:details?.reason==="automatic_sync_not_enabled"?
+              "held_for_review":"requires_reconciliation",
             reason:String(details?.reason||"handoff_uncertain").slice(0,90),
             ownerAlertDelivery:details?.ownerAlertDelivery||"not_sent",
             updatedAt:new Date().toISOString(),
@@ -413,22 +415,25 @@ exports.handler = async (event) => {
         firstCleanDates:candidates.map(row=>row?.assignedCleanDate),
         bookingTotal:pricing?.total,
         matchReason,
-      });
+      },{mode:isProductionHost?"production":"preview"});
       if(!review)return null;
       return {
         from:FROM_DEFAULT,to:TO_ADMIN,
         subject:review.subject,text:review.text,html:review.html,
-        replyTo:email||undefined,
+        replyTo:email||undefined,attachments,
       };
     };
     const previewSyncUnavailable=isPreview1 && !deferAdminForPreview;
+    const productionSyncUnavailable=isProductionHost && !deferAdminForProduction;
     const adminEmailPromise=deferAdminForAuto?
       Promise.resolve({error:null,deferred:true}):
-      resend.emails.send(previewSyncUnavailable?
-        reviewOwnerMessage(!autoDispatchConfigured(process.env)?
-          "automatic_sync_not_enabled":
-          "outside_approved_preview_email_pilot")||adminEmailMessage:
-        adminEmailMessage);
+      resend.emails.send(productionSyncUnavailable?
+        reviewOwnerMessage("automatic_sync_not_enabled")||adminEmailMessage:
+        previewSyncUnavailable?
+          reviewOwnerMessage(!autoDispatchConfigured(process.env)?
+            "automatic_sync_not_enabled":
+            "outside_approved_preview_email_pilot")||adminEmailMessage:
+          adminEmailMessage);
 
     // The council-matched dates visible in the form belong in BOTH parts
     // of the customer receipt. This is a read-only display snapshot, not
@@ -524,7 +529,7 @@ exports.handler = async (event) => {
 
     if (adminResult?.error) {
       console.error("Resend admin error:", adminResult.error);
-      if(isPreview1||productionSyncEnabled) await recordAutoNoDispatch({
+      if(isPreview1||isProductionHost) await recordAutoNoDispatch({
         reason:"owner_receipt_delivery_failed_before_squeegee_dispatch",
         ownerAlertDelivery:"not_sent",
       });
@@ -532,6 +537,13 @@ exports.handler = async (event) => {
         statusCode: 502,
         body: JSON.stringify({ error: "Failed to send admin email", details: adminResult.error }),
       };
+    }
+
+    if(productionSyncUnavailable) {
+      await recordAutoNoDispatch({
+        reason:"automatic_sync_not_enabled",
+        ownerAlertDelivery:"sent",
+      });
     }
 
     // An accepted Preview 1 booking has an immutable receipt before dispatch
@@ -586,7 +598,9 @@ exports.handler = async (event) => {
       const handoffStarted=Date.now();
       const dispatched=squeegeeDispatchTask
         ? await squeegeeDispatchTask
-        : await dispatchAcceptedBooking(payload,{
+        : isProductionHost?
+          {queued:false,reason:"automatic_sync_not_enabled"}:
+          await dispatchAcceptedBooking(payload,{
             channel:"email",eventHost:syncHost,
             ownerReceipt:deferAdminForAuto?ownerReceipt:null,
           });
