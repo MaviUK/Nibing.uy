@@ -5,6 +5,7 @@ on:
     paths:
       - "netlify/functions/sendBookingEmail.js"
       - "netlify/functions/squeegeeProductionAutoSync.mjs"
+      - "netlify/functions/squeegeeProductionReadiness.mjs"
       - "netlify/functions/lib/squeegeeSyncOwnerAlert.js"
       - "netlify/functions/lib/squeegeeProductionGuard.js"
       - "netlify/functions/lib/squeegeeProductionDispatch.js"
@@ -45,6 +46,7 @@ jobs:
             tests/squeegee-production-dispatch.test.cjs \
             tests/squeegee-production-owner-status.test.cjs \
             tests/squeegee-production-readonly-preflight.test.cjs \
+            tests/squeegee-production-readiness.test.cjs \
             tests/squeegee-idempotency-claims.test.cjs \
             tests/squeegee-booking-replay-atomic.test.cjs \
             tests/squeegee-sync-owner-alert.test.cjs \
@@ -54,3 +56,20 @@ jobs:
         run: node --test tests/squeegee-*.test.cjs
       - name: Verify production website compiles
         run: npm run build
+      - name: Verify deployed production Squeegee connectivity (GET only)
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -eu
+          url="https://nibing.uy/api/squeegee-production-readiness"
+          for attempt in $(seq 1 24); do
+            status="$(curl --silent --show-error --max-time 18 --max-redirs 0 --output /dev/null --write-out "%{http_code}" "$url" || true)"
+            echo "GET-only production readiness probe $attempt: HTTP $status"
+            if [ "$status" = "200" ]; then
+              echo "PASS: Live function gates are configured and Squeegee API GET connectivity succeeded."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "FAIL: Live production Squeegee preflight did not return HTTP 200."
+          exit 1
