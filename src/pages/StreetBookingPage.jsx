@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import BOOKING_TERMS from "../data/bookingTerms.json";
+import BookingTermsContent from "../components/BookingTermsContent.jsx";
 
 const TERMS_VERSION = BOOKING_TERMS.version;
 const TERMS_TITLE = BOOKING_TERMS.title;
@@ -95,12 +96,15 @@ function TermsModal({ open, onClose, onConfirm }) {
 
   useEffect(() => {
     if (!open) return;
+    // Every new opening requires the customer to read the terms again.
     setScrolledToEnd(false);
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = 0;
     const onScroll = () => {
-      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 8) setScrolledToEnd(true);
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 8) {
+        setScrolledToEnd(true);
+      }
     };
     el.addEventListener("scroll", onScroll);
     return () => el.removeEventListener("scroll", onScroll);
@@ -109,22 +113,51 @@ function TermsModal({ open, onClose, onConfirm }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/80 p-3 sm:p-6 flex items-center justify-center" onClick={onClose}>
-      <div className="bg-white text-black w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden" onClick={(event) => event.stopPropagation()}>
-        <div className="px-6 py-4 border-b flex items-center justify-between">
-          <h2 className="text-lg font-bold">{TERMS_TITLE} <span className="text-xs font-normal text-gray-500">(v{TERMS_VERSION})</span></h2>
-          <button type="button" onClick={onClose} className="text-2xl text-gray-500 hover:text-black" aria-label="Close Terms">&times;</button>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-2 sm:p-6" onClick={onClose}>
+      <div
+        className="flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden border-2 border-slate-900 bg-white text-slate-900 shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="street-tos-title"
+      >
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6 sm:py-4">
+          <div className="min-w-0">
+            <h2 id="street-tos-title" className="text-[17px] font-extrabold leading-snug sm:text-xl">
+              {TERMS_TITLE}
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">Version: {TERMS_VERSION}</p>
+          </div>
+          <button type="button" onClick={onClose} className="flex h-9 w-9 shrink-0 items-center justify-center border border-slate-300 bg-white text-2xl leading-none text-slate-600 hover:bg-slate-100 hover:text-slate-950" aria-label="Close Terms">
+            &times;
+          </button>
         </div>
-        <div ref={scrollRef} className="px-6 py-4 max-h-[65dvh] overflow-y-auto whitespace-pre-line text-sm leading-6">{TERMS_BODY}</div>
-        <div className="px-6 py-4 border-t bg-gray-50 flex items-center justify-between gap-3">
-          <span className="text-xs text-gray-600">Scroll to the end to enable agreement.</span>
-          <button type="button" onClick={onConfirm} disabled={!scrolledToEnd} className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-black font-semibold disabled:opacity-50">Confirm &amp; Agree</button>
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
+          <BookingTermsContent body={TERMS_BODY} />
+        </div>
+        <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:px-6 sm:py-4">
+          <p className="mb-2 text-xs leading-4 text-slate-600">
+            {scrolledToEnd ? "You can now confirm your agreement." : "Scroll to the end to enable agreement."}
+          </p>
+          <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.3fr)] gap-2">
+            <button type="button" onClick={onClose} className="min-h-11 w-full border-2 border-slate-900 bg-white px-3 py-2 text-sm font-bold text-slate-900 hover:bg-slate-100">
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={!scrolledToEnd}
+              aria-disabled={!scrolledToEnd}
+              className="min-h-11 w-full border-2 border-slate-900 bg-[#ffd400] px-2 py-2 text-sm font-extrabold leading-5 text-slate-950 hover:bg-[#eac100] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Confirm &amp; Agree
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
 export default function StreetBookingPage() {
   const [bins, setBins] = useState([{ ...DEFAULT_BIN }]);
   const [name, setName] = useState("");
