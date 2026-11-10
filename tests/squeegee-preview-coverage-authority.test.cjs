@@ -59,11 +59,17 @@ function bookingFunction({rows=[],html="GREY BIN 10 NOVEMBER 2026 BLUE BIN 12 NO
         return Response.json({html});
       throw new Error("Unexpected lookup: "+target);
     };
+    // Pin the booking clock before the fixture collection date and 10am cutoff.
+    // This tests council/UPRN matching without depending on the CI build date.
+    const FixtureDate=class extends Date {
+      constructor(...args){super(...(args.length?args:["2026-11-09T09:00:00Z"]));}
+      static now(){return Date.parse("2026-11-09T09:00:00Z");}
+    };
     const fn=new Function("townSchedule","townFromAddress","areaStatusForTown",
-      "fetch","Response","URL",source+
+      "fetch","Response","URL","Date",source+
       "\nreturn {handler,scheduledTownCount};")(
       customSchedule,policy.townFromAddress,policy.areaStatusForTown,
-      fakeFetch,Response,URL);
+      fakeFetch,Response,URL,FixtureDate);
     const request=new Request(
       "https://deploy-preview-77--nibinguy.netlify.app/api/booking-schedule",{
         method:"POST",headers:{"Content-Type":"application/json"},
