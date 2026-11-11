@@ -20,7 +20,7 @@ const {fetchAuthoritativeSchedule}=require("./squeegeeBookingStage");
 const {matchCustomersAcrossPages,addressKey,normalName,normalEmail,normalPhone,firstNameOnlyPhoneMatch}=require("./squeegeeCustomerMatcher");
 const {resolveSqueegeeServiceIds}=require("./squeegeeServiceCatalog");
 const {normalizedBinType}=require("./squeegeeBookingPlan");
-const {customerKey,jobKey,activeBinKey,additionalBinKey,additionalJobKey,binServiceIdentity,claimOnce,changeClaimState}=require("./squeegeeIdempotencyClaims");
+const {customerKey,jobKey,activeBinKey,additionalBinKey,additionalJobKey,unscheduledJobKey,binServiceIdentity,claimOnce,changeClaimState}=require("./squeegeeIdempotencyClaims");
 const {validateBookingSubmission}=require("./bookingSubmissionGuard");
 const {notifyOwnerOfSyncHold,notifyOwnerOfDuplicateSignals,notifyOwnerOfQuantityBooking}=
   require("./squeegeeSyncOwnerAlert");
@@ -206,7 +206,7 @@ async function executeAutomaticPreviewBooking(payload,{
     // Recheck authoritatively against the council even when the browser
     // displayed a date; allow slightly longer for a slow live calendar.
     getSchedule:deps.getSchedule||(booking=>
-      fetchAuthoritativeSchedule(booking,fetch,{timeoutMs:16000})),
+      fetchAuthoritativeSchedule(booking,fetch,{timeoutMs:16000,production:mode==="production"})),
     getServices:deps.getServices||api.getServices,
     getJobGroups:deps.getJobGroups||api.getJobGroups,
     listCustomers:deps.listCustomers||api.listCustomers,
@@ -317,14 +317,42 @@ async function executeAutomaticPreviewBooking(payload,{
     const [schedule,services,groups]=await Promise.allSettled([
       use.getSchedule(payload),use.getServices(),use.getJobGroups(),
     ]);
-    if([schedule,services,groups].some(x=>x.status!=="fulfilled"||!x.value))
+    if(services.status!=="fulfilled"||!services.value)
       return await held("schedule_services_or_groups_unavailable");
+    const serverSchedule=schedule.status==="fulfilled"?schedule.value:null;
+    const accountGroups=groups.status==="fulfilled"?groups.value:[];
+    // Coverage failures still require review; manual scheduling is only a
+    // fallback for calendar/round failures, never permission to serve a
+    // removed town or a mismatched postcode/town.
+    if(["service_area_not_covered","service_area_requires_confirmation",
+        "address_postcode_mismatch","address_town_mismatch"].includes(serverSchedule?.reason))
+      return await held("booking_validation_failed");
     let prepared;
     try {
       prepared=prepareReadOnlyBooking(payload,
-        schedule.value,services.value,{jobGroups:groups.value});
+        serverSchedule,services.value,{jobGroups:accountGroups});
     }catch{return await held("booking_validation_failed");}
-    const plan=prepared.privatePlan,summary=prepared.summary;
+    let plan=prepared.privatePlan,summary=prepared.summary;
+    const dateOnlyReasons=new Set(["unverified_or_changed_dates",
+      "job_group_round_mapping_required","date_not_verified",
+      "job_groups_not_loaded","round_missing_in_account","duplicate_round_labels",
+      "bank_holiday_recurrence_review","requires_review","invalid_account_group_id"]);
+    // Price, services and customer fields must pass before a manual plan
+    // is built. Use the same matching, atomic claims and readback path.
+    const manualSchedule=summary.pricingVerified && plan &&
+      !summary.unmappedServices.length &&
+      !summary.heldDates.some(row=>row.reason==="unverified_service_area") &&
+      summary.blockedReasons.every(reason=>dateOnlyReasons.has(reason)) &&
+      (!summary.datesVerified || summary.needsJobGroupMapping ||
+       !plan.jobs.every(job=>validUpcomingDate(job.date,now)));
+    if(manualSchedule){
+      try{
+        prepared=prepareReadOnlyBooking(payload,serverSchedule,services.value,{
+          jobGroups:accountGroups,manualSchedule:true,
+        });
+        plan=prepared.privatePlan;summary=prepared.summary;
+      }catch{return await held("booking_validation_failed");}
+    }
     // A valid web date can coexist with a REJECTED BOOKING REFERENCE.
     // Make the owner email name the real cause, not an unrelated date.
     if(summary.blockedReasons.includes("invalid_booking_reference"))
@@ -345,20 +373,22 @@ async function executeAutomaticPreviewBooking(payload,{
       return await held("website_price_not_verified",{
         blockedReasons:summary.blockedReasons.slice(0,8),
       });
-    if(summary.datesVerified &&
+    if(!manualSchedule && summary.datesVerified &&
        summary.blockedReasons.includes("job_group_round_mapping_required"))
       return await held("squeegee_round_not_mapped",{
         blockedReasons:summary.blockedReasons.slice(0,8),
         roundStatuses:summary.jobs.slice(0,12).map(row=>row.roundStatus),
       });
     if(prepared.status!=="prepared_read_only" ||
-       !summary.pricingVerified || !summary.datesVerified ||
+       !summary.pricingVerified || (!manualSchedule && !summary.datesVerified) ||
        summary.blockedReasons.length || !plan ||
        plan.blockedJobs!==0 || plan.readyJobs!==bins.length ||
        plan.jobs.length!==bins.length ||
-       !plan.jobs.every(x=>x.status==="ready" &&
-         x.input?.jobGroup && validUpcomingDate(x.date,now)) ||
-       !summary.jobs.every(x=>x.roundStatus==="mapped")) {
+       !plan.jobs.every(x=>x.status==="ready" && (manualSchedule?
+         x.manualSchedule===true && x.date===null && x.input?.date===undefined &&
+           x.input?.jobGroup===undefined:
+         x.input?.jobGroup && validUpcomingDate(x.date,now))) ||
+       (!manualSchedule && !summary.jobs.every(x=>x.roundStatus==="mapped"))) {
       return await held("date_price_service_or_round_not_verified",{
         blockedReasons:summary.blockedReasons.slice(0,8),
         heldDates:summary.heldDates.slice(0,12).map(row=>({
@@ -387,7 +417,7 @@ async function executeAutomaticPreviewBooking(payload,{
     let groupedJobs;
     try{groupedJobs=groupedSqueegeeJobs(plan.jobs,bookingId);}
     catch{return await held("cannot_safely_group_bin_jobs");}
-    verifiedFirstCleanDates=groupedJobs.map(group=>group.input.date);
+    verifiedFirstCleanDates=groupedJobs.map(group=>group.input.date).filter(Boolean);
     const groupedPennies=groupedJobs.reduce((sum,group)=>
       sum+Math.round(group.input.price*100),0);
     const bookingPennies=Math.round(Number(payload.pricing?.total)*100);
@@ -556,7 +586,7 @@ async function executeAutomaticPreviewBooking(payload,{
       const isAddition=additionalIdentities.has(binServiceIdentity(bin));
       const activeKey=isAddition?
         additionalBinKey(payload,bin):activeBinKey(payload,bin);
-      const entryKey=isAddition?
+      const entryKey=manualSchedule?unscheduledJobKey(payload,bin):isAddition?
         additionalJobKey(payload,{date:job.date,type:bin.type,planId:bin.planId,
           sizeLitres:bin.sizeLitres}):
         jobKey(payload,{date:job.date,type:bin.type,planId:bin.planId,
@@ -685,6 +715,7 @@ async function executeAutomaticPreviewBooking(payload,{
           // This GET cannot independently verify appointment date/recurrence.
           failureStage="verifying_created_job";
           const observed=await use.confirmJob({
+            manualSchedule:Boolean(manualSchedule),
             customerId,planned:group.input,writeResult:jobWriteResult,
             knownJobIds:[...knownPostedJobIds],
             baselineComplete:baselineJobIdsComplete,
@@ -764,9 +795,10 @@ async function executeAutomaticPreviewBooking(payload,{
         quantityVerificationRecommended:quantityNeedsAttention,
         quantityAttentionRequired:quantityNeedsAttention,
         quantityInstructions,
-        manualAction:quantityNeedsAttention?
+        manualScheduleRequired:Boolean(manualSchedule),
+        manualAction:manualSchedule?"set_squeegee_date_and_round":quantityNeedsAttention?
           "check_squeegee_service_quantities_and_same_day_jobs":null,
-        firstCleanDates:groupedJobs.map(group=>group.input.date),
+        firstCleanDates:verifiedFirstCleanDates,
         rounds:groupedJobs.map(group=>
           summary.jobs[group.members[0].index].roundNumber),
         recurrence:groupedJobs.map(group=>
@@ -795,6 +827,7 @@ async function executeAutomaticPreviewBooking(payload,{
           // email for a normal import, or ACCOUNT NEEDS ATTENTION when any
           // physical quantity/previously registered bin needs manual work.
           const delivery=await use.completedAlert(bookingId,{
+            manualScheduleRequired:Boolean(manualSchedule),
             quantityAttentionRequired:quantityNeedsAttention,
             quantityChanges,requestedBinCounts:counts,
             additionalExistingBins:[...additionalTypes],
@@ -821,16 +854,21 @@ async function executeAutomaticPreviewBooking(payload,{
       // manual quantity instructions and any duplicate flags. Preserve the
       // legacy informational notices for non-email/unspecified channels that
       // do not have a signed completed owner receipt.
-      if(!quantityNeedsAttention && duplicateFlags.length && !use.completedAlert) {
+      if(!manualSchedule && !quantityNeedsAttention && duplicateFlags.length && !use.completedAlert) {
         // Legacy/unconfirmed owner-receipt paths retain their independent
         // information notice. Completed Preview 1 email bookings instead
         // embed meaningful cross-account signals in the ONE signed receipt.
         try{await use.duplicateAlert(bookingId,duplicateFlags);}catch{}
       }
-      if(quantityNeedsAttention && !use.completedAlert){
+      if(!manualSchedule && quantityNeedsAttention && !use.completedAlert){
         try{await use.quantityAlert(bookingId,{
           requestedBinCounts:counts,
           additionalExistingBins:[...additionalTypes],
+        });}catch{}
+      }
+      if(manualSchedule && !use.completedAlert){
+        try{await use.alert(bookingId,"created_without_date",{
+          ...ownerSubmissionInfo(),createdJobs:completed,
         });}catch{}
       }
       return outcome("completed","created_customer_and_jobs",{

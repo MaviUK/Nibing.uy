@@ -52,6 +52,7 @@ function simpleStatus(record){
     stage:limited(record.stage),
     reason:limited(record.reason),
     ownerAlertDelivery:limited(record.ownerAlertDelivery),
+    manualScheduleRequired:record.manualScheduleRequired===true,
     updatedAt:typeof record.updatedAt==="string" &&
       !Number.isNaN(Date.parse(record.updatedAt))?
         record.updatedAt:record.acceptedAt||null,
@@ -68,6 +69,8 @@ function sourceSummary(summary){
     line("Stage",summary.stage)+line("Reason",summary.reason)+
     line("Owner email",summary.ownerAlertDelivery)+
     line("Confirmed Squeegee jobs",summary.jobsConfirmed)+
+    (summary.manualScheduleRequired?
+      line("Action required","Job created in Squeegee. Set the first cleaning date and round manually; do not create another job."):"")+
     line("Updated",summary.updatedAt||"unknown")+
     (summary.duplicateFlags.length?
       line("Duplicate detail flags",summary.duplicateFlags.join(", ")):"")+
@@ -115,6 +118,7 @@ async function outstanding(){
       const status=simpleStatus(record);
       if(!status)continue;
       const isReview=["held_for_review","requires_reconciliation"].includes(status.stage) ||
+        status.manualScheduleRequired ||
         ["not_sent","failed"].includes(status.ownerAlertDelivery) ||
         (status.stage!=="created_customer_and_jobs" &&
           Date.now()-Date.parse(status.updatedAt||0)>5*60*1000);

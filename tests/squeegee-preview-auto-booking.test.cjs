@@ -438,7 +438,7 @@ test("one-off uses adhoc frequency and matching one-off service",async()=>{
   assert.equal(job.frequencyInterval,undefined);
 });
 
-test("changed website date, missing round and tampered price always hold with zero Squeegee POSTs",async()=>{
+test("changed dates and missing rounds create unscheduled jobs; tampered prices still hold",async()=>{
   const b=sampleBooking();
   const cases=[
     {schedule:{...fakeSchedule(b),results:[{
@@ -448,9 +448,13 @@ test("changed website date, missing round and tampered price always hold with ze
   ];
   for(const opts of cases){
     const h=makeHarness(b,opts),result=await h.run();
-    assert.equal(result.status,"held");
-    assert.equal(h.posts.length,0);
-    assert.equal(h.ledger.records.size,0);
+    assert.equal(result.status,"completed");
+    const job=h.posts.find(row=>row.kind==="job").job;
+    assert.equal(Object.hasOwn(job,"date"),false);
+    assert.equal(Object.hasOwn(job,"jobGroup"),false);
+    assert.equal(Object.hasOwn(job.firstAppointment,"initialDate"),false);
+    assert.equal(job.price,5);
+    assert.equal(h.statuses.at(-1).manualScheduleRequired,true);
   }
   const tampered=sampleBooking({modified:booking=>({
     ...booking,pricing:{...booking.pricing,total:0},
@@ -1614,26 +1618,48 @@ test("valid existing service ID-only format remains supported for compatibility"
   ],wanted),null);
 });
 
-test("an unconfirmed website date remains held with exact reason; no customer or job is posted",async()=>{
+test("unconfirmed website dates create one undated job, one owner notice and cannot replay",async()=>{
   const b=sampleBooking({modified:booking=>({...booking,bookingScheduleSnapshot:null})});
-  const verifiedServer={
-    postcode:"BT19 7ZW",town:"BANGOR",
-    results:[{bin:"Brown Bin",town:"BANGOR",automatic:true,
-      assignedCleanDate:"2026-11-16"}],
-  };
-  const h=makeHarness(b,{schedule:verifiedServer});
-  const outcome=await h.run();
-  assert.equal(outcome.status,"held");
-  assert.equal(outcome.reason,"date_price_service_or_round_not_verified");
-  const saved=h.statuses.at(-1);
-  assert.equal(saved.stage,"held_for_review");
-  assert.equal(saved.browserSnapshotPresent,false);
-  assert.deepEqual(saved.heldDates,[{
-    index:0,bin:"Brown Bin",reason:"schedule_not_confirmed_at_submit",
-  }]);
-  assert.deepEqual(saved.roundStatuses,["date_not_verified"]);
-  assert.equal(h.posts.length,0);
-  assert.equal(h.ledger.records.size,0);
+  const notices=[];
+  const h=makeHarness(b,{schedule:{matched:false,reason:"council_address_ambiguous"},
+    deps:{completedAlert:async(id,details)=>{notices.push(details);return {sent:true};}}});
+  assert.equal((await h.run()).status,"completed");
+  assert.equal(h.posts.filter(row=>row.kind==="customer").length,1);
+  const jobs=h.posts.filter(row=>row.kind==="job");
+  assert.equal(jobs.length,1);
+  assert.deepEqual(jobs[0].job.firstAppointment,{tags:[]});
+  assert.equal(Object.hasOwn(jobs[0].job,"date"),false);
+  assert.equal(Object.hasOwn(jobs[0].job,"jobGroup"),false);
+  assert.match(jobs[0].job.notes,/DATE AND ROUND REQUIRED/);
+  assert.equal(jobs[0].job.frequencyInterval,4);
+  assert.equal(notices.length,1);
+  assert.equal(notices[0].manualScheduleRequired,true);
+  assert.deepEqual(notices[0].firstCleanDates,[]);
+  assert.equal(h.statuses.at(-1).manualAction,"set_squeegee_date_and_round");
+  assert.equal((await h.run()).status,"held");
+  assert.equal(h.posts.length,2);
+});
+test("manual scheduling fallback still holds inactive accounts, missing services and removed areas",async()=>{
+  const b=sampleBooking();
+  const schedule={matched:false,reason:"council_address_ambiguous"};
+  for(const options of [
+    {schedule,existingRows:[{_id:customerId,name:b.name,address:b.address,status:"inactive"}],
+      existingCustomer:{status:"inactive"}},
+    {schedule,services:[]},
+    {schedule:{matched:false,reason:"service_area_not_covered"}},
+  ]){
+    const h=makeHarness(b,options);
+    assert.equal((await h.run()).status,"held");
+    assert.equal(h.posts.length,0);
+  }
+});
+test("calendar failure creates an undated job; an ambiguous undated POST is never retried",async()=>{
+  const b=sampleBooking();
+  const h=makeHarness(b,{deps:{getSchedule:async()=>{throw Error("calendar unavailable");}},jobErrorAt:1});
+  assert.equal((await h.run()).status,"requires_reconciliation");
+  assert.equal((await h.run()).status,"held");
+  assert.equal(h.posts.length,2);
+  assert.equal(Object.hasOwn(h.posts[1].job,"date"),false);
 });
 test("protected owner status view can diagnose the old read-only date hold",()=>{
   const source=require("node:fs").readFileSync(
@@ -2761,4 +2787,35 @@ test("first-name-only existing Squeegee account stays held if inactive",async()=
   assert.equal(result.status,"held");
   assert.equal(result.reason,"existing_customer_reactivation_required");
   assert.equal(h.posts.length,0);
+});
+
+test("production creates an undated job through production claims and sends the date-required owner receipt",async()=>{
+  const b=sampleBooking({modified:booking=>({...booking,bookingScheduleSnapshot:null})});
+  const notices=[];
+  const h=makeHarness(b,{schedule:{matched:false,reason:"council_address_ambiguous"}});
+  const productionEnv={
+    SQUEEGEE_PRODUCTION_API_KEY:"synthetic-production-only-key-for-test",
+    SQUEEGEE_PRODUCTION_EVENT_SECRET:"synthetic-production-event-secret-for-test",
+    SQUEEGEE_PRODUCTION_AUTO_SYNC_ENABLED:"true",
+    SQUEEGEE_PRODUCTION_OWNER_APPROVED_WRITES:"true",
+    SQUEEGEE_PRODUCTION_ATOMIC_LEDGER_READY:"true",
+    SQUEEGEE_PRODUCTION_WRITES_PAUSED:"false",
+  };
+  const result=await executeAutomaticPreviewBooking(b,{
+    mode:"production",channel:"email",now,env:productionEnv,
+    runtimeScope:{...runtime,hostname:"nibing.uy",deployContext:"production"},
+    deps:{...h.deps,
+      alert:async()=>{throw Error("unexpected hold");},
+      withWrite:async(proof,operation)=>{
+        assert.equal(proof.key,"claim-v1/production/auto-bookings/"+b.bookingId);
+        return operation();
+      },
+      completedAlert:async(id,details)=>{notices.push(details);return {sent:true};},
+    },
+  });
+  assert.equal(result.status,"completed");
+  assert.equal(h.posts.length,2);
+  assert.equal(Object.hasOwn(h.posts[1].job,"date"),false);
+  assert.equal(notices.length,1);
+  assert.equal(notices[0].manualScheduleRequired,true);
 });

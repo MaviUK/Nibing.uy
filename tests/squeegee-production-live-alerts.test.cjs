@@ -56,3 +56,22 @@ test("live booking acceptance warns owner and stores a reconciliation record whe
     "../netlify/functions/squeegeeProductionAutoSync.mjs"),"utf8");
   assert.match(worker,/mode:"production"/);
 });
+
+test("confirmed undated imports send one date-required owner email and preserve attachments",async()=>{
+  const sent=[];
+  const receipt={subject:"🗑️ New Bin Cleaning Booking (website) — "+bookingId,
+    text:"Accepted bin booking with full details",html:"<p>"+"Accepted bin booking ".repeat(8)+"</p>",
+    termsBody:"Terms accepted. ".repeat(10),binsText:"1 x Brown Bin",pricingText:"£5"};
+  const result=await alerts.notifyOwnerOfCompletedBooking(bookingId,receipt,{
+    mode:"production",send:async message=>{sent.push(message);return {data:{id:"fake"}};},
+    attachments:[{filename:"terms.pdf",content:"fake"}],
+    attention:{manualScheduleRequired:true},
+  });
+  assert.equal(result.sent,true);
+  assert.equal(sent.length,1);
+  assert.match(sent[0].subject,/DATE REQUIRED IN SQUEEGEE/);
+  assert.match(sent[0].text,/Set the first cleaning date and round manually/);
+  assert.match(sent[0].text,/Do not create another job/);
+  assert.match(sent[0].html,/squeegee-production-auto-status/);
+  assert.equal(sent[0].attachments[0].filename,"terms.pdf");
+});

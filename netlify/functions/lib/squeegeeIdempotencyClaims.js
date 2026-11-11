@@ -33,6 +33,7 @@ function customerKey(input) {
   const normalized = address.toUpperCase()
     .replace(new RegExp(postcode.replace(/\s/g, "").slice(0,-3) + "\\s*" +
       postcode.slice(-3), "gi"), " ")
+    .replace(/^(\d+[A-Z]?\s+)([NEWS])\.?\s+/g, (_,number,direction)=>number+({N:"NORTH",E:"EAST",W:"WEST",S:"SOUTH"}[direction])+" ")
     .replace(/\bRD\b/g, "ROAD").replace(/\bST\b/g, "STREET")
     .replace(/\bAVE\b/g, "AVENUE")
     .replace(/\bUNITED KINGDOM\b/g, "").replace(/\bNORTHERN IRELAND\b/g, "")
@@ -116,6 +117,16 @@ function additionalJobKey(booking,job) {
     customerKey(booking),...binIdentityParts(job),plan,date,booking.bookingId,
   ]);
 }
+// An unscheduled job has no clean date. Keep its own immutable identity;
+// the normal booking, property and active-bin claims still apply as well.
+function unscheduledJobKey(booking,job) {
+  validateBookingId(booking?.bookingId);
+  if(!/^(?:domestic|comm_lt360|comm_gt660)_(?:4w|oneoff)$/.test(String(job?.planId||"")))
+    throw new Error("Invalid unscheduled service plan");
+  return PREFIX+"/unscheduled-job/"+digest([
+    customerKey(booking),...binIdentityParts(job),job.planId,booking.bookingId,
+  ]);
+}
 function validEtag(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -191,7 +202,7 @@ async function changeClaimState({
  * If 2 fails: never POST. If 3 times out: never POST again automatically.
  */
 module.exports = {
-  customerKey, jobKey, activeBinKey, additionalBinKey, additionalJobKey,
+  customerKey, jobKey, activeBinKey, additionalBinKey, additionalJobKey, unscheduledJobKey,
   binServiceIdentity,
   claimOnce, changeClaimState, validEtag,
 };

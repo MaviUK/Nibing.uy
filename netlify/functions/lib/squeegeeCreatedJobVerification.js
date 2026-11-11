@@ -29,13 +29,16 @@ function serviceIds(services) {
   const ids=services.map(idOf);
   return ids.every(Boolean)&&new Set(ids).size===ids.length?ids:null;
 }
-function matchesPlannedJob(job,planned) {
+function matchesPlannedJob(job,planned,{manualSchedule=false}={}) {
   const actual=serviceIds(job?.services);
   const expected=serviceIds(planned?.services);
   if(!actual||!expected||actual.length!==expected.length ||
      [...actual].sort().join("|")!==[...expected].sort().join("|"))
     return false;
-  if(!idOf(job?.jobGroup)||idOf(job.jobGroup)!==idOf(planned?.jobGroup))
+  if(!planned?.jobGroup && !manualSchedule)return false;
+  if(planned?.jobGroup ?
+     (!idOf(job?.jobGroup)||idOf(job.jobGroup)!==idOf(planned.jobGroup)) :
+     (job?.jobGroup!==undefined && job?.jobGroup!==null && job?.jobGroup!==""))
     return false;
   const actualPennies=Number(job?.price)*100;
   const expectedPennies=Number(planned?.price)*100;
@@ -45,7 +48,7 @@ function matchesPlannedJob(job,planned) {
     Math.abs(actualPennies-Math.round(actualPennies))<0.001 &&
     Math.abs(expectedPennies-Math.round(expectedPennies))<0.001;
 }
-function identifyNewJob(jobs,{planned,knownJobIds=[],writeResult,baselineComplete=true}={}) {
+function identifyNewJob(jobs,{planned,knownJobIds=[],writeResult,baselineComplete=true,manualSchedule=false}={}) {
   if(!Array.isArray(jobs))return null;
   const prior=new Set([...knownJobIds].map(idOf).filter(Boolean));
   const returned=returnedJobId(writeResult);
@@ -56,24 +59,27 @@ function identifyNewJob(jobs,{planned,knownJobIds=[],writeResult,baselineComplet
     const id=idOf(job);
     return Boolean(id && !prior.has(id) &&
       (!returned || returned===id) &&
-      matchesPlannedJob(job,planned));
+      matchesPlannedJob(job,planned,{manualSchedule}));
   });
   return matches.length===1?idOf(matches[0]):null;
 }
 async function confirmPostedJob({
   getCustomer,customerId,planned,knownJobIds=[],baselineComplete=true,
   writeResult,maxAttempts=MAX_ATTEMPTS,
+  manualSchedule=false,
   pause=ms=>new Promise(resolve=>setTimeout(resolve,ms)),
 }={}) {
   if(typeof getCustomer!=="function"||!idOf(customerId) ||
-     !serviceIds(planned?.services)||!idOf(planned?.jobGroup) ||
+     !serviceIds(planned?.services)||
+     (manualSchedule ? (planned?.jobGroup!==undefined || planned?.date!==undefined ||
+       planned?.firstAppointment?.initialDate!==undefined) : !idOf(planned?.jobGroup)) ||
      !Number.isFinite(Number(planned?.price)))return {verified:false};
   const attempts=Math.max(1,Math.min(MAX_ATTEMPTS,Number(maxAttempts)||1));
   for(let attempt=0;attempt<attempts;attempt++){
     try {
       const customer=await getCustomer(customerId);
       const jobId=identifyNewJob(customer?.jobs,{
-        planned,knownJobIds,writeResult,baselineComplete,
+        planned,knownJobIds,writeResult,baselineComplete,manualSchedule,
       });
       if(jobId)return {verified:true,jobId};
     }catch{

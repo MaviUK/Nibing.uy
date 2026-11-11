@@ -22,6 +22,7 @@ function normAddress(value) {
     .toUpperCase()
     .replace(/\bNORTHERN IRELAND\b/g, "")
     .replace(/[.,'’]/g, " ")
+    .replace(/^(\d+[A-Z]?\s+)([NEWS])\.?\s+/g, (_,number,direction)=>number+({N:"NORTH",E:"EAST",W:"WEST",S:"SOUTH"}[direction])+" ")
     .replace(/\bRD\b/g, "ROAD")
     .replace(/\bST\b/g, "STREET")
     .replace(/\bAVE\b/g, "AVENUE")

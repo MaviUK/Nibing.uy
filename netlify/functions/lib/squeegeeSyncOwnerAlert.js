@@ -335,6 +335,16 @@ const UNCERTAIN_REASONS=new Set([
 ]);
 function genericReviewContent(bookingId,reason,extra={},options={}){
   const isProduction=options?.mode==="production";
+  if(reason==="created_without_date"){
+    const subject="NI Bin Guy — DATE REQUIRED IN SQUEEGEE — "+bookingId;
+    const text=["CREATED IN SQUEEGEE — DATE AND ROUND REQUIRED",
+      "The customer and job(s) are in Squeegee. Set the first cleaning date and round manually. Do not create another job.",
+      "Booking reference: "+bookingId,
+      "Customer: "+cleanOwnerField(extra.customerName,120),
+      "Address: "+cleanOwnerField(extra.serviceAddress,250),
+    ].join("\n");
+    return {subject,text,html:'<div style="font:16px/1.6 Arial,sans-serif;white-space:pre-wrap">'+emailHtmlEscape(text)+'</div>'};
+  }
   const help=REVIEW_HELP[reason]||{
     category:"Squeegee job not automatically confirmed",
     action:"Check the full booking against the customer and jobs in Squeegee, then create or correct the booking manually when safe.",
@@ -752,7 +762,7 @@ function completedOwnerReceiptWithMatchNotes(receipt,details={}) {
 }
 
 async function notifyOwnerOfCompletedBooking(bookingId,receipt,{
-  env=process.env,send=null,attachments=undefined,attention=null,
+  env=process.env,send=null,attachments=undefined,attention=null,mode="preview",
 }={}) {
   if(!BOOKING_RE.test(String(bookingId||"")))
     return {sent:false,reason:"invalid_completed_booking_ref"};
@@ -761,10 +771,23 @@ async function notifyOwnerOfCompletedBooking(bookingId,receipt,{
   const {normalOwnerReceipt}=require("./squeegeePreviewAutoDispatch");
   const safe=normalOwnerReceipt(receipt);
   if(!safe)return {sent:false,reason:"missing_completed_owner_receipt"};
-  const selected=attention?.quantityAttentionRequired===true?
+  let selected=attention?.quantityAttentionRequired===true?
     completedQuantityAttentionContent(bookingId,safe,attention):
     completedOwnerReceiptWithMatchNotes(safe,attention);
   if(!selected)return {sent:false,reason:"invalid_quantity_attention_details"};
+  if(attention?.manualScheduleRequired===true){
+    const instruction="CREATED IN SQUEEGEE — DATE AND ROUND REQUIRED";
+    const action="The customer and job(s) are in Squeegee. No cleaning date or round was submitted. Set the first cleaning date and round manually. Do not create another job. The booked price is already set; check the bin quantities in the job notes.";
+    const statusUrl=(mode==="production"?
+      "https://nibing.uy/api/squeegee-production-auto-status?bookingId=":
+      "https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId=")+bookingId;
+    selected={...selected,
+      subject:"NI Bin Guy — DATE REQUIRED IN SQUEEGEE — "+bookingId,
+      text:instruction+"\n"+action+"\nBooking status: "+statusUrl+"\n\n"+selected.text,
+      html:'<div style="padding:20px;background:#fff6d8;color:#16191e;font:16px/1.6 Arial,sans-serif"><h1 style="font-size:22px">'+
+        instruction+'</h1><p>'+action+'</p><a href="'+statusUrl+'">View booking status</a></div>'+selected.html,
+    };
+  }
   return deliverOwnerEmail({
     ...selected,
     attachments:Array.isArray(attachments)?attachments:undefined,

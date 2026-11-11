@@ -33,12 +33,19 @@ function groupedSqueegeeJobs(perBinJobs,bookingId) {
   // counts into the same job if date/round/recurrence match.
   for(const item of perBinJobs) {
     const input=item?.input;
+    // Only an explicitly prepared manual job may omit its date and round.
+    // Never send a placeholder date that could put it on a live route.
+    const manual=item?.manualSchedule===true;
+    const scheduleValid=manual?
+      item.date===null && input?.date===undefined &&
+      input?.firstAppointment?.initialDate===undefined && input?.jobGroup===undefined:
+      validDate(item?.date) && input?.date===item.date &&
+      input?.firstAppointment?.initialDate===item.date &&
+      UUID_RE.test(String(input?.jobGroup||""));
     if(item?.status!=="ready" ||
        !Number.isInteger(item.index) || item.index<0 ||
        memberIndices.has(item.index) ||
-       !validDate(item.date) || input?.date!==item.date ||
-       input?.firstAppointment?.initialDate!==item.date ||
-       !UUID_RE.test(String(input.jobGroup||"")) ||
+       !scheduleValid ||
        !Array.isArray(input.services) || input.services.length!==1 ||
        !UUID_RE.test(String(input.services[0]||"")) ||
        !Number.isSafeInteger(item.quantity) || item.quantity>200 ||
@@ -112,7 +119,8 @@ function groupedSqueegeeJobs(perBinJobs,bookingId) {
         "PHYSICAL BINS: "+counts.map(item=>
           item.quantity+" x "+item.bin+(item.sizeLitres?" ("+item.sizeLitres+"L)":"")
         ).join(" + "),
-        type,"Website date: "+group.input.date,
+        type,group.input.date?"Website date: "+group.input.date:
+          "DATE AND ROUND REQUIRED: owner must schedule this job manually",
         "Quantity is in these notes; Squeegee service IDs do not carry quantity",
       ].join(" | ");
     }
