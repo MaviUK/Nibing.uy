@@ -85,3 +85,15 @@ test("GET errors and missing fields cannot imply job creation",async()=>{
     planned,knownJobIds:[],writeResult:{success:true},
   }),null);
 });
+
+test("an undated job needs a new matching ungrouped record; missing and older records cannot confirm it",async()=>{
+  const manual={services:[black,blue],price:10,frequencyType:"weeks",frequencyInterval:4};
+  const actual={...job(after),jobGroup:null};
+  assert.equal(identifyNewJob([actual],{planned:manual,knownJobIds:[]}),null);
+  assert.equal(identifyNewJob([actual],{planned:manual,manualSchedule:true,knownJobIds:[]}),after);
+  assert.equal(identifyNewJob([actual],{planned:manual,manualSchedule:true,knownJobIds:[after]}),null);
+  assert.equal(identifyNewJob([job(after)],{planned:manual,manualSchedule:true,knownJobIds:[]}),null);
+  const result=await confirmPostedJob({customerId:customer,planned:manual,manualSchedule:true,knownJobIds:[before],
+    getCustomer:async()=>({jobs:[actual]}),pause:async()=>{}});
+  assert.deepEqual(result,{verified:true,jobId:after});
+});

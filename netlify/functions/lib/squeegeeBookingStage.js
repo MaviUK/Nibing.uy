@@ -21,7 +21,7 @@ function isPreview1ApiConfigured(env = process.env) {
     env.SQUEEGEE_WRITE_ENABLED !== "true";
 }
 
-async function fetchAuthoritativeSchedule(payload, fetchImpl = fetch, { timeoutMs = 8500 } = {}) {
+async function fetchAuthoritativeSchedule(payload, fetchImpl = fetch, { timeoutMs = 8500, production = false } = {}) {
   const bins = (Array.isArray(payload?.bins) ? payload.bins : []).filter(bin => bin?.type);
   if (!normalizedPostcode(payload?.address) || !bins.length) return null;
 
@@ -31,7 +31,7 @@ async function fetchAuthoritativeSchedule(payload, fetchImpl = fetch, { timeoutM
     Math.max(1000,Math.min(20000,Number(timeoutMs))):8500;
   const timer = setTimeout(() => controller.abort(), boundedTimeout);
   try {
-    const response = await fetchImpl(PREVIEW_URL + "/api/booking-schedule", {
+    const response = await fetchImpl((production ? "https://nibing.uy" : PREVIEW_URL) + "/api/booking-schedule", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

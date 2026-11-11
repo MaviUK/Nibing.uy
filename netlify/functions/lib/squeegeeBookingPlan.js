@@ -94,12 +94,13 @@ function makeJobPlan(booking, bin, index, dateRow, config) {
   if (largeCommercial && bin.sizeLitres !== 660 && bin.sizeLitres !== 1100) {
     return { index, bin: bin.type, status: "bin_size_required", date: null, input: null };
   }
-  if (!dateRow || normalizedBinType(dateRow.bin) !== type ||
-      dateRow.automatic !== true || !validDate(dateRow.assignedCleanDate)) {
+  const manualSchedule = config?.manualSchedule === true;
+  if (!manualSchedule && (!dateRow || normalizedBinType(dateRow.bin) !== type ||
+      dateRow.automatic !== true || !validDate(dateRow.assignedCleanDate))) {
     return { index, bin: bin.type, status: "date_to_confirm", date: null, input: null };
   }
 
-  const date = dateRow.assignedCleanDate;
+  const date = manualSchedule ? null : dateRow.assignedCleanDate;
   // Squeegee service and job-group IDs must come from this account's GET
   // /services and GET /job-groups, not invented or hardcoded.
   // Account-specific services differ for one-off and four-weekly cleans.
@@ -125,7 +126,7 @@ function makeJobPlan(booking, bin, index, dateRow, config) {
   }
 
   const input = {
-    date,
+    ...(manualSchedule ? {} : {date}),
     frequencyType: isOneOff ? "adhoc" : "weeks",
     services: [serviceId],
     notes: [
@@ -134,27 +135,27 @@ function makeJobPlan(booking, bin, index, dateRow, config) {
       bin.planId.startsWith("comm_lt360_") ? "Commercial under 360L" : null,
       largeCommercial ? "Commercial bin size: " + bin.sizeLitres + "L" : null,
       isOneOff ? "One-off clean" : "Every 4 weeks",
-      "Website date: " + date,
+      manualSchedule ? "DATE AND ROUND REQUIRED: owner must schedule this job manually" : "Website date: " + date,
     ].filter(Boolean).join(" | "),
     tags: [],
-    firstAppointment: { tags: [], initialDate: date },
+    firstAppointment: { tags: [], ...(manualSchedule ? {} : {initialDate: date}) },
     price: Math.round(Number(priceLine.lineTotal) * 100) / 100,
   };
   if (!isOneOff) input.frequencyInterval = 4;
 
-  const group = config?.jobGroupFor?.({ bin, index, date, postcode: normalizedPostcode(booking.address) });
+  const group = manualSchedule ? null : config?.jobGroupFor?.({ bin, index, date, postcode: normalizedPostcode(booking.address) });
   // The Squeegee API allows a job without a group, but an automatically
   // assigned bin-cleaning booking must not silently land off the proper round.
   // Existing standalone planner callers may omit requireJobGroup; booking
   // preparation always sets it after verifying the account's group labels.
-  if (config?.requireJobGroup === true && !group) {
+  if (!manualSchedule && config?.requireJobGroup === true && !group) {
     return { index, bin: bin.type, quantity, status: "job_group_mapping_required", date, input: null };
   }
   if (group) input.jobGroup = requireUuid(group, "jobGroup");
   return {
     index, bin: bin.type, quantity,
     sizeLitres: largeCommercial ? bin.sizeLitres : null,
-    status: "ready", date, input,
+    status: "ready", date, input, ...(manualSchedule ? {manualSchedule:true} : {}),
   };
 }
 

@@ -32,6 +32,7 @@ function addressKey(value) {
     // locality suffix, never within a street name (e.g. County Down Road).
     // The actual house number, street, town and BT postcode still match.
     .replace(/(?:,\s*|\s+)(?:COUNTY|CO\.?)\s+DOWN\s*,?\s*$/g, "")
+    .replace(/^(\d+[A-Z]?\s+)([NEWS])\.?\s+/g, (_,number,direction)=>number+({N:"NORTH",E:"EAST",W:"WEST",S:"SOUTH"}[direction])+" ")
     .replace(/\bRD\b/g, "ROAD")
     .replace(/\bST\b/g, "STREET")
     .replace(/\bAVE\b/g, "AVENUE")

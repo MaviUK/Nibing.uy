@@ -305,3 +305,25 @@ test("frontend retains the full council address dropdown with square N64 visuals
   assert.doesNotMatch(guard,/return finishCovered\(root, address, postcode, townInText/);
   assert.match(worker,/activeTowns.*activeServiceAreas/);
 });
+
+test("direction abbreviations select the same council property without accepting another street or number",async()=>{
+  const row={uprn:"100030",addressText:"34 East Mount, Newtownards, BT23 8SE"};
+  const resolve=bookingFunction({rows:[row],customSchedule:{NEWTOWNARDS:[["2026-11-11",4,52]]}});
+  for(const street of ["34 E Mount","34 E. Mount","34 East Mount"]){
+    const {body}=await resolve({address:street+", Newtownards BT23 8SE",postcode:"BT23 8SE",bins:[{type:"Brown Bin"}]});
+    assert.equal(body.matched,true);
+    assert.equal(body.uprn,"100030");
+    assert.equal(body.results[0].assignedCleanDate,"2026-11-11");
+  }
+  for(const street of ["34 W Mount","34 Mount","35 E Mount"]){
+    const result=await resolve({address:street+", Newtownards BT23 8SE",postcode:"BT23 8SE"});
+    assert.equal(result.body.matched,false);
+    assert.equal(result.observed.some(x=>x.includes("binCalendar?")),false);
+  }
+  const {addressKey}=require("../netlify/functions/lib/squeegeeCustomerMatcher");
+  const {customerKey}=require("../netlify/functions/lib/squeegeeIdempotencyClaims");
+  const short="34 E Mount, Newtownards BT23 8SE",full=row.addressText;
+  assert.equal(addressKey(short),addressKey(full));
+  assert.equal(customerKey({address:short}),customerKey({address:full}));
+  assert.equal((await loadPolicy()).matchesCouncilProperty(short,full),true);
+});

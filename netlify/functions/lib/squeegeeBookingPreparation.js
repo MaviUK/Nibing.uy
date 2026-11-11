@@ -17,7 +17,7 @@ const {
  * Missing/duplicate account group labels and bank-holiday recurring anchors
  * hold the affected job. No Squeegee POST is performed here.
  */
-function prepareReadOnlyBooking(booking, serverSchedule, services, { jobGroups } = {}) {
+function prepareReadOnlyBooking(booking, serverSchedule, services, { jobGroups, manualSchedule=false } = {}) {
   const price = verifyAndPriceBooking(booking?.bins, booking?.discountCode,
     booking?.pricing);
   const dates = compareDisplayedSchedule(booking, serverSchedule,
@@ -27,7 +27,7 @@ function prepareReadOnlyBooking(booking, serverSchedule, services, { jobGroups }
   const errors = [];
 
   if (!price.ok) errors.push(price.reason);
-  if (dates.holds.length) errors.push("unverified_or_changed_dates");
+  if (dates.holds.length && !manualSchedule) errors.push("unverified_or_changed_dates");
 
   // Only the services on THIS booking must be present in Squeegee.
   const unmappedServices = bins.filter(bin =>
@@ -57,7 +57,7 @@ function prepareReadOnlyBooking(booking, serverSchedule, services, { jobGroups }
     rounds.filter(round => round.status !== "mapped")
       .map(round => round.status)
   )];
-  if (roundProblems.length) {
+  if (roundProblems.length && !manualSchedule) {
     errors.push("job_group_round_mapping_required");
     errors.push(...roundProblems);
   }
@@ -71,6 +71,7 @@ function prepareReadOnlyBooking(booking, serverSchedule, services, { jobGroups }
         serviceIds: mapped.serviceIds,
         pricesVerifiedByServer: true,
         requireJobGroup: true,
+        manualSchedule,
         jobGroupFor: ({ index }) => rounds[index]?.status === "mapped"
           ? rounds[index].jobGroupId : null,
       });
