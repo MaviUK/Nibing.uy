@@ -1390,3 +1390,9 @@
 }
 
 
+
+/* Modal dialogs must never be obscured by the pinned hero brand. */
+body:has([aria-modal="true"]) .n64-pinned-brand {
+  visibility: hidden;
+  pointer-events: none !important;
+}
