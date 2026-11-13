@@ -1412,7 +1412,7 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
       if (!shouldPin) {
         const brand = slot.querySelector(".n64-brand");
         if (brand) {
-          const bounds = brand.getBoundingClientRect();
+          const bounds = { left: rect.left, width: brand.offsetWidth, height: brand.offsetHeight };
           setBrandPosition(prev => prev && Math.abs(prev.left - bounds.left) < 1 &&
             Math.abs(prev.width - bounds.width) < 1 && Math.abs(prev.height - bounds.height) < 1
             ? prev : { left: bounds.left, width: bounds.width, height: bounds.height });
