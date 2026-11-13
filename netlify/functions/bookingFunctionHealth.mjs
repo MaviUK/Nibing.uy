@@ -17,7 +17,8 @@ export default async function handler(request){
       error?.code==="MODULE_NOT_FOUND"?"module_missing":"module_initialization_error";
     const missingMatch=String(error?.message||"").match(/Cannot find module ['"]([^'"]+)['"]/);
     const missingName=missingMatch?.[1]||"";
-    const safeMissing=/^(?:\\.{1,2}\\/)?[a-zA-Z0-9_./@-]+$/.test(missingName) &&
+    const safeMissing=missingName.length>0 && missingName.length<=100 &&
+      [...missingName].every(char=>"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_./@-".includes(char)) &&
       !missingName.includes("..") && missingName.length<=100 ? missingName : null;
     return Response.json({status:"unavailable",bookingHandler:"startup_failed",reason:detail,
       ...(detail==="module_missing"?{missingModule:safeMissing||"unknown"}:{})},{status:503,headers:{"Cache-Control":"no-store"}});
