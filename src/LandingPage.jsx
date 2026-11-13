@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import BOOKING_TERMS from "./data/bookingTerms.json";
 import BookingTermsContent from "./components/BookingTermsContent.jsx";
@@ -1401,15 +1402,22 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
   const brandSlot = useRef(null);
   const [brandPosition, setBrandPosition] = useState(null);
   useEffect(() => {
+    const slot = brandSlot.current;
+    if (!slot) return;
     const update = () => {
-      const slot = brandSlot.current;
-      if (!slot) return;
       const rect = slot.getBoundingClientRect();
-      setBrandPinned(rect.top <= 12);
-      setBrandPosition(prev => {
-        const next = { left: rect.left, width: rect.width, height: rect.height };
-        return prev && Math.abs(prev.left - next.left) < 1 && Math.abs(prev.width - next.width) < 1 && Math.abs(prev.height - next.height) < 1 ? prev : next;
-      });
+      if (rect.width === 0) return;
+      const shouldPin = rect.top <= 12;
+      setBrandPinned(shouldPin);
+      if (!shouldPin) {
+        const brand = slot.querySelector(".n64-brand");
+        if (brand) {
+          const bounds = brand.getBoundingClientRect();
+          setBrandPosition(prev => prev && Math.abs(prev.left - bounds.left) < 1 &&
+            Math.abs(prev.width - bounds.width) < 1 && Math.abs(prev.height - bounds.height) < 1
+            ? prev : { left: bounds.left, width: bounds.width, height: bounds.height });
+        }
+      }
     };
     update();
     window.addEventListener("scroll", update, { passive: true });
@@ -1419,6 +1427,12 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
       window.removeEventListener("resize", update);
     };
   }, []);
+  const brandBanner = (
+    <div className="n64-brand">
+      <img src="/logo.webp" alt="Ni Bin Guy wheelie bin cleaning service logo" width="64" height="64" fetchPriority="high" decoding="async" />
+      <div><strong>NI BIN GUY</strong><small>THE COUNTY DOWN CLEANING CREW</small></div>
+    </div>
+  );
 
   // Lifetime total adds the owner's pre-Squeegee history once to the verified backup.
   return (
@@ -1430,18 +1444,15 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
       <div className="n64-hero-inner">
         <div className="n64-hero-copy">
           <div ref={brandSlot} style={{ height: brandPinned ? brandPosition?.height : undefined }}>
-            <div className="n64-brand" style={brandPinned && brandPosition ? {
-              position: "fixed", top: "12px", left: brandPosition.left,
-              width: brandPosition.width, zIndex: 45, margin: 0,
-              transform: "none"
-            } : undefined}>
-              <img src="/logo.webp" alt="Ni Bin Guy wheelie bin cleaning service logo" width="64" height="64" fetchPriority="high" decoding="async" />
-              <div>
-                <strong>NI BIN GUY</strong>
-                <small>THE COUNTY DOWN CLEANING CREW</small>
-              </div>
-            </div>
+            {!brandPinned && brandBanner}
           </div>
+          {brandPinned && brandPosition && createPortal(
+            <div style={{
+              position: "fixed", top: "12px", left: brandPosition.left,
+              width: brandPosition.width, height: brandPosition.height,
+              zIndex: 999, pointerEvents: "auto"
+            }}>{brandBanner}</div>, document.body
+          )}
 
           <div className="n64-kicker">★ JOIN OUR 4-WEEKLY CLEANING SCHEDULE ★</div>
           <h1 id="n64-hero-title" className="n64-headline">
