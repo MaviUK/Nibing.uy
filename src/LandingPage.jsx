@@ -1451,7 +1451,7 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
               position: "fixed", top: "12px", left: brandPosition.left,
               width: brandPosition.width, height: brandPosition.height,
               zIndex: 999, pointerEvents: "auto"
-            }}>{brandBanner}</div>, document.body
+            }}>{brandBanner}</div>, document.getElementById("main-content")
           )}
 
           <div className="n64-kicker">★ JOIN OUR 4-WEEKLY CLEANING SCHEDULE ★</div>
