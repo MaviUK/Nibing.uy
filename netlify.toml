@@ -125,11 +125,6 @@
 # Package the existing NI Bin Guy logo only with functions that create
 # signed Terms PDFs. This removes the live-site fetch on each booking without
 # adding a 1 MB image to every Netlify function.
-# The diagnostic imports the booking handler, which requires the Resend SDK.
-# Explicitly package this dependency for the isolated health-check bundle.
-[functions.bookingFunctionHealth]
-  external_node_modules = ["resend"]
-
 [functions.sendBookingEmail]
   included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
 
