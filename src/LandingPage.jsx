@@ -1447,7 +1447,7 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
             {!brandPinned && brandBanner}
           </div>
           {brandPinned && brandPosition && createPortal(
-            <div style={{
+            <div className="n64-pinned-brand" style={{
               position: "fixed", top: "12px", left: brandPosition.left,
               width: brandPosition.width, height: brandPosition.height,
               zIndex: 999, pointerEvents: "auto"
