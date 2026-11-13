@@ -120,8 +120,7 @@
 
 [functions]
   directory = "netlify/functions"
-  node_bundler = "esbuild"
-  external_node_modules = ["@netlify/blobs"]
+  node_bundler = "zisi"
 
 # Package the existing NI Bin Guy logo only with functions that create
 # signed Terms PDFs. This removes the live-site fetch on each booking without
