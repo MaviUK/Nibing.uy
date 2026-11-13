@@ -1,0 +1,92 @@
+name: Booking deployed runtime check
+on:
+  push:
+    branches:
+      - main
+      - fix/netlify-functions-dependency-109
+    paths:
+      - .github/workflows/booking-deployed-runtime-check.yml
+      - netlify/functions/**
+      - netlify.toml
+      - package.json
+      - package-lock.json
+permissions:
+  contents: read
+  statuses: read
+concurrency:
+  group: booking-runtime-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify-deployed-handler:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Wait for this commit to deploy, then check booking startup using GET only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const assert = require('node:assert/strict');
+          const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+          async function main() {
+            const production = process.env.GITHUB_REF === 'refs/heads/main';
+            const context = production ? 'netlify/nibinguy/deploy' : 'netlify/nibinguy/deploy-preview';
+            const expectedOrigin = production ? 'https://nibing.uy' : 'https://deploy-preview-109--nibinguy.netlify.app';
+            const statusUrl = 'https://api.github.com/repos/MaviUK/Nibing.uy/commits/' + process.env.GITHUB_SHA + '/status';
+            let deployed = false;
+            for (let attempt = 0; attempt < 15; attempt++) {
+              const response = await fetch(statusUrl, {
+                headers: { Authorization: 'Bearer ' + process.env.GH_TOKEN, Accept: 'application/vnd.github+json' },
+                signal: AbortSignal.timeout(15000), redirect: 'error'
+              });
+              assert.equal(response.status, 200, 'Cannot read the current commit deployment status');
+              const data = await response.json();
+              const status = (data.statuses || []).find(item => item.context === context);
+              if (status?.state === 'success') { deployed = true; break; }
+              if (status?.state === 'error' || status?.state === 'failure') {
+                throw new Error('Netlify rejected this commit; no runtime check or booking was attempted');
+              }
+              console.log('Waiting for Netlify to finish the current commit');
+              await sleep(15000);
+            }
+            assert.ok(deployed, 'This commit did not finish deploying within the check window');
+            console.log('Checking ' + expectedOrigin + ' using GET only; no booking data, email or Squeegee write');
+            const probes = [
+              { path: '/.netlify/functions/bookingFunctionHealth', status: 200, valid: body => body.status === 'ready' && body.bookingHandler === 'loaded' },
+              { path: '/.netlify/functions/sendBookingEmail', status: 405, valid: body => body.error === 'Method not allowed' }
+            ];
+            let failed = false;
+            const lines = ['## Deployed booking startup check', 'Commit: ' + process.env.GITHUB_SHA];
+            for (const probe of probes) {
+              const response = await fetch(expectedOrigin + probe.path, {
+                method: 'GET', headers: { 'Cache-Control': 'no-cache' },
+                signal: AbortSignal.timeout(20000), redirect: 'error'
+              });
+              let body = null;
+              const raw = await response.text();
+              try { body = JSON.parse(raw); } catch {}
+              if (response.status >= 500) {
+                const normalized = raw.replaceAll('&#39;', "'").replaceAll('&quot;', '"');
+                const missing = normalized.match(/Cannot find (?:module|package) ['"]([^'"]+)['"]/);
+                const moduleName = missing?.[1];
+                if (moduleName && moduleName.length <= 120 && /^[a-zA-Z0-9_@./-]+$/.test(moduleName)) {
+                  console.log('Startup missing module: ' + moduleName);
+                }
+                for (const signal of ['Runtime.ImportModuleError', 'Runtime.UserCodeSyntaxError', 'ReferenceError', 'TypeError', 'Unexpected token', 'Missing API key', 'require is not defined', 'exports is not defined']) {
+                  if (normalized.includes(signal)) console.log('Startup signal: ' + signal);
+                }
+                console.log('Netlify request ID: ' + (response.headers.get('x-nf-request-id') || 'unavailable'));
+              }
+              const passed = response.status === probe.status && body !== null && probe.valid(body);
+              const line = (passed ? 'PASS' : 'FAIL') + ': GET ' + probe.path + ' returned HTTP ' + response.status;
+              console.log(line);
+              lines.push(line);
+              failed ||= !passed;
+            }
+            lines.push('Startup checks only. Email delivery, storage operations and Squeegee job creation are not claimed as verified.');
+            if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n\n') + '\n');
+            assert.equal(failed, false, 'Deployed booking handler failed its GET-only startup check');
+          }
+          main().catch(error => { console.error(error.message); process.exitCode = 1; });
+          NODE
