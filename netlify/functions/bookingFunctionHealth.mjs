@@ -1,25 +1,29 @@
-// Isolated read-only diagnostic: failures in the booking handler must not crash
-// this diagnostic's own module initialization. No customer data or writes.
+// Read-only health check of the *deployed* booking function, not a second
+// bundle of its dependencies. A GET must be rejected before booking work.
+// This verifies that Netlify can initialize and invoke the real handler.
 export default async function handler(request) {
   if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
   const headers = { "Cache-Control": "no-store" };
   try {
-    // Dynamic import is deliberately inside try: the booking module and its
-    // transitive Netlify storage dependencies may fail to initialize.
-    const booking = await import("./sendBookingEmail.js");
-    if (typeof (booking.handler || booking.default?.handler) !== "function") {
-      throw new Error("booking_handler_missing");
+    const url = new URL(request.url);
+    if (url.protocol !== "https:" || !(url.hostname === "nibing.uy" || url.hostname.endsWith(".netlify.app"))) {
+      return Response.json({ status: "unavailable", reason: "unexpected_host" }, { status: 503, headers });
     }
-    return Response.json({ status: "ready", bookingHandler: "loaded" }, { headers });
+    url.pathname = "/.netlify/functions/sendBookingEmail";
+    url.search = "";
+    const response = await fetch(url, {
+      method: "GET",
+      redirect: "manual",
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (response.status === 405) {
+      return Response.json({ status: "ready", bookingHandler: "deployed_endpoint_responding", check: "read_only_get_405" }, { headers });
+    }
+    console.error("Booking health probe unexpected status", response.status);
+    return Response.json({ status: "unavailable", bookingHandler: "unexpected_response", upstreamStatus: response.status }, { status: 503, headers });
   } catch (error) {
-    console.error("Booking module startup failed", error);
-    const reason = error?.message === "booking_handler_missing" ? "handler_export_missing"
-      : error?.code === "ERR_REQUIRE_ESM" ? "module_format_incompatible"
-      : error?.code === "MODULE_NOT_FOUND" || error?.code === "ERR_MODULE_NOT_FOUND" ? "module_missing"
-      : error instanceof SyntaxError ? "syntax_error"
-      : error instanceof ReferenceError ? "reference_error"
-      : error instanceof TypeError ? "type_error" : "module_initialization_error";
-    return Response.json({ status: "unavailable", bookingHandler: "startup_failed", reason },
-      { status: 503, headers });
+    console.error("Booking health probe failed", error);
+    return Response.json({ status: "unavailable", bookingHandler: "probe_failed", reason: "request_failed" }, { status: 503, headers });
   }
 }
