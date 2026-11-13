@@ -9,9 +9,9 @@
 //   RECAPTCHA_MIN_SCORE (default 0.5)
 
 import { Resend } from "resend";
-import previewChallenge from "./previewBookingChallenge.js";
+// Load preview-only challenge only on the preview hostname.
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+
 
 const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET_KEY || "";
 const RECAPTCHA_MIN_SCORE = Number(process.env.RECAPTCHA_MIN_SCORE || "0.5");
@@ -121,6 +121,7 @@ export default async function handler(req) {
   const recaptchaAction = body.recaptchaAction || "contact_submit";
 
   const isPreview1 = new URL(req.url).hostname === "deploy-preview-77--nibinguy.netlify.app";
+  const previewChallenge = isPreview1 ? await import("./previewBookingChallenge.js") : null;
   const recaptcha = isPreview1
     ? await previewChallenge.verifyPreviewBooking({
         headers: {
@@ -192,6 +193,7 @@ reCAPTCHA: action=${recaptchaAction}, score=${recaptcha?.data?.score ?? "n/a"}
 `;
 
   try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
     const { data, error } = await resend.emails.send({
       from: fromEnv,
       to: [toEnv],          // array is safest
