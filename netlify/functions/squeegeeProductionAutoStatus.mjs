@@ -161,7 +161,20 @@ export default async function handler(request,context){
     return page('<div class="notice">Production owner status login is not configured.</div>',503);
   const url=new URL(request.url);
   if(request.method==="POST"){
-    if(request.headers.get("origin")!=="https://nibing.uy")
+    // Some Android in-app browsers omit Origin on same-origin form POSTs.
+    // Keep the cross-site POST guard: accept a missing Origin only with
+    // positive same-origin evidence from Fetch Metadata or Referer.
+    const origin=request.headers.get("origin");
+    const fetchSite=request.headers.get("sec-fetch-site");
+    const referer=request.headers.get("referer");
+    let sameOriginReferer=false;
+    try{sameOriginReferer=Boolean(referer &&
+      new URL(referer).origin==="https://nibing.uy");}catch{}
+    const trustedPost=origin==="https://nibing.uy" &&
+      fetchSite!=="cross-site" ||
+      !origin && fetchSite==="same-origin" ||
+      !origin && !fetchSite && sameOriginReferer;
+    if(!trustedPost)
       return page('<div class="notice">Invalid request origin.</div>',403);
     if(!request.headers.get("content-type")?.includes("application/x-www-form-urlencoded"))
       return page('<div class="notice">Form required.</div>',415);
