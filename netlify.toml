@@ -120,7 +120,7 @@
 
 [functions]
   directory = "netlify/functions"
-  node_bundler = "zisi"
+  node_bundler = "esbuild"
   included_files = ["node_modules/@netlify/blobs/**", "node_modules/@netlify/dev-utils/**", "node_modules/@netlify/runtime-utils/**"]
 
 # Package the existing NI Bin Guy logo only with functions that create
