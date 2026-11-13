@@ -64,7 +64,20 @@ jobs:
                 signal: AbortSignal.timeout(20000), redirect: 'error'
               });
               let body = null;
-              try { body = await response.json(); } catch {}
+              const raw = await response.text();
+              try { body = JSON.parse(raw); } catch {}
+              if (response.status >= 500) {
+                const normalized = raw.replaceAll('&#39;', "'").replaceAll('&quot;', '"');
+                const missing = normalized.match(/Cannot find (?:module|package) ['"]([^'"]+)['"]/);
+                const moduleName = missing?.[1];
+                if (moduleName && moduleName.length <= 120 && /^[a-zA-Z0-9_@./-]+$/.test(moduleName)) {
+                  console.log('Startup missing module: ' + moduleName);
+                }
+                for (const signal of ['Runtime.ImportModuleError', 'Runtime.UserCodeSyntaxError', 'ReferenceError', 'TypeError', 'Unexpected token', 'Missing API key', 'require is not defined', 'exports is not defined']) {
+                  if (normalized.includes(signal)) console.log('Startup signal: ' + signal);
+                }
+                console.log('Netlify request ID: ' + (response.headers.get('x-nf-request-id') || 'unavailable'));
+              }
               const passed = response.status === probe.status && body !== null && probe.valid(body);
               const line = (passed ? 'PASS' : 'FAIL') + ': GET ' + probe.path + ' returned HTTP ' + response.status;
               console.log(line);
