@@ -111,42 +111,54 @@ const lookupForm=(ref="")=>'<form method="get">'+
   '<button type="submit">Check booking status</button></form>'+
   '<p><a href="/api/squeegee-production-auto-status?review=1">Outstanding bookings (read-only)</a></p>';
 async function outstanding(){
-  let listing;
-  try{listing=await statusStore().list({prefix:"NBG-"});}
-  catch{return '<div class="notice">Production status list currently unavailable.</div>';}
-  const keys=(listing?.blobs||[]).map(x=>x.key).filter(safeRef);
-  const selected=keys.slice(0,200),out=[];
-  let cursor=0;
+  // Netlify Blobs list is paginated. Never silently omit older bookings.
+  const keys=[];
+  let cursor;
+  try{
+    do{
+      const page=await statusStore().list({prefix:"NBG-",paginate:true,cursor});
+      for(const item of page.blobs||[]){
+        const ref=safeRef(item.key);
+        if(ref)keys.push(ref);
+      }
+      cursor=page.cursor;
+    }while(cursor);
+  }catch{return '<div class="notice">Could not scan all booking records. Review list is unavailable; do not assume all bookings are resolved.</div>';}
+  const out=[];
+  let index=0,failed=false;
   async function worker(){
-    while(cursor<selected.length){
-      const id=selected[cursor++];
-      let record;
-      try{record=await statusStore().get(id,{type:"json",consistency:"strong"});}
-      catch{continue;}
+    while(index<keys.length){
+      const id=keys[index++];
+      let record,ack;
+      try{
+        record=await statusStore().get(id,{type:"json",consistency:"strong"});
+        ack=await reviewAck(id);
+      }catch{failed=true;continue;}
       const status=simpleStatus(record);
-      if(!status)continue;
+      if(!status || record.bookingId!==id)continue;
       const isReview=["held_for_review","requires_reconciliation"].includes(status.stage) ||
         status.manualScheduleRequired ||
         ["not_sent","failed"].includes(status.ownerAlertDelivery) ||
         (status.stage!=="created_customer_and_jobs" &&
           Date.now()-Date.parse(status.updatedAt||0)>5*60*1000);
-      const ack=await reviewAck(id);
       if(isReview && (!ack || ack.statusUpdatedAt!==record.updatedAt))
         out.push({id,status});
     }
   }
-  await Promise.all(Array.from({length:Math.min(8,selected.length)},worker));
+  await Promise.all(Array.from({length:Math.min(8,keys.length)},worker));
   out.sort((a,b)=>String(b.status.updatedAt||"")
     .localeCompare(String(a.status.updatedAt||"")));
-  let inner='<h2>Booking reviews</h2><p><small>Checked up to 200 stored references. This is a partial view if there are more records.</small></p>';
+  let inner='<h2>Booking reviews</h2><p><small>Checked '+keys.length+
+    ' stored booking references. Showing up to 60 outstanding items, newest first.</small></p>';
+  if(failed)inner+='<div class="notice">Some booking records could not be read. This list may be incomplete.</div>';
   for(const {id,status} of out.slice(0,60)){
     inner+='<section><a href="/api/squeegee-production-auto-status?bookingId='+
       encodeURIComponent(id)+'">'+esc(id)+'</a>'+
       '<p>Stage: '+esc(status.stage)+' | Reason: '+esc(status.reason)+
       ' | Owner email: '+esc(status.ownerAlertDelivery)+'</p></section>';
   }
-  return inner+(out.length===0?
-    '<div class="notice">No outstanding items found in the checked records.</div>':"");
+  return inner+(out.length===0 && !failed?
+    '<div class="notice">No outstanding booking reviews.</div>':"");
 }
 const loginForm=ref=>'<h2>Owner sign-in required</h2>'+
   '<p>Request a one-time code at the NI Bin Guy owner mailbox to view booking status.</p>'+
