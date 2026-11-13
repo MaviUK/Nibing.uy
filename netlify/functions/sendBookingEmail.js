@@ -48,7 +48,7 @@ const resend = { emails: { send: async (message) => {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
-      body: JSON.stringify(message),
+      body: JSON.stringify({ ...message, ...(message.replyTo ? { reply_to: message.replyTo } : {}), replyTo: undefined }),
       signal: AbortSignal.timeout(12000),
     });
     const result = await response.json().catch(() => ({}));
