@@ -130,7 +130,9 @@ async function outstanding(){
         ["not_sent","failed"].includes(status.ownerAlertDelivery) ||
         (status.stage!=="created_customer_and_jobs" &&
           Date.now()-Date.parse(status.updatedAt||0)>5*60*1000);
-      if(isReview && !(await reviewAck(id)))out.push({id,status});
+      const ack=await reviewAck(id);
+      if(isReview && (!ack || ack.statusUpdatedAt!==record.updatedAt))
+        out.push({id,status});
     }
   }
   await Promise.all(Array.from({length:Math.min(8,selected.length)},worker));
@@ -276,7 +278,7 @@ export default async function handler(request,context){
       inner+=sourceSummary(record?.bookingId===ref?simpleStatus(record):null);
       if(record?.bookingId===ref){
         const ack=await reviewAck(ref);
-        if(ack)inner+='<div class="notice"><strong>Resolved by owner</strong> on '+esc(ack.resolvedAt)+'. Booking ledger and Squeegee jobs were not changed.</div>';
+        if(ack && ack.statusUpdatedAt===record.updatedAt)inner+='<div class="notice"><strong>Resolved by owner</strong> on '+esc(ack.resolvedAt)+'. Booking ledger and Squeegee jobs were not changed.</div>';
         else inner+='<form method="post"><input type="hidden" name="action" value="resolve-review">'+
           '<input type="hidden" name="bookingId" value="'+esc(ref)+'">'+
           '<p><small>Only acknowledge after checking the booking in Squeegee. This hides it from outstanding reviews; it does not create, edit or cancel jobs.</small></p>'+
