@@ -1645,6 +1645,19 @@ export default function NiBinGuyLandingPage() {
   const [showChallenge, setShowChallenge] = useState(false);
   const [showBinChecker, setShowBinChecker] = useState(false);
   const [showCoverageChecker, setShowCoverageChecker] = useState(false);
+  const [compactBrand, setCompactBrand] = useState(false);
+  useEffect(() => {
+    const brand = document.querySelector(".n64-hero .n64-brand");
+    if (!brand) return;
+    const update = () => setCompactBrand(brand.getBoundingClientRect().bottom < 0);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
 
   const closeBookingAndReturnTop = () => {
     setShowBooking(false);
@@ -1657,6 +1670,11 @@ export default function NiBinGuyLandingPage() {
   <main id="main-content" tabIndex="-1" className="n64-world min-h-screen bg-black text-white font-sans relative">
       <Hero onBook={openBooking} onContact={() => {window.n64Score?.awardAction("contact");setShowContact(true);}} onChallenge={() => setShowChallenge(true)} onBinChecker={() => setShowBinChecker(true)} onCoverage={() => setShowCoverageChecker(true)} />
 
+      <a href="#main-content" aria-label="NI Bin Guy — back to top"
+        className={"fixed left-3 top-3 z-40 flex max-w-[calc(100vw-108px)] items-center gap-2 border-4 border-[#20345c] bg-[#ffda43] px-2 py-1 text-[#14274b] shadow-[4px_4px_0_#20345c] transition-all duration-200 " + (compactBrand ? "translate-y-0 opacity-100" : "-translate-y-20 pointer-events-none opacity-0")}>
+        <img src="/logo.webp" alt="" width="40" height="40" className="h-10 w-10 object-contain" />
+        <span className="text-sm font-black tracking-wide sm:text-base">NI BIN GUY</span>
+      </a>
       {/* Page-anchored quick actions scroll with the hero; only the menu remains floating. */}
       <div className="n64-top-actions absolute left-[14px] top-[14px] z-40 flex max-w-[calc(100vw-94px)] items-center gap-2" role="group" aria-label="Quick actions">
         <button
