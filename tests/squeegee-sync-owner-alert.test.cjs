@@ -471,7 +471,7 @@ test("3 Black bins owner email says ACCOUNT NEEDS ATTENTION and change quantity 
   assert.equal(result.sent,true);
   assert.equal(sends.length,1);
   assert.deepEqual(sends[0].to,["info@nibing.uy"]);
-  assert.match(sends[0].subject,/ACCOUNT NEEDS ATTENTION/);
+  assert.match(sends[0].subject,/BOOKING NEEDS ATTENTION/);
   assert.match(sends[0].text,/Set Black Bin service quantity to 3/);
   assert.match(sends[0].html,/Account Needs Attention/);
   assert.deepEqual(sends[0].attachments,[pdf]);
