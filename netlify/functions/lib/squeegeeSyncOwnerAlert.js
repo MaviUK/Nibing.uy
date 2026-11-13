@@ -644,7 +644,7 @@ function completedQuantityAttentionContent(bookingId,receipt,details={}) {
   const headline=changes.length===1?
     "Set "+changes[0].bin+" to "+changes[0].quantity:
     changes.length?"Check bin quantities":"Review additional bin job";
-  const subject="NI Bin Guy — ACCOUNT NEEDS ATTENTION: "+headline+
+  const subject="NI Bin Guy — BOOKING NEEDS ATTENTION: "+headline+
     " — "+bookingId;
   const refUrl="https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId="+bookingId;
   const text=[
@@ -775,6 +775,11 @@ async function notifyOwnerOfCompletedBooking(bookingId,receipt,{
     completedQuantityAttentionContent(bookingId,safe,attention):
     completedOwnerReceiptWithMatchNotes(safe,attention);
   if(!selected)return {sent:false,reason:"invalid_quantity_attention_details"};
+  // Owner notifications have exactly two classifications: confirmed or
+  // needs attention. Informational matching flags do not change success.
+  if(attention?.manualScheduleRequired!==true && attention?.quantityAttentionRequired!==true){
+    selected={...selected,subject:"NI Bin Guy — BOOKING CONFIRMED — "+bookingId};
+  }
   if(attention?.manualScheduleRequired===true){
     const instruction="CREATED IN SQUEEGEE — DATE AND ROUND REQUIRED";
     const action="The customer and job(s) are in Squeegee. No cleaning date or round was submitted. Set the first cleaning date and round manually. Do not create another job. The booked price is already set; check the bin quantities in the job notes.";
@@ -782,7 +787,7 @@ async function notifyOwnerOfCompletedBooking(bookingId,receipt,{
       "https://nibing.uy/api/squeegee-production-auto-status?bookingId=":
       "https://deploy-preview-77--nibinguy.netlify.app/api/squeegee-preview-auto-status?bookingId=")+bookingId;
     selected={...selected,
-      subject:"NI Bin Guy — DATE REQUIRED IN SQUEEGEE — "+bookingId,
+      subject:"NI Bin Guy — BOOKING NEEDS ATTENTION — DATE REQUIRED — "+bookingId,
       text:instruction+"\n"+action+"\nBooking status: "+statusUrl+"\n\n"+selected.text,
       html:'<div style="padding:20px;background:#fff6d8;color:#16191e;font:16px/1.6 Arial,sans-serif"><h1 style="font-size:22px">'+
         instruction+'</h1><p>'+action+'</p><a href="'+statusUrl+'">View booking status</a></div>'+selected.html,

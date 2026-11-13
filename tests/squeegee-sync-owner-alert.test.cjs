@@ -295,7 +295,7 @@ test("completed Squeegee booking owner email uses the original signed email and 
   });
   assert.equal(result.sent,true);
   assert.deepEqual(sent.to,["info@nibing.uy"]);
-  assert.equal(sent.subject,receipt.subject);
+  assert.equal(sent.subject,"NI Bin Guy — BOOKING CONFIRMED — "+ref);
   assert.equal(sent.text,receipt.text);
   assert.equal(sent.html,receipt.html);
   assert.equal(sent.replyTo,receipt.replyTo);
@@ -442,7 +442,7 @@ test("3 Black bins owner email says ACCOUNT NEEDS ATTENTION and change quantity 
     duplicateFlags:[],
   };
   const out=completedQuantityAttentionContent(id,receipt,attention);
-  assert.match(out.subject,/ACCOUNT NEEDS ATTENTION/);
+  assert.match(out.subject,/BOOKING NEEDS ATTENTION/);
   assert.match(out.subject,/Set Black Bin to 3/);
   assert.match(out.text,/Set Black Bin service quantity to 3/);
   assert.match(out.text,/created successfully/i);
@@ -471,7 +471,7 @@ test("3 Black bins owner email says ACCOUNT NEEDS ATTENTION and change quantity 
   assert.equal(result.sent,true);
   assert.equal(sends.length,1);
   assert.deepEqual(sends[0].to,["info@nibing.uy"]);
-  assert.match(sends[0].subject,/ACCOUNT NEEDS ATTENTION/);
+  assert.match(sends[0].subject,/BOOKING NEEDS ATTENTION/);
   assert.match(sends[0].text,/Set Black Bin service quantity to 3/);
   assert.match(sends[0].html,/Account Needs Attention/);
   assert.deepEqual(sends[0].attachments,[pdf]);
@@ -535,7 +535,7 @@ test("normal booked single service is not incorrectly replaced by an attention e
   });
   assert.equal(result.sent,true);
   assert.equal(sends.length,1);
-  assert.equal(sends[0].subject,receipt.subject);
+  assert.equal(sends[0].subject,"NI Bin Guy — BOOKING CONFIRMED — "+id);
   assert.equal(sends[0].text,receipt.text);
 });
 
@@ -620,7 +620,7 @@ test("confirmed owner receipt includes real cross-property contact matches but n
   });
   assert.equal(result.sent,true);
   assert.equal(emails.length,1);
-  assert.equal(emails[0].subject,original.subject);
+  assert.equal(emails[0].subject,"NI Bin Guy — BOOKING CONFIRMED — "+id);
   assert.match(emails[0].text,/New Bin Cleaning Booking/);
   assert.match(emails[0].text,/Phone number is also used at another property/);
   assert.match(emails[0].html,/Phone number is also used at another property/);
