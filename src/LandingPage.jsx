@@ -1450,7 +1450,7 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
             <div className="n64-pinned-brand" style={{
               position: "fixed", top: "12px", left: brandPosition.left,
               width: brandPosition.width, height: brandPosition.height,
-              zIndex: 999, pointerEvents: "auto"
+              zIndex: 20, pointerEvents: "auto"
             }}>{brandBanner}</div>, document.getElementById("main-content")
           )}
 
