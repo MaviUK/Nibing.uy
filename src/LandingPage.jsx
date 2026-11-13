@@ -1399,10 +1399,17 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
   const { totalBinsCleaned, todaysArea, totalMonthlyCustomers } = useLiveCounters();
   const [brandPinned, setBrandPinned] = useState(false);
   const brandSlot = useRef(null);
+  const [brandPosition, setBrandPosition] = useState(null);
   useEffect(() => {
     const update = () => {
-      if (!brandSlot.current) return;
-      setBrandPinned(brandSlot.current.getBoundingClientRect().top < 12);
+      const slot = brandSlot.current;
+      if (!slot) return;
+      const rect = slot.getBoundingClientRect();
+      setBrandPinned(rect.top <= 12);
+      setBrandPosition(prev => {
+        const next = { left: rect.left, width: rect.width, height: rect.height };
+        return prev && Math.abs(prev.left - next.left) < 1 && Math.abs(prev.width - next.width) < 1 && Math.abs(prev.height - next.height) < 1 ? prev : next;
+      });
     };
     update();
     window.addEventListener("scroll", update, { passive: true });
@@ -1422,25 +1429,18 @@ function Hero({ onBook, onContact, onChallenge, onBinChecker, onCoverage }) {
 
       <div className="n64-hero-inner">
         <div className="n64-hero-copy">
-          <div ref={brandSlot} style={{ minHeight: brandPinned ? "84px" : undefined }}>
-          <div className="n64-brand" style={brandPinned ? {
-            position: "fixed", top: "12px", left: "12px", zIndex: 45,
-            width: "min(450px, calc(100vw - 110px))",
-            margin: 0, transform: "none", transition: "none"
-          } : undefined}>
-            <img
-              src="/logo.webp"
-              alt="Ni Bin Guy wheelie bin cleaning service logo"
-              width="64"
-              height="64"
-              fetchPriority="high"
-              decoding="async"
-            />
-            <div>
-              <strong>NI BIN GUY</strong>
-              <small>THE COUNTY DOWN CLEANING CREW</small>
+          <div ref={brandSlot} style={{ height: brandPinned ? brandPosition?.height : undefined }}>
+            <div className="n64-brand" style={brandPinned && brandPosition ? {
+              position: "fixed", top: "12px", left: brandPosition.left,
+              width: brandPosition.width, zIndex: 45, margin: 0,
+              transform: "none"
+            } : undefined}>
+              <img src="/logo.webp" alt="Ni Bin Guy wheelie bin cleaning service logo" width="64" height="64" fetchPriority="high" decoding="async" />
+              <div>
+                <strong>NI BIN GUY</strong>
+                <small>THE COUNTY DOWN CLEANING CREW</small>
+              </div>
             </div>
-          </div>
           </div>
 
           <div className="n64-kicker">★ JOIN OUR 4-WEEKLY CLEANING SCHEDULE ★</div>
