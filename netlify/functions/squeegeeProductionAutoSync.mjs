@@ -130,6 +130,17 @@ export default async function handler(request,context){
           customerEmail:booking.email,customerPhone:booking.phone,
         },
       });
+    // Preserve an explicit undelivered owner-notice marker even when the
+    // booking was successfully created in Squeegee. Never retry API writes.
+    if(result?.sent!==true){
+      try{
+        await auto.saveAutoStatus(bookingId,"created_customer_and_jobs",{
+          ownerAlertDelivery:"not_sent",
+          ownerAlertReason:safeReason(result?.reason||"owner_alert_delivery_failed"),
+          ownerNotificationNeedsAttention:true,
+        },{store:statusStore});
+      }catch{console.error("Production owner delivery failure status persistence failed");}
+    }
     if(result?.sent===true && attachments?.length){
       try{await certStore.delete(bookingId);}catch{}
     }
@@ -170,8 +181,17 @@ export default async function handler(request,context){
         },
       });
       if(result?.status==="completed"){
-        if(!ownerNoticeAttempted)
-          await completedAlert(bookingId);
+        if(!ownerNoticeAttempted){
+          try{await completedAlert(bookingId);}
+          catch{
+            // Jobs may exist: record owner delivery failure, do not rebook.
+            try{await auto.saveAutoStatus(bookingId,"created_customer_and_jobs",{
+              ownerAlertDelivery:"failed",
+              ownerAlertReason:"owner_alert_exception",
+              ownerNotificationNeedsAttention:true,
+            },{store:statusStore});}catch{}
+          }
+        }
         return;
       }
       if(!ownerNoticeAttempted)await rescue(result?.reason||"worker_unconfirmed",
