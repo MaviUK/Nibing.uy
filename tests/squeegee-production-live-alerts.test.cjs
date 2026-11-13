@@ -69,7 +69,7 @@ test("confirmed undated imports send one date-required owner email and preserve 
   });
   assert.equal(result.sent,true);
   assert.equal(sent.length,1);
-  assert.match(sent[0].subject,/DATE REQUIRED IN SQUEEGEE/);
+  assert.match(sent[0].subject,/BOOKING NEEDS ATTENTION — DATE REQUIRED/);
   assert.match(sent[0].text,/Set the first cleaning date and round manually/);
   assert.match(sent[0].text,/Do not create another job/);
   assert.match(sent[0].html,/squeegee-production-auto-status/);
