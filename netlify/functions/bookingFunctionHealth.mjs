@@ -10,6 +10,11 @@ export default async function handler(request){
     return Response.json({status:"ready",bookingHandler:"loaded"},{headers:{"Cache-Control":"no-store"}});
   }catch(error){
     console.error("Booking module startup failed",error);
-    return Response.json({status:"unavailable",bookingHandler:"startup_failed"},{status:503,headers:{"Cache-Control":"no-store"}});
+    const detail=error?.message==="booking_handler_missing"?"handler_export_missing":
+      error instanceof SyntaxError?"syntax_error":
+      error instanceof ReferenceError?"reference_error":
+      error instanceof TypeError?"type_error":
+      error?.code==="MODULE_NOT_FOUND"?"module_missing":"module_initialization_error";
+    return Response.json({status:"unavailable",bookingHandler:"startup_failed",reason:detail},{status:503,headers:{"Cache-Control":"no-store"}});
   }
 }
