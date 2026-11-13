@@ -87,7 +87,7 @@ export default function CustomerPortalLoader({ standalone = false }) {
             Sign in below to the existing Squeegee customer portal to access the services and account features Squeegee provides. This is separate from your NI Bin Guy points login.
           </p>
         )}
-        <div className="n64-portal-shell" style={{ background: "#18181b" }}>
+        <div className="n64-portal-shell">
         <div
           data-sqc="layout"
           data-sqa="25a031e7-75af-4a0e-9f3a-d308fd9b2e3a"
