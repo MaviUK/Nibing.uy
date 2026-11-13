@@ -1115,6 +1115,8 @@ function ContactForm({ onClose }) {
   const [cEmail, setCEmail] = useState("");
   const [cPhone, setCPhone] = useState("");
   const [cMessage, setCMessage] = useState("");
+  const [sendStatus, setSendStatus] = useState("idle");
+  const [sendError, setSendError] = useState("");
 
   const [errors, setErrors] = useState({ email: "", phone: "" });
 
@@ -1127,6 +1129,8 @@ function ContactForm({ onClose }) {
     setCPhone("");
     setCMessage("");
     setErrors({ email: "", phone: "" });
+    setSendStatus("idle");
+    setSendError("");
   };
 
   const handleCallClick = async () => {
@@ -1196,7 +1200,9 @@ function ContactForm({ onClose }) {
   };
 
   const handleEmail = async () => {
-    if (!validateOrAlert()) return;
+    if (sendStatus === "sending" || !validateOrAlert()) return;
+    setSendStatus("sending");
+    setSendError("");
 
     // This preview uses the existing signed, rate-limited challenge for
     // contact messages too. Production continues to use reCAPTCHA v3.
@@ -1211,7 +1217,8 @@ function ContactForm({ onClose }) {
         if (!recaptchaToken) throw new Error("Anti-bot verification unavailable");
       }
     } catch {
-      alert("The security check could not be completed. No message was sent; please try again.");
+      setSendError("Security verification failed. No message was sent. Please try again.");
+      setSendStatus("error");
       return;
     }
 
@@ -1231,22 +1238,32 @@ function ContactForm({ onClose }) {
       });
 
       if (res.ok) {
-        alert("Your message has been sent!");
-        onClose?.();
-        resetForm();
+        setSendStatus("success");
       } else {
-        alert("There was a problem sending your request. Please contact us at info@nibing.uy / 07555178484");
+        setSendError("Your message could not be sent. Please try again or contact info@nibing.uy.");
+        setSendStatus("error");
       }
     } catch (e) {
       console.error(e);
-      alert("Error sending your message.");
+      setSendError("Connection problem. Your message was not confirmed as sent. Please try again.");
+      setSendStatus("error");
     }
   };
 
+  if (sendStatus === "success") return (
+    <div className="p-6 space-y-5 text-center" role="status" aria-live="polite">
+      <div className="mx-auto flex h-20 w-20 items-center justify-center border-4 border-[#20345c] bg-[#b7efc5] text-5xl font-black text-[#164e30] shadow-[5px_5px_0_#20345c]">✓</div>
+      <h2 className="text-2xl font-black text-[#14274b]">Message sent!</h2>
+      <p className="font-semibold text-[#20345c]">Thanks for contacting NI Bin Guy. Your message has been received and we'll get back to you as soon as possible.</p>
+      <button type="button" onClick={() => { resetForm(); onClose?.(); }} className="w-full border-4 border-[#20345c] bg-[#ffda43] px-5 py-3 font-black text-[#14274b] shadow-[4px_4px_0_#20345c]">Done</button>
+    </div>
+  );
+
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4" aria-busy={sendStatus === "sending"}>
       <button
         onClick={onClose}
+        disabled={sendStatus === "sending"}
         className="absolute top-3 right-4 text-gray-500 hover:text-red-500 text-2xl z-10"
         aria-label="Close contact"
       >
@@ -1317,13 +1334,21 @@ function ContactForm({ onClose }) {
         className="w-full border border-gray-500 rounded-lg px-4 py-2 h-28 resize-y"
       />
 
-      <button onClick={handleWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full">
+      <button disabled={sendStatus === "sending"} onClick={handleWhatsApp} className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-lg w-full">
         Send via WhatsApp
       </button>
 
-      <button onClick={handleEmail} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg w-full">
-        Send via Email
+      <button disabled={sendStatus === "sending"} onClick={handleEmail} className="bg-[#ffda43] hover:bg-[#ffe573] border-4 border-[#20345c] text-[#14274b] font-black py-3 px-6 w-full shadow-[4px_4px_0_#20345c] disabled:opacity-70">
+        {sendStatus === "sending" ? "Submitting message…" : "Send via Email"}
       </button>
+      {sendStatus === "sending" && (
+        <div className="border-4 border-[#20345c] bg-[#eef7ff] p-5 text-center" role="status" aria-live="polite">
+          <div className="mx-auto mb-3 h-12 w-12 animate-spin rounded-full border-4 border-[#c7d7eb] border-t-[#14274b]" aria-hidden="true" />
+          <p className="text-lg font-black text-[#14274b]">Submitting your message…</p>
+          <p className="text-sm font-semibold text-[#20345c]">Please wait while we send your enquiry.</p>
+        </div>
+      )}
+      {sendStatus === "error" && <div className="border-4 border-[#ad5344] bg-[#fff0db] p-3 text-sm font-bold text-[#652c28]" role="alert">{sendError}</div>}
 
       <p className="text-center text-sm text-gray-600 mt-2">Prefer to call? Tap the phone icon.</p>
     </div>
