@@ -1,5 +1,4 @@
 const crypto = require("node:crypto");
-const { getStore } = require("@netlify/blobs");
 const historical = require("./lib/squeegeeActiveLeaderboardImport");
 const historicalPreview = require("./lib/squeegeeActivePreviewBoard");
 const nameConsents = require("./lib/squeegeeLeaderboardNameConsent");
@@ -31,6 +30,9 @@ const limitInt = (value, max) =>
   Math.min(max, Math.max(0, Number.isFinite(Number(value)) ? Math.floor(Number(value)) : 0));
 
 function storePair() {
+  // Load storage only when a leaderboard operation actually needs it.
+  // Booking module startup must not depend on eager leaderboard storage imports.
+  const { getStore } = require("@netlify/blobs");
   // This Netlify site already provisions explicit Blobs credentials for its
   // booking-status functions. Reuse the same known-working setup here.
   // Netlify's automatic injection may not be available on deploy previews.
