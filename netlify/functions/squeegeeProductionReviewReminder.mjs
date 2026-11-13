@@ -62,13 +62,27 @@ export default async function handler(request,context){
   const lines=tickets.map(t=>t.ref+" | "+t.stage+" | "+t.reason+
     " | owner email: "+t.ownerEmail+
     "\nhttps://nibing.uy/api/squeegee-production-auto-status?bookingId="+encodeURIComponent(t.ref));
+  const reviewUrl="https://nibing.uy/api/squeegee-production-auto-status?review=1";
+  const escapeHtml=value=>String(value).replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  const items=tickets.map(t=>'<li style="padding:10px 0;border-bottom:1px solid #394055">'+
+    '<strong>'+escapeHtml(t.ref)+'</strong> — '+escapeHtml(t.stage)+
+    '<div style="font-size:13px;color:#cbd3e3">'+escapeHtml(t.reason)+'</div></li>').join("");
+  const html='<!doctype html><html><body style="margin:0;padding:24px 12px;background:#11141e;color:#fff;font-family:Arial,sans-serif">'+
+    '<div style="max-width:620px;margin:auto;background:#252838;border:2px solid #f5dd51;padding:24px">'+
+    '<h1 style="font-size:25px">NI Bin Guy — booking reviews</h1>'+
+    '<p><strong>'+tickets.length+' unresolved booking'+(tickets.length===1?'':'s')+'</strong> need attention.</p>'+
+    '<p style="margin:28px 0"><a href="'+reviewUrl+'" style="display:inline-block;background:#f5dd51;color:#11141e;padding:16px 22px;font-weight:bold;text-decoration:none">OPEN BOOKING REVIEWS</a></p>'+
+    '<p style="font-size:13px;color:#cbd3e3">Owner sign-in may be required. This link does not bypass authentication or change bookings.</p>'+
+    '<ul style="list-style:none;padding:0">'+items+'</ul>'+
+    '<p style="font-size:12px;color:#cbd3e3">This reminder does not retry or modify Squeegee bookings.</p></div></body></html>';
   const mail=new Resend(process.env.RESEND_API_KEY);
   try{
     const result=await mail.emails.send({
       from:process.env.RESEND_FROM||"NI Bin Guy <noreply@nibing.uy>",
       to:"info@nibing.uy",
       subject:"NI Bin Guy: "+tickets.length+" unresolved booking review"+(tickets.length===1?"":"s"),
-      text:"These booking reviews remain unresolved as of 9am UK time.\n\n"+
+      html,\n      text:"These booking reviews remain unresolved as of 9am UK time.\n\n"+
         lines.join("\n\n")+"\n\nReview all: https://nibing.uy/api/squeegee-production-auto-status?review=1"+
         "\n\nThis reminder does not retry or modify Squeegee bookings.",
     });
