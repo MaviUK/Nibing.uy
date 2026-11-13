@@ -44,6 +44,14 @@ function runtime(request,context){
 }
 const statusStore=()=>getStore({name:guard.STATUS_STORE,consistency:"strong"});
 const authStore=()=>getStore({name:owner.STORE,consistency:"strong"});
+// Review acknowledgements are stored separately from the booking ledger.
+// Never modify the original status or initiate Squeegee operations.
+const reviewStore=()=>getStore({name:"squeegee-production-owner-review-ack-v1",consistency:"strong"});
+const reviewKey=ref=>"resolved-"+ref;
+async function reviewAck(ref){
+  const entry=await reviewStore().get(reviewKey(ref),{type:"json",consistency:"strong"});
+  return entry?.bookingId===ref && entry?.resolved===true?entry:null;
+}
 function simpleStatus(record){
   if(!record || typeof record!=="object")return null;
   const limited=value=>/^[a-z0-9_]{1,100}$/i.test(String(value||""))?
@@ -122,7 +130,7 @@ async function outstanding(){
         ["not_sent","failed"].includes(status.ownerAlertDelivery) ||
         (status.stage!=="created_customer_and_jobs" &&
           Date.now()-Date.parse(status.updatedAt||0)>5*60*1000);
-      if(isReview)out.push({id,status});
+      if(isReview && !(await reviewAck(id)))out.push({id,status});
     }
   }
   await Promise.all(Array.from({length:Math.min(8,selected.length)},worker));
@@ -224,6 +232,21 @@ export default async function handler(request,context){
         "Set-Cookie":owner.cookieHeader(verified.cookie,20*60),
       }});
     }
+    if(action==="resolve-review"){
+      if(!owner.validCookie(owner.fromHeader(request.headers.get("cookie")),
+          process.env,Date.now(),scope))return page(loginForm(ref),401);
+      if(!ref)return page("Invalid booking reference",400);
+      try{
+        const record=await statusStore().get(ref,{type:"json",consistency:"strong"});
+        if(record?.bookingId!==ref)return page("Booking not found",404);
+        await reviewStore().setJSON(reviewKey(ref),{
+          bookingId:ref,resolved:true,resolvedAt:new Date().toISOString(),
+          statusUpdatedAt:record.updatedAt||record.acceptedAt||null,
+        });
+      }catch{return page("Could not save review acknowledgement",503);}
+      return new Response(null,{status:303,headers:{...HEADERS,
+        Location:"/api/squeegee-production-auto-status?bookingId="+encodeURIComponent(ref)}});
+    }
     if(action==="logout")
       return new Response(null,{status:303,headers:{
         ...HEADERS,Location:"/api/squeegee-production-auto-status",
@@ -251,6 +274,14 @@ export default async function handler(request,context){
     try{
       const record=await statusStore().get(ref,{type:"json",consistency:"strong"});
       inner+=sourceSummary(record?.bookingId===ref?simpleStatus(record):null);
+      if(record?.bookingId===ref){
+        const ack=await reviewAck(ref);
+        if(ack)inner+='<div class="notice"><strong>Resolved by owner</strong> on '+esc(ack.resolvedAt)+'. Booking ledger and Squeegee jobs were not changed.</div>';
+        else inner+='<form method="post"><input type="hidden" name="action" value="resolve-review">'+
+          '<input type="hidden" name="bookingId" value="'+esc(ref)+'">'+
+          '<p><small>Only acknowledge after checking the booking in Squeegee. This hides it from outstanding reviews; it does not create, edit or cancel jobs.</small></p>'+
+          '<button type="submit">Mark as resolved</button></form>';
+      }
     }catch{inner+='<div class="notice">Status storage unavailable. Do not retry the booking.</div>';}
   }else if(url.searchParams.get("review")==="1"){
     inner+=await outstanding();
