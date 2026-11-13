@@ -427,7 +427,10 @@ exports.handler = async (event) => {
     const productionSyncUnavailable=isProductionHost && !deferAdminForProduction;
     // Resend may reject its Promise (network failure) instead of returning
     // {error}. Preserve accepted booking handling and report the failure.
-    const settleEmail=promise=>Promise.resolve(promise).catch(error=>({\n      error:{message:"email_provider_unavailable"},\n    }));\n    const adminEmailPromise=deferAdminForAuto?
+    const settleEmail=promise=>Promise.resolve(promise).catch(error=>({
+      error:{message:"email_provider_unavailable"},
+    }));
+    const adminEmailPromise=deferAdminForAuto?
       Promise.resolve({error:null,deferred:true}):
       settleEmail(resend.emails.send(productionSyncUnavailable?
         reviewOwnerMessage("automatic_sync_not_enabled")||adminEmailMessage:
