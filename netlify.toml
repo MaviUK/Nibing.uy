@@ -126,7 +126,11 @@
 # signed Terms PDFs. This removes the live-site fetch on each booking without
 # adding a 1 MB image to every Netlify function.
 [functions.sendBookingEmail]
+  node_bundler = "zisi"
   included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
+
+[functions.bookingFunctionHealth]
+  node_bundler = "zisi"
 
 [functions.sendStreetBookingEmail]
   included_files = ["public/logo.png", "netlify/functions/lib/assets/terms-september-2026-master.pdf"]
