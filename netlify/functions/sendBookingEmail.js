@@ -448,7 +448,7 @@ exports.handler = async (event) => {
       "We’ll be in touch shortly to confirm your cleaning schedule.";
 
     const customerEmailPromise = email
-      ? resend.emails.send({
+      ? settleEmail(resend.emails.send({
           from: FROM_DEFAULT,
           to: email,
           subject: `🗑️ Booking received — ${submission.bookingId}`,
@@ -468,7 +468,7 @@ exports.handler = async (event) => {
           }),
           replyTo: TO_ADMIN,
           attachments,
-        })
+        }))
       : Promise.resolve({ error: null });
 
     // Audit and customer receipt are still sent immediately in Preview 1.
