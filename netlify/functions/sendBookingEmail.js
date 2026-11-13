@@ -425,15 +425,15 @@ exports.handler = async (event) => {
     };
     const previewSyncUnavailable=isPreview1 && !deferAdminForPreview;
     const productionSyncUnavailable=isProductionHost && !deferAdminForProduction;
-    const adminEmailPromise=deferAdminForAuto?
+    // Resend may reject its Promise (network failure) instead of returning\n    // {error}. Preserve accepted booking handling and report the failure.\n    const settleEmail=promise=>Promise.resolve(promise).catch(error=>({\n      error:{message:"email_provider_unavailable"},\n    }));\n    const adminEmailPromise=deferAdminForAuto?
       Promise.resolve({error:null,deferred:true}):
-      resend.emails.send(productionSyncUnavailable?
+      settleEmail(resend.emails.send(productionSyncUnavailable?
         reviewOwnerMessage("automatic_sync_not_enabled")||adminEmailMessage:
         previewSyncUnavailable?
           reviewOwnerMessage(!autoDispatchConfigured(process.env)?
             "automatic_sync_not_enabled":
             "outside_approved_preview_email_pilot")||adminEmailMessage:
-          adminEmailMessage);
+          adminEmailMessage));
 
     // The council-matched dates visible in the form belong in BOTH parts
     // of the customer receipt. This is a read-only display snapshot, not
