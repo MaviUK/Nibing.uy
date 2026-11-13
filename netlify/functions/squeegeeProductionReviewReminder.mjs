@@ -82,7 +82,8 @@ export default async function handler(request,context){
       from:process.env.RESEND_FROM||"NI Bin Guy <noreply@nibing.uy>",
       to:"info@nibing.uy",
       subject:"NI Bin Guy: "+tickets.length+" unresolved booking review"+(tickets.length===1?"":"s"),
-      html,\n      text:"These booking reviews remain unresolved as of 9am UK time.\n\n"+
+      html,
+      text:"These booking reviews remain unresolved as of 9am UK time.\n\n"+
         lines.join("\n\n")+"\n\nReview all: https://nibing.uy/api/squeegee-production-auto-status?review=1"+
         "\n\nThis reminder does not retry or modify Squeegee bookings.",
     });
