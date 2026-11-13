@@ -1,6 +1,6 @@
 const BOOKING_TERMS = require("../../src/data/bookingTerms.json");
 // netlify/functions/sendBookingEmail.js
-const { Resend } = require("resend");
+
 const { signBooking } = require("./lib/arcadeBookingProof");
 const { autoEnrollBooking } = require("./arcadeLeaderboard");
 const { verifyPreviewBooking } = require("./previewBookingChallenge");
@@ -39,7 +39,25 @@ try {
   // Blobs are optional.
 }
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Use Resend's documented HTTP API directly. Netlify's deployed function
+// cannot resolve the Resend npm package at runtime.
+const resend = { emails: { send: async (message) => {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return { data: null, error: { message: "email_provider_unconfigured" } };
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
+      body: JSON.stringify({ ...message, ...(message.replyTo ? { reply_to: message.replyTo } : {}), replyTo: undefined }),
+      signal: AbortSignal.timeout(12000),
+    });
+    const result = await response.json().catch(() => ({}));
+    return response.ok ? { data: result, error: null } :
+      { data: null, error: { message: "email_provider_rejected", statusCode: response.status } };
+  } catch (_) {
+    return { data: null, error: { message: "email_provider_unavailable" } };
+  }
+} } };
 
 const FROM_DEFAULT = process.env.RESEND_FROM || "Ni Bin Guy <noreply@nibing.uy>";
 const TO_ADMIN = process.env.BOOKINGS_TO || "info@nibing.uy";
