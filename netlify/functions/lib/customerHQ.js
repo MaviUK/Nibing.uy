@@ -188,6 +188,36 @@ function validateApiCustomer(apiRow,account){
      normalizeEmail(apiRow.email)!==account.email)return false;
   return true;
 }
+// Historical best attendance streak for one physical Squeegee job.
+// Uses the same 35-day gap and recorded-skip rules as the current streak,
+// but does not erase the historical best when a streak later expires.
+function longestJobStreak(events,now=Date.now()){
+  if(!Array.isArray(events))return 0;
+  const today=new Intl.DateTimeFormat("en-CA",{
+    timeZone:"Europe/London",year:"numeric",month:"2-digit",day:"2-digit"
+  }).format(new Date(now));
+  const days=new Map();
+  for(const event of events){
+    if(!event||typeof event.date!=="string"||
+       !/^\\d{4}-\\d{2}-\\d{2}$/.test(event.date)||
+       event.date>today)continue;
+    const flags=days.get(event.date)||{skip:false,complete:false};
+    if(event.event==="recorded_skip")flags.skip=true;
+    if(event.event==="paid_completed_clean"||
+       event.event==="completed_payment_not_verified")flags.complete=true;
+    days.set(event.date,flags);
+  }
+  let current=0,best=0,lastDay=null;
+  for(const [date,flags] of [...days].sort((a,b)=>a[0].localeCompare(b[0]))){
+    if(flags.skip){current=0;lastDay=null;}
+    if(!flags.complete)continue;
+    const day=Date.parse(date+"T00:00:00Z")/86400000;
+    current=lastDay!==null&&day-lastDay<=35?current+1:1;
+    best=Math.max(best,current);
+    lastDay=day;
+  }
+  return best;
+}
 function publicAccount(account,websiteXp=0,now=Date.now()){
   if(!account)return null;
   const xp=Number.isSafeInteger(websiteXp)&&websiteXp>=0?Math.min(100000,websiteXp):0;
@@ -200,6 +230,7 @@ function publicAccount(account,websiteXp=0,now=Date.now()){
     const projected=effectiveCleaningStreak(events,{now});
     const currentStreak=Math.min(job.currentStreak,projected.currentStreak);
     return {number:index+1,label:job.label,currentStreak,
+      longestStreak:longestJobStreak(events,now),
       nextBonus:20+currentStreak,paidCleans:job.paidCleans,
       cleaningPoints:job.points,recordedSkips:job.recordedSkips,
       streakExpired:projected.expired,
