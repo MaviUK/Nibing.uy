@@ -315,6 +315,40 @@ function approveOwnerReviewedEmailReplies(snapshot,privateCustomers,eligibleAlia
   };
 }
 
+/**
+ * Grant an explicitly opted-in booking ONLY after the production worker
+ * confirms Squeegee jobs and the existing private website identity link.
+ * Missing ledger entries require a fresh owner import, never an invented row.
+ */
+function grantVerifiedBookingConsent(snapshot,{squeegeeId,booking,linked},now=Date.now()){
+  if(linked!==true || booking?.leaderboardConsent!==true ||
+     booking?.leaderboardConsentNotice!==NOTICE_VERSION)
+    return {changed:false,reason:"no_verified_opt_in",snapshot};
+  const alias=canonicalLegacyRef(squeegeeId);
+  const reference=String(booking?.bookingId||booking?.submissionId||"");
+  if(!alias || !/^[a-zA-Z0-9_-]{8,100}$/.test(reference))
+    return {changed:false,reason:"invalid_booking_evidence",snapshot};
+  if(snapshot?.version!==1 || !Array.isArray(snapshot.records))
+    return {changed:false,reason:"consent_ledger_unavailable",snapshot};
+  const index=snapshot.records.findIndex(row=>row.alias===alias);
+  if(index<0)return {changed:false,reason:"customer_requires_verified_import",snapshot};
+  const old=snapshot.records[index];
+  if(old.consent==="withdrawn" || old.withdrawnAt)
+    return {changed:false,reason:"withdrawal_protected",snapshot};
+  if(old.consent==="granted")
+    return {changed:false,reason:"already_granted",snapshot};
+  const firstName=safeFirstName(old.firstName);
+  if(!firstName || safePublicTown(old.town)!==old.town)
+    return {changed:false,reason:"name_or_town_review_required",snapshot};
+  const stamped=new Date(now).toISOString();
+  const next=[...snapshot.records];
+  next[index]={...old,consent:"granted",consentAt:stamped,
+    method:"signed_form",evidenceRef:"booking:"+reference,
+    noticeVersion:NOTICE_VERSION,withdrawnAt:null};
+  return {changed:true,reason:"granted",
+    snapshot:{...snapshot,updatedAt:stamped,records:next}};
+}
+
 function consentStats(snapshot) {
   const rows=Array.isArray(snapshot?.records)?snapshot.records:[];
   return {
@@ -513,6 +547,7 @@ module.exports={
   STORE_NAME,KEY,NOTICE_VERSION,EXPECTED,MAX_BYTES,
   safeFirstName,parseSimpleCsv,preparePrivateConsentImport,
   changeConsent,initialiseFromPrivateCustomerHQ,approveOwnerReviewedEmailReplies,
+  grantVerifiedBookingConsent,
   consentStats,publicConsentBoard,
   publicEligibleScoreboard,previewFirstNameScoreboard,
 };
