@@ -7,6 +7,7 @@ import historical from "./lib/squeegeeActiveLeaderboardImport.js";
 import annual from "./lib/squeegeeYearlyPreviewBoard.js";
 import board from "./lib/n64ProductionPublicBoard.js";
 import customerWebsite from "./lib/arcadeCustomerMerge.js";
+import achievements from "./lib/squeegeePreviewOwnerAchievements.js";
 import {renderEmailLeaderboardPng} from "./emailLeaderboardCard.mjs";
 const unavailable=()=>renderEmailLeaderboardPng({rank:"PENDING",yearRank:"PENDING",yearPoints:null,points:null,job:null,note:"SEE ONLINE LEADERBOARD"});
 
@@ -72,12 +73,18 @@ export default async function handler(request,context){
   const overallEntry=overall.entries.find(e=>e.customerRef===id);
   const yearEntry=year?.entries.find(e=>e.customerRef===id);
   if(!overallEntry)return reject("public_entry_missing");
+  // Use the same verified per-job streak calculations as Customer HQ.
+  // Prefer the strongest CURRENT streak, keeping separate Squeegee jobs separate.
+  const jobs=achievements.jobRecords(account,snapshot.asOf);
+  const job=jobs.filter(j=>j.active>0).sort((a,b)=>
+   b.active-a.active || (b.lastCompletedOn||"").localeCompare(a.lastCompletedOn||""))[0] ||
+   jobs.filter(j=>j.best>0).sort((a,b)=>b.best-a.best)[0] || null;
   const bytes=renderEmailLeaderboardPng({
    rank:"#"+overallEntry.rank,
    yearRank:yearEntry?"#"+yearEntry.rank:"NO 2026 XP",
    yearPoints:yearEntry?.points||0,
    points:overallEntry.points,
-   job:null,asOf:snapshot.asOf,
+   job,asOf:snapshot.asOf,
    note:"PUBLIC LEADERBOARD STATS ONLY"
   });
   return response(bytes);
