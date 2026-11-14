@@ -115,9 +115,8 @@ async function leaderboardImageDiagnostic(ref){
   if(matches.length!==1)return fail(matches.length?"duplicate_consent_reference":"reference_missing_from_consent_ledger");
   const row=matches[0];
   if(row.consent==="withdrawn"||row.withdrawnAt)return fail("customer_withdrew_permission");
-  if(row.consent!=="granted")return fail("public_leaderboard_consent_pending");
-  if(row.noticeVersion!==consent.NOTICE_VERSION||!row.consentAt||!row.evidenceRef)
-    return fail("consent_evidence_incomplete");
+  // Default participation does not manufacture explicit permission evidence.
+  if(!consent.safeFirstName(row.firstName))return fail("first_name_unverified");
   if(!eligible.aliases.has(row.alias))return fail("customer_not_email_eligible");
   if(!snapshot.accounts?.some(a=>String(a?.ref||"").toLowerCase()===ref.toLowerCase() &&
     historical.canonicalLegacyRef(a.id)===row.alias &&

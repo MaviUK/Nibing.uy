@@ -15,10 +15,11 @@ function approvedBoard(privateData,scores,eligible,ledger,key){
  const allowed=new Set();
  for(const account of privateData.accounts){
   const alias=ids.canonicalLegacyRef(account.id),r=records.get(alias);
+  // Owner-selected default participation is distinct from evidenced consent.
+  // Preserve explicit withdrawals and never publish an unverified identity.
   if(!eligible.has(alias)||!r||r.ref!==account.ref||r.town!==account.town||
-     r.firstName!==account.firstName||r.consent!=="granted"||
-     r.withdrawnAt||r.noticeVersion!==consent.NOTICE_VERSION||
-     !r.consentAt||!r.evidenceRef||!consent.safeFirstName(r.firstName))continue;
+     r.firstName!==account.firstName||r.consent==="withdrawn"||
+     r.withdrawnAt||!consent.safeFirstName(r.firstName))continue;
   allowed.add("NBG-"+crypto.createHmac("sha256",key)
    .update("n64-preview-public-first-name-v1:"+alias).digest("hex").slice(0,10).toUpperCase());
  }
