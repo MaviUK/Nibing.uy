@@ -193,9 +193,11 @@ function validateApiCustomer(apiRow,account){
 // but does not erase the historical best when a streak later expires.
 function longestJobStreak(events,now=Date.now()){
   if(!Array.isArray(events))return 0;
-  const today=new Intl.DateTimeFormat("en-CA",{
+  const parts=new Intl.DateTimeFormat("en-GB",{
     timeZone:"Europe/London",year:"numeric",month:"2-digit",day:"2-digit"
-  }).format(new Date(now));
+  }).formatToParts(new Date(now));
+  const dateParts=Object.fromEntries(parts.map(part=>[part.type,part.value]));
+  const today=dateParts.year+"-"+dateParts.month+"-"+dateParts.day;
   const days=new Map();
   for(const event of events){
     if(!event||typeof event.date!=="string"||
