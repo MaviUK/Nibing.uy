@@ -283,3 +283,59 @@
  .hq-history-section>.hq-history-tile{flex-wrap:wrap}
  .hq-hero--embedded{padding-top:90px!important}
 }
+
+
+/* Explicit 2-column arcade tiles: production Customer HQ, including embedded leaderboard. */
+.hq-page .hq-xp-section,
+.hq-page .hq-streak-section,
+.hq-page .hq-history-section{
+ display:grid!important;
+ grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ gap:12px!important;
+ align-items:stretch;
+}
+.hq-page .hq-xp-section>.hq-panel-label,
+.hq-page .hq-streak-section>.hq-panel-label,
+.hq-page .hq-history-section>.hq-panel-label,
+.hq-page .hq-xp-section>p,
+.hq-page .hq-streak-section>p,
+.hq-page .hq-history-section>p,
+.hq-page .hq-history-section>.hq-history-head,
+.hq-page .hq-history-section>.hq-button{
+ grid-column:1/-1;
+}
+.hq-page .hq-xp-section>.hq-balance-line,
+.hq-page .hq-streak-section>.hq-job-tile,
+.hq-page .hq-history-section>.hq-history-tile{
+ min-width:0;
+ min-height:120px;
+ margin:0!important;
+ display:flex;
+ flex-direction:column;
+ align-items:flex-start;
+ justify-content:space-between;
+ gap:10px;
+ padding:13px 11px;
+ overflow-wrap:anywhere;
+}
+.hq-page .hq-xp-section>.hq-balance-line strong,
+.hq-page .hq-streak-section>.hq-job-tile>strong,
+.hq-page .hq-history-section>.hq-history-tile>strong{
+ max-width:100%;
+ white-space:normal!important;
+ text-align:left;
+}
+.hq-page .hq-history-section>.hq-history-tile>div{width:100%;min-width:0}
+.hq-page .hq-history-section>.hq-history-tile small{overflow-wrap:anywhere}
+@media(max-width:600px){
+ .hq-page .hq-xp-section,
+ .hq-page .hq-streak-section,
+ .hq-page .hq-history-section{gap:10px!important}
+ .hq-page .hq-xp-section>.hq-balance-line,
+ .hq-page .hq-streak-section>.hq-job-tile,
+ .hq-page .hq-history-section>.hq-history-tile{padding:11px 9px;min-height:116px}
+ .hq-page .hq-xp-section>.hq-balance-line strong,
+ .hq-page .hq-streak-section>.hq-job-tile>strong{font-size:16px}
+ .hq-page .hq-history-section>.hq-history-tile strong{font-size:12px}
+ .hq-page .hq-history-section>.hq-history-tile small{font-size:10px;line-height:1.4}
+}
