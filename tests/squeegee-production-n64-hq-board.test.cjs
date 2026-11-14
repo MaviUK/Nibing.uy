@@ -42,15 +42,15 @@ test("production public rankings preserve verified first names and towns only fo
  assert.ok(!JSON.stringify(out).includes("11111111"));
  assert.ok(out.entries.every(x=>x.customerRef!=="123"));
 });
-test("production ignores pending, revoked and unsupported evidence without changing original XP",()=>{
+test("production includes pending defaults but excludes withdrawals without changing original XP",()=>{
  const x=fixture();const rows=x.ledger.records;
  x.ledger.records=[{...rows[0],consent:"withdrawn",withdrawnAt:"2026-11-06T11:00:00Z"},
   {...rows[1],consent:"pending"}];
  const o=prod.approvedBoard(x.privateData,x.scores,x.eligible,x.ledger,key);
- assert.equal(o.totalPlayers,0);
+ assert.equal(o.totalPlayers,1);
  assert.equal(x.privateData.accounts.reduce((sum,p)=>sum+p.points,0),50);
  x.ledger.records[1]={...rows[1],evidenceRef:""};
- assert.equal(prod.approvedBoard(x.privateData,x.scores,x.eligible,x.ledger,key).totalPlayers,0);
+ assert.equal(prod.approvedBoard(x.privateData,x.scores,x.eligible,x.ledger,key).totalPlayers,1);
 });
 test("production fails closed without its separate signing credentials and release flags",()=>{
  assert.equal(prod.publicSecret({}),null);
@@ -101,7 +101,7 @@ test("live and preview route selection is separate; privacy explains participati
  assert.match(estimated,/OWNER_ESTIMATED_BINS_PER_DAY = 200/);
 });
 
-test("live Records tab uses only already consented public names",()=>{
+test("live Records tab uses public default-included names",()=>{
  const highlights=require("../netlify/functions/lib/squeegeePublicAchievementHighlights");
  const data=fixture();
  const sarah=data.privateData.accounts[0];
@@ -120,15 +120,14 @@ test("live Records tab uses only already consented public names",()=>{
    consent:"pending",consentAt:null,method:null,evidenceRef:null};
  const publicScores=prod.approvedBoard(
    data.privateData,data.scores,data.eligible,data.ledger,key);
- assert.equal(publicScores.entries.length,1);
- assert.equal(publicScores.entries[0].displayName,"Sarah");
+ assert.equal(publicScores.entries.length,2);
+ assert.equal(publicScores.entries[0].displayName,"John");
  const record=highlights.highlights(
    data.privateData,data.eligible,data.ledger,"overall",publicScores,key);
  assert.equal(record.status,"preview_public_named_records");
  assert.equal(record.colours[0].colour,"Black");
- assert.equal(record.colours[0].highestTop.length,1);
- assert.equal(record.colours[0].highestTop[0].displayName,"Sarah");
- assert.ok(!JSON.stringify(record).includes("John"));
+ assert.equal(record.colours[0].highestTop.length,2);
+ assert.equal(record.colours[0].highestTop[0].displayName,"John");
  assert.ok(!JSON.stringify(record).includes("@"));
  assert.ok(!JSON.stringify(record).includes("BLACK-2"));
  const live=read("netlify/functions/n64ProductionLeaderboard.mjs");
