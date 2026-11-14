@@ -14,6 +14,7 @@ import ownerAlerts from "./lib/squeegeeSyncOwnerAlert.js";
 import ownerCertificate from "./lib/squeegeeOwnerCertificate.js";
 import ownerTerms from "./lib/ownerBookingTermsSummary.js";
 import playerLink from "./lib/arcadeSqueegeeLink.js";
+import nameConsent from "./lib/squeegeeLeaderboardNameConsent.js";
 
 const headers={
   "Content-Type":"application/json; charset=utf-8",
@@ -189,10 +190,34 @@ export default async function handler(request,context){
             const result=await playerLink.linkAcceptedSqueegeeBooking({
               squeegeeId,booking:verifiedBooking,
             },{publicStore,privateStore,linkStore});
-            if(!result.linked)
+            if(!result.linked){
               console.info("Confirmed booking player link withheld",{
                 reason:result.reason,
               });
+              return;
+            }
+            if(verifiedBooking.leaderboardConsent!==true)return;
+            // CAS prevents an overlapping owner withdrawal/import from being
+            // overwritten by a delayed booking worker.
+            const names=getStore({name:nameConsent.STORE_NAME,...options});
+            const prior=await names.getWithMetadata(nameConsent.KEY,{
+              type:"json",consistency:"strong",
+            });
+            if(!prior?.etag)return;
+            const proposed=nameConsent.grantVerifiedBookingConsent(prior.data,{
+              squeegeeId,booking:verifiedBooking,linked:true,
+            });
+            if(!proposed.changed){
+              console.info("Leaderboard booking opt-in not applied",{
+                reason:proposed.reason,
+              });
+              return;
+            }
+            const saved=await names.setJSON(nameConsent.KEY,proposed.snapshot,{
+              onlyIfMatch:prior.etag,
+            });
+            if(saved?.modified!==true)
+              console.warn("Leaderboard consent concurrent update; owner review needed");
           },
         },
       });
