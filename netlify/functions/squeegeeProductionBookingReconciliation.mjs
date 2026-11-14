@@ -8,7 +8,7 @@ const MAX_SCAN=10000;
 const REVIEW_STAGES=new Set(["held_for_review","requires_reconciliation"]);
 const FAILURE_DELIVERY=new Set(["not_sent","failed"]);
 const validId=x=>/^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i.test(x);
-const ownerEmail=env=>env.BOOKINGS_TO||"info@nibing.uy";
+const ownerEmail=env=>env.BOOKINGS_TO?.trim()||"info@nibing.uy";
 const sender=env=>env.RESEND_FROM||"NI Bin Guy <noreply@nibing.uy>";
 const safeAge=x=>{const t=Date.parse(x||"");return Number.isFinite(t)?Date.now()-t:Infinity;};
 const needsReview=record=>{
@@ -62,9 +62,9 @@ export default async function handler(_request,context){
       from:sender(process.env),to:[ownerEmail(process.env)],
       subject:"NI Bin Guy — BOOKING NEEDS ATTENTION — Outstanding booking alert",text,
     });
-    await alertStore.setJSON(key,{state:response?.error?"failed":"sent",
+    await alertStore.setJSON(key,{state:response?.error || !response?.data?.id?"failed":"sent",
       sentAt:new Date().toISOString(),count:pending.length,complete});
-    if(response?.error)console.error("Booking reconciliation digest provider rejected email");
+    if(response?.error || !response?.data?.id)console.error("Booking reconciliation digest provider did not confirm acceptance");
   }catch(error){
     console.error("Booking reconciliation digest delivery failed",error?.name);
     try{await alertStore.setJSON(key,{state:"failed",count:pending.length,complete});}catch{}
