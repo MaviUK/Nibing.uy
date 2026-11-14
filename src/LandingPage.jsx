@@ -390,6 +390,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
   const [showTerms, setShowTerms] = useState(false);
   const [termsConfirmed, setTermsConfirmed] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [leaderboardConsent, setLeaderboardConsent] = useState(false);
   // Lock immediately on the first tap, before schedule/CAPTCHA/email awaits.
   // Keep the same random booking reference for this attempt to avoid duplicates.
   const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);
@@ -645,6 +646,9 @@ function BookingForm({ onClose, initialAddress = "" }) {
           bookingScheduleSnapshot: window.nbgGetBookingScheduleSnapshot?.() || null,
           arcadeClaimed: window.n64Score?.activityKeys?.() || [],
           arcadeOptOut,
+          leaderboardConsent: leaderboardConsent === true,
+          leaderboardConsentNotice: "nibinguy-leaderboard-firstname-town-xp-v1",
+          leaderboardConsentTimestamp: leaderboardConsent ? new Date().toISOString() : null,
           placeId,
           lat,
           lng,
@@ -1065,6 +1069,12 @@ function BookingForm({ onClose, initialAddress = "" }) {
           <label htmlFor="agree" className="text-sm text-gray-800">
             I’ve read and agree to the September 2026 Terms of Service, including the public leaderboard acknowledgement. This does not make my name public.
             {!canToggleAgree && <span className="block text-xs text-gray-500">(Scroll to the bottom of the Terms and select Confirm & Agree to unlock this.)</span>}
+          </label>
+        </div>
+        <div className="mt-4 border-t border-gray-300 pt-3">
+          <label htmlFor="leaderboard-consent" className="flex items-start gap-2 text-sm text-gray-800">
+            <input id="leaderboard-consent" type="checkbox" className="mt-1" checked={leaderboardConsent} onChange={(e) => setLeaderboardConsent(e.target.checked)} />
+            <span><strong>Join the public NI Bin Guy leaderboard (optional).</strong> I agree to display my first name, town and loyalty XP publicly. I can withdraw permission at any time. Leaving this unchecked will not affect my booking.</span>
           </label>
         </div>
         {renderFieldError("terms")}
