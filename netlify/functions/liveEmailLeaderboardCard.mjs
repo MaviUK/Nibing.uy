@@ -8,13 +8,14 @@ import annual from "./lib/squeegeeYearlyPreviewBoard.js";
 import board from "./lib/n64ProductionPublicBoard.js";
 import customerWebsite from "./lib/arcadeCustomerMerge.js";
 import {renderEmailLeaderboardPng} from "./emailLeaderboardCard.mjs";
+const unavailable=()=>renderEmailLeaderboardPng({rank:"PENDING",yearRank:"PENDING",yearPoints:null,points:null,job:null,note:"SEE ONLINE LEADERBOARD"});
 
 const HEADERS={"Content-Type":"image/png","Cache-Control":"no-store",
  "X-Robots-Tag":"noindex, nofollow, noarchive",
  "X-Content-Type-Options":"nosniff","Referrer-Policy":"no-referrer"};
 const response=(bytes,status=200)=>new Response(bytes?new Uint8Array(bytes):null,
  {status,headers:HEADERS});
-const reject=(reason,status=404)=>{console.warn("[email-leaderboard] "+reason);return response(null,status);};
+const reject=(reason,status=404)=>{console.warn("[email-leaderboard] "+reason);return status===404?response(unavailable()):response(null,status);};
 export default async function handler(request,context){
  if(request.method!=="GET")return reject("method_not_allowed",405);
  const url=new URL(request.url);
@@ -62,14 +63,14 @@ export default async function handler(request,context){
   const overall=board.approvedBoard(snapshot,scores.overallBoard,eligible.aliases,ledger,key);
   const yearSource=scores.yearlyBoards.find(b=>b.year===2026);
   const year=yearSource?board.approvedBoard(snapshot,yearSource,eligible.aliases,ledger,key):null;
-  if(!overall||!year)return reject("public_boards_unavailable");
+  if(!overall)return reject("public_boards_unavailable");
   // Lookup by the same keyed public identifier used by the approved board.
   const crypto=await import("node:crypto");
   const id="NBG-"+crypto.createHmac("sha256",key)
    .update("n64-preview-public-first-name-v1:"+row.alias)
    .digest("hex").slice(0,10).toUpperCase();
   const overallEntry=overall.entries.find(e=>e.customerRef===id);
-  const yearEntry=year.entries.find(e=>e.customerRef===id);
+  const yearEntry=year?.entries.find(e=>e.customerRef===id);
   if(!overallEntry)return reject("public_entry_missing");
   const bytes=renderEmailLeaderboardPng({
    rank:"#"+overallEntry.rank,
