@@ -42,10 +42,10 @@ export default async function handler(_request,context){
   // No false all-clear: an incomplete scan itself warrants attention.
   if(!pending.length && complete)return;
   pending.sort();
-  const day=new Date().toISOString().slice(0,10);
-  // Reserve a daily digest before sending; concurrent invocations cannot spam.
+  const hour=new Date().toISOString().slice(0,13);
+  // Reserve an hourly fallback alert before sending; concurrent invocations cannot spam.
   // A failed email is recorded, not silently treated as delivered.
-  const key="digest-"+day;
+  const key="digest-"+hour;
   let claim;
   try{claim=await alertStore.setJSON(key,{state:"sending",createdAt:new Date().toISOString()}, {onlyIfNew:true});}
   catch(error){console.error("Booking reconciliation alert reservation failed",error?.name);return;}
@@ -60,7 +60,7 @@ export default async function handler(_request,context){
   try{
     const response=await new Resend(process.env.RESEND_API_KEY).emails.send({
       from:sender(process.env),to:[ownerEmail(process.env)],
-      subject:"NI Bin Guy — BOOKING NEEDS ATTENTION — Daily reconciliation",text,
+      subject:"NI Bin Guy — BOOKING NEEDS ATTENTION — Outstanding booking alert",text,
     });
     await alertStore.setJSON(key,{state:response?.error?"failed":"sent",
       sentAt:new Date().toISOString(),count:pending.length,complete});
@@ -70,4 +70,4 @@ export default async function handler(_request,context){
     try{await alertStore.setJSON(key,{state:"failed",count:pending.length,complete});}catch{}
   }
 }
-export const config={schedule:"0 8 * * *"};
+// Repeat while unresolved, at most once per UTC hour. This is a fallback\n// notification, NOT a replay of the original signed owner email.\nexport const config={schedule:"0 * * * *"};
