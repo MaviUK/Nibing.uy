@@ -201,7 +201,7 @@ function longestJobStreak(events,now=Date.now()){
   const days=new Map();
   for(const event of events){
     if(!event||typeof event.date!=="string"||
-       !/^\\d{4}-\\d{2}-\\d{2}$/.test(event.date)||
+       !/^\d{4}-\d{2}-\d{2}$/.test(event.date)||
        event.date>today)continue;
     const flags=days.get(event.date)||{skip:false,complete:false};
     if(event.event==="recorded_skip")flags.skip=true;
@@ -232,7 +232,7 @@ function publicAccount(account,websiteXp=0,now=Date.now()){
     const projected=effectiveCleaningStreak(events,{now});
     const currentStreak=Math.min(job.currentStreak,projected.currentStreak);
     return {number:index+1,label:job.label,currentStreak,
-      longestStreak:longestJobStreak(events,now),
+      longestStreak:Math.max(currentStreak,longestJobStreak(events,now)),
       nextBonus:20+currentStreak,paidCleans:job.paidCleans,
       cleaningPoints:job.points,recordedSkips:job.recordedSkips,
       streakExpired:projected.expired,
