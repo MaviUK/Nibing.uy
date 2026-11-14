@@ -13,6 +13,7 @@ import {Resend} from "resend";
 import ownerAlerts from "./lib/squeegeeSyncOwnerAlert.js";
 import ownerCertificate from "./lib/squeegeeOwnerCertificate.js";
 import ownerTerms from "./lib/ownerBookingTermsSummary.js";
+import playerLink from "./lib/arcadeSqueegeeLink.js";
 
 const headers={
   "Content-Type":"application/json; charset=utf-8",
@@ -178,6 +179,21 @@ export default async function handler(request,context){
           save:(id,stage,extra)=>auto.saveAutoStatus(id,stage,extra,
             {store:statusStore}),
           alert,completedAlert,
+          // Only called after confirmed Squeegee jobs are committed.
+          // A matching email alone never authorises a link.
+          onSucceededCustomer:async({squeegeeId,booking:verifiedBooking})=>{
+            const options={consistency:"strong"};
+            const publicStore=getStore({name:"n64-preview-arcade-public",...options});
+            const privateStore=getStore({name:"n64-preview-arcade-private",...options});
+            const linkStore=getStore({name:playerLink.STORE,...options});
+            const result=await playerLink.linkAcceptedSqueegeeBooking({
+              squeegeeId,booking:verifiedBooking,
+            },{publicStore,privateStore,linkStore});
+            if(!result.linked)
+              console.info("Confirmed booking player link withheld",{
+                reason:result.reason,
+              });
+          },
         },
       });
       if(result?.status==="completed"){
