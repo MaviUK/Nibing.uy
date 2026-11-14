@@ -37,13 +37,18 @@ export default async function handler(request,context){
   if(!snapshot||!ledger||ledger.sourceAsOf!==snapshot.asOf)return reject("snapshot_or_consent_ledger_unavailable");
   const eligible=hq.eligibleRankedEmailAccounts(snapshot);
   if(!eligible)return reject("eligible_accounts_unavailable");
-  // Match only consented customers, never reveal whether an unapproved ref exists.
-  const matching=(Array.isArray(ledger.records)?ledger.records:[]).filter(row=>String(row?.ref||"").toLowerCase()===ref.toLowerCase() &&
-   row.consent==="granted"&&!row.withdrawnAt &&
-   row.noticeVersion===names.NOTICE_VERSION && row.consentAt && row.evidenceRef &&
-   eligible.aliases.has(row.alias));
-  if(matching.length!==1)return reject("consent_or_reference_mismatch");
-  const row=matching[0];
+  // Diagnostic reasons are server-side only: all rejected customer references
+  // still receive the same 404 image response, preventing account enumeration.
+  const candidates=(Array.isArray(ledger.records)?ledger.records:[]).filter(row=>
+   String(row?.ref||"").toLowerCase()===ref.toLowerCase());
+  if(candidates.length===0)return reject("reference_not_in_consent_ledger");
+  if(candidates.length!==1)return reject("duplicate_consent_reference");
+  const row=candidates[0];
+  if(row.consent==="withdrawn"||row.withdrawnAt)return reject("consent_withdrawn");
+  if(row.consent!=="granted")return reject("consent_not_granted");
+  if(row.noticeVersion!==names.NOTICE_VERSION||!row.consentAt||!row.evidenceRef)
+   return reject("consent_evidence_incomplete");
+  if(!eligible.aliases.has(row.alias))return reject("not_email_eligible");
   const account=snapshot.accounts.find(a=>String(a?.ref||"").toLowerCase()===ref.toLowerCase() &&
    historical.canonicalLegacyRef(a.id)===row.alias &&
    a.firstName===row.firstName && a.town===row.town);
