@@ -70,4 +70,6 @@ export default async function handler(_request,context){
     try{await alertStore.setJSON(key,{state:"failed",count:pending.length,complete});}catch{}
   }
 }
-// Repeat while unresolved, at most once per UTC hour. This is a fallback\n// notification, NOT a replay of the original signed owner email.\nexport const config={schedule:"0 * * * *"};
+// Repeat while unresolved, at most once per UTC hour. This is a fallback
+// notification, NOT a replay of the original signed owner email.
+export const config={schedule:"0 * * * *"};
