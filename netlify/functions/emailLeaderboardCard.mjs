@@ -206,3 +206,6 @@ export default async function handler(request,context) {
     "X-Robots-Tag":"noindex, nofollow, noarchive","Referrer-Policy":"no-referrer"}});
 }
 export const config={path:"/api/email-leaderboard-card",method:"GET"};
+
+// Shared pixel renderer; production caller must enforce consent before invoking.
+export const renderEmailLeaderboardPng=show;
