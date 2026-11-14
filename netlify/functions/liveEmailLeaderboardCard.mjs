@@ -46,9 +46,7 @@ export default async function handler(request,context){
   if(candidates.length!==1)return reject("duplicate_consent_reference");
   const row=candidates[0];
   if(row.consent==="withdrawn"||row.withdrawnAt)return reject("consent_withdrawn");
-  if(row.consent!=="granted")return reject("consent_not_granted");
-  if(row.noticeVersion!==names.NOTICE_VERSION||!row.consentAt||!row.evidenceRef)
-   return reject("consent_evidence_incomplete");
+  // Eligible public records default visible unless the customer withdrew.\n  // The private ledger still supplies identity matching and withdrawal state.
   if(!eligible.aliases.has(row.alias))return reject("not_email_eligible");
   const account=snapshot.accounts.find(a=>String(a?.ref||"").toLowerCase()===ref.toLowerCase() &&
    historical.canonicalLegacyRef(a.id)===row.alias &&
