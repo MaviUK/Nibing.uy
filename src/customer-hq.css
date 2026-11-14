@@ -283,3 +283,22 @@
  .hq-history-section>.hq-history-tile{flex-wrap:wrap}
  .hq-hero--embedded{padding-top:90px!important}
 }
+
+
+/* Two tiles per row on phones, matching the four summary cards. */
+.hq-xp-section,.hq-streak-section,.hq-history-section{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:stretch}
+.hq-xp-section>.hq-panel-label,.hq-streak-section>.hq-panel-label,.hq-history-section>.hq-panel-label,
+.hq-xp-section>p,.hq-streak-section>p,.hq-history-section>p,
+.hq-history-section>.hq-history-head,.hq-history-section>.hq-button{grid-column:1/-1}
+.hq-xp-section>.hq-balance-line,.hq-streak-section>.hq-job-tile,.hq-history-section>.hq-history-tile{margin:0;min-width:0;min-height:125px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:10px;overflow-wrap:anywhere}
+.hq-xp-section>.hq-balance-line strong,.hq-streak-section>.hq-job-tile>strong,.hq-history-section>.hq-history-tile>strong{white-space:normal;max-width:100%;text-align:left}
+.hq-history-section>.hq-history-tile>div{min-width:0;width:100%}
+.hq-history-section>.hq-history-tile small{overflow-wrap:anywhere}
+.hq-history-section>.hq-history-head{margin:0}
+@media(max-width:600px){
+ .hq-xp-section,.hq-streak-section,.hq-history-section{gap:10px}
+ .hq-xp-section>.hq-balance-line,.hq-streak-section>.hq-job-tile,.hq-history-section>.hq-history-tile{min-height:118px;padding:11px 9px}
+ .hq-history-section>.hq-history-tile strong{font-size:12px}
+ .hq-history-section>.hq-history-tile small{font-size:10px;line-height:1.4}
+ .hq-xp-section>.hq-balance-line strong,.hq-streak-section>.hq-job-tile>strong{font-size:16px}
+}
