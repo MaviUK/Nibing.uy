@@ -6,6 +6,13 @@ import owner from "./lib/squeegeeProductionOwnerAuth.js";
 import {getStore} from "@netlify/blobs";
 import {createProductionClient} from "./lib/squeegeeProductionApi.js";
 import {Resend} from "resend";
+import hq from "./lib/customerHQ.js";
+import consent from "./lib/squeegeeLeaderboardNameConsent.js";
+import historical from "./lib/squeegeeActiveLeaderboardImport.js";
+import annual from "./lib/squeegeeYearlyPreviewBoard.js";
+import publicBoard from "./lib/n64ProductionPublicBoard.js";
+import website from "./lib/arcadeCustomerMerge.js";
+import crypto from "node:crypto";
 
 const RE=/^NBG-(?:[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}|[A-Z0-9]+-[A-Z0-9]{8,12})$/i;
 const HEADERS={
@@ -85,6 +92,59 @@ function sourceSummary(summary){
     '</div><p><strong>Never retry an uncertain or partially completed booking.</strong> Check Squeegee first.</p>';
 }
 
+// Owner-session-only diagnostic. No customer data is exposed on public image URLs.
+async function leaderboardImageDiagnostic(ref){
+  const fail=reason=>({ok:false,reason});
+  if(process.env.N64_PRODUCTION_LEADERBOARD_ENABLED!=="true" ||
+     process.env.N64_PRODUCTION_CUSTOMER_HQ_ENABLED!=="true")
+    return fail("production_flags_disabled");
+  const key=publicBoard.publicSecret(process.env);
+  if(!key)return fail("public_board_secret_missing");
+  const open=name=>getStore({name,consistency:"strong"});
+  const [snapshot,ledger]=await Promise.all([
+    open(hq.DATA_STORE).get(hq.DATA_KEY,{type:"json",consistency:"strong"}),
+    open(consent.STORE_NAME).get(consent.KEY,{type:"json",consistency:"strong"}),
+  ]);
+  if(!snapshot)return fail("customer_backup_missing");
+  if(!ledger)return fail("consent_ledger_missing");
+  if(ledger.sourceAsOf!==snapshot.asOf)return fail("backup_and_consent_dates_mismatch");
+  const eligible=hq.eligibleRankedEmailAccounts(snapshot);
+  if(!eligible)return fail("eligible_accounts_unavailable");
+  const matches=(Array.isArray(ledger.records)?ledger.records:[]).filter(
+    r=>String(r?.ref||"").toLowerCase()===ref.toLowerCase());
+  if(matches.length!==1)return fail(matches.length?"duplicate_consent_reference":"reference_missing_from_consent_ledger");
+  const row=matches[0];
+  if(row.consent==="withdrawn"||row.withdrawnAt)return fail("customer_withdrew_permission");
+  if(row.consent!=="granted")return fail("public_leaderboard_consent_pending");
+  if(row.noticeVersion!==consent.NOTICE_VERSION||!row.consentAt||!row.evidenceRef)
+    return fail("consent_evidence_incomplete");
+  if(!eligible.aliases.has(row.alias))return fail("customer_not_email_eligible");
+  if(!snapshot.accounts?.some(a=>String(a?.ref||"").toLowerCase()===ref.toLowerCase() &&
+    historical.canonicalLegacyRef(a.id)===row.alias &&
+    a.firstName===row.firstName&&a.town===row.town))
+    return fail("customer_identity_mismatch");
+  const stores={public:open("n64-preview-arcade-public"),
+    private:open("n64-preview-arcade-private"),
+    links:open("n64-preview1-squeegee-player-links"),
+    activity:open(website.STORE),history:open(historical.BLOB_STORE)};
+  const scores=await annual.getDatedScoreBoards(stores,snapshot,eligible.aliases);
+  const overall=publicBoard.approvedBoard(snapshot,scores.overallBoard,eligible.aliases,ledger,key);
+  if(!overall)return fail("overall_board_unavailable");
+  const id="NBG-"+crypto.createHmac("sha256",key)
+    .update("n64-preview-public-first-name-v1:"+row.alias)
+    .digest("hex").slice(0,10).toUpperCase();
+  if(!overall.entries?.some(e=>e.customerRef===id))
+    return fail("customer_missing_from_public_ranking");
+  const yearly=scores.yearlyBoards.find(b=>b.year===2026);
+  const year=yearly?publicBoard.approvedBoard(snapshot,yearly,eligible.aliases,ledger,key):null;
+  return {ok:true,reason:year?.entries?.some(e=>e.customerRef===id)?
+    "ready_overall_and_2026":"ready_overall_only_no_2026_entry"};
+}
+const leaderboardForm=()=>'<section><h2>Wash-complete leaderboard image diagnostic</h2>'+
+  '<p>Owner-only, read-only. Checks why a customer image shows PENDING.</p>'+
+  '<form method="get"><label for="customerRef">Squeegee customer reference</label>'+
+  '<input id="customerRef" name="customerRef" placeholder="2776" pattern="[A-Za-z0-9-]{1,30}" required>'+
+  '<button type="submit">Check leaderboard image</button></form></section>';
 const connectionForm=()=>'<section><h2>Read-only Squeegee connection check</h2>'+
   '<p>Checks only services and job groups. No customer or booking is changed. The emergency stop must remain ON.</p>'+
   '<form method="get"><input type="hidden" name="connectivity" value="1">'+
@@ -272,12 +332,29 @@ export default async function handler(request,context){
   if(!owner.validCookie(owner.fromHeader(request.headers.get("cookie")),
       process.env,Date.now(),scope))
     return page(loginForm(ref),401);
-  let inner=connectionForm()+lookupForm(ref)+
+  let inner=connectionForm()+lookupForm(ref)+leaderboardForm()+
     '<div class="notice"><strong>Customer leaderboard permissions</strong>'+
     '<p>Use the existing customer email replies to record owner-verified public first-name, town and XP permissions. No customer emails or Squeegee jobs are changed.</p>'+
     '<a href="/api/squeegee-preview-leaderboard-names">Open secure leaderboard permissions</a></div>'+
     '<form method="post"><input type="hidden" name="action" value="logout">'+
     '<button type="submit">Sign out</button></form>';
+  const customerRef=(url.searchParams.get("customerRef")||"").trim();
+  if(customerRef){
+    if(!/^[A-Za-z0-9-]{1,30}$/.test(customerRef))
+      inner+='<div class="notice">Invalid customer reference.</div>';
+    else{
+      try{
+        const diagnosis=await leaderboardImageDiagnostic(customerRef);
+        inner+='<div class="notice"><strong>Leaderboard image: '+
+          esc(diagnosis.ok?"READY":"NEEDS ATTENTION")+'</strong>'+
+          '<p>Customer reference: '+esc(customerRef)+'</p>'+
+          '<p>Diagnostic: '+esc(diagnosis.reason)+'</p>'+
+          '<p><small>No permission or customer data was changed.</small></p></div>';
+      }catch{
+        inner+='<div class="notice">Leaderboard diagnostic unavailable. Check Netlify function logs.</div>';
+      }
+    }
+  }
   if(url.searchParams.get("connectivity")==="1"){
     const checked=await connectivityCheck(scope);
     inner+='<div class="notice"><strong>Read-only API check:</strong> '+
