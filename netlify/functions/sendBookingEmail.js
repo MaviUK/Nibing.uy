@@ -500,6 +500,13 @@ exports.handler = async (event) => {
       channel: "email",
       bookingId: submission.bookingId,
       arcadeOptOut: payload.arcadeOptOut === true,
+      // Explicit opt-in evidence only. Do not publish or grant until a
+      // verified Squeegee customer identity is linked and withdrawal checked.
+      leaderboardConsent: payload.leaderboardConsent === true,
+      leaderboardConsentNotice: payload.leaderboardConsent === true
+        ? "nibinguy-leaderboard-firstname-town-xp-v1" : null,
+      leaderboardConsentTimestamp: payload.leaderboardConsent === true
+        ? new Date().toISOString() : null,
       name,
       email,
       phone,
