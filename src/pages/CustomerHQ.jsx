@@ -391,7 +391,7 @@ export default function CustomerHQ({embedded=false}){
               onClick={()=>setTab("leaderboard")}>LEADERBOARD PRIVACY</button>
           </div>
           {tab==="history"?
-            <GamePanel label="POINTS HISTORY" variant="hq-tile-section hq-history-section">
+            <GamePanel label="MY TOTAL REWARDS / POINTS HISTORY" variant="hq-tile-section hq-history-section">
               <div className="hq-history-head"><span>ACTIVITY</span><span>POINTS</span></div>
               {recent.length?recent.map((entry,i)=>
                 <div className="hq-history-row hq-history-tile" key={(entry.earnedAt||entry.date||"earlier")+"-"+entry.category+"-"+i}>
