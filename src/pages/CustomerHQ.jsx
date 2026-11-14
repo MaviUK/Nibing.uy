@@ -351,16 +351,16 @@ export default function CustomerHQ({embedded=false}){
             <Score label="PAID BINS" value={number(account.paidCleans)}
               sub="Verified completed and paid individual bins"/>
           </div>
-          <GamePanel label="YOUR XP EXPLAINED">
-            <div className="hq-balance-line"><span>Cleaning streak rewards</span>
+          <GamePanel label="YOUR XP EXPLAINED" variant="hq-tile-section hq-xp-section">
+            <div className="hq-balance-line hq-xp-tile"><span>Cleaning streak rewards</span>
               <strong>{number(account.cleaningPoints)} XP</strong></div>
-            <div className="hq-balance-line"><span>Website rewards (levels and bookings)</span>
+            <div className="hq-balance-line hq-xp-tile"><span>Website rewards (levels and bookings)</span>
               <strong>+{number(account.websiteXp)} XP</strong></div>
             {Number.isSafeInteger(account.overduePenaltyPoints)&&
               account.overduePenaltyPoints>0&&
-              <div className="hq-balance-line"><span>Overdue job deductions</span>
+              <div className="hq-balance-line hq-xp-tile hq-deduction-tile"><span>Overdue job deductions</span>
                 <strong>−{number(account.overduePenaltyPoints)} XP</strong></div>}
-            <div className="hq-balance-line hq-total"><span>Total XP</span>
+            <div className="hq-balance-line hq-total hq-xp-tile"><span>Total XP</span>
               <strong>{number(account.points)} XP</strong></div>
             <p className="hq-small">Each Squeegee job starts at 20 XP per paid bin and rises by 1 XP per consecutive completed visit on that job. A recorded skip resets only that job. A 35-day attendance gap resets only the next bonus. Separately, each unpaid job loses 1 XP per overdue day after a 28-day grace period: 1 point total on day 29, 2 total on day 30, 3 total on day 31. No compounding. A new Squeegee backup is needed to verify payments and refresh deductions.</p>
             {account.streakModel!=="per_job"&&
@@ -368,10 +368,10 @@ export default function CustomerHQ({embedded=false}){
             <p className="hq-small">Source: Squeegee backup of {formatDate(account.historyAsOf)}. New payments and cleans are not automatically added until the next verified import.</p>
           </GamePanel>
           {account.streakModel==="per_job"&&Array.isArray(account.jobs)&&
-            <GamePanel label="CONSECUTIVE CLEANS / PER SQUEEGEE JOB">
+            <GamePanel label="YOUR CLEANING STREAKS" variant="hq-tile-section hq-streak-section">
               {account.jobs.length?
                 account.jobs.map(job=>
-                  <div className="hq-balance-line" key={job.number}>
+                  <div className="hq-balance-line hq-job-tile" key={job.number}>
                     <span><strong>JOB {String(job.number).padStart(2,"0")} · {job.label}</strong>
                       <small style={{display:"block"}}>
                         {number(job.currentStreak)} consecutive visits · {number(job.paidCleans)} paid bins
@@ -391,10 +391,10 @@ export default function CustomerHQ({embedded=false}){
               onClick={()=>setTab("leaderboard")}>LEADERBOARD PRIVACY</button>
           </div>
           {tab==="history"?
-            <GamePanel label="MY TOTAL REWARDS / DATE BY DATE">
+            <GamePanel label="MY TOTAL REWARDS / POINTS HISTORY" variant="hq-tile-section hq-history-section">
               <div className="hq-history-head"><span>ACTIVITY</span><span>POINTS</span></div>
               {recent.length?recent.map((entry,i)=>
-                <div className="hq-history-row" key={(entry.earnedAt||entry.date||"earlier")+"-"+entry.category+"-"+i}>
+                <div className="hq-history-row hq-history-tile" key={(entry.earnedAt||entry.date||"earlier")+"-"+entry.category+"-"+i}>
                   <div>
                     <strong>{entry.date?
                       (entry.dateKind==="recorded"?"Recorded on ":
@@ -420,7 +420,7 @@ export default function CustomerHQ({embedded=false}){
                 </button>}
               <p className="hq-small">Website levels can earn XP once per calendar month. Free Bin Clean, Customer Portal and Contact Us can earn XP daily; bin-day checking only earns XP once. Every confirmed website booking can earn XP. Older website rewards show a clearly labelled recorded-on date from the saved account, not an invented earning date. Squeegee cleaning history is based on the last verified import, not live invoices or payments.</p>
             </GamePanel>:
-            <GamePanel label="CONTROL YOUR PUBLIC LEADERBOARD ENTRY">
+            <GamePanel label="LEADERBOARD PRIVACY" variant="hq-tile-section hq-privacy-section">
               {permission?.ready?
                 permission?.visible?
                   <><p><strong>You're included.</strong> Your first name, town and XP may appear on the public leaderboard.</p>
