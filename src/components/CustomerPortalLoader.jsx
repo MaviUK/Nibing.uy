@@ -87,7 +87,13 @@ export default function CustomerPortalLoader({ standalone = false }) {
           {widgets.map((widget, index) => (
             <div className="nbg-portal-tile" key={widget.id}>
               <div className="nbg-portal-panel-heading"><span>{String(index + 2).padStart(2, "0")}</span><div><strong>{widget.title}</strong><small>{widget.subtitle}</small></div></div>
-              {widget.id === "upcoming-appointments" ? (\n                <details className="nbg-portal-expand" open>\n                  <summary>Show or hide full appointment schedule</summary>\n                  <div className="nbg-portal-widget" data-sqc={widget.id} data-sqa={portalKey} data-sqe={portalEndpoint} />\n                </details>\n              ) : (\n                <div className="nbg-portal-widget" data-sqc={widget.id} data-sqa={portalKey} data-sqe={portalEndpoint} />
+              {widget.id === "upcoming-appointments" ? (
+                <details className="nbg-portal-expand" open>
+                  <summary>Show or hide full appointment schedule</summary>
+                  <div className="nbg-portal-widget" data-sqc={widget.id} data-sqa={portalKey} data-sqe={portalEndpoint} />
+                </details>
+              ) : (
+                <div className="nbg-portal-widget" data-sqc={widget.id} data-sqa={portalKey} data-sqe={portalEndpoint} />
               )}
             </div>
           ))}
