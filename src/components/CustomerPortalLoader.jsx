@@ -62,7 +62,7 @@ export default function CustomerPortalLoader({ standalone = false }) {
       id="customer-portal"
       style={{
         scrollMarginTop: "110px",
-        padding: "64px 16px",
+        padding: "72px 16px 88px",
         background: "black",
         textAlign: "center",
         color: "white",
@@ -76,8 +76,10 @@ export default function CustomerPortalLoader({ standalone = false }) {
           style={{
             fontSize: "1.875rem",
             fontWeight: "bold",
-            color: "#4ade80",
+            color: "#ffd34e",
             marginBottom: "12px",
+            fontFamily: "Arial Black, Trebuchet MS, sans-serif",
+            textTransform: "uppercase",
           }}
         >
           {standalone ? "Squeegee Customer Login" : "Customer Portal"}
@@ -87,6 +89,9 @@ export default function CustomerPortalLoader({ standalone = false }) {
             Sign in below to the existing Squeegee customer portal to access the services and account features Squeegee provides. This is separate from your NI Bin Guy points login.
           </p>
         )}
+        <p style={{ color: "#d6e7f7", fontWeight: 700, lineHeight: 1.5, maxWidth: "680px", margin: "0 auto 26px", fontSize: "clamp(14px, 2vw, 17px)" }}>
+          {standalone ? "Manage your bin cleaning account securely with Squeegee." : "Your cleans, appointments and account details — all in one place."}
+        </p>
         <div className="n64-portal-shell">
         <div
           data-sqc="layout"
@@ -98,9 +103,9 @@ export default function CustomerPortalLoader({ standalone = false }) {
             minHeight: "700px",
             margin: "0 auto",
             display: "block",
-            background: "#18181b",
-            borderRadius: "1rem",
-            boxShadow: "0 4px 10px rgba(0,0,0,0.3)",
+            background: "#111827",
+            borderRadius: "4px",
+            boxShadow: "none",
             overflow: "visible",
             padding: "20px",
             boxSizing: "border-box",
