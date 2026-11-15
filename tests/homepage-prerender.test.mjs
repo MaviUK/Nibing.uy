@@ -16,8 +16,8 @@ test('initial HTML includes service, prices, contact details and business hours'
   assert.ok(!body.includes('id="crawler-homepage-content"'));
 });
 
-test('all ten FAQ answers and nine town links are present before JavaScript', () => {
-  for (let i = 0; i < 10; i++) {
+test('all sixteen FAQ answers and nine town links are present before JavaScript', () => {
+  for (let i = 0; i < 16; i++) {
     assert.ok(body.includes(`id="n64-help-answer-${i}"`));
     assert.ok(body.includes(`id="n64-help-question-${i}"`));
   }
