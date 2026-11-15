@@ -61,6 +61,7 @@ export default function CustomerPortalLoader({ standalone = false }) {
   const toggleWidget = id => setExpandedWidgets(current => ({ ...current, [id]: !current[id] }))
   const portalKey = "25a031e7-75af-4a0e-9f3a-d308fd9b2e3a"
   const portalEndpoint = "https://sqgee.com"
+  const compactIds = ["upcoming-appointments", "appointment-history", "financial-history"]
   const widgets = [
     { id: "upcoming-appointments", title: "NEXT CLEAN", subtitle: "Your scheduled bin cleans", wide: false },
     { id: "appointment-history", title: "CLEAN HISTORY", subtitle: "Your previous visits", wide: false },
@@ -87,14 +88,14 @@ export default function CustomerPortalLoader({ standalone = false }) {
         </div>
         <div className="nbg-portal-grid">
           {widgets.map((widget, index) => (
-            <div className="nbg-portal-tile" key={widget.id}>
+            <div className={`nbg-portal-tile ${compactIds.includes(widget.id) ? "nbg-portal-tile-history" : ""}`} key={widget.id}>
               <div className="nbg-portal-panel-heading"><span>{String(index + 2).padStart(2, "0")}</span><div><strong>{widget.title}</strong><small>{widget.subtitle}</small></div></div>
-              <div className={["upcoming-appointments", "appointment-history", "financial-history"].includes(widget.id) && !expandedWidgets[widget.id] ? "nbg-portal-preview" : "nbg-portal-full"}>
+              <div id={`nbg-widget-${widget.id}`} className={compactIds.includes(widget.id) && !expandedWidgets[widget.id] ? "nbg-portal-preview" : "nbg-portal-full"}>
                 <div className="nbg-portal-widget" data-sqc={widget.id} data-sqa={portalKey} data-sqe={portalEndpoint} />
               </div>
-              {["upcoming-appointments", "appointment-history", "financial-history"].includes(widget.id) && (
-                <button type="button" className="nbg-portal-more" aria-expanded={Boolean(expandedWidgets[widget.id])} onClick={() => toggleWidget(widget.id)}>
-                  {expandedWidgets[widget.id] ? "SHOW LESS ▲" : "SHOW MORE ▼"}
+              {compactIds.includes(widget.id) && (
+                <button type="button" className="nbg-portal-more" aria-expanded={Boolean(expandedWidgets[widget.id])} aria-controls={`nbg-widget-${widget.id}`} onClick={() => toggleWidget(widget.id)}>
+                  {expandedWidgets[widget.id] ? "SHOW LESS ▲" : "VIEW FULL LIST ▼"}
                 </button>
               )}
             </div>
