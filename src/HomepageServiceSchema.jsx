@@ -1,6 +1,6 @@
 import React from "react"
 
-const areas = [
+export const areas = [
   ["Bangor", "https://nibing.uy/bin-cleaning-bangor/"],
   ["Groomsport", "https://nibing.uy/bin-cleaning-groomsport"],
   ["Donaghadee", "https://nibing.uy/bin-cleaning-donaghadee"],

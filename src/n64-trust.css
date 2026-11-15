@@ -659,3 +659,5 @@
     padding-top:calc(39px + var(--n64-check-height));
   }
 }
+
+#main-content.n64-world .n64-help-answer[hidden] { display: none !important; }

@@ -272,11 +272,10 @@ export function CustomerQuestions({ onBook }) {
               </span>
             </div>
             <div className="n64-help-answer-list">
-              {selectedTopic.indices.map((faqIndex) => {
-                const faq = FAQs[faqIndex];
+              {FAQs.map((faq, faqIndex) => {
                 const isOpen = openQuestion === faqIndex;
                 return (
-                  <div className={"n64-help-answer" + (isOpen ? " n64-help-answer--open" : "")} key={faq.question}>
+                  <div className={"n64-help-answer" + (isOpen ? " n64-help-answer--open" : "")} key={faq.question} hidden={!selectedTopic.indices.includes(faqIndex)}>
                     <button
                       className="n64-help-answer__button"
                       id={"n64-help-question-" + faqIndex}

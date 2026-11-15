@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import PreviewErrorBoundary from './components/PreviewErrorBoundary';
@@ -25,7 +26,9 @@ if (recaptchaSiteKey && !isNetlifyPreview && !document.getElementById('recaptcha
   document.head.appendChild(script);
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+const rootElement = document.getElementById('root');
+// Commit before legacy helpers can mistake the static snapshot for live controls.
+flushSync(() => ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <PreviewErrorBoundary>
       <BrowserRouter>
@@ -33,7 +36,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       </BrowserRouter>
     </PreviewErrorBoundary>
   </React.StrictMode>
-);
+));
+rootElement.removeAttribute('data-prerendered');
 
 // Town landing pages link back with ?book=1. Handle that here in the
 // bundled app so it cannot be missed because of a cached public script.

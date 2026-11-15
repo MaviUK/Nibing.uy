@@ -6,6 +6,7 @@ import "./n64-complete.css"
 import "./n64-square.css"
 import "./n64-finale.css"
 import "./n64-trust.css"
+import ServiceAreas from "./components/ServiceAreas"
 import HomepageServiceSchema from "./HomepageServiceSchema"
 import CustomerPortalLoader from "./components/CustomerPortalLoader"
 import FinalLevel from "./components/FinalLevel"
@@ -32,6 +33,7 @@ function SiteFooter() {
       <p className="mt-1 text-sm">
         Bangor, BT20 5NF · <a className="text-green-400 hover:underline" href="tel:07555178484">07555 178484</a> · <a className="text-green-400 hover:underline" href="https://nibing.uy/">nibing.uy</a> · <a className="text-green-400 hover:underline" href="mailto:info@nibing.uy">info@nibing.uy</a>
       </p>
+      <p className="mt-1 text-sm">Monday–Friday, 8am–8pm</p>
       <p className="mt-2 text-sm">
         <a className="text-green-400 underline" href="/privacy-policy.html">Privacy Policy</a>
       </p>
@@ -39,11 +41,12 @@ function SiteFooter() {
   )
 }
 
-function HomePage() {
+export function HomePage() {
   return (
     <>
       <HomepageServiceSchema />
       <NiBinGuyLandingPage />
+      <ServiceAreas />
       <CustomerPortalLoader />
       <FinalLevel />
       <ArcadeLeaderboard />
