@@ -16,7 +16,7 @@ test("Customer HQ and trailing slash rewrite to React index BEFORE short certifi
     const i=match(route);
     assert.ok(i>=0,route+" route missing from public/_redirects");
     assert.ok(i<short,"shortcode handler must not shadow "+route);
-    assert.equal(lines[i],route+" /index.html 200");
+    assert.equal(lines[i],route+" /customer-hq-shell.html 200");
   }
 });
 test("preview site builds and publishes _redirects, not only netlify.toml",()=>{
@@ -43,10 +43,10 @@ test("dedicated Squeegee portal (with or without slash) avoids the certificate h
     const i=match(route);
     assert.ok(i>=0,route+" must be in the actual published _redirects file");
     assert.ok(i<short,route+" must win before the shortcode certificate rule");
-    assert.equal(lines[i],route+" /index.html 200");
+    assert.equal(lines[i],route+" /squeegee-portal-shell.html 200");
   }
   const toml=fs.readFileSync(path.join(ROOT,"netlify.toml"),"utf8");
-  assert.match(toml,/from = "\/squeegee-portal"\s+to = "\/index\.html"\s+status = 200/);
+  assert.match(toml,/from = "\/squeegee-portal"\s+to = "\/squeegee-portal-shell\.html"\s+status = 200/);
 });
 
 test("Customer HQ and homepage portal buttons scroll to the visible Squeegee login heading",()=>{

@@ -40,3 +40,21 @@ test('the separate street booking entry is not replaced with the homepage', asyn
   assert.ok(!street.includes('id="n64-help-answer-9"'));
   assert.ok(!street.includes('data-prerendered="true"'));
 });
+
+test('account route documents load the app without homepage metadata or content', async () => {
+  const appScript = html.match(/<script[^>]*type="module"[^>]*src="([^"]+)"/)[1];
+  for (const [file, title] of [
+    ['customer-hq-shell', 'Customer HQ'], ['squeegee-portal-shell', 'Customer Portal'],
+    ['admin-shell', 'Admin'], ['auth-callback-shell', 'Sign-in Verification'],
+  ]) {
+    const shell = await readFile(new URL(`../dist/${file}.html`, import.meta.url), 'utf8');
+    assert.ok(shell.includes(`<title>${title} | NI Bin Guy</title>`));
+    assert.ok(shell.includes('content="noindex, follow"'));
+    assert.ok(shell.includes(`src="${appScript}"`));
+    assert.ok(shell.includes('id="root"'));
+    assert.ok(!shell.includes('application/ld+json'));
+    assert.ok(!shell.includes('rel="canonical"'));
+    assert.ok(!shell.includes('id="n64-help-answer-9"'));
+    assert.ok(!shell.includes('property="og:'));
+  }
+});

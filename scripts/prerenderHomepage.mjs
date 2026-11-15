@@ -16,6 +16,23 @@ try {
   const html = await readFile(path, 'utf8');
   const fallback = /<div id="root">\s*<main id="crawler-homepage-content">[\s\S]*?<\/main>\s*<\/div>/;
   if (!fallback.test(html)) throw new Error('Homepage prerender placeholder was not found');
+  // Account routes use the same app bundle, but must not advertise homepage
+  // content or business/FAQ schema before React mounts. No private data is rendered.
+  const shellHead = html.split('</head>')[0]
+    .replace(/<script\b[^>]*type="application\/ld\+json"[^>]*>[\s\S]*?<\/script>/g, '')
+    .replace(/<meta\b[^>]*(?:name="(?:description|twitter:[^"]+)"|property="og:[^"]+")[^>]*>/g, '')
+    .replace(/<link\b[^>]*rel="canonical"[^>]*>/g, '')
+    .replace(/<meta name="robots"[^>]*>/, '<meta name="robots" content="noindex, follow">');
+  const bodyScripts = (html.split('<body>')[1].match(/<script\b[^>]*>[\s\S]*?<\/script>/g) || []).join('\n');
+  for (const [file, title] of [
+    ['customer-hq-shell', 'Customer HQ'],
+    ['squeegee-portal-shell', 'Customer Portal'],
+    ['admin-shell', 'Admin'],
+    ['auth-callback-shell', 'Sign-in Verification'],
+  ]) {
+    const head = shellHead.replace(/<title>[\s\S]*?<\/title>/, `<title>${title} | NI Bin Guy</title>`);
+    await writeFile(new URL(`../dist/${file}.html`, import.meta.url), `${head}</head><body><div id="root"><main style="padding:2rem"><h1>${title}</h1><p>Loading account tools…</p><noscript>Enable JavaScript to use this page.</noscript><p><a href="/">Return to NI Bin Guy</a></p></main></div>${bodyScripts}</body></html>`);
+  }
   const noScript = `<noscript><style>
     #main-content.n64-world .n64-help-answer[hidden],
     #main-content.n64-world .n64-help-answer__content[hidden] { display:block !important; }
