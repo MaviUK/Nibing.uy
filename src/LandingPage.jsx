@@ -1301,8 +1301,10 @@ function ContactForm({ onClose }) {
         </button>
       </div>
 
+      <label htmlFor="contact-name" className="block text-sm font-bold">Your Name</label>
       <input
         type="text"
+        id="contact-name"
         placeholder="Your Name"
         value={cName}
         onChange={(e) => setCName(e.target.value)}
@@ -1310,8 +1312,10 @@ function ContactForm({ onClose }) {
       />
 
       <div className="space-y-1">
+        <label htmlFor="contact-phone" className="block text-sm font-bold">Contact Number (11 digits)</label>
         <input
           type="tel"
+          id="contact-phone"
           placeholder="Contact Number (11 digits)"
           value={cPhone}
           maxLength={11}
@@ -1328,8 +1332,10 @@ function ContactForm({ onClose }) {
       </div>
 
       <div className="space-y-1">
+        <label htmlFor="contact-email" className="block text-sm font-bold">Email Address</label>
         <input
           type="email"
+          id="contact-email"
           placeholder="Email Address"
           value={cEmail}
           onChange={(e) => setCEmail(e.target.value)}
@@ -1338,7 +1344,9 @@ function ContactForm({ onClose }) {
         {errors.email ? <p className="text-xs text-red-600">{errors.email}</p> : null}
       </div>
 
+      <label htmlFor="contact-message" className="block text-sm font-bold">Your Message</label>
       <textarea
+        id="contact-message"
         placeholder="Your Message"
         value={cMessage}
         onChange={(e) => setCMessage(e.target.value)}
@@ -1541,7 +1549,7 @@ function WhatWeDo() {
       <div className="grid md:grid-cols-3 gap-6 text-center">
         <div className="bg-zinc-800/70 border border-white/30 p-6 rounded-2xl shadow-lg">
           <h3 className="text-xl font-bold mb-2">Domestic Bins</h3>
-          <p>We clean green, black, and blue bins right outside your home.</p>
+          <p>We clean brown, green, black, and blue bins right outside your home.</p>
         </div>
         <div className="bg-zinc-800/70 border border-white/30 p-6 rounded-2xl shadow-lg">
           <h3 className="text-xl font-bold mb-2">Commercial Contracts</h3>
@@ -1565,7 +1573,7 @@ function TheProcess({ onBook }) {
         <div className="rounded-2xl bg-zinc-800/70 border border-white/30 p-6">
           <h3 className="text-xl font-bold">The Booking Process</h3>
           <ol className="mt-6 space-y-5">
-            {["Complete the quick booking form.", "We’ll reply with your price and the next clean date (right after your bin collection).", "Approve the quote to secure your spot in the schedule.", "You’ll receive an email to set up your payment method."].map(
+            {["Choose your bins and cleaning frequency to see your price.", "Enter your address and complete the booking form.", "We’ll confirm your booking and cleaning date, or contact you if we need to check any details.", "Leave your bins out after collection on your confirmed cleaning day."].map(
               (text, i) => (
                 <li key={i} className="flex gap-4">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-green-400/50 bg-green-500/10 text-sm font-semibold text-green-300">{i + 1}</span>

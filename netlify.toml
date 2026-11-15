@@ -212,12 +212,12 @@
 
 [[redirects]]
   from = "/customer-hq"
-  to = "/index.html"
+  to = "/customer-hq-shell.html"
   status = 200
 
 [[redirects]]
   from = "/squeegee-portal"
-  to = "/index.html"
+  to = "/squeegee-portal-shell.html"
   status = 200
 
 [[redirects]]
@@ -242,15 +242,15 @@
 
 [[redirects]]
   from = "/admin"
-  to = "/index.html"
+  to = "/admin-shell.html"
   status = 200
 
 [[redirects]]
   from = "/admin/*"
-  to = "/index.html"
+  to = "/admin-shell.html"
   status = 200
 
 [[redirects]]
   from = "/auth/callback"
-  to = "/index.html"
+  to = "/auth-callback-shell.html"
   status = 200
