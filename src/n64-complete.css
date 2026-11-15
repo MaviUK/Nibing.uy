@@ -433,3 +433,9 @@
 .nbg-portal-redesign [data-sqc]{min-width:0;max-width:100%;overflow-wrap:anywhere}
 .nbg-portal-redesign .nbg-portal-footnote{color:#bed4e8;font-size:13px;line-height:1.5;text-align:center;margin:26px 0 0}
 @media(max-width:700px){.nbg-portal-redesign .nbg-portal-grid{grid-template-columns:minmax(0,1fr);gap:17px}.nbg-portal-redesign .nbg-portal-login,.nbg-portal-redesign .nbg-portal-tile{padding:12px;box-shadow:4px 5px 0 #244c70}.nbg-portal-redesign .nbg-portal-login{box-shadow:4px 5px 0 #735e24}.nbg-portal-redesign .nbg-portal-panel-heading strong{font-size:16px}}
+
+/* Portal schedule toggle and Squeegee content legibility */
+.nbg-portal-redesign .nbg-portal-expand summary{cursor:pointer;background:#ffd34e;color:#14274b;font-weight:900;padding:12px 14px;margin:0 0 12px;list-style-position:inside}
+.nbg-portal-redesign .nbg-portal-expand:not([open]) summary{margin-bottom:0}
+.nbg-portal-redesign .nbg-portal-widget{color:#f4f8ff;color-scheme:dark}
+.nbg-portal-redesign .nbg-portal-widget :is(p,li,span,small,label,h3,h4){color:inherit}
