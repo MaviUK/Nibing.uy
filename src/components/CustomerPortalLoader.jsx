@@ -74,6 +74,12 @@ export default function CustomerPortalLoader({ standalone = false }) {
         <div className="n64-portal-eyebrow" aria-hidden="true">{standalone ? "SQUEEGEE · OFFICIAL CUSTOMER ACCESS" : "LEVEL 07 · CUSTOMER HQ"}</div>
         <h2 id="customer-portal-login" className="nbg-portal-heading">{standalone ? "SQUEEGEE CUSTOMER LOGIN" : "YOUR BIN HQ"}</h2>
         <p className="nbg-portal-intro">Appointments, cleaning history and payments — all in one place.</p>
+        {standalone ? (
+          <div className="n64-portal-shell">
+            <div data-sqc="layout" data-sqa="25a031e7-75af-4a0e-9f3a-d308fd9b2e3a" data-sqe="https://sqgee.com" style={{ width: "100%", minHeight: "700px", boxSizing: "border-box" }} />
+          </div>
+        ) : (
+          <>
         <div className="nbg-portal-login">
           <div className="nbg-portal-panel-heading"><span>01</span><div><strong>ACCOUNT LOGIN</strong><small>Secure Squeegee customer access</small></div></div>
           <div data-sqc="sign-in" data-sqa={portalKey} data-sqe={portalEndpoint} />
@@ -86,6 +92,8 @@ export default function CustomerPortalLoader({ standalone = false }) {
             </div>
           ))}
         </div>
+          </>
+        )}
         <p className="nbg-portal-footnote">Your NI Bin Guy points and streaks remain in Customer HQ. Squeegee manages the account widgets above.</p>
       </div>
     </section>
