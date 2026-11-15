@@ -1063,7 +1063,7 @@ function BookingForm({ onClose, initialAddress = "" }) {
           <input id="agree" type="checkbox" className="mt-1" checked={agreeToTerms}
             disabled={!canToggleAgree} onChange={(e) => { setAgreeToTerms(e.target.checked); clearFieldError("terms"); }} />
           <label htmlFor="agree" className="text-sm text-gray-800">
-            I’ve read and agree to the September 2026 Terms of Service, including the public leaderboard acknowledgement. This does not make my name public.
+            I’ve read and agree to the September 2026 Terms of Service.
             {!canToggleAgree && <span className="block text-xs text-gray-500">(Scroll to the bottom of the Terms and select Confirm & Agree to unlock this.)</span>}
           </label>
         </div>
