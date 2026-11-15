@@ -60,8 +60,7 @@ export default function CustomerPortalLoader({ standalone = false }) {
   const portalKey = "25a031e7-75af-4a0e-9f3a-d308fd9b2e3a"
   const portalEndpoint = "https://sqgee.com"
   const widgets = [
-    { id: "todays-appointment", title: "TODAY'S CLEAN", subtitle: "Your bin cleaning today", wide: false },
-    { id: "upcoming-appointments", title: "NEXT CLEAN", subtitle: "Upcoming appointments", wide: false },
+    { id: "upcoming-appointments", title: "NEXT CLEAN", subtitle: "Your scheduled bin cleans", wide: false },
     { id: "appointment-history", title: "CLEAN HISTORY", subtitle: "Your previous visits", wide: false },
     { id: "financial-history", title: "PAYMENTS & HISTORY", subtitle: "Your account transactions", wide: false },
     { id: "automatic-payments", title: "AUTOMATIC PAYMENTS", subtitle: "Manage payment methods", wide: false },
@@ -88,7 +87,8 @@ export default function CustomerPortalLoader({ standalone = false }) {
           {widgets.map((widget, index) => (
             <div className="nbg-portal-tile" key={widget.id}>
               <div className="nbg-portal-panel-heading"><span>{String(index + 2).padStart(2, "0")}</span><div><strong>{widget.title}</strong><small>{widget.subtitle}</small></div></div>
-              <div className="nbg-portal-widget" data-sqc={widget.id} data-sqa={portalKey} data-sqe={portalEndpoint} />
+              {widget.id === "upcoming-appointments" ? (\n                <details className="nbg-portal-expand" open>\n                  <summary>Show or hide full appointment schedule</summary>\n                  <div className="nbg-portal-widget" data-sqc={widget.id} data-sqa={portalKey} data-sqe={portalEndpoint} />\n                </details>\n              ) : (\n                <div className="nbg-portal-widget" data-sqc={widget.id} data-sqa={portalKey} data-sqe={portalEndpoint} />
+              )}
             </div>
           ))}
         </div>
