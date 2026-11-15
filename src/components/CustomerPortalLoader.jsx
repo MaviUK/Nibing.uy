@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import LevelWasher from "./LevelWasher.jsx"
 
 export default function CustomerPortalLoader({ standalone = false }) {
@@ -57,6 +57,8 @@ export default function CustomerPortalLoader({ standalone = false }) {
     return ()=>observer.disconnect()
   }, [standalone])
 
+  const [expandedWidgets, setExpandedWidgets] = useState({})
+  const toggleWidget = id => setExpandedWidgets(current => ({ ...current, [id]: !current[id] }))
   const portalKey = "25a031e7-75af-4a0e-9f3a-d308fd9b2e3a"
   const portalEndpoint = "https://sqgee.com"
   const widgets = [
@@ -87,13 +89,13 @@ export default function CustomerPortalLoader({ standalone = false }) {
           {widgets.map((widget, index) => (
             <div className="nbg-portal-tile" key={widget.id}>
               <div className="nbg-portal-panel-heading"><span>{String(index + 2).padStart(2, "0")}</span><div><strong>{widget.title}</strong><small>{widget.subtitle}</small></div></div>
-              {widget.id === "upcoming-appointments" ? (
-                <details className="nbg-portal-expand" open>
-                  <summary>Show or hide full appointment schedule</summary>
-                  <div className="nbg-portal-widget" data-sqc={widget.id} data-sqa={portalKey} data-sqe={portalEndpoint} />
-                </details>
-              ) : (
+              <div className={["upcoming-appointments", "appointment-history", "financial-history"].includes(widget.id) && !expandedWidgets[widget.id] ? "nbg-portal-preview" : "nbg-portal-full"}>
                 <div className="nbg-portal-widget" data-sqc={widget.id} data-sqa={portalKey} data-sqe={portalEndpoint} />
+              </div>
+              {["upcoming-appointments", "appointment-history", "financial-history"].includes(widget.id) && (
+                <button type="button" className="nbg-portal-more" aria-expanded={Boolean(expandedWidgets[widget.id])} onClick={() => toggleWidget(widget.id)}>
+                  {expandedWidgets[widget.id] ? "SHOW LESS ▲" : "SHOW MORE ▼"}
+                </button>
               )}
             </div>
           ))}
