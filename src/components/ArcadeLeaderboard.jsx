@@ -46,7 +46,7 @@ export default function ArcadeLeaderboard() {
   // The owner-only view is accessible via a deliberate deep link, not a
   // visible sign-in requirement on the public leaderboard.
   const [showOwnerControls] = useState(()=>
-    new URLSearchParams(window.location.search).get("owner-board")==="1"
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("owner-board")==="1"
   );
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [connection, setConnection] = useState("connecting");
@@ -104,7 +104,7 @@ export default function ArcadeLeaderboard() {
   // A requested owner test starts on the private test panel, not the public
   // anonymous leaderboard while the owner session is being checked.
   const [rankingMode,setRankingMode]=useState(()=>
-    new URLSearchParams(window.location.search).get("owner-board")==="1"
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("owner-board")==="1"
       ? "owner" : "public"
   );
   const [ownerPresentation,setOwnerPresentation]=useState("simulation");
@@ -466,7 +466,7 @@ export default function ArcadeLeaderboard() {
     };
 
     void refresh();
-    if(new URLSearchParams(window.location.search).get("owner-board")==="1")
+    if(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("owner-board")==="1")
       void showOwnerRankings();
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "visible") void refresh();
