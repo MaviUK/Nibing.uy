@@ -35,11 +35,11 @@ test("a customer explicitly opens or closes each answer with the plus/minus butt
   assert.match(source,/\{isOpen \? "−" : "\+"\}/);
 });
 
-test("the existing 10 questions and 4 topic sections are preserved",()=>{
+test("sixteen questions are available across the four existing topics",()=>{
   const qSection=source.slice(source.indexOf("const FAQs = ["),source.indexOf("function ratingStars"));
-  assert.equal((qSection.match(/question:/g)||[]).length,10);
+  assert.equal((qSection.match(/question:/g)||[]).length,16);
   const topics=source.slice(source.indexOf("const QUESTION_TOPICS = ["),source.indexOf("export function CustomerQuestions"));
   assert.equal((topics.match(/indices: \[/g)||[]).length,4);
-  assert.match(source,/10 QUESTIONS/);
-  assert.match(source,/4 TOPICS/);
+  assert.match(source,/\{FAQs.length\} QUESTIONS/);
+  assert.match(source,/\{QUESTION_TOPICS.length\} TOPICS/);
 });

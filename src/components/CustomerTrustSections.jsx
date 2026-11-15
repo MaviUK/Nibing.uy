@@ -49,6 +49,30 @@ const FAQs = [
     question: "How do I book a wheelie bin clean?",
     answer: "Use Book a Clean on this website to enter your address, select your bins and see the cleaning schedule for your area.",
   },
+  {
+    question: "How do I pay for my bin cleaning?",
+    answer: "You can pay by bank transfer, credit or debit card through Stripe, or Direct Debit through GoCardless. Payment is due within 7 days of each clean unless agreed otherwise. We do not accept cash.",
+  },
+  {
+    question: "What happens if my bin hasn’t been emptied?",
+    answer: "Please contact us as soon as possible if your collection is missed or delayed. We may be unable to clean a bin that has not been emptied or contains excessive or unsafe waste. We will confirm what can be arranged for your clean.",
+  },
+  {
+    question: "What happens if I forget to leave my bin out?",
+    answer: "Please leave your bin out or make it safely accessible on your scheduled cleaning day, and keep it available until 8pm. If the bin is unavailable or access is blocked when we attend, the clean will still be charged. Please tell us in advance if your bin will not be available.",
+  },
+  {
+    question: "How do I cancel or change my regular cleaning?",
+    answer: "Contact Ni Bin Guy directly on 07555 178484 or email info@nibing.uy to request a change or cancellation. A 4-weekly plan can be cancelled up to 24 hours before the second scheduled clean; the first clean is then charged at the standard one-off price. After the second clean, the 13-clean minimum term applies, and cancelling early leaves the remaining cleans payable under our booking terms. Once the minimum term is complete, at least 30 days’ notice is required. Cancelling your Direct Debit does not cancel your service.",
+  },
+  {
+    question: "Will my cleaning day change on bank holidays?",
+    answer: "Yes. When a Northern Ireland bank holiday falls on a Monday, our cleaning rounds that week move back by one day, starting on Tuesday. Check your scheduled cleaning date rather than assuming your usual weekday. If we cannot attend on your scheduled day, we will notify you and rearrange the clean.",
+  },
+  {
+    question: "How do I check my next clean or outstanding balance?",
+    answer: "Open Customer Portal on this website and sign in to view your appointments, cleaning history and account balance. If your next clean is not showing or you need help accessing your account, contact us on 07555 178484 or email info@nibing.uy.",
+  },
 ];
 
 function ratingStars(rating) {
@@ -193,10 +217,10 @@ export function CustomerReviews() {
 }
 
 const QUESTION_TOPICS = [
-  { id: "pricing", title: "Prices & Plans", subtitle: "What will it cost?", icon: "£", indices: [0, 1] },
+  { id: "pricing", title: "Prices & Plans", subtitle: "What will it cost?", icon: "£", indices: [0, 1, 10, 13] },
   { id: "service", title: "Our Service", subtitle: "How it works", icon: "✦", indices: [3, 4, 5] },
-  { id: "clean-day", title: "Clean Day", subtitle: "What to expect", icon: "✓", indices: [6, 7, 8] },
-  { id: "booking", title: "Areas & Booking", subtitle: "Where and how", icon: "⌖", indices: [2, 9] },
+  { id: "clean-day", title: "Clean Day", subtitle: "What to expect", icon: "✓", indices: [6, 7, 8, 11, 12, 14] },
+  { id: "booking", title: "Areas & Booking", subtitle: "Where and how", icon: "⌖", indices: [2, 9, 15] },
 ];
 
 export function CustomerQuestions({ onBook }) {
@@ -225,7 +249,7 @@ export function CustomerQuestions({ onBook }) {
             </span>
             <h2 id="customer-questions-title">Customer<br />Questions<span className="n64-help-hero__punctuation">?</span></h2>
             <p>Need a hand? Choose a topic for quick, straightforward answers.</p>
-            <span className="n64-help-hero__total">10 QUESTIONS <span aria-hidden="true">•</span> 4 TOPICS</span>
+            <span className="n64-help-hero__total">{FAQs.length} QUESTIONS <span aria-hidden="true">•</span> {QUESTION_TOPICS.length} TOPICS</span>
           </div>
           <div className="n64-help-hero__art" aria-hidden="true">
             <div className="n64-help-hero__question-mark">?</div>
