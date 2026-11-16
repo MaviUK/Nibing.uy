@@ -8,9 +8,11 @@
 function streetSignupDate(now = new Date()) {
   const date = now instanceof Date ? now : new Date(now);
   if (Number.isNaN(date.getTime())) throw new Error("invalid_signup_timestamp");
-  return new Intl.DateTimeFormat("en-CA", {
+  const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit"
-  }).format(date);
+  }).formatToParts(date);
+  const p = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${p.year}-${p.month}-${p.day}`;
 }
 const PLAN_IDS = new Set([
   "domestic_4w", "domestic_oneoff",
