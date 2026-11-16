@@ -281,7 +281,7 @@ export default function StreetBookingPage() {
           lat: loc ? loc.lat() : null,
           lng: loc ? loc.lng() : null,
           source: "street-signup",
-          cleanCompletedToday: true,
+          cleanCompletedToday: false,
           termsAccepted: true,
           termsVersion: TERMS_VERSION,
           termsAcceptanceText: `I confirm I’ve read and agree to the Ni Bin Guy Terms of Service (v${TERMS_VERSION})`,
