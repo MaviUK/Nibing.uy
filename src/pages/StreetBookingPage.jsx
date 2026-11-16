@@ -267,7 +267,7 @@ export default function StreetBookingPage() {
       if (!recaptchaToken) throw new Error("Anti-bot check not ready. Please try again.");
 
       const loc = selectedPlaceRef.current?.geometry?.location;
-      const response = await fetch("/.netlify/functions/sendStreetBookingEmail", {
+      const response = await fetch("/.netlify/functions/sendStreetBookingEmailV2", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -316,8 +316,8 @@ export default function StreetBookingPage() {
             <img src="/logo.webp" alt="Ni Bin Guy" className="w-44 sm:w-52 mx-auto" />
           </a>
           <p className="mt-4 text-yellow-400 font-black uppercase tracking-[0.16em] text-sm">Street Signup</p>
-          <h1 className="mt-2 text-3xl sm:text-4xl font-black uppercase">Cleaned today. Signed up today.</h1>
-          <p className="mt-3 text-gray-300">Use this page for customers who sign up while we are already on the street. Their clean is completed there and then, so no quote is sent.</p>
+          <h1 className="mt-2 text-3xl sm:text-4xl font-black uppercase">Book today's clean. Signed up today.</h1>
+          <p className="mt-3 text-gray-300">Use this page for customers who sign up while we are already on the street. Today's clean is booked without the standard same-day cutoff. You will mark the job completed manually in Squeegee; no quote is sent.</p>
         </div>
 
         <div className="bg-white text-black rounded-2xl shadow-2xl overflow-hidden">
