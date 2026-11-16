@@ -170,6 +170,7 @@ export default function StreetBookingPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [binDayStatus, setBinDayStatus] = useState({state:"idle",results:[]});
   const addressInputRef = useRef(null);
   const selectedPlaceRef = useRef(null);
 
@@ -218,6 +219,35 @@ export default function StreetBookingPage() {
     const total = lines.reduce((sum, line) => sum + line.lineTotal, 0);
     return { lines, subtotal: total, total };
   }, [bins]);
+
+  useEffect(() => {
+    const selected = bins.filter(bin => bin.type).map(bin => ({type:bin.type}));
+    const postcode = address.toUpperCase().match(/\\bBT\\d{1,2}[A-Z0-9]?\\s*\\d[A-Z]{2}\\b/)?.[0];
+    if (!postcode || !selected.length) {
+      setBinDayStatus({state:"idle",results:[]});
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setBinDayStatus({state:"loading",results:[]});
+      try {
+        const response = await fetch("/api/booking-schedule", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({address,postcode,bins:selected}),
+          signal:controller.signal
+        });
+        const data = await response.json();
+        if (!controller.signal.aborted) setBinDayStatus({
+          state:response.ok && data?.matched ? "matched" : "manual",
+          results:Array.isArray(data?.results)?data.results:[],
+          reason:data?.reason || null
+        });
+      } catch (error) {
+        if (!controller.signal.aborted) setBinDayStatus({state:"error",results:[]});
+      }
+    },450);
+    return () => {clearTimeout(timer);controller.abort();};
+  },[address,bins]);
 
   const updateBin = (index, field, value) => {
     setBins((current) => current.map((bin, binIndex) => {
@@ -390,6 +420,16 @@ export default function StreetBookingPage() {
               </div>
 
               <input ref={addressInputRef} type="text" placeholder="Full Address" value={address} onChange={(event) => { setAddress(event.target.value); setPlaceId(null); selectedPlaceRef.current = null; }} className="w-full border border-gray-500 rounded-lg px-4 py-3" autoComplete="off" />
+              <div className="border-2 border-slate-500 bg-slate-100 text-slate-900 p-4" aria-live="polite">
+                <strong>Bin collection day check</strong>
+                {binDayStatus.state === "idle" && <p className="mt-2 text-sm">Choose your bins and a full BT postcode address to search.</p>}
+                {binDayStatus.state === "loading" && <p className="mt-2 text-sm">Checking council bin days and cleaning rounds…</p>}
+                {binDayStatus.results.map((item,index) => (
+                  <p className="mt-2 text-sm" key={index}><strong>{item.bin}:</strong> {item.councilDates?.length ? `Council collection: ${item.councilDates.slice(0,2).join(", ")}` : "Collection day unavailable"}; {item.assignedCleanDate ? `standard booking clean date ${item.assignedCleanDate}` : "cleaning date requires review"}</p>
+                ))}
+                {(binDayStatus.state === "manual" || binDayStatus.state === "error") && <p className="mt-2 text-sm font-semibold">We couldn't confirm all bin days automatically. The booking date must be checked before creating Squeegee jobs.</p>}
+                {binDayStatus.state === "matched" && <p className="mt-2 text-xs">These are standard booking dates. Street Signup same-day scheduling is handled separately.</p>}
+              </div>
               <input type="tel" placeholder="Contact Number" value={phone} onChange={(event) => setPhone(event.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-3" />
               <input type="email" placeholder="Email Address" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-3" />
 
