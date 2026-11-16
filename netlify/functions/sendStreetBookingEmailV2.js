@@ -79,7 +79,7 @@ exports.handler = async (event) => {
     // Store the actual PIN in Netlify's secret environment, not in the frontend.
     const suppliedPin = String(payload.staffPin || "");
     const configuredPin = String(process.env.STREET_SIGNUP_PIN || "");
-    const validPin = /^\\d{4,12}$/.test(configuredPin) &&
+    const validPin = /^\d{4,12}$/.test(configuredPin) &&
       suppliedPin.length === configuredPin.length &&
       crypto.timingSafeEqual(Buffer.from(suppliedPin), Buffer.from(configuredPin));
     if (!validPin) {
