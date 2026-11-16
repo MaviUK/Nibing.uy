@@ -77,7 +77,7 @@ exports.handler = async (event) => {
     const payload = JSON.parse(event.body || "{}");
     const {
       name = "", email = "", phone = "", address = "", bins = [], pricing = null,
-      placeId = "", lat = null, lng = null, cleanCompletedToday = true,
+      placeId = "", lat = null, lng = null, cleanCompletedToday = false,
       termsAccepted = false, termsTimestamp = new Date().toISOString(),
       recaptchaToken = null, recaptchaAction = "street_booking_submit",
     } = payload;
@@ -120,8 +120,8 @@ exports.handler = async (event) => {
 
     const geoText = lat != null && lng != null ? `${lat}, ${lng}` : "—";
     const emailDisplay = email || "No email address provided";
-    const adminText = `Street signup booking confirmed\n\nName: ${name}\nEmail: ${emailDisplay}\nPhone: ${phone}\nAddress: ${address}\nBins:\n${binsText}\n\nTotal: ${fmtGBP(pricing?.total || 0)}\nClean completed on signup visit: ${cleanCompletedToday ? "yes" : "no"}\nPlace ID: ${placeId || "—"}\nGeo: ${geoText}\n\nTerms accepted: yes\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\nTerms certificate URL: ${termsUrl}\n\nNo quote required.`;
-    const adminHtml = `<h2>Street signup — booking confirmed</h2><p><strong>Name:</strong> ${escapeHtml(name)}</p><p><strong>Email:</strong> ${escapeHtml(emailDisplay)}</p><p><strong>Phone:</strong> ${escapeHtml(phone)}</p><p><strong>Address:</strong> ${escapeHtml(address)}</p><p><strong>Bins:</strong><br>${filteredBins.map((bin) => `${escapeHtml(bin.count || 1)} x ${escapeHtml(bin.type)} — ${escapeHtml(friendlyPlan(bin))}`).join("<br>")}</p><p><strong>Total:</strong> ${escapeHtml(fmtGBP(pricing?.total || 0))}</p><p><strong>Clean completed on signup visit:</strong> ${cleanCompletedToday ? "Yes" : "No"}</p><p><strong>Terms certificate:</strong> <a href="${escapeHtml(termsUrl)}">${escapeHtml(termsUrl)}</a></p><p><strong>No quote required.</strong></p>`;
+    const adminText = `Street signup booking confirmed\n\nName: ${name}\nEmail: ${emailDisplay}\nPhone: ${phone}\nAddress: ${address}\nBins:\n${binsText}\n\nTotal: ${fmtGBP(pricing?.total || 0)}\nFirst clean status: outstanding (complete manually in Squeegee)\nPlace ID: ${placeId || "—"}\nGeo: ${geoText}\n\nTerms accepted: yes\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\nTerms certificate URL: ${termsUrl}\n\nNo quote required.`;
+    const adminHtml = `<h2>Street signup — booking confirmed</h2><p><strong>Name:</strong> ${escapeHtml(name)}</p><p><strong>Email:</strong> ${escapeHtml(emailDisplay)}</p><p><strong>Phone:</strong> ${escapeHtml(phone)}</p><p><strong>Address:</strong> ${escapeHtml(address)}</p><p><strong>Bins:</strong><br>${filteredBins.map((bin) => `${escapeHtml(bin.count || 1)} x ${escapeHtml(bin.type)} — ${escapeHtml(friendlyPlan(bin))}`).join("<br>")}</p><p><strong>Total:</strong> ${escapeHtml(fmtGBP(pricing?.total || 0))}</p><p><strong>First clean status:</strong> Outstanding (complete manually in Squeegee)</p><p><strong>Terms certificate:</strong> <a href="${escapeHtml(termsUrl)}">${escapeHtml(termsUrl)}</a></p><p><strong>No quote required.</strong></p>`;
 
     const adminResult = await resend.emails.send({
       from: FROM_DEFAULT,
