@@ -228,7 +228,7 @@ export default function StreetBookingPage() {
 
   useEffect(() => {
     const selected = bins.filter(bin => bin.type).map(bin => ({type:bin.type}));
-    const postcode = address.toUpperCase().match(/\\bBT\\d{1,2}[A-Z0-9]?\\s*\\d[A-Z]{2}\\b/)?.[0];
+    const postcode = address.toUpperCase().match(/\bBT\d{1,2}[A-Z0-9]?\s*\d[A-Z]{2}\b/)?.[0];
     if (!postcode || !selected.length) {
       setBinDayStatus({state:"idle",results:[]});
       return;
@@ -254,6 +254,12 @@ export default function StreetBookingPage() {
     },450);
     return () => {clearTimeout(timer);controller.abort();};
   },[address,bins]);
+
+  const formatBinDate = (value) => {
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(value || ""))) return String(value || "");
+    const date = new Date(`${value}T12:00:00Z`);
+    return new Intl.DateTimeFormat("en-GB", {weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"UTC"}).format(date);
+  };
 
   const updateBin = (index, field, value) => {
     setBins((current) => current.map((bin, binIndex) => {
@@ -442,10 +448,17 @@ export default function StreetBookingPage() {
               ))}
 
               <div className="flex items-center justify-between gap-4">
-                <button type="button" onClick={() => setBins((current) => [...current, { ...DEFAULT_BIN }])} className="text-sm text-green-700 font-bold">+ Add Another Bin</button>
-                {bins.length > 1 && <button type="button" onClick={() => setBins((current) => current.slice(0, -1))} className="text-sm text-red-600 font-bold">− Remove Last Bin</button>}
+                <button type="button" onClick={() => setBins((current) => [..              <input ref={addressInputRef} type="text" placeholder="Full Address" value={address} onChange={(event) => { setAddress(event.target.value); setPlaceId(null); selectedPlaceRef.current = null; }} className="w-full border border-gray-500 rounded-lg px-4 py-3" autoComplete="off" />
+              <div className="border-2 border-slate-500 bg-slate-100 text-slate-900 p-4" aria-live="polite">
+                <strong>Bin collection day check</strong>
+                {binDayStatus.state === "idle" && <p className="mt-2 text-sm">Choose your bins and a full BT postcode address to search.</p>}
+                {binDayStatus.state === "loading" && <p className="mt-2 text-sm">Checking council bin days and cleaning rounds…</p>}
+                {binDayStatus.results.map((item,index) => (
+                  <p className="mt-2 text-sm" key={index}><strong>{item.bin}:</strong> {item.councilDates?.length ? `Council collection: ${item.councilDates.slice(0,2).map(formatBinDate).join(", ")}` : "Collection day unavailable"}; {item.assignedCleanDate ? `standard booking clean date ${formatBinDate(item.assignedCleanDate)}` : "cleaning date requires review"}</p>
+                ))}
+                {(binDayStatus.state === "manual" || binDayStatus.state === "error") && <p className="mt-2 text-sm font-semibold">We couldn't confirm all bin days automatically. The booking date must be checked before creating Squeegee jobs.</p>}
+                {binDayStatus.state === "matched" && <p className="mt-2 text-xs">These are standard booking dates. Street Signup same-day scheduling is handled separately.</p>}
               </div>
-
               <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                 <div className="font-bold">Booking price</div>
                 <div className="mt-3 space-y-2 text-sm">
@@ -459,15 +472,7 @@ export default function StreetBookingPage() {
                 </div>
               </div>
 
-              <input ref={addressInputRef} type="text" placeholder="Full Address" value={address} onChange={(event) => { setAddress(event.target.value); setPlaceId(null); selectedPlaceRef.current = null; }} className="w-full border border-gray-500 rounded-lg px-4 py-3" autoComplete="off" />
-              <div className="border-2 border-slate-500 bg-slate-100 text-slate-900 p-4" aria-live="polite">
-                <strong>Bin collection day check</strong>
-                {binDayStatus.state === "idle" && <p className="mt-2 text-sm">Choose your bins and a full BT postcode address to search.</p>}
-                {binDayStatus.state === "loading" && <p className="mt-2 text-sm">Checking council bin days and cleaning rounds…</p>}
-                {binDayStatus.results.map((item,index) => (
-                  <p className="mt-2 text-sm" key={index}><strong>{item.bin}:</strong> {item.councilDates?.length ? `Council collection: ${item.councilDates.slice(0,2).join(", ")}` : "Collection day unavailable"}; {item.assignedCleanDate ? `standard booking clean date ${item.assignedCleanDate}` : "cleaning date requires review"}</p>
-                ))}
-                {(binDayStatus.state === "manual" || binDayStatus.state === "error") && <p className="mt-2 text-sm font-semibold">We couldn't confirm all bin days automatically. The booking date must be checked before creating Squeegee jobs.</p>}
+e couldn't confirm all bin days automatically. The booking date must be checked before creating Squeegee jobs.</p>}
                 {binDayStatus.state === "matched" && <p className="mt-2 text-xs">These are standard booking dates. Street Signup same-day scheduling is handled separately.</p>}
               </div>
               <input type="tel" placeholder="Contact Number" value={phone} onChange={(event) => setPhone(event.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-3" />
