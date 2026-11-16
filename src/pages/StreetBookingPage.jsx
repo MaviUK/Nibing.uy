@@ -256,7 +256,7 @@ export default function StreetBookingPage() {
   },[address,bins]);
 
   const formatBinDate = (value) => {
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(value || ""))) return String(value || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return String(value || "");
     const date = new Date(`${value}T12:00:00Z`);
     return new Intl.DateTimeFormat("en-GB", {weekday:"long",day:"numeric",month:"long",year:"numeric",timeZone:"UTC"}).format(date);
   };
@@ -472,9 +472,6 @@ export default function StreetBookingPage() {
                 </div>
               </div>
 
-e couldn't confirm all bin days automatically. The booking date must be checked before creating Squeegee jobs.</p>}
-                {binDayStatus.state === "matched" && <p className="mt-2 text-xs">These are standard booking dates. Street Signup same-day scheduling is handled separately.</p>}
-              </div>
               <input type="tel" placeholder="Contact Number" value={phone} onChange={(event) => setPhone(event.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-3" />
               <input type="email" placeholder="Email Address" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full border border-gray-500 rounded-lg px-4 py-3" />
 
