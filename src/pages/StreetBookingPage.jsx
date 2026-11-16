@@ -181,10 +181,12 @@ export default function StreetBookingPage() {
   useEffect(() => {
     document.title = "Street Signup | Ni Bin Guy";
     const key = import.meta.env?.VITE_GOOGLE_MAPS_API_KEY;
-    if (!key || !addressInputRef.current) return;
+    if (!pinVerified || !key || !addressInputRef.current) return;
+    let cancelled = false;
     let cleanup = () => {};
     loadGooglePlaces(key)
       .then((google) => {
+        if (cancelled || !addressInputRef.current) return;
         const autocomplete = new google.maps.places.Autocomplete(addressInputRef.current, {
           componentRestrictions: { country: ["gb"] },
           fields: ["place_id", "formatted_address", "name", "geometry"],
@@ -199,8 +201,8 @@ export default function StreetBookingPage() {
         cleanup = () => listener.remove();
       })
       .catch((error) => console.warn("Places failed to load (street booking):", error));
-    return () => cleanup();
-  }, []);
+    return () => { cancelled = true; cleanup(); };
+  }, [pinVerified, success]);
 
   const pricing = useMemo(() => {
     const lines = bins.filter((bin) => bin.type).map((bin, index) => {
