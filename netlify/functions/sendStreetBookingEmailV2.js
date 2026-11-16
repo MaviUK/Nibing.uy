@@ -75,6 +75,22 @@ exports.handler = async (event) => {
 
   try {
     const payload = JSON.parse(event.body || "{}");
+    // Never accept a browser-only PIN gate as authorization.
+    // Store the actual PIN in Netlify's secret environment, not in the frontend.
+    const suppliedPin = String(payload.staffPin || "");
+    const configuredPin = String(process.env.STREET_SIGNUP_PIN || "");
+    const validPin = /^\\d{4,12}$/.test(configuredPin) &&
+      suppliedPin.length === configuredPin.length &&
+      crypto.timingSafeEqual(Buffer.from(suppliedPin), Buffer.from(configuredPin));
+    if (!validPin) {
+      return {statusCode:403,headers:{"Content-Type":"application/json","Cache-Control":"no-store"},
+        body:JSON.stringify({error:"Invalid Street Signup PIN"})};
+    }
+    if (payload.action === "verify-pin") {
+      return {statusCode:200,headers:{"Content-Type":"application/json","Cache-Control":"no-store"},
+        body:JSON.stringify({verified:true})};
+    }
+
     const {
       name = "", email = "", phone = "", address = "", bins = [], pricing = null,
       placeId = "", lat = null, lng = null, cleanCompletedToday = false,

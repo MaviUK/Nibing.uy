@@ -170,6 +170,10 @@ export default function StreetBookingPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [staffPin, setStaffPin] = useState("");
+  const [pinVerified, setPinVerified] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [checkingPin, setCheckingPin] = useState(false);
   const [binDayStatus, setBinDayStatus] = useState({state:"idle",results:[]});
   const addressInputRef = useRef(null);
   const selectedPlaceRef = useRef(null);
@@ -275,6 +279,24 @@ export default function StreetBookingPage() {
     selectedPlaceRef.current = null;
   };
 
+  const verifyPin = async (event) => {
+    event.preventDefault();
+    setCheckingPin(true);
+    setPinError("");
+    try {
+      const response = await fetch("/.netlify/functions/sendStreetBookingEmailV2", {
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({action:"verify-pin",staffPin})
+      });
+      if (!response.ok) throw new Error("Incorrect PIN. Please try again.");
+      setPinVerified(true);
+    } catch (error) {
+      setPinError(error.message || "Unable to verify PIN");
+    } finally {
+      setCheckingPin(false);
+    }
+  };
+
   const submit = async (event) => {
     event.preventDefault();
     if (bins.some((bin) => !hasRequiredBinSize(bin))) {
@@ -311,6 +333,7 @@ export default function StreetBookingPage() {
           lat: loc ? loc.lat() : null,
           lng: loc ? loc.lng() : null,
           source: "street-signup",
+          staffPin,
           cleanCompletedToday: false,
           termsAccepted: true,
           termsVersion: TERMS_VERSION,
@@ -351,7 +374,22 @@ export default function StreetBookingPage() {
         </div>
 
         <div className="bg-white text-black rounded-2xl shadow-2xl overflow-hidden">
-          {success ? (
+          {!pinVerified ? (
+            <form onSubmit={verifyPin} className="p-7 sm:p-10 space-y-4">
+              <h2 className="text-xl font-black">Staff access PIN</h2>
+              <p className="text-sm text-gray-600">Enter the Street Signup PIN to access the booking form.</p>
+              <input type="password" inputMode="numeric" autoComplete="off"
+                pattern="[0-9]{4,12}" minLength={4} maxLength={12}
+                required aria-label="Street Signup PIN" value={staffPin}
+                onChange={(event) => setStaffPin(event.target.value)}
+                className="w-full border border-gray-500 rounded-lg px-4 py-3" />
+              {pinError && <p role="alert" className="text-red-700 text-sm">{pinError}</p>}
+              <button type="submit" disabled={checkingPin}
+                className="w-full bg-black text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50">
+                {checkingPin ? "Checking…" : "Unlock Street Signup"}
+              </button>
+            </form>
+          ) : success ? (
             <div className="p-7 sm:p-10 text-center">
               <div className="mx-auto w-16 h-16 rounded-full bg-green-500 flex items-center justify-center text-3xl font-black">✓</div>
               <h2 className="mt-5 text-3xl font-black">Signup complete</h2>
