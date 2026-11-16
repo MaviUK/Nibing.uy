@@ -448,7 +448,11 @@ export default function StreetBookingPage() {
               ))}
 
               <div className="flex items-center justify-between gap-4">
-                <button type="button" onClick={() => setBins((current) => [..              <input ref={addressInputRef} type="text" placeholder="Full Address" value={address} onChange={(event) => { setAddress(event.target.value); setPlaceId(null); selectedPlaceRef.current = null; }} className="w-full border border-gray-500 rounded-lg px-4 py-3" autoComplete="off" />
+                <button type="button" onClick={() => setBins((current) => [...current, { ...DEFAULT_BIN }])} className="text-sm text-green-700 font-bold">+ Add Another Bin</button>
+                {bins.length > 1 && <button type="button" onClick={() => setBins((current) => current.slice(0, -1))} className="text-sm text-red-600 font-bold">− Remove Last Bin</button>}
+              </div>
+
+              <input ref={addressInputRef} type="text" placeholder="Full Address" value={address} onChange={(event) => { setAddress(event.target.value); setPlaceId(null); selectedPlaceRef.current = null; }} className="w-full border border-gray-500 rounded-lg px-4 py-3" autoComplete="off" />
               <div className="border-2 border-slate-500 bg-slate-100 text-slate-900 p-4" aria-live="polite">
                 <strong>Bin collection day check</strong>
                 {binDayStatus.state === "idle" && <p className="mt-2 text-sm">Choose your bins and a full BT postcode address to search.</p>}
