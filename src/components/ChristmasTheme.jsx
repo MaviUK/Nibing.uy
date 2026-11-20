@@ -8,6 +8,11 @@ export function isChristmasSeason(date = new Date()) {
   return month === 12
 }
 
+function isPreviewRequested() {
+  if (typeof window === "undefined") return false
+  return new URLSearchParams(window.location.search).get("christmas") === "preview"
+}
+
 const flakes = Array.from({ length: 22 }, (_, index) => ({
   left: (index * 37 + 13) % 100,
   delay: -((index * 7) % 19),
@@ -16,9 +21,9 @@ const flakes = Array.from({ length: 22 }, (_, index) => ({
 }))
 
 export default function ChristmasTheme() {
-  const [active, setActive] = useState(() => isChristmasSeason())
+  const [active, setActive] = useState(() => isChristmasSeason() || isPreviewRequested())
   useEffect(() => {
-    const update = () => setActive(isChristmasSeason())
+    const update = () => setActive(isChristmasSeason() || isPreviewRequested())
     const timer = window.setInterval(update, 60_000)
     document.addEventListener("visibilitychange", update)
     return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", update) }
