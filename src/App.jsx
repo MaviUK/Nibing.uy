@@ -11,6 +11,7 @@ import HomepageServiceSchema from "./HomepageServiceSchema"
 import CustomerPortalLoader from "./components/CustomerPortalLoader"
 import FinalLevel from "./components/FinalLevel"
 import ArcadeLeaderboard from "./components/ArcadeLeaderboard"
+import ChristmasTheme from "./components/ChristmasTheme"
 
 const StandeeClaim = lazy(() => import("./standee/StandeeClaim"))
 const StandeeSpottedClaim = lazy(() => import("./standee/StandeeSpottedClaim"))
@@ -59,6 +60,7 @@ export default function App() {
   const { pathname } = useLocation()
   return (
     <>
+      <ChristmasTheme />
       {pathname === "/" && <a href="#main-content" className="skip-link">Skip to main content</a>}
       <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">Loading page…</div>}>
       <Routes>
