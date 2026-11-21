@@ -1,0 +1,12 @@
+/* Seasonal visual layer only: no changes to booking, portal or navigation. */
+.nbg-christmas-overlay{position:fixed;inset:0;z-index:9990;pointer-events:none;overflow:hidden}
+.nbg-christmas-lights{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-around;align-items:flex-start;height:26px;background:linear-gradient(to bottom,rgba(12,45,28,.8) 0 3px,transparent 3px)}
+.nbg-bulb{display:block;width:9px;height:14px;border-radius:3px 3px 50% 50%;box-shadow:0 0 9px currentColor;animation:nbg-twinkle 2.5s ease-in-out infinite alternate}
+.nbg-bulb-0{color:#ffdc4a;background:#ffdc4a}.nbg-bulb-1{color:#f34d56;background:#f34d56;animation-delay:.5s}.nbg-bulb-2{color:#59d4ff;background:#59d4ff;animation-delay:1s}.nbg-bulb-3{color:#65f48c;background:#65f48c;animation-delay:1.5s}
+.nbg-christmas-snow i{position:absolute;top:-16px;border-radius:50%;background:#fff;opacity:.8;box-shadow:0 0 3px #fff;animation:nbg-snowfall linear infinite}
+.nbg-christmas-corner{position:absolute;right:12px;bottom:12px;padding:7px 10px;background:#153d2c;color:#ffe07a;border:2px solid #ffe07a;box-shadow:3px 3px 0 #1a1a1a;font:700 11px/1.3 monospace;letter-spacing:.04em}
+.nbg-christmas .n64-hero h1,.nbg-christmas #main-content h1{text-shadow:2px 3px 0 #1a5734,0 0 12px rgba(255,255,255,.35)}
+@keyframes nbg-twinkle{from{opacity:.45;filter:brightness(.7)}to{opacity:1;filter:brightness(1.2)}}
+@keyframes nbg-snowfall{from{transform:translate3d(0,-20px,0)}to{transform:translate3d(35px,105vh,0)}}
+@media(max-width:600px){.nbg-christmas-corner{font-size:9px;right:6px;bottom:6px;padding:5px}.nbg-christmas-snow i:nth-child(2n){display:none}}
+@media(prefers-reduced-motion:reduce){.nbg-christmas-snow{display:none}.nbg-bulb{animation:none}}
