@@ -101,3 +101,30 @@ html.nbg-christmas #main-content .n64-hero .n64-hero-inner {position:relative;z-
  .nbg-christmas-scenery .nbg-santa-flight {top:10% !important;width:160px !important}
 }
 @media(prefers-reduced-motion:reduce){.nbg-christmas-scenery .nbg-santa-flight{animation:none !important;transform:translateX(45vw)}}
+
+/* Christmas art direction: use the approved uploaded illustration as scenery,
+   keeping its baked-in labels out of the live text area. */
+html.nbg-christmas #main-content .n64-hero {
+  background-color:#071a59 !important;
+  background-image:
+    linear-gradient(90deg,#071a59 0%,#071a59 44%,rgba(7,26,89,.92) 58%,rgba(7,26,89,.08) 100%),
+    url("/file_00000000963481f4ae171a677324d9b4.png") !important;
+  background-size:100% 100%,100% 100% !important;
+  background-position:center !important;
+}
+html.nbg-christmas #main-content .n64-hero::before,
+html.nbg-christmas #main-content .n64-hero::after {content:none !important;display:none !important}
+html.nbg-christmas #main-content .n64-hero .n64-cloud {display:none !important}
+html.nbg-christmas #main-content .n64-hero .n64-hero-copy > p {color:#fff !important;text-shadow:0 2px 2px #071a59 !important}
+html.nbg-christmas #main-content .n64-hero .n64-hero-copy > p strong {color:#ffdf65 !important}
+html.nbg-christmas .nbg-christmas-scenery .nbg-christmas-tree {display:none !important}
+html.nbg-christmas .nbg-christmas-scenery .nbg-santa-flight {top:7% !important;z-index:0 !important}
+@media(max-width:600px) {
+ html.nbg-christmas #main-content .n64-hero {
+   background-image:
+     linear-gradient(90deg,#071a59 0%,rgba(7,26,89,.95) 45%,rgba(7,26,89,.3) 100%),
+     url("/file_00000000963481f4ae171a677324d9b4.png") !important;
+   background-size:100% 100%,auto 100% !important;
+   background-position:center,right center !important;
+ }
+}
