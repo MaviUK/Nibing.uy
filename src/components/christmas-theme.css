@@ -1,12 +1,18 @@
-/* Seasonal visual layer only: no changes to booking, portal or navigation. */
-.nbg-christmas-overlay{position:fixed;inset:0;z-index:9990;pointer-events:none;overflow:hidden}
-.nbg-christmas-lights{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-around;align-items:flex-start;height:26px;background:linear-gradient(to bottom,rgba(12,45,28,.8) 0 3px,transparent 3px)}
-.nbg-bulb{display:block;width:9px;height:14px;border-radius:3px 3px 50% 50%;box-shadow:0 0 9px currentColor;animation:nbg-twinkle 2.5s ease-in-out infinite alternate}
-.nbg-bulb-0{color:#ffdc4a;background:#ffdc4a}.nbg-bulb-1{color:#f34d56;background:#f34d56;animation-delay:.5s}.nbg-bulb-2{color:#59d4ff;background:#59d4ff;animation-delay:1s}.nbg-bulb-3{color:#65f48c;background:#65f48c;animation-delay:1.5s}
-.nbg-christmas-snow i{position:absolute;top:-16px;border-radius:50%;background:#fff;opacity:.8;box-shadow:0 0 3px #fff;animation:nbg-snowfall linear infinite}
-.nbg-christmas-corner{position:absolute;right:12px;bottom:12px;padding:7px 10px;background:#153d2c;color:#ffe07a;border:2px solid #ffe07a;box-shadow:3px 3px 0 #1a1a1a;font:700 11px/1.3 monospace;letter-spacing:.04em}
-.nbg-christmas .n64-hero h1,.nbg-christmas #main-content h1{text-shadow:2px 3px 0 #1a5734,0 0 12px rgba(255,255,255,.35)}
-@keyframes nbg-twinkle{from{opacity:.45;filter:brightness(.7)}to{opacity:1;filter:brightness(1.2)}}
-@keyframes nbg-snowfall{from{transform:translate3d(0,-20px,0)}to{transform:translate3d(35px,105vh,0)}}
-@media(max-width:600px){.nbg-christmas-corner{font-size:9px;right:6px;bottom:6px;padding:5px}.nbg-christmas-snow i:nth-child(2n){display:none}}
+/* N64 Christmas special: decorative only; never intercept customer interaction. */
+.nbg-christmas-overlay{position:fixed;inset:0;z-index:9990;pointer-events:none;overflow:hidden;isolation:isolate}
+.nbg-christmas-lights{position:absolute;top:0;left:0;right:0;height:34px;display:flex;justify-content:space-around;align-items:flex-start;padding:4px 3px 0;background:repeating-linear-gradient(110deg,#154c32 0 15px,#0e3727 15px 30px);border-bottom:4px solid #ffe47b;box-shadow:0 4px 0 #20365a}
+.nbg-bulb{display:block;position:relative;width:12px;height:19px;margin-top:5px;border:2px solid #20365a;border-radius:4px 4px 55% 55%;box-shadow:0 0 12px 3px currentColor;animation:nbg-twinkle 2.2s ease-in-out infinite alternate}
+.nbg-bulb:before{content:"";position:absolute;left:3px;top:-7px;width:4px;height:6px;background:#20365a}
+.nbg-bulb-0{color:#ffdc4a;background:#ffdc4a}.nbg-bulb-1{color:#ff5b67;background:#ff5b67;animation-delay:.5s}.nbg-bulb-2{color:#60d8ff;background:#60d8ff;animation-delay:1s}.nbg-bulb-3{color:#69ef91;background:#69ef91;animation-delay:1.5s}
+.nbg-christmas-garland{position:absolute;left:-5%;right:-5%;top:33px;height:14px;border-bottom:5px dashed #1b6a40;border-radius:0 0 50% 50%;filter:drop-shadow(0 2px 0 #133b2a)}
+.nbg-christmas-snow i{position:absolute;top:-20px;border-radius:1px;background:#fff;opacity:.86;box-shadow:0 0 4px #fff;animation:nbg-snowfall linear infinite}
+.nbg-christmas-ornament{position:absolute;top:57px;width:54px;height:54px;display:grid;place-items:center;background:#ffdf60;color:#20365a;border:4px solid #20365a;box-shadow:5px 5px 0 #bd354b;font:900 32px/1 system-ui;transform:rotate(-12deg)}
+.nbg-christmas-ornament-left{left:-20px}.nbg-christmas-ornament-right{right:-20px;transform:rotate(12deg);background:#f36b79}
+.nbg-christmas-corner{position:absolute;right:14px;bottom:20px;display:flex;align-items:center;gap:10px;padding:10px 13px;background:#145035;color:#fff4a6;border:4px solid #20365a;box-shadow:5px 5px 0 #f16a76;font:900 12px/1.25 system-ui;text-align:center;letter-spacing:.06em;transform:rotate(-3deg)}
+.nbg-christmas-corner strong{font-size:10px;color:white;letter-spacing:.15em}
+.nbg-christmas-sparkle{font-size:23px;color:#ffe66a}
+.nbg-christmas .n64-hero h1,.nbg-christmas #main-content h1{text-shadow:3px 4px 0 #195b3d,0 0 15px rgba(255,255,255,.45)}
+@keyframes nbg-twinkle{from{opacity:.55;filter:brightness(.8)}to{opacity:1;filter:brightness(1.3)}}
+@keyframes nbg-snowfall{from{transform:translate3d(0,-20px,0)}to{transform:translate3d(45px,105vh,0)}}
+@media(max-width:600px){.nbg-christmas-lights{height:24px;padding-top:2px}.nbg-bulb{width:8px;height:13px;border-width:1px}.nbg-christmas-garland{top:24px;height:8px;border-bottom-width:3px}.nbg-christmas-ornament{top:43px;width:38px;height:38px;font-size:22px}.nbg-christmas-corner{right:8px;bottom:14px;padding:6px 8px;gap:5px;font-size:9px;border-width:3px;box-shadow:3px 3px 0 #f16a76}.nbg-christmas-corner strong{font-size:8px}.nbg-christmas-sparkle{font-size:15px}.nbg-christmas-snow i:nth-child(3n){display:none}}
 @media(prefers-reduced-motion:reduce){.nbg-christmas-snow{display:none}.nbg-bulb{animation:none}}
