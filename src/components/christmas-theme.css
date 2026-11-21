@@ -128,3 +128,18 @@ html.nbg-christmas .nbg-christmas-scenery .nbg-santa-flight {top:7% !important;z
    background-position:center,right center !important;
  }
 }
+
+/* Override the original winter-world selector (higher specificity).
+   The artwork is committed at repository root, not Vite's public folder,
+   so load it from the GitHub raw asset rather than a nonexistent site URL. */
+html.nbg-christmas #main-content.n64-world .n64-hero,
+html.nbg-christmas #main-content.n64-world .n64-hero.n64-hero-layout-v2,
+html.nbg-christmas #main-content.n64-world section.n64-hero {
+ background-color:#071a59 !important;
+ background-image:linear-gradient(90deg,rgba(7,26,89,.94) 0%,rgba(7,26,89,.85) 50%,rgba(7,26,89,.18) 100%),url("https://raw.githubusercontent.com/MaviUK/Nibing.uy/main/file_00000000963481f4ae171a677324d9b4.png") !important;
+ background-position:center,right center !important;
+ background-size:100% 100%,auto 100% !important;
+ background-repeat:no-repeat !important;
+}
+html.nbg-christmas #main-content.n64-world .n64-hero .n64-hero-copy > p {color:#fff !important;text-shadow:0 2px 3px #071a59 !important}
+html.nbg-christmas #main-content.n64-world .n64-hero .n64-hero-copy > p strong {color:#ffdf65 !important}
