@@ -143,3 +143,20 @@ html.nbg-christmas #main-content.n64-world section.n64-hero {
 }
 html.nbg-christmas #main-content.n64-world .n64-hero .n64-hero-copy > p {color:#fff !important;text-shadow:0 2px 3px #071a59 !important}
 html.nbg-christmas #main-content.n64-world .n64-hero .n64-hero-copy > p strong {color:#ffdf65 !important}
+
+/* Preview repair: make the actual Christmas artwork visible instead of hiding it
+   under the near-opaque gradient. Keep all interactive DOM elements untouched. */
+html.nbg-christmas #main-content.n64-world section.n64-hero.n64-hero-layout-v2 {
+ background:#071a59 url("https://raw.githubusercontent.com/MaviUK/Nibing.uy/main/file_00000000963481f4ae171a677324d9b4.png") right center / auto 100% no-repeat !important;
+}
+html.nbg-christmas #main-content.n64-world section.n64-hero.n64-hero-layout-v2::before,
+html.nbg-christmas #main-content.n64-world section.n64-hero.n64-hero-layout-v2::after {display:none !important}
+html.nbg-christmas #main-content.n64-world section.n64-hero.n64-hero-layout-v2 .n64-hero-inner {position:relative;z-index:3}
+html.nbg-christmas #main-content.n64-world section.n64-hero.n64-hero-layout-v2 .n64-lead {color:white !important;text-shadow:0 2px 4px #071a59,0 0 8px #071a59 !important}
+html.nbg-christmas #main-content.n64-world section.n64-hero.n64-hero-layout-v2 .n64-lead strong {color:#ffe56d !important}
+html.nbg-christmas .nbg-christmas-scenery .nbg-santa-flight {display:none !important}
+@media(max-width:700px){
+ html.nbg-christmas #main-content.n64-world section.n64-hero.n64-hero-layout-v2 {
+ background-size:auto 100% !important;background-position:72% center !important;
+ }
+}
