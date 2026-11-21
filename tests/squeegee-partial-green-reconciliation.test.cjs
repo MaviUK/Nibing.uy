@@ -12,6 +12,9 @@ const env={SQUEEGEE_API_KEY:"mock-test-only-api-key-not-real-123456",
 const sid="11111111-1111-4111-8111-111111111111";
 const bid="22222222-2222-4222-8222-222222222222";
 const gid="33333333-3333-4333-8333-333333333333";
+// Fixed historical clock: the approved appointment was 17 Nov 2026.
+// Production still rejects past appointment dates using the real clock.
+const HISTORICAL_NOW=Date.parse("2026-10-31T22:00:00Z");
 function audit(){
  const bins=[
   {type:"Black Bin",planId:"domestic_4w",count:1},
@@ -64,20 +67,20 @@ test("only the exact original partial status can authorise a missing-job check",
  assert.equal(p.partialStatusSafe(s,original,owner,{state:"reserved"}),false);
 });
 test("only verified Black/Brown £10 and Green 1100L £45 groups can be posted",()=>{
- const a=audit(),d=p.approvedGroups(a,planned());
+ const a=audit(),d=p.approvedGroups(a,planned(),HISTORICAL_NOW);
  assert.ok(d);
  assert.equal(d.first.input.price,10);
  assert.equal(d.missing.input.price,45);
  assert.equal(d.missing.input.frequencyType,"adhoc");
  assert.equal(d.missing.members[0].bin,"Green Bin");
- assert.equal(p.approvedGroups({...a,bookingId:"NBG-3FYB9UY4"},planned()),null);
+ assert.equal(p.approvedGroups({...a,bookingId:"NBG-3FYB9UY4"},planned(),HISTORICAL_NOW),null);
  const changed=planned();changed.privatePlan.jobs[2].input.price=35;
- assert.equal(p.approvedGroups(a,changed),null);
+ assert.equal(p.approvedGroups(a,changed,HISTORICAL_NOW),null);
  const changedDate=planned();changedDate.privatePlan.jobs[2].date="2026-11-18";
- assert.equal(p.approvedGroups(a,changedDate),null);
+ assert.equal(p.approvedGroups(a,changedDate,HISTORICAL_NOW),null);
 });
 test("documented Squeegee sparse customer.jobs fields safely verify first job and missing Green",()=>{
- const groups=p.approvedGroups(audit(),planned());
+ const groups=p.approvedGroups(audit(),planned(),HISTORICAL_NOW);
  assert.ok(groups);
  const first={_id:"88888888-8888-4888-8888-888888888888",
   jobGroup:groups.first.input.jobGroup,price:10,
@@ -106,7 +109,7 @@ test("documented Squeegee sparse customer.jobs fields safely verify first job an
  check([{...first,services:null}],"customer_services_cannot_be_verified");
 });
 test("Squeegee returning string UUID service IDs and nested job group ID are supported",()=>{
- const groups=p.approvedGroups(audit(),planned());
+ const groups=p.approvedGroups(audit(),planned(),HISTORICAL_NOW);
  const first={services:[sid,bid],jobGroup:{_id:groups.first.input.jobGroup},
    price:10};
  assert.equal(p.inspectJobs([first],groups.first,groups.missing).ok,true);
