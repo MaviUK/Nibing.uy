@@ -160,3 +160,21 @@ html.nbg-christmas .nbg-christmas-scenery .nbg-santa-flight {display:none !impor
  background-size:auto 100% !important;background-position:72% center !important;
  }
 }
+
+/* Prevent the reference mockup's baked-in headings and buttons from showing
+   behind the real accessible site controls. Only reveal right-hand scenery. */
+html.nbg-christmas #main-content.n64-world section.n64-hero.n64-hero-layout-v2 {
+ background-image:
+ linear-gradient(90deg,#071a59 0%,#071a59 68%,rgba(7,26,89,.94) 78%,rgba(7,26,89,.25) 100%),
+ url("https://raw.githubusercontent.com/MaviUK/Nibing.uy/main/file_00000000963481f4ae171a677324d9b4.png") !important;
+ background-size:100% 100%,auto 100% !important;
+ background-position:center,right center !important;
+}
+@media(max-width:700px){
+ html.nbg-christmas #main-content.n64-world section.n64-hero.n64-hero-layout-v2 {
+  background-image:
+  linear-gradient(90deg,#071a59 0%,#071a59 76%,rgba(7,26,89,.92) 88%,rgba(7,26,89,.45) 100%),
+  url("https://raw.githubusercontent.com/MaviUK/Nibing.uy/main/file_00000000963481f4ae171a677324d9b4.png") !important;
+  background-position:center,right center !important;
+ }
+}
