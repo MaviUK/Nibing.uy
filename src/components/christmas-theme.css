@@ -178,3 +178,14 @@ html.nbg-christmas #main-content.n64-world section.n64-hero.n64-hero-layout-v2 {
   background-position:center,right center !important;
  }
 }
+
+/* Definitive rollback of the screenshot-as-background experiment.
+   The approved mockup contains baked-in UI and must never be rendered behind live UI. */
+html.nbg-christmas #main-content.n64-world section.n64-hero.n64-hero-layout-v2 {
+ background-image:radial-gradient(circle at 88% 20%,#fff6bf 0 6%,#c8dbf4 6.3% 8%,transparent 8.4%),linear-gradient(180deg,#081747 0%,#123477 55%,#497fa9 100%) !important;
+ background-size:100% 100% !important;
+ background-position:center !important;
+ background-repeat:no-repeat !important;
+}
+html.nbg-christmas .nbg-christmas-scenery .nbg-christmas-tree {display:block !important}
+html.nbg-christmas .nbg-christmas-scenery .nbg-santa-flight {display:block !important}
