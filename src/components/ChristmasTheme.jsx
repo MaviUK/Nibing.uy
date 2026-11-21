@@ -1,5 +1,5 @@
-import React, { useEffect, useState }
-import { createPortal } from "react-dom" from "react"
+import React, { useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import "./christmas-theme.css"
 
 export function isChristmasSeason(date = new Date()) {
