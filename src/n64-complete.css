@@ -418,3 +418,37 @@
 @media(prefers-reduced-motion:reduce){
   #areas-we-cover a{transition:none;}
 }
+
+/* Squeegee individual-widget portal: style only our wrapper, never provider internals. */
+.nbg-portal-redesign .nbg-portal-inner{max-width:1152px;margin:0 auto}
+.nbg-portal-redesign .nbg-portal-heading{font:1000 clamp(2rem,5.5vw,3.6rem)/1.05 "Arial Black","Trebuchet MS",sans-serif;color:#ffd34e;text-align:center;margin:12px 0;text-transform:uppercase;letter-spacing:-.045em}
+.nbg-portal-redesign .nbg-portal-intro{font-size:clamp(14px,2vw,18px);font-weight:700;color:#dce9f8;text-align:center;margin:0 auto 28px;max-width:640px}
+.nbg-portal-redesign .nbg-portal-login,.nbg-portal-redesign .nbg-portal-tile{background:#111c32;border:3px solid #69c6fb;border-radius:0;box-shadow:6px 7px 0 #244c70;min-width:0;box-sizing:border-box;padding:18px}
+.nbg-portal-redesign .nbg-portal-login{margin-bottom:22px;border-color:#ffd34e;box-shadow:6px 7px 0 #735e24}
+.nbg-portal-redesign .nbg-portal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.nbg-portal-redesign .nbg-portal-panel-heading{display:flex;gap:12px;align-items:center;text-align:left;margin-bottom:15px;padding-bottom:12px;border-bottom:2px solid rgba(255,255,255,.2)}
+.nbg-portal-redesign .nbg-portal-panel-heading>span{background:#ffd34e;color:#14274b;font:1000 16px/1 "Arial Black",sans-serif;padding:10px;min-width:38px;text-align:center}
+.nbg-portal-redesign .nbg-portal-panel-heading strong{display:block;color:#fff;font:900 clamp(14px,2vw,20px)/1.2 "Arial Black",sans-serif}
+.nbg-portal-redesign .nbg-portal-panel-heading small{display:block;color:#c9e5f6;font-size:13px;line-height:1.4;margin-top:3px}
+.nbg-portal-redesign [data-sqc]{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.nbg-portal-redesign .nbg-portal-footnote{color:#bed4e8;font-size:13px;line-height:1.5;text-align:center;margin:26px 0 0}
+@media(max-width:700px){.nbg-portal-redesign .nbg-portal-grid{grid-template-columns:minmax(0,1fr);gap:17px}.nbg-portal-redesign .nbg-portal-login,.nbg-portal-redesign .nbg-portal-tile{padding:12px;box-shadow:4px 5px 0 #244c70}.nbg-portal-redesign .nbg-portal-login{box-shadow:4px 5px 0 #735e24}.nbg-portal-redesign .nbg-portal-panel-heading strong{font-size:16px}}
+
+/* Portal schedule toggle and Squeegee content legibility */
+.nbg-portal-redesign .nbg-portal-expand summary{cursor:pointer;background:#ffd34e;color:#14274b;font-weight:900;padding:12px 14px;margin:0 0 12px;list-style-position:inside}
+.nbg-portal-redesign .nbg-portal-expand:not([open]) summary{margin-bottom:0}
+.nbg-portal-redesign .nbg-portal-widget{color:#f4f8ff;color-scheme:dark}
+.nbg-portal-redesign .nbg-portal-widget :is(p,li,span,small,label,h3,h4){color:inherit}
+
+/* Compact Squeegee history preview; widgets stay mounted while expanding. */
+.nbg-portal-redesign .nbg-portal-preview{max-height:285px;overflow:hidden;position:relative}
+.nbg-portal-redesign .nbg-portal-preview::after{content:"";pointer-events:none;position:absolute;bottom:0;left:0;right:0;height:45px;background:linear-gradient(transparent,#111c32)}
+.nbg-portal-redesign .nbg-portal-full{max-height:none;overflow:visible}
+.nbg-portal-redesign .nbg-portal-more{display:block;width:100%;margin-top:12px;border:2px solid #14274b;background:#ffd34e;color:#14274b;font:900 14px/1.3 "Arial Black",sans-serif;padding:13px 12px;cursor:pointer;border-radius:0;min-height:44px}
+.nbg-portal-redesign .nbg-portal-more:focus-visible{outline:3px solid #69c6fb;outline-offset:3px}
+
+/* Keep long records in readable full-width panels on larger screens. */
+@media(min-width:701px){.nbg-portal-redesign .nbg-portal-tile-history{grid-column:1/-1}}
+@media(max-width:700px){.nbg-portal-redesign .nbg-portal-preview{max-height:255px}}
+.nbg-portal-redesign .nbg-portal-more:hover{background:#ffe783}
+.nbg-portal-redesign .nbg-portal-more:active{transform:translateY(1px)}
