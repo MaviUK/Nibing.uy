@@ -65,7 +65,9 @@ test("only the exact original partial status can authorise a missing-job check",
  assert.equal(p.partialStatusSafe(s,original,owner,{state:"reserved"}),false);
 });
 test("only verified Black/Brown £10 and Green 1100L £45 groups can be posted",()=>{
- const a=audit(),d=p.approvedGroups(a,planned(),HISTORICAL_NOW);
+ const a=audit(),diagnostic=p.checkApprovedGroups(a,planned(),HISTORICAL_NOW);
+ assert.equal(diagnostic.ok,true,diagnostic.reason);
+ const d=p.approvedGroups(a,planned(),HISTORICAL_NOW);
  assert.ok(d);
  assert.equal(d.first.input.price,10);
  assert.equal(d.missing.input.price,45);
