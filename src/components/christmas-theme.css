@@ -74,3 +74,15 @@ html.nbg-christmas .n64-final {background:linear-gradient(180deg,#cce8f1,#f4fcff
 @keyframes nbg-star-pulse{from{opacity:.7;filter:brightness(.8)}to{opacity:1;filter:brightness(1.5)}}
 @media(max-width:600px){.nbg-christmas-tree{transform:scale(.65);left:4px;bottom:8px}.nbg-santa-flight{font-size:22px;top:13vh}.nbg-santa-reindeer{font-size:20px;letter-spacing:1px}}
 @media(prefers-reduced-motion:reduce){.nbg-tree-star,.nbg-tree-light,.nbg-santa-flight{animation:none !important}.nbg-santa-flight{transform:translateX(40vw)}}
+
+
+/* Mobile visibility fix: keep both attractions in the hero viewport, away from navigation. */
+html.nbg-christmas .nbg-christmas-tree{position:fixed !important;left:auto !important;right:10px !important;top:65vh !important;bottom:auto !important;z-index:9992 !important;transform:scale(.85) !important;transform-origin:top right !important}
+html.nbg-christmas .nbg-santa-flight{position:fixed !important;top:27vh !important;left:0 !important;z-index:9993 !important;animation:nbg-santa-visible 12s linear infinite !important;animation-delay:0s !important;font-size:34px !important}
+@keyframes nbg-santa-visible{0%{transform:translateX(-110%) translateY(0)}45%{transform:translateX(52vw) translateY(-10px)}100%{transform:translateX(110vw) translateY(8px)}}
+@media(max-width:600px){
+ html.nbg-christmas .nbg-christmas-tree{top:65vh !important;right:8px !important;transform:scale(.68) !important}
+ html.nbg-christmas .nbg-santa-flight{top:28vh !important;font-size:28px !important}
+ html.nbg-christmas .nbg-santa-reindeer{font-size:24px !important}
+}
+@media(prefers-reduced-motion:reduce){html.nbg-christmas .nbg-santa-flight{animation:none !important;transform:translateX(35vw) !important}}
