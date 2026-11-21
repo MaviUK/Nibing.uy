@@ -16,3 +16,38 @@
 @keyframes nbg-snowfall{from{transform:translate3d(0,-20px,0)}to{transform:translate3d(45px,105vh,0)}}
 @media(max-width:600px){.nbg-christmas-lights{height:24px;padding-top:2px}.nbg-bulb{width:8px;height:13px;border-width:1px}.nbg-christmas-garland{top:24px;height:8px;border-bottom-width:3px}.nbg-christmas-ornament{top:43px;width:38px;height:38px;font-size:22px}.nbg-christmas-corner{right:8px;bottom:14px;padding:6px 8px;gap:5px;font-size:9px;border-width:3px;box-shadow:3px 3px 0 #f16a76}.nbg-christmas-corner strong{font-size:8px}.nbg-christmas-sparkle{font-size:15px}.nbg-christmas-snow i:nth-child(3n){display:none}}
 @media(prefers-reduced-motion:reduce){.nbg-christmas-snow{display:none}.nbg-bulb{animation:none}}
+
+/* FULL WINTER WORLD: replaces the sunny arcade landscape, not just its overlay. */
+html.nbg-christmas #main-content.n64-world .n64-hero,
+html.nbg-christmas #main-content.n64-world .n64-hero.n64-hero-layout-v2,
+html.nbg-christmas #main-content.n64-world section.n64-hero {
+ background:
+ radial-gradient(circle at 85% 14%,#fff9d9 0 44px,#d7e9ff 45px 60px,transparent 62px),
+ radial-gradient(circle at 18% 28%,rgba(255,255,255,.85) 0 2px,transparent 3px),
+ radial-gradient(circle at 65% 37%,rgba(255,255,255,.9) 0 3px,transparent 4px),
+ linear-gradient(180deg,#132a55 0%,#28517b 30%,#6eabc6 58%,#d8eff7 77%,#f5fbff 100%) !important;
+}
+html.nbg-christmas #main-content.n64-world .n64-hero::before {
+ background:linear-gradient(180deg,#f5fcff 0 26%,#b6d8e8 27% 35%,#f8fdff 36% 100%) !important;
+ clip-path:polygon(0 70%,9% 40%,16% 53%,27% 8%,39% 56%,50% 24%,62% 63%,75% 15%,88% 55%,100% 25%,100% 100%,0 100%) !important;
+ opacity:1 !important;height:31% !important;bottom:7% !important;
+}
+html.nbg-christmas #main-content.n64-world .n64-hero::after {
+ background:repeating-linear-gradient(90deg,#e5f5ff 0 28px,#f8fdff 28px 56px) !important;
+ border-top:7px solid #ffffff !important;height:10% !important;
+}
+html.nbg-christmas #main-content.n64-world .n64-cloud,
+html.nbg-christmas #main-content.n64-world .n64-cloud::before,
+html.nbg-christmas #main-content.n64-world .n64-cloud::after {background:#eaf5ff !important;box-shadow:0 6px 0 #b8d7eb !important}
+html.nbg-christmas #main-content.n64-world .n64-brand {border-color:#1b5c40 !important;box-shadow:6px 7px 0 #a83449 !important}
+html.nbg-christmas #main-content.n64-world .n64-headline span {color:#ffdc68 !important;text-shadow:3px 4px 0 #204268,6px 7px 0 #9d3648 !important}
+html.nbg-christmas #main-content.n64-world .n64-hero .n64-eyebrow,
+html.nbg-christmas #main-content.n64-world .n64-hero [class*="eyebrow"] {background:#b92f48 !important;color:#fff8e2 !important;border-color:#20365a !important}
+html.nbg-christmas #main-content.n64-world .n64-hero .n64-hero-copy > p {color:#142b4a !important}
+html.nbg-christmas #main-content.n64-world .n64-hero .n64-hero-copy > p strong {color:#a32442 !important}
+html.nbg-christmas #main-content.n64-world .n64-hero .n64-hero-inner {position:relative;z-index:2}
+html.nbg-christmas #areas-we-cover {background:linear-gradient(180deg,#e4f4fc,#bcdce8) !important}
+html.nbg-christmas #customer-portal {background:linear-gradient(165deg,#d7f1ed,#e8f5ff) !important}
+html.nbg-christmas .n64-public-leaderboard {background:linear-gradient(180deg,#123c35,#172c4b) !important;border-top-color:#ffe17a !important}
+html.nbg-christmas .n64-final {background:linear-gradient(180deg,#cce8f1,#f4fcff) !important}
+@media(prefers-reduced-motion:reduce){html.nbg-christmas .n64-cloud{animation:none !important}}
