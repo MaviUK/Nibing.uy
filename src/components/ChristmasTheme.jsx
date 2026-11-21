@@ -13,7 +13,7 @@ function isPreviewRequested() {
   return new URLSearchParams(window.location.search).get("christmas") === "preview"
 }
 
-const flakes = Array.from({ length: 22 }, (_, index) => ({
+const flakes = Array.from({ length: 42 }, (_, index) => ({
   left: (index * 37 + 13) % 100,
   delay: -((index * 7) % 19),
   duration: 12 + (index % 7) * 2,
@@ -34,8 +34,11 @@ export default function ChristmasTheme() {
   }, [active])
   if (!active) return null
   return <div className="nbg-christmas-overlay" aria-hidden="true">
-    <div className="nbg-christmas-lights">{Array.from({ length: 19 }, (_, i) => <span key={i} className={`nbg-bulb nbg-bulb-${i % 4}`} />)}</div>
+    <div className="nbg-christmas-lights">{Array.from({ length: 23 }, (_, i) => <span key={i} className={`nbg-bulb nbg-bulb-${i % 4}`} />)}</div>
+    <div className="nbg-christmas-garland" />
+    <div className="nbg-christmas-ornament nbg-christmas-ornament-left">★</div>
+    <div className="nbg-christmas-ornament nbg-christmas-ornament-right">✦</div>
     <div className="nbg-christmas-snow">{flakes.map((flake, i) => <i key={i} style={{ left: `${flake.left}%`, animationDelay: `${flake.delay}s`, animationDuration: `${flake.duration}s`, width: flake.size, height: flake.size }} />)}</div>
-    <div className="nbg-christmas-corner">🎅 <span>LEVEL: CHRISTMAS</span> 🎄</div>
+    <div className="nbg-christmas-corner"><span className="nbg-christmas-sparkle">★</span><span>CHRISTMAS LEVEL<br /><strong>2026 EDITION</strong></span><span className="nbg-christmas-sparkle">★</span></div>
   </div>
 }
