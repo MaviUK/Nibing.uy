@@ -1,0 +1,26 @@
+name: NI Bin Guy production build verification
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/pages/StreetBookingPage.jsx"
+      - "netlify/functions/lib/squeegeeBookingPricing.js"
+      - "netlify/functions/lib/squeegeeAutomaticBooking.js"
+      - "tests/squeegee-production-dispatch.test.cjs"
+      - ".github/workflows/production-build-verification.yml"
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Squeegee regression suite
+        run: node --test tests/squeegee-*.test.cjs
+      - name: Production frontend build
+        run: npm run build
