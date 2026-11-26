@@ -31,10 +31,10 @@ function recoveryStreet(value) {
   const raw=typeof value==="string"?value:
     value?.text||value?.addressDescription||value?.formattedAddress||"";
   return String(raw).split(",")[0].toUpperCase()
-    .replace(/^\\s*\\d{1,6}[A-Z]?\\s+/, "")
-    .replace(/\\bRD\\b/g,"ROAD")
-    .replace(/\\bST\\b/g,"STREET")
-    .replace(/\\bAVE\\b/g,"AVENUE")
+    .replace(/^\s*\d{1,6}[A-Z]?\s+/, "")
+    .replace(/\bRD\b/g,"ROAD")
+    .replace(/\bST\b/g,"STREET")
+    .replace(/\bAVE\b/g,"AVENUE")
     .replace(/[^A-Z0-9]+/g," ").trim();
 }
 function sameRecoveryProperty(a,b) {
