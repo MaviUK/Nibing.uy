@@ -184,7 +184,7 @@ export default async function handler(req){
   const configuredPin=String(globalThis.Netlify?.env?.get?.("STREET_SIGNUP_PIN")||
     globalThis.process?.env?.STREET_SIGNUP_PIN||"");
   const suppliedPin=String(body.staffPin||"");
-  const staffVerified=/^\\d{4,12}$/.test(configuredPin) &&
+  const staffVerified=/^\d{4,12}$/.test(configuredPin) &&
     suppliedPin.length===configuredPin.length &&
     suppliedPin===configuredPin;const address=String(body.address||url.searchParams.get("address")||"").trim();const postcode=normalizePostcode(body.postcode||url.searchParams.get("postcode")||address.match(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i)?.[0]);const bins=(Array.isArray(body.bins)?body.bins:[url.searchParams.get("bin")]).filter(Boolean);
   const addressPostcode=normalizePostcode(address.match(/\bBT\d{1,2}[A-Z0-9]?\s*\d[A-Z]{2}\b/i)?.[0]);
