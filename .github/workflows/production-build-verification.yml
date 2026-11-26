@@ -9,6 +9,9 @@ on:
       - "tests/squeegee-production-dispatch.test.cjs"
       - ".github/workflows/production-build-verification.yml"
   workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -21,6 +24,35 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Squeegee regression suite
-        run: node --test tests/squeegee-*.test.cjs
+        id: suite
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          node --test tests/squeegee-*.test.cjs 2>&1 | tee /tmp/nibing-squeegee-test.log
+      - name: Capture failing test names without personal data
+        if: steps.suite.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs=require('fs');
+            const text=fs.readFileSync('/tmp/nibing-squeegee-test.log','utf8');
+            const lines=text.split('\n');
+            const blocks=[];
+            for(let i=0;i<lines.length;i++){
+              if(lines[i].startsWith('not ok ')){
+                blocks.push(lines.slice(i,Math.min(i+16,lines.length)).join('\n'));
+              }
+            }
+            const totals=lines.filter(line=>/^# (tests|pass|fail|duration_ms) /.test(line)).slice(-6);
+            const body=['Diagnostic for '+context.sha,'',...totals,'',...blocks.slice(0,25)].join('\n').slice(0,45000);
+            await github.rest.issues.createComment({
+              owner:context.repo.owner,repo:context.repo.repo,
+              issue_number:154,body:'\u0060\u0060\u0060text\n'+body+'\n\u0060\u0060\u0060'
+            });
+      - name: Require tests to pass
+        if: steps.suite.outcome == 'failure'
+        run: exit 1
       - name: Production frontend build
+        if: steps.suite.outcome == 'success'
         run: npm run build
