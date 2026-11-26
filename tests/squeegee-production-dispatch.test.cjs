@@ -132,3 +132,34 @@ test("ordinary live booking receipts are unchanged while production feature flag
   assert.match(source,/productionGuard\.CERT_STORE:ownerCertificate\.STORE/);
   assert.match(source,/recordAutoNoDispatch/);
 });
+
+test("street booking prices exactly match Squeegee server verification",()=>{
+  const {verifyAndPriceBooking}=require("../netlify/functions/lib/squeegeeBookingPricing");
+  const street=fs.readFileSync(path.join(__dirname,"../src/pages/StreetBookingPage.jsx"),"utf8");
+  const begin=street.indexOf("  const pricing = useMemo(() => {");
+  const end=street.indexOf("  }, [bins]);",begin);
+  assert.ok(begin>=0 && end>begin,"Street pricing calculator must be present");
+  const source=street.slice(begin+"  const pricing = useMemo(".length,end+"  }".length);
+  const PLANS=[
+    {id:"domestic_4w",label:"4 Weekly",price:5},
+    {id:"domestic_oneoff",label:"One-off",price:15},
+    {id:"comm_lt360_4w",label:"Commercial <360L 4 Weekly",price:5},
+    {id:"comm_lt360_oneoff",label:"Commercial <360L One-Off",price:15},
+    {id:"comm_gt660_4w",label:"Commercial 660L+ 4 Weekly",price:15},
+    {id:"comm_gt660_oneoff",label:"Commercial 660L+ One-Off",price:45}
+  ];
+  const compute=new Function("bins","PLANS","isLargeCommercialPlan",
+    "return ("+source+")();");
+  const large=id=>id==="comm_gt660_4w"||id==="comm_gt660_oneoff";
+  for(const bins of [
+    ["Black Bin","Brown Bin","Blue Bin"].map(type=>({type,count:1,planId:"domestic_4w",sizeLitres:null})),
+    [{type:"Brown Bin",count:7,planId:"domestic_4w",sizeLitres:null}],
+    [{type:"Brown Bin",count:2,planId:"domestic_4w",sizeLitres:null},
+     {type:"Blue Bin",count:1,planId:"domestic_oneoff",sizeLitres:null}],
+  ]) {
+    const pricing=compute(bins,PLANS,large);
+    const checked=verifyAndPriceBooking(bins,null,pricing);
+    assert.equal(checked.ok,true,checked.reason||"pricing");
+    assert.equal(pricing.total,checked.canonical.total);
+  }
+});
