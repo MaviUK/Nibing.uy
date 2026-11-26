@@ -1811,7 +1811,7 @@ test("ambiguous return sign-up sends customer details only to owner alert, never
   assert.equal(h.ledger.records.size,0);
   assert.equal(alerts.length,1);
   assert.equal(alerts[0].reason,r.reason);
-  assert.equal(alerts[0].details.matchReason,"possible_existing_address");
+  assert.equal(alerts[0].details.matchReason,"same_address_contact_name_conflict");
   assert.equal(alerts[0].details.squeegeeAccountStatus,"not confirmed");
   assert.equal(alerts[0].details.customerName,b.name);
   assert.equal(alerts[0].details.serviceAddress,b.address);
@@ -1821,7 +1821,7 @@ test("ambiguous return sign-up sends customer details only to owner alert, never
   assert.deepEqual(alerts[0].details.firstCleanDates,["2026-11-16"]);
   const status=h.statuses.at(-1);
   assert.equal(status.reason,r.reason);
-  assert.equal(status.matchReason,"possible_existing_address");
+  assert.equal(status.matchReason,"same_address_contact_name_conflict");
   assert.equal(status.ownerAlertDelivery,"sent");
   for(const key of ["customerName","serviceAddress","customerEmail",
     "customerPhone","bookingTotal","squeegeeAccountStatus"])
