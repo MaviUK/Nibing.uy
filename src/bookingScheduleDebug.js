@@ -1,69 +1,10 @@
-// Booking scheduler client guard plus opt-in diagnostics.
-// Same-day automatic bookings are allowed only before 10:00 GMT.
-// Enable diagnostics with ?bookingdebug=1. Customers never see debug output normally.
+// Optional, read-only booking schedule diagnostics. The server alone applies
+// booking cutoffs and staff-PIN exemptions; never rewrite API responses here.
+// Enable diagnostics with ?bookingdebug=1.
 
 const params = new URLSearchParams(window.location.search);
 const DEBUG_ENABLED = params.get('bookingdebug') === '1';
 const nativeFetch = window.fetch.bind(window);
-
-function gmtTodayIso(now = new Date()) {
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
-}
-
-function applySameDayCutoff(data, now = new Date()) {
-  if (!data || !Array.isArray(data.results) || now.getUTCHours() < 10) return data;
-
-  const today = gmtTodayIso(now);
-  let changed = false;
-  const results = data.results.map((result) => {
-    if (result?.assignedCleanDate !== today) return result;
-
-    const support = Array.isArray(result?.round?.townDateSupport) ? result.round.townDateSupport : [];
-    const nextSupported = support
-      .filter((item) => item?.date > today && Number(item?.support || 0) > 0)
-      .sort((a, b) => a.date.localeCompare(b.date))[0];
-
-    if (!nextSupported) {
-      changed = true;
-      return {
-        ...result,
-        assignedCleanDate: null,
-        automatic: false,
-        round: {
-          ...(result.round || {}),
-          matched: false,
-          nextCleanDate: null,
-          councilValidationDate: null,
-          resolvedBy: 'same_day_cutoff_after_10am_gmt_no_next_supported_date',
-        },
-      };
-    }
-
-    changed = true;
-    return {
-      ...result,
-      assignedCleanDate: nextSupported.date,
-      automatic: true,
-      round: {
-        ...(result.round || {}),
-        matched: true,
-        nextCleanDate: nextSupported.date,
-        councilValidationDate: nextSupported.date,
-        support: nextSupported.support,
-        resolvedBy: 'next_supported_date_after_10am_gmt_cutoff',
-      },
-    };
-  });
-
-  if (!changed) return data;
-  return {
-    ...data,
-    results,
-    matched: results.every((result) => Boolean(result?.assignedCleanDate)),
-    sameDayCutoffApplied: true,
-    sameDayCutoff: '10:00 GMT',
-  };
-}
 
 function ensureDebugPanel() {
   let panel = document.querySelector('[data-booking-schedule-debug]');
@@ -155,19 +96,10 @@ window.fetch = async (...args) => {
   try { requestBody = JSON.parse(options.body || '{}'); } catch { /* diagnostic only */ }
 
   try {
-    const originalData = await response.clone().json();
-    const data = applySameDayCutoff(originalData);
+    const data = await response.clone().json();
     renderDebug(requestBody, data, response.status);
-
-    if (data === originalData) return response;
-    const headers = new Headers(response.headers);
-    headers.set('content-type', 'application/json; charset=utf-8');
-    headers.delete('content-length');
-    return new Response(JSON.stringify(data), {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    });
+    // A diagnostics wrapper must never modify the server-confirmed schedule.
+    return response;
   } catch (error) {
     renderDebug(requestBody, { error: `Response was not valid JSON: ${error?.message || error}` }, response.status);
     return response;
