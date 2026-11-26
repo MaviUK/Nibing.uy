@@ -195,12 +195,14 @@ function validateAddress(root, forceMessage = false) {
       setState(root,"unverified",{address,postcode});
       showAreaUnverified(root);
     }else{
-      const exact=(resolved.addresses||[]).find(row=>
-        row?.status==="active" &&
-        matchesCouncilProperty(address,row.label) &&
-        (!enteredTown||enteredTown===townFromAddress(row.label)));
-      if(exact)finishCovered(root,address,postcode,townFromAddress(exact.label),false);
-      else if(!resolved.possible&&!resolved.covered) {
+       // The council rows are postcode-scoped. Never choose between
+       // multiple UPRNs sharing a number; send ambiguous matches to review.
+       const matches=(resolved.addresses||[]).filter(row=>
+         matchesCouncilProperty(address,row.label));
+       const exact=matches.length===1?matches[0]:null;
+       if(exact?.status==="active")
+         finishCovered(root,address,postcode,townFromAddress(exact.label),false);
+       else if(!matches.length && !resolved.possible && !resolved.covered) {
         setState(root,"outside",{address,postcode,town:resolved.town||""});
         showOutOfArea(root);
       }else{
