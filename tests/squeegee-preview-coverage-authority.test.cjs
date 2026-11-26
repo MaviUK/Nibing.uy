@@ -113,6 +113,15 @@ test("authorised towns and retired towns come from one reviewed policy",async()=
     "Example Community Hall, Bangor, BT20 4AA"),false);
 });
 
+test("street signup supplies a real postcode snapshot to production Squeegee worker",()=>{
+  const street=read("src/pages/StreetBookingPage.jsx");
+  assert.match(street,/const postcode = address\.toUpperCase\(\)\.match\(\/\\bBT\\d/);
+  assert.doesNotMatch(street,/match\(\/\\\\bBT\\\\d/);
+  assert.match(street,/bookingScheduleSnapshot:/);
+  assert.match(street,/Booking received/);
+  assert.match(street,/Squeegee creation is processed separately/);
+});
+
 test("browser diagnostics never override server dates or staff cutoff exemption",()=>{
   const debug=read("src/bookingScheduleDebug.js");
   const schedule=read("netlify/functions/bookingSchedule.js");
