@@ -21,10 +21,14 @@ const existing={
   phoneNumber:"07700900123",
   status:"active",
 };
-test("case/spacing and RD/ROAD normalisation still require the full postcode and street",()=>{
+test("house number and postcode match regardless of street spelling",()=>{
   assert.equal(normalName(" Gavin   Stevenson "),"GAVIN STEVENSON");
   assert.equal(addressKey(existing.address),addressKey(booking.address));
-  assert.notEqual(addressKey("78 Another Road, Bangor BT20 5NF"),addressKey(booking.address));
+  assert.equal(addressKey("78 Another Road, Bangor BT20 5NF"),addressKey(booking.address));
+  assert.equal(addressKey("78 S Oak Cl, Bangor bt205nf"),addressKey("78 South Oak Close, Bangor BT20 5NF"));
+  assert.notEqual(addressKey("78A Oak Close, Bangor BT20 5NF"),addressKey(booking.address));
+  assert.notEqual(addressKey("78 Oak Close, Bangor BT20 5NG"),addressKey(booking.address));
+  assert.equal(addressKey("Oak Close, Bangor BT20 5NF"),"");
 });
 test("same customer full name + full property match even if BOTH email and phone differ",()=>{
   const found=matchCustomers(booking,[existing]);
@@ -95,12 +99,12 @@ test("a previously duplicated customer at the new property creates an identity c
   assert.equal(found.status,"needs_review");
   assert.equal(found.reason,"conflicting_property_and_identity_accounts");
 });
-test("nearby property with same house number+postcode but other street is not reused",()=>{
+test("same house number and postcode with matching name is reused despite street differences",()=>{
   const found=matchCustomers(booking,[{
     ...existing,address:{addressDescription:"78 Other Road, Bangor BT20 5NF"},
   }]);
-  assert.equal(found.status,"needs_review");
-  assert.equal(found.reason,"possible_existing_address");
+  assert.equal(found.status,"matched");
+  assert.equal(found.reason,"exact_property_and_name");
 });
 test("inactive and deactivated exact-name+property customers are marked for reactivation, not duplicated",()=>{
   for(const status of ["inactive","deactivated"]) {

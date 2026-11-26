@@ -107,14 +107,14 @@ test("same phone at another address is flagged without equating two properties",
   assert.ok(found.duplicateFlags.includes("phone_used_at_other_property"));
   assert.ok(!found.duplicateFlags.includes("address_already_registered"));
 });
-test("same house number and postcode on different street is possible address duplicate, not an exact match",async()=>{
+test("same house number and postcode with matching name is an exact property match",async()=>{
   const found=await scan([own({
     email:"another@example.org",phoneNumber:"07700900000",
     address:{addressDescription:"7 Another Road, Bangor BT19 7ZW"},
   })]);
-  assert.equal(found.status,"needs_review");
-  assert.equal(found.reason,"possible_existing_address");
-  assert.deepEqual(found.duplicateFlags,["possible_duplicate_address"]);
+  assert.equal(found.status,"matched");
+  assert.equal(found.reason,"exact_property_and_name");
+  assert.deepEqual(found.duplicateFlags,["address_already_registered","same_name_address_contact_changed"]);
 });
 test("duplicate ID repeated on separate pages cannot inflate duplicate counts",async()=>{
   const found=await scan([own(),own()],{split:true,pages:2});

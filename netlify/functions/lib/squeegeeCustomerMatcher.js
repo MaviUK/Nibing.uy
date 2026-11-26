@@ -19,25 +19,9 @@ function stringValue(value) {
   return "";
 }
 function addressKey(value) {
-  const text = stringValue(value).toUpperCase();
-  const post = normalizedPostcode(text);
-  if (!post) return "";
-  const compactPost = post.replace(/\s/g, "");
-  const localityStripped = text
-    .replace(new RegExp(compactPost.slice(0,-3) + "\\s*" + compactPost.slice(-3) + "\\b", "g"), " ")
-    .replace(/\bNORTHERN IRELAND\b/g, "")
-    .replace(/\bUNITED KINGDOM\b/g, "")
-    // Squeegee appends "County Down" after Bangor; Google's booking
-    // address often omits it. Only discard the county as the FINAL
-    // locality suffix, never within a street name (e.g. County Down Road).
-    // The actual house number, street, town and BT postcode still match.
-    .replace(/(?:,\s*|\s+)(?:COUNTY|CO\.?)\s+DOWN\s*,?\s*$/g, "")
-    .replace(/^(\d+[A-Z]?\s+)([NEWS])\.?\s+/g, (_,number,direction)=>number+({N:"NORTH",E:"EAST",W:"WEST",S:"SOUTH"}[direction])+" ")
-    .replace(/\bRD\b/g, "ROAD")
-    .replace(/\bST\b/g, "STREET")
-    .replace(/\bAVE\b/g, "AVENUE")
-    .replace(/[^A-Z0-9]+/g, " ").replace(/\s+/g, " ").trim();
-  return compactPost + "|" + localityStripped;
+  const post = normalizedPostcode(stringValue(value));
+  const number = propertyNumber(value);
+  return post && number ? post.replace(/\s/g, "") + "|" + number : "";
 }
 function normalName(value) {
   return String(value || "").normalize("NFKC").toUpperCase()
@@ -94,7 +78,9 @@ function uniqueShortNamePhoneCustomer(booking,rows,propertyRows) {
     matchingPhone[0]._id===propertyRows[0]._id?propertyRows[0]:null;
 }
 function propertyNumber(value) {
-  return stringValue(value).toUpperCase().match(/\b\d{1,4}[A-Z]?\b/)?.[0] || "";
+  // Only a leading house number; never mistake a postcode or flat/unit
+  // identifier for a house number. Preserve suffixes such as 12A.
+  return stringValue(value).trim().toUpperCase().match(/^(\d{1,6}[A-Z]?)(?=\s|,|$)/)?.[1] || "";
 }
 function matchCustomers(booking, customerList) {
   if(!Array.isArray(customerList))

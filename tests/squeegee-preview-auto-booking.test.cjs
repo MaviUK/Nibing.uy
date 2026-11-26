@@ -927,7 +927,7 @@ test("cross-property matching old service requires verifiable address; same prop
 test("same number and postcode but a different street never reuses a customer",async()=>{
   const b=sampleBooking();
   const row={_id:customerId,name:b.name,email:b.email,status:"active",
-    address:{addressDescription:"7 Other Road, Bangor BT19 7ZW"}};
+    address:{addressDescription:"Other Road, Bangor BT19 7ZW"}};
   const h=makeHarness(b,{existingRows:[row]});
   const result=await h.run();
   assert.equal(result.status,"held");

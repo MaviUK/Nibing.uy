@@ -225,7 +225,7 @@ test("partial address match blocks auto-creation on possible existing customer",
   const b=booking();
   const customers=[{
     _id:SERVICE, name:"Example Customer",
-    address:"17 Example Rd, Bangor BT20 4AA",
+    address:"Example Rd, Bangor BT20 4AA",
     email:"example@example.org",
   }];
   const found=matcher.matchCustomers(b,customers);
@@ -415,9 +415,9 @@ test("Groomsport Road Squeegee county suffix matches website Rd abbreviation",()
   assert.equal(matcher.addressKey("78 Groomsport Road, Bangor Co Down BT20 5NF"),normal);
   assert.equal(matcher.addressKey("78 Groomsport Road Bangor County Down BT20 5NF"),normal);
   assert.notEqual(matcher.addressKey("79 Groomsport Road, Bangor, County Down BT20 5NF"),normal);
-  assert.notEqual(matcher.addressKey("78 Groomsport Lane, Bangor, County Down BT20 5NF"),normal);
-  // Must not erase a real street called County Down Road.
-  assert.notEqual(matcher.addressKey("78 County Down Road, Bangor BT20 5NF"),
+  assert.equal(matcher.addressKey("78 Groomsport Lane, Bangor, County Down BT20 5NF"),normal);
+  // Street names are not part of the property key.
+  assert.equal(matcher.addressKey("78 County Down Road, Bangor BT20 5NF"),
     matcher.addressKey("78 Road, Bangor, County Down BT20 5NF"));
 });
 
@@ -451,12 +451,12 @@ test("returning Gavin at 78 Groomsport Road matches property despite duplicate c
   assert.ok(!pages.duplicateFlags.includes("possible_duplicate_address"));
 });
 
-test("same postcode and number but a different street stays held for manual review",()=>{
+test("same postcode and number with matching name matches despite different street",()=>{
   const b={...booking(),name:"Gavin",email:"gavin@example.org",
     address:"78 Groomsport Road, Bangor BT20 5NF"};
   const row={_id:SERVICE,name:"Gavin",email:b.email,
     address:{addressDescription:"78 Gransha Road, Bangor, County Down BT20 5NF"}};
   const r=matcher.matchCustomers(b,[row]);
-  assert.equal(r.status,"needs_review");
-  assert.equal(r.reason,"possible_existing_address");
+  assert.equal(r.status,"matched");
+  assert.equal(r.reason,"exact_property_and_name");
 });
