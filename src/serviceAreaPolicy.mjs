@@ -43,17 +43,24 @@ export function classifyCouncilAddresses(addresses) {
   };
 }
 
-// Match a real council property by house number AND street, not by locality
-// text or postcode alone. An unmatched manual entry requires owner review.
+// Numbered homes match by house number and full postcode, irrespective of
+// street spelling. A named property without a number requires an exact name.
+export function propertyNumber(value) {
+  return String(value||"").trim().toUpperCase()
+    .match(/^(\d{1,6}[A-Z]?)(?=\s|,|$)/)?.[1]||"";
+}
+export function propertyPostcode(value) {
+  const found=String(value||"").toUpperCase()
+    .match(/\bBT\d{1,2}[A-Z0-9]?\s*\d[A-Z]{2}\b/);
+  return found?found[0].replace(/\s+/g,""):"";
+}
 export function matchesCouncilProperty(entered,councilLabel) {
-  const norm=(value)=>String(value||"").split(",")[0].toUpperCase()
-    .replace(/[.'’]/g," ").replace(/^(\d+[A-Z]?\s+)([NEWS])\.?\s+/g, (_,number,direction)=>number+({N:"NORTH",E:"EAST",W:"WEST",S:"SOUTH"}[direction])+" ")
-    .replace(/\bRD\b/g,"ROAD")
-    .replace(/\bST\b/g,"STREET").replace(/\bAVE\b/g,"AVENUE")
-    .replace(/[^A-Z0-9]+/g," ").trim().replace(/\s+/g," ");
-  const a=norm(entered),b=norm(councilLabel);
-  // Exact council-selected business/property names are valid too; the
-  // strict full street identity prevents accepting another property just
-  // because it shares a postcode or a similar town label.
-  return Boolean(a&&b&&a===b);
+  const postcode=propertyPostcode(entered);
+  if(!postcode || postcode!==propertyPostcode(councilLabel))return false;
+  const number=propertyNumber(entered);
+  if(number)return number===propertyNumber(councilLabel);
+  if(propertyNumber(councilLabel))return false;
+  const name=x=>String(x||"").split(",")[0].toUpperCase()
+    .replace(/[^A-Z0-9]+/g," ").trim();
+  return Boolean(name(entered)&&name(entered)===name(councilLabel));
 }
