@@ -129,7 +129,7 @@ test("browser diagnostics never override server dates or staff cutoff exemption"
   assert.equal(debug.includes("new Response(JSON.stringify(data)"),false);
   assert.match(debug,/return response;/);
   assert.match(schedule,/staffVerified/);
-  assert.match(schedule,/cutoff\\.afterCutoff&&!staffVerified/);
+  assert.ok(schedule.includes("cutoff.afterCutoff&&!staffVerified"));
 });
 
 test("verified Bangor postcode needs actual active council-town evidence",async()=>{
