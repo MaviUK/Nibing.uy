@@ -181,12 +181,8 @@ function validateAddress(root, forceMessage = false) {
     return false;
   }
 
+  // The council's UPRN town is authoritative, not the typed locality.
   const enteredTown=townFromAddress(address);
-  if(enteredTown && REMOVED_TOWNS.has(enteredTown)) {
-    setState(root,"outside",{address,postcode,town:enteredTown});
-    showOutOfArea(root);
-    return false;
-  }
   const cached=postcodeTownCache.get(postcode);
   const apply=(resolved)=>{
     const current=String(getAddressInput(root)?.value||"").trim();
@@ -202,6 +198,10 @@ function validateAddress(root, forceMessage = false) {
        const exact=matches.length===1?matches[0]:null;
        if(exact?.status==="active")
          finishCovered(root,address,postcode,townFromAddress(exact.label),false);
+       else if(exact?.status==="removed") {
+         setState(root,"outside",{address,postcode,town:townFromAddress(exact.label)});
+         showOutOfArea(root);
+       }
        else if(!matches.length && !resolved.possible && !resolved.covered) {
         setState(root,"outside",{address,postcode,town:resolved.town||""});
         showOutOfArea(root);
