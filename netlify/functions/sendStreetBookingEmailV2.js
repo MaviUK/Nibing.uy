@@ -4,6 +4,7 @@ const { Resend } = require("resend");
 const { getStore } = require("@netlify/blobs");
 const { buildTermsAcceptancePdfAttachment } = require("./lib/termsPdf");
 const { annualBookingBreakdown } = require("./lib/annualBookingBreakdown");
+const { handler: sendSharedBooking } = require("./sendBookingEmail");
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_DEFAULT = process.env.RESEND_FROM || "Ni Bin Guy <noreply@nibing.uy>";
@@ -106,70 +107,20 @@ exports.handler = async (event) => {
       return { statusCode: 403, body: JSON.stringify({ error: "Anti-bot check failed" }) };
     }
 
-    const filteredBins = bins.filter((bin) => bin?.type);
-    const binsText = filteredBins.map((bin) => `${bin.count || 1} x ${bin.type} (plan: ${bin.planId || ""})`).join("\n");
-    const pricingLines = Array.isArray(pricing?.lines) ? pricing.lines : [];
-    const pricingText = pricingLines.length
-      ? `Pricing:\n${pricingLines.map((line) => `${line.count || 1}x ${String(line.type || "").replace(" Bin", "")} - ${line.planLabel || friendlyPlan({ planId: line.planId })} @ GBP ${Number(line.unitPrice || 0)} = GBP ${Number(line.lineTotal || 0)}`).join("\n")}\n\nSubtotal: GBP ${Number(pricing?.subtotal || 0)}\nTotal: GBP ${Number(pricing?.total || 0)}\n\nDiscount Code: None`
-      : `Pricing:\nSubtotal: GBP ${Number(pricing?.subtotal || 0)}\nTotal: GBP ${Number(pricing?.total || 0)}\n\nDiscount Code: None`;
-
-    const termsVersion = TERMS_VERSION_DEFAULT;
-    const termsAcceptanceText = `I confirm I've read and agree to the Ni Bin Guy Terms of Service (v${TERMS_VERSION_DEFAULT})`;
-    const termsPdfAttachment = await buildTermsAcceptancePdfAttachment({
-      name, email, phone, address, binsText, pricingText,
-      annualBreakdownText: annualBookingBreakdown(pricing), termsAccepted: true,
-      termsVersion, termsAcceptanceText, termsTimestamp, termsBody: TERMS_BODY, source: "street-signup",
-    });
-
-    const store = getStoreSafe("street-terms-documents");
-    const documentId = await generateUniqueShortCode(store);
-    const termsUrl = `${SITE_ORIGIN}/${documentId}`;
-    await store.setJSON(documentId, {
-      filename: termsPdfAttachment.filename,
-      contentType: "application/pdf",
-      base64: termsPdfAttachment.content,
-      createdAt: new Date().toISOString(),
-      name,
-      phone,
-      email: email || null,
-    });
-
-    const geoText = lat != null && lng != null ? `${lat}, ${lng}` : "—";
-    const emailDisplay = email || "No email address provided";
-    const adminText = `Street signup booking confirmed\n\nName: ${name}\nEmail: ${emailDisplay}\nPhone: ${phone}\nAddress: ${address}\nBins:\n${binsText}\n\nTotal: ${fmtGBP(pricing?.total || 0)}\nFirst clean status: outstanding (complete manually in Squeegee)\nPlace ID: ${placeId || "—"}\nGeo: ${geoText}\n\nTerms accepted: yes\nVersion: ${termsVersion}\nConfirmed: ${termsTimestamp}\nTerms certificate URL: ${termsUrl}\n\nNo quote required.`;
-    const adminHtml = `<h2>Street signup — booking confirmed</h2><p><strong>Name:</strong> ${escapeHtml(name)}</p><p><strong>Email:</strong> ${escapeHtml(emailDisplay)}</p><p><strong>Phone:</strong> ${escapeHtml(phone)}</p><p><strong>Address:</strong> ${escapeHtml(address)}</p><p><strong>Bins:</strong><br>${filteredBins.map((bin) => `${escapeHtml(bin.count || 1)} x ${escapeHtml(bin.type)} — ${escapeHtml(friendlyPlan(bin))}`).join("<br>")}</p><p><strong>Total:</strong> ${escapeHtml(fmtGBP(pricing?.total || 0))}</p><p><strong>First clean status:</strong> Outstanding (complete manually in Squeegee)</p><p><strong>Terms certificate:</strong> <a href="${escapeHtml(termsUrl)}">${escapeHtml(termsUrl)}</a></p><p><strong>No quote required.</strong></p>`;
-
-    const adminResult = await resend.emails.send({
-      from: FROM_DEFAULT,
-      to: TO_ADMIN,
-      subject: "🧼 Street signup — booking confirmed",
-      text: adminText,
-      html: adminHtml,
-      replyTo: email || TO_ADMIN,
-      attachments: [termsPdfAttachment],
-    });
-    if (adminResult?.error) throw new Error(`Admin email failed: ${adminResult.error.message || "unknown error"}`);
-
-    let customerConfirmationSent = false;
-    if (email) {
-      const customerResult = await resend.emails.send({
-        from: FROM_DEFAULT,
-        to: email,
-        subject: "🗑️ Booking confirmed — welcome to Ni Bin Guy",
-        text: `Thanks ${name},\n\nYour Ni Bin Guy booking is confirmed and you’re all signed up. There is no quote to approve.\n\nAddress: ${address}\nPhone: ${phone}\n\nBins:\n${binsText}\n\nTotal: ${fmtGBP(pricing?.total || 0)}\n\nYour Terms & Conditions Acceptance Certificate: ${termsUrl}`,
-        html: buildCustomerHtml({ name, address, phone, bins: filteredBins, pricing, termsVersion, termsTimestamp, termsUrl }),
-        replyTo: TO_ADMIN,
-        attachments: [termsPdfAttachment],
-      });
-      customerConfirmationSent = !customerResult?.error;
-      if (customerResult?.error) console.error("Street signup customer email error:", customerResult.error);
-    }
-
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ success: true, customerConfirmationSent, termsUrl }),
+    // Share the production website booking pipeline: validation, terms PDF,
+    // idempotency, Squeegee customer matching, automatic jobs and owner alerts.
+    // The PIN was verified above by the server, not inferred from the source field.
+    // Do not send the legacy confirmation first: that could falsely say that
+    // Squeegee succeeded and would duplicate the shared booking emails.
+    const delegated = { ...payload, source: "street-signup" };
+    delete delegated.staffPin;
+    const trustedEvent = {
+      ...event,
+      __streetSignupVerified: true,
+      body: JSON.stringify(delegated),
     };
+    return sendSharedBooking(trustedEvent);
+
   } catch (error) {
     console.error("sendStreetBookingEmailV2 failed:", error);
     return { statusCode: 500, body: JSON.stringify({ error: "Street signup failed" }) };
