@@ -101,7 +101,12 @@ test("authorised towns and retired towns come from one reviewed policy",async()=
   assert.equal(policy.townFromAddress(bangor.addressText),"BANGOR");
   assert.equal(policy.matchesCouncilProperty(
     "17 Example Rd, Bangor BT20 4AA","17 Example Road, Bangor, BT20 4AA"),true);
-  assert.equal(policy.matchesCouncilProperty("17 Wrong Road, Bangor","17 Example Road, Bangor"),false);
+  assert.equal(policy.matchesCouncilProperty(
+    "17 Wrong Road, Bangor BT20 4AA","17 Example Road, Bangor BT20 4AA"),true);
+  assert.equal(policy.matchesCouncilProperty(
+    "17 Wrong Road, Bangor BT20 4AB","17 Example Road, Bangor BT20 4AA"),false);
+  assert.equal(policy.matchesCouncilProperty(
+    "18 Example Road, Bangor BT20 4AA","17 Example Road, Bangor BT20 4AA"),false);
   assert.equal(policy.matchesCouncilProperty("Example Community Hall, Bangor, BT20 4AA",
     "Example Community Hall, Bangor, BT20 4AA"),true);
   assert.equal(policy.matchesCouncilProperty("Another Community Hall, Bangor, BT20 4AA",
@@ -193,9 +198,19 @@ test("the exact council UPRN address is valid even without a numbered property",
   assert.equal(result.body.results[0].automatic,true);
 });
 
-test("same house number and postcode but WRONG street never fetches a calendar",async()=>{
+test("same house number and postcode select unique council property despite street difference",async()=>{
   const result=await bookingFunction({rows:[bangor]})({
     address:"17 Other Street, Bangor, BT20 4AA",
+  });
+  assert.equal(result.body.matched,true);
+  assert.equal(result.body.addressMatchMethod,"house_number_and_postcode");
+  assert.equal(result.body.councilAddress,bangor.addressText);
+  assert.equal(result.observed.some(x=>x.includes("binCalendar?")),true);
+});
+test("shared postcode with two properties at the same number must require review",async()=>{
+  const other={uprn:"100099",addressText:"17 Another Street, Bangor, BT20 4AA"};
+  const result=await bookingFunction({rows:[bangor,other]})({
+    address:bangor.addressText,
   });
   assert.equal(result.body.matched,false);
   assert.equal(result.body.reason,"council_address_ambiguous");
@@ -211,13 +226,13 @@ test("postcode mismatches return To be confirmed and cannot allocate someone els
   assert.equal(result.observed.length,0);
 });
 
-test("typed town cannot override verified council town to borrow another town's rota",async()=>{
+test("typed locality never overrides the council's verified round town",async()=>{
   const result=await bookingFunction({rows:[bangor]})({
     address:"17 Example Street, Millisle, BT20 4AA",
   });
-  assert.equal(result.body.matched,false);
-  assert.equal(result.body.reason,"address_town_mismatch");
-  assert.equal(result.observed.some(x=>x.includes("binCalendar?")),false);
+  assert.equal(result.body.town,"BANGOR");
+  assert.equal(result.body.matched,true);
+  assert.equal(result.observed.some(x=>x.includes("binCalendar?")),true);
 });
 
 test("retired historical towns are always held, even with old round dates in export",async()=>{
@@ -258,20 +273,19 @@ test("existing Millisle and Portaferry rounds can resolve first-clean dates only
     assert.equal(result.status,200,sample.town);
     assert.equal(result.body.town,sample.town);
     assert.equal(result.body.townSource,"matched_council_address");
-    assert.equal(result.body.addressMatchMethod,"exact_council_address");
+    assert.equal(result.body.addressMatchMethod,"house_number_and_postcode");
     assert.equal(result.body.results?.[0]?.assignedCleanDate,sample.date,sample.town);
     assert.equal(result.body.results?.[0]?.automatic,true,sample.town);
     assert.equal(result.body.matched,true,sample.town);
     assert.equal(result.observed.filter(x=>x.includes("binCalendar?")).length,1);
   }
 });
-test("an apparent Millisle address cannot borrow a nearby Donaghadee property and date",async()=>{
+test("council verified property determines town even when typed locality differs",async()=>{
   const result=await bookingFunction({rows:[millisle]})({
     address:"12 Bay Street, Donaghadee, BT22 2AA",postcode:"BT22 2AA",
   });
-  assert.equal(result.body.matched,false);
-  assert.equal(result.body.reason,"address_town_mismatch");
-  assert.equal(result.observed.some(x=>x.includes("binCalendar?")),false);
+  assert.equal(result.body.town,"MILLISLE");
+  assert.equal(result.observed.some(x=>x.includes("binCalendar?")),true);
 });
 
 test("ordinary Friday routes stay disabled, but bank-holiday Thursday shifts may land Friday",async()=>{
@@ -306,7 +320,7 @@ test("frontend retains the full council address dropdown with square N64 visuals
   assert.match(worker,/activeTowns.*activeServiceAreas/);
 });
 
-test("direction abbreviations select the same council property without accepting another street or number",async()=>{
+test("any street spelling matches the unique numbered property, but a different number does not",async()=>{
   const row={uprn:"100030",addressText:"34 East Mount, Newtownards, BT23 8SE"};
   const resolve=bookingFunction({rows:[row],customSchedule:{NEWTOWNARDS:[["2026-11-11",4,52]]}});
   for(const street of ["34 E Mount","34 E. Mount","34 East Mount"]){
@@ -315,11 +329,14 @@ test("direction abbreviations select the same council property without accepting
     assert.equal(body.uprn,"100030");
     assert.equal(body.results[0].assignedCleanDate,"2026-11-11");
   }
-  for(const street of ["34 W Mount","34 Mount","35 E Mount"]){
-    const result=await resolve({address:street+", Newtownards BT23 8SE",postcode:"BT23 8SE"});
-    assert.equal(result.body.matched,false);
-    assert.equal(result.observed.some(x=>x.includes("binCalendar?")),false);
+  for(const street of ["34 W Mount","34 Mount"]){
+    const result=await resolve({address:street+", Newtownards BT23 8SE",postcode:"BT23 8SE",bins:[{type:"Brown Bin"}]});
+    assert.equal(result.body.matched,true);
+    assert.equal(result.body.uprn,"100030");
   }
+  const wrongNumber=await resolve({address:"35 E Mount, Newtownards BT23 8SE",postcode:"BT23 8SE"});
+  assert.equal(wrongNumber.body.matched,false);
+  assert.equal(wrongNumber.observed.some(x=>x.includes("binCalendar?")),false);
   const {addressKey}=require("../netlify/functions/lib/squeegeeCustomerMatcher");
   const {customerKey}=require("../netlify/functions/lib/squeegeeIdempotencyClaims");
   const short="34 E Mount, Newtownards BT23 8SE",full=row.addressText;
