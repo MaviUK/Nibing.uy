@@ -119,7 +119,7 @@ function ukBookingCutoff() {
   const values = Object.fromEntries(parts.map((part)=>[part.type,part.value]));
   return {date:`${values.year}-${values.month}-${values.day}`,afterCutoff:Number(values.hour)>=10};
 }
-function nextTwoCouncilDates(councilDates){const cutoff=ukBookingCutoff();return(Array.isArray(councilDates)?councilDates:[]).filter((date)=>{const t=new Date(`${date}T12:00:00Z`).getTime();if(!Number.isFinite(t))return false;if(date<cutoff.date)return false;if(date===cutoff.date&&cutoff.afterCutoff)return false;return true;}).sort().slice(0,2);}
+function nextTwoCouncilDates(councilDates,staffVerified=false){const cutoff=ukBookingCutoff();return(Array.isArray(councilDates)?councilDates:[]).filter((date)=>{const t=new Date(`${date}T12:00:00Z`).getTime();if(!Number.isFinite(t))return false;if(date<cutoff.date)return false;if(date===cutoff.date&&cutoff.afterCutoff&&!staffVerified)return false;return true;}).sort().slice(0,2);}
 function normalizeTown(value){return String(value||"").toUpperCase().replace(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b.*$/i,"").replace(/\b[A-Z]{1,2}\d[A-Z\d]?\b.*$/i,"").replace(/\s+/g," ").trim();}
 function extractTown(address){const parts=String(address||"").split(",").map((part)=>part.trim()).filter(Boolean);return parts.length>=2?normalizeTown(parts[1]):"";}
 function inferTownFromPostcodeAddresses(addresses){const counts=new Map();for(const item of addresses||[]){const town=extractTown(item?.label);if(!town)continue;counts.set(town,(counts.get(town)||0)+1);}return [...counts.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0]||"";}
@@ -172,13 +172,21 @@ function scheduledTownCount(town,date){
   }
   return total;
 }
-function chooseTownWorkloadMatch(town,councilDates){const nextTwo=nextTwoCouncilDates(councilDates);if(!town||!nextTwo.length)return null;const scoredDates=nextTwo.map((date)=>({date,support:scheduledTownCount(town,date)}));const viable=scoredDates.filter((item)=>item.support>0).sort((a,b)=>(b.support-a.support)||a.date.localeCompare(b.date));if(!viable.length)return null;const winner=viable[0];return{round:{matched:true,ambiguous:false,resolvedBy:"exact_town_workload_on_next_two_council_dates",town:normalizeTown(town),nextCleanDate:winner.date,councilValidationDate:winner.date,support:winner.support,townDateSupport:scoredDates},assignedCleanDate:winner.date,checkedCouncilDates:nextTwo};}
+function chooseTownWorkloadMatch(town,councilDates,staffVerified=false){const nextTwo=nextTwoCouncilDates(councilDates,staffVerified);if(!town||!nextTwo.length)return null;const scoredDates=nextTwo.map((date)=>({date,support:scheduledTownCount(town,date)}));const viable=scoredDates.filter((item)=>item.support>0).sort((a,b)=>(b.support-a.support)||a.date.localeCompare(b.date));if(!viable.length)return null;const winner=viable[0];return{round:{matched:true,ambiguous:false,resolvedBy:"exact_town_workload_on_next_two_council_dates",town:normalizeTown(town),nextCleanDate:winner.date,councilValidationDate:winner.date,support:winner.support,townDateSupport:scoredDates},assignedCleanDate:winner.date,checkedCouncilDates:nextTwo};}
 function normalizeAddressList(payload){let list=payload?.data?.addresses;if(!Array.isArray(list)&&Array.isArray(payload?.addresses))list=payload.addresses;if(!Array.isArray(list)&&payload?.addresses&&typeof payload.addresses==="object")list=Object.values(payload.addresses);return(list||[]).map((item)=>{if(!item||typeof item!=="object")return null;const uprn=String(item.uprn||item.UPRN||"").trim();const label=String(item.addressText||item.address||item.label||"").trim();return uprn&&label?{uprn,label}:null;}).filter(Boolean);}
 async function getCouncilAddresses(origin,postcode){const directRes=await fetch(new URL(`/.netlify/functions/binAddresses?postcode=${encodeURIComponent(postcode)}`,origin));const directData=await directRes.json().catch(()=>({}));const directAddresses=directRes.ok?normalizeAddressList(directData):[];if(directAddresses.length)return{source:"binAddresses",addresses:directAddresses};const fallbackRes=await fetch(new URL(`/.netlify/functions/binLookup?postcode=${encodeURIComponent(postcode)}`,origin));const fallbackData=await fallbackRes.json().catch(()=>({}));const fallbackAddresses=Array.isArray(fallbackData.addresses)?fallbackData.addresses.map((i)=>({uprn:String(i.uprn||"").trim(),label:String(i.label||"").trim()})).filter((i)=>i.uprn&&i.label):[];return{source:"binLookup",addresses:fallbackRes.ok?fallbackAddresses:[]};}
 
 export default async function handler(req){
  try{
-  const body=req.method==="POST"?await req.json():{};const url=new URL(req.url);const address=String(body.address||url.searchParams.get("address")||"").trim();const postcode=normalizePostcode(body.postcode||url.searchParams.get("postcode")||address.match(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i)?.[0]);const bins=(Array.isArray(body.bins)?body.bins:[url.searchParams.get("bin")]).filter(Boolean);
+  const body=req.method==="POST"?await req.json():{};const url=new URL(req.url);
+  // Staff must prove knowledge of the server-held PIN for today's cutoff
+  // exception. Merely providing source="street-signup" grants nothing.
+  const configuredPin=String(globalThis.Netlify?.env?.get?.("STREET_SIGNUP_PIN")||
+    globalThis.process?.env?.STREET_SIGNUP_PIN||"");
+  const suppliedPin=String(body.staffPin||"");
+  const staffVerified=/^\\d{4,12}$/.test(configuredPin) &&
+    suppliedPin.length===configuredPin.length &&
+    suppliedPin===configuredPin;const address=String(body.address||url.searchParams.get("address")||"").trim();const postcode=normalizePostcode(body.postcode||url.searchParams.get("postcode")||address.match(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i)?.[0]);const bins=(Array.isArray(body.bins)?body.bins:[url.searchParams.get("bin")]).filter(Boolean);
   const addressPostcode=normalizePostcode(address.match(/\bBT\d{1,2}[A-Z0-9]?\s*\d[A-Z]{2}\b/i)?.[0]);
   if(!address||!postcode||!bins.length||
      !/^BT\d{1,2}[A-Z0-9]?\s\d[A-Z]{2}$/.test(postcode))
@@ -243,7 +251,7 @@ export default async function handler(req){
   // Never prefer the customer-entered town over the selected council UPRN.
   // An old area name in townSchedule is historical, not coverage approval.
   const town=councilTown;const results=[];
-  for(const bin of bins){const binName=bin.type||bin;const councilBin=normalizeBin(binName);const councilDates=parseCouncilDates(calData.html,councilBin);const nextTwo=nextTwoCouncilDates(councilDates);const resolved=chooseTownWorkloadMatch(town,councilDates);const assigned=resolved?.assignedCleanDate||null;results.push({bin:binName,councilBin,councilDates,nextTwoCouncilDates:nextTwo,town,round:resolved?.round||{matched:false,resolvedBy:"no_exact_town_work_on_next_two_council_dates",town,townDateSupport:nextTwo.map((date)=>({date,support:scheduledTownCount(town,date)}))},assignedCleanDate:assigned,automatic:Boolean(assigned)});}
+  for(const bin of bins){const binName=bin.type||bin;const councilBin=normalizeBin(binName);const councilDates=parseCouncilDates(calData.html,councilBin);const nextTwo=nextTwoCouncilDates(councilDates,staffVerified);const resolved=chooseTownWorkloadMatch(town,councilDates,staffVerified);const assigned=resolved?.assignedCleanDate||null;results.push({bin:binName,councilBin,councilDates,nextTwoCouncilDates:nextTwo,town,round:resolved?.round||{matched:false,resolvedBy:"no_exact_town_work_on_next_two_council_dates",town,townDateSupport:nextTwo.map((date)=>({date,support:scheduledTownCount(town,date)}))},assignedCleanDate:assigned,automatic:Boolean(assigned)});}
   const townSource="matched_council_address";
   return new Response(JSON.stringify({matched:results.every((r)=>r.automatic),postcode,addressSource:councilAddressLookup.source,addressMatchMethod,requestedPropertyNumber:requestedNumber,councilAddress:chosen.label,town,townSource,uprn:chosen.uprn,results}),{headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
  }catch(error){console.warn("Preview booking date lookup failed:",error?.name||"unknown");return new Response(JSON.stringify({error:"Booking schedule temporarily unavailable"}),{status:503,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});}
