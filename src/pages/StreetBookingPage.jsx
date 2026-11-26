@@ -230,26 +230,46 @@ export default function StreetBookingPage() {
     return () => { cancelled = true; cleanup(); };
   }, [pinVerified, success]);
 
+  // Match the ordinary booking price contract exactly. The production worker
+  // independently recalculates and rejects any difference in these fields.
   const pricing = useMemo(() => {
-    const lines = bins.filter((bin) => bin.type).map((bin, index) => {
+    const lines = bins.filter((bin) => bin.type).map((bin, idx) => {
       const plan = PLANS.find((item) => item.id === bin.planId) || PLANS[0];
       const count = Math.max(1, Number(bin.count) || 1);
       return {
-        idx: index,
-        type: bin.type,
-        count,
-        planId: plan.id,
+        idx, type: bin.type, count, planId: plan.id,
         sizeLitres: isLargeCommercialPlan(bin.planId) ? bin.sizeLitres : null,
         planLabel: plan.label +
           (isLargeCommercialPlan(bin.planId) && bin.sizeLitres ? ` — ${bin.sizeLitres}L` : ""),
-        unitPrice: plan.price,
-        baseUnit: plan.price,
-        discounted: false,
+        baseUnit: plan.price, unitPrice: plan.price, discounted: false,
+        freeCount: 0, multiBuyDiscount: 0,
         lineTotal: Math.round(plan.price * count * 100) / 100,
       };
     });
-    const total = lines.reduce((sum, line) => sum + line.lineTotal, 0);
-    return { lines, subtotal: total, total };
+    const subtotal = Math.round(lines.reduce((sum, line) =>
+      sum + line.baseUnit * line.count, 0) * 100) / 100;
+    const totalBins = lines.reduce((sum, line) => sum + line.count, 0);
+    let freeRemaining = Math.floor(totalBins / 7);
+    const ordered = lines.map((line, lineIndex) => ({lineIndex, unitPrice: line.unitPrice}))
+      .filter((line) => line.unitPrice > 0)
+      .sort((x, y) => x.unitPrice - y.unitPrice || x.lineIndex - y.lineIndex);
+    for (const {lineIndex} of ordered) {
+      if (!freeRemaining) break;
+      const line = lines[lineIndex];
+      const freeCount = Math.min(line.count, freeRemaining);
+      if (!freeCount) continue;
+      line.freeCount = freeCount;
+      line.multiBuyDiscount = Math.round(line.unitPrice * freeCount * 100) / 100;
+      line.lineTotal = Math.max(0, Math.round((line.lineTotal - line.multiBuyDiscount) * 100) / 100);
+      line.planLabel += ` — 7 for 6 offer (${freeCount} free)`;
+      freeRemaining -= freeCount;
+    }
+    return {
+      lines, subtotal,
+      total: Math.round(lines.reduce((sum, line) => sum + line.lineTotal, 0) * 100) / 100,
+      multiBuyFreeBins: lines.reduce((sum, line) => sum + line.freeCount, 0),
+      multiBuyDiscount: Math.round(lines.reduce((sum, line) => sum + line.multiBuyDiscount, 0) * 100) / 100,
+    };
   }, [bins]);
 
   useEffect(() => {
