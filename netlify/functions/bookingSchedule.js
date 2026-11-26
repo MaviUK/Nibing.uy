@@ -203,41 +203,25 @@ export default async function handler(req){
   const exact=councilAddressLookup.addresses.filter(candidate=>
     normAddress(candidate.label)===normAddress(address));
   let ranked=[];let chosen=null;let confidentMatch=false;let addressMatchMethod="fuzzy_address";
-  // The exact, unmodified council UPRN address is authoritative even for
-  // non-numeric buildings. Check this FIRST; house numbers are merely the
-  // secondary fallback for typed/Google address variants.
-  if(exact.length===1){
-    chosen={...exact[0],score:100};
-    ranked=[chosen];confidentMatch=true;addressMatchMethod="exact_council_address";
-  }else if(numberMatches.length===1){
-    chosen={...numberMatches[0],score:100};
-    ranked=[chosen];
-    confidentMatch=streetMatches(address,chosen.label);
-    addressMatchMethod="house_number_postcode_and_street";
+  // House number + full postcode is the identity. Street text is ignored.
+  // Multiple matching council UPRNs must not be silently disambiguated.
+  if(requestedNumber){
+    ranked=numberMatches;
+    addressMatchMethod="house_number_and_postcode";
+    if(numberMatches.length===1){
+      chosen={...numberMatches[0],score:100};confidentMatch=true;
+    }
   }else{
-    const pool=numberMatches.length>1?numberMatches:councilAddressLookup.addresses;
-    ranked=pool.map((candidate)=>({...candidate,score:addressScore(address,candidate.label)}))
-      .sort((a,b)=>b.score-a.score);
-    chosen=ranked[0];
-    const runnerUp=ranked[1];
-    // Never infer a property from postcode, shared number, or fuzzy
-    // locality alone. The same house number and street must match.
-    confidentMatch=Boolean(requestedNumber&&chosen&&
-      propertyNumber(chosen.label)===requestedNumber&&
-      streetMatches(address,chosen.label)&&
-      (!runnerUp||!streetMatches(address,runnerUp.label)));
-    addressMatchMethod="house_number_postcode_and_street";
+    // Named buildings without numbers retain exact council-label matching.
+    ranked=exact;
+    addressMatchMethod="exact_council_address";
+    if(exact.length===1 && !propertyNumber(exact[0].label)){
+      chosen={...exact[0],score:100};confidentMatch=true;
+    }
   }
   if(!confidentMatch)return new Response(JSON.stringify({matched:false,reason:"council_address_ambiguous",postcode,addressSource:councilAddressLookup.source,requestedPropertyNumber:requestedNumber,addressMatchMethod,candidates:ranked.slice(0,5)}),{status:200,headers:{"Content-Type":"application/json"}});
+  // Canonical town and cleaning round come only from the council property.
   const councilTown=townFromAddress(chosen.label);
-  const typedTown=townFromAddress(address);
-  // Never assign a visit when the postcode+street match a council property
-  // but the customer has entered a DIFFERENT town or village.
-  if(typedTown&&typedTown!==councilTown)
-    return new Response(JSON.stringify({
-      matched:false,reason:"address_town_mismatch",postcode,
-      councilAddress:chosen.label,town:councilTown||null,
-    }),{headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
   const areaStatus=areaStatusForTown(councilTown);
   if(areaStatus!=="active")
     return new Response(JSON.stringify({
