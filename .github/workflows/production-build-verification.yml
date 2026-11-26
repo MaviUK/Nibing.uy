@@ -7,6 +7,7 @@ on:
       - "netlify/functions/lib/squeegeeBookingPricing.js"
       - "netlify/functions/lib/squeegeeAutomaticBooking.js"
       - "tests/squeegee-production-dispatch.test.cjs"
+      - "tests/squeegee-preview-coverage-authority.test.cjs"
       - ".github/workflows/production-build-verification.yml"
   workflow_dispatch:
 permissions:
