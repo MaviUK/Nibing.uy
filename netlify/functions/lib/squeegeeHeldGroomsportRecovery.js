@@ -49,8 +49,8 @@ function acceptedAudit(audit) {
      !Number.isFinite(Date.parse(audit.createdAt)) ||
      audit.termsAccepted!==true ||
      normalName(audit.name)!=="GAVIN" ||
-     addressKey(audit.address)!==
-       addressKey("78 Groomsport Road, Bangor BT20 5NF") ||
+     !sameRecoveryProperty(audit.address,
+       "78 Groomsport Road, Bangor BT20 5NF") ||
      !Array.isArray(audit.bins) || audit.bins.length!==1 ||
      audit.bins[0]?.type!=="Blue Bin" ||
      audit.bins[0]?.count!==1 ||
