@@ -447,7 +447,7 @@ export default function StreetBookingPage() {
           </a>
           <p className="mt-4 text-yellow-400 font-black uppercase tracking-[0.16em] text-sm">Street Signup</p>
           <h1 className="mt-2 text-3xl sm:text-4xl font-black uppercase">Book today's clean. Signed up today.</h1>
-          <p className="mt-3 text-gray-300">Use this page for customers who sign up while we are already on the street. Today's clean is booked without the standard same-day cutoff. Bookings are sent through the same Squeegee system as online bookings. Today's initial clean can be marked completed manually.</p>
+          {!success && <p className="mt-3 text-gray-300">Staff street sign-up for customers booking while we are on their street.</p>}
         </div>
 
         <div className="bg-white text-black rounded-2xl shadow-2xl overflow-hidden">
@@ -470,11 +470,8 @@ export default function StreetBookingPage() {
             <div className="p-7 sm:p-10 text-center">
               <div className="mx-auto w-16 h-16 rounded-full bg-green-500 flex items-center justify-center text-3xl font-black">✓</div>
               <h2 className="mt-5 text-3xl font-black">Booking received</h2>
-              <p className="mt-3 text-gray-600">The booking has been accepted by the website. Squeegee creation is processed separately and is not yet confirmed by this message.</p>
-              {acceptedReference && <p className="mt-3 text-sm font-bold">Booking reference: {acceptedReference}</p>}
-              {acceptedReference && <a className="block mt-3 underline text-blue-700" href={`/api/squeegee-production-auto-status?bookingId=${encodeURIComponent(acceptedReference)}`} target="_blank" rel="noopener noreferrer">Check Squeegee status (owner sign-in)</a>}
-              <p className="mt-3 text-sm text-amber-900">If Squeegee does not show the job, check its status before making another booking. An existing submission must not be resent.</p>
-              <button type="button" onClick={reset} className="mt-6 bg-black hover:bg-neutral-800 text-white font-bold py-3 px-6 rounded-xl w-full">Add another street customer</button>
+              {acceptedReference && <p className="mt-5 text-lg font-bold break-all">Booking reference: {acceptedReference}</p>}
+              <p className="mt-6 text-xl font-black text-gray-800">Please hand the phone back to Ni Bin Guy.</p>
             </div>
           ) : (
             <form onSubmit={submit} className="p-5 sm:p-7 space-y-4">
