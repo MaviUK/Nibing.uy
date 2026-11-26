@@ -189,6 +189,10 @@ exports.handler = async (event) => {
 
   try {
     const payload = JSON.parse(event.body || "{}");
+    // A caller may not turn a public booking into a staff booking by setting source.
+    if (payload.source === "street-signup" && event.__streetSignupVerified !== true) {
+      return { statusCode: 403, body: JSON.stringify({ error: "Staff verification required" }) };
+    }
     const recaptchaToken = payload.recaptchaToken || null;
     const recaptchaAction = payload.recaptchaAction || "booking_submit";
 
