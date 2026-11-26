@@ -117,7 +117,7 @@ test("browser diagnostics never override server dates or staff cutoff exemption"
   const debug=read("src/bookingScheduleDebug.js");
   const schedule=read("netlify/functions/bookingSchedule.js");
   assert.doesNotMatch(debug,/applySameDayCutoff/);
-  assert.doesNotMatch(debug,/new Response\\(JSON\\.stringify\\(data\\)/);
+  assert.equal(debug.includes("new Response(JSON.stringify(data)"),false);
   assert.match(debug,/return response;/);
   assert.match(schedule,/staffVerified/);
   assert.match(schedule,/cutoff\\.afterCutoff&&!staffVerified/);
