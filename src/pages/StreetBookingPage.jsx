@@ -16,6 +16,27 @@ const PLANS = [
   { id: "comm_gt660_oneoff", label: "Commercial 660L+ One-Off", price: 45 },
 ];
 
+const BIN_DATE_REASONS = {
+  address_postcode_mismatch: "The selected address and postcode do not match. Choose the full address again.",
+  council_address_not_found: "The council did not return any addresses for this BT postcode.",
+  council_address_ambiguous: "We could not match this house and street confidently to one council property. Choose the full address from the suggestions.",
+  address_town_mismatch: "The town in the selected address differs from the council's recorded town.",
+  service_area_not_covered: "The council lists this property in an area we no longer cover.",
+  service_area_requires_confirmation: "The property's council town needs manual coverage confirmation.",
+  council_calendar_failed: "The council bin collection calendar was unavailable for this address.",
+  no_exact_town_work_on_next_two_council_dates: "We found the property, but neither of the next two collection dates matches a confirmed cleaning round.",
+  council_collection_date_missing: "The council calendar has no usable upcoming collection date for the selected bin.",
+  request_failed: "The bin-day service returned an error. Please retry.",
+  connection_failed: "We could not reach the bin-day service. Check your connection and retry.",
+};
+function binDateFailureMessage(status) {
+  if (status.state === "idle") return "Select a bin and choose a full address including its BT postcode.";
+  if (status.state === "loading") return "Checking the council property, collection calendar and cleaning round…";
+  if (status.state === "manual" || status.state === "error")
+    return BIN_DATE_REASONS[status.reason] || "The cleaning date could not be verified. Check the selected address or review the date manually.";
+  return "";
+}
+
 const DEFAULT_BIN = { type: "", count: 1, planId: "domestic_4w", sizeLitres: null };
 
 const isLargeCommercialPlan = (planId) =>
@@ -231,7 +252,7 @@ export default function StreetBookingPage() {
     const selected = bins.filter(bin => bin.type).map(bin => ({type:bin.type}));
     const postcode = address.toUpperCase().match(/\bBT\d{1,2}[A-Z0-9]?\s*\d[A-Z]{2}\b/)?.[0];
     if (!postcode || !selected.length) {
-      setBinDayStatus({state:"idle",results:[]});
+      setBinDayStatus({state:"idle",results:[],reason:!postcode ? "postcode_missing" : "bin_missing"});
       return;
     }
     const controller = new AbortController();
@@ -244,13 +265,19 @@ export default function StreetBookingPage() {
           signal:controller.signal
         });
         const data = await response.json();
-        if (!controller.signal.aborted) setBinDayStatus({
-          state:response.ok && data?.matched ? "matched" : "manual",
-          results:Array.isArray(data?.results)?data.results:[],
-          reason:data?.reason || null
-        });
+        if (!controller.signal.aborted) {
+          const results = Array.isArray(data?.results) ? data.results : [];
+          const failedRound = results.find(item => !item?.automatic)?.round?.resolvedBy;
+          const reason = !response.ok ? "request_failed" :
+            data?.reason || failedRound || (results.some(item => !item?.councilDates?.length)
+              ? "council_collection_date_missing" : "no_exact_town_work_on_next_two_council_dates");
+          setBinDayStatus({
+            state:response.ok && data?.matched ? "matched" : "manual",
+            results, reason:response.ok && data?.matched ? null : reason,
+          });
+        }
       } catch (error) {
-        if (!controller.signal.aborted) setBinDayStatus({state:"error",results:[]});
+        if (!controller.signal.aborted) setBinDayStatus({state:"error",results:[],reason:"connection_failed"});
       }
     },450);
     return () => {clearTimeout(timer);controller.abort();};
@@ -481,8 +508,10 @@ export default function StreetBookingPage() {
                 ) : (
                   <>
                     <p className="text-lg font-bold">{binDayStatus.state === "loading" ? "Checking your bin collection day…" : "Bin collection day check"}</p>
-                    {binDayStatus.state === "idle" && <p className="mt-2 text-sm">Select a bin and choose a full address including its BT postcode.</p>}
-                    {(binDayStatus.state === "manual" || binDayStatus.state === "error") && <p className="mt-2 text-sm font-semibold">We couldn't confirm a regular cleaning date automatically. Please check the address and collection day before creating Squeegee jobs.</p>}
+                    <p className="mt-2 text-sm font-semibold">{binDateFailureMessage(binDayStatus)}</p>
+                    {(binDayStatus.state === "manual" || binDayStatus.state === "error") && (
+                      <p className="mt-2 text-sm">No Squeegee cleaning date has been confirmed. Do not mark the job as automatically scheduled until it has been reviewed.</p>
+                    )}
                   </>
                 )}
               </div>
