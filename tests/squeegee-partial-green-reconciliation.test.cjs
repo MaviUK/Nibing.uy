@@ -12,6 +12,8 @@ const env={SQUEEGEE_API_KEY:"mock-test-only-api-key-not-real-123456",
 const sid="11111111-1111-4111-8111-111111111111";
 const bid="22222222-2222-4222-8222-222222222222";
 const gid="33333333-3333-4333-8333-333333333333";
+// Freeze the clock for this historical 2026 recovery scenario.
+const HISTORICAL_TEST_NOW=Date.parse("2026-10-31T22:00:00Z");
 function audit(){
  const bins=[
   {type:"Black Bin",planId:"domestic_4w",count:1},
