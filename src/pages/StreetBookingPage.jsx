@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import BOOKING_TERMS from "../data/bookingTerms.json";
+import { createFriendlyBookingReference } from "../bookingReference.mjs";
 import BookingTermsContent from "../components/BookingTermsContent.jsx";
 
 const TERMS_VERSION = BOOKING_TERMS.version;
@@ -331,6 +332,8 @@ export default function StreetBookingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          bookingId: createFriendlyBookingReference(),
+          submittedAt: new Date().toISOString(),
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim(),
@@ -341,6 +344,16 @@ export default function StreetBookingPage() {
           lat: loc ? loc.lat() : null,
           lng: loc ? loc.lng() : null,
           source: "street-signup",
+          bookingScheduleSnapshot: (() => {
+            const postcode = address.toUpperCase().match(/\\bBT\\d{1,2}[A-Z0-9]?\\s*\\d[A-Z]{2}\\b/)?.[0];
+            if (!postcode || binDayStatus.state !== "matched" || binDayStatus.results.length !== bins.filter(bin => bin.type).length) return null;
+            return { version: 1, postcode, matched: true,
+              results: binDayStatus.results.map((result, index) => ({
+                type: bins.filter(bin => bin.type)[index].type,
+                automatic: result?.automatic === true,
+                assignedCleanDate: result?.assignedCleanDate || null,
+              })) };
+          })(),
           staffPin,
           cleanCompletedToday: false,
           termsAccepted: true,
@@ -378,7 +391,7 @@ export default function StreetBookingPage() {
           </a>
           <p className="mt-4 text-yellow-400 font-black uppercase tracking-[0.16em] text-sm">Street Signup</p>
           <h1 className="mt-2 text-3xl sm:text-4xl font-black uppercase">Book today's clean. Signed up today.</h1>
-          <p className="mt-3 text-gray-300">Use this page for customers who sign up while we are already on the street. Today's clean is booked without the standard same-day cutoff. You will mark the job completed manually in Squeegee; no quote is sent.</p>
+          <p className="mt-3 text-gray-300">Use this page for customers who sign up while we are already on the street. Today's clean is booked without the standard same-day cutoff. Bookings are sent through the same Squeegee system as online bookings. Today's initial clean can be marked completed manually.</p>
         </div>
 
         <div className="bg-white text-black rounded-2xl shadow-2xl overflow-hidden">
@@ -463,7 +476,7 @@ export default function StreetBookingPage() {
                       ))}
                     </div>
                     <p className="mt-3 text-sm sm:text-base">Your regular service will continue on the same 4-week cycle.</p>
-                    <p className="mt-2 text-sm font-semibold">Street Signup: today's initial clean is handled separately and must be marked complete manually.</p>
+                    <p className="mt-2 text-sm font-semibold">Street Signup: today's clean can be marked complete manually in Squeegee.</p>
                   </>
                 ) : (
                   <>
