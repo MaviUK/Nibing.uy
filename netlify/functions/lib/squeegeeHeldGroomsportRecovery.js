@@ -24,6 +24,23 @@ function heldBeforeAnyWrite(status, originalClaim, recoveryClaim) {
     (originalClaim===null || originalClaim===undefined) &&
     (recoveryClaim===null || recoveryClaim===undefined);
 }
+// A one-time owner recovery must confirm the original STREET as well as
+// house number and postcode. General customer matching intentionally uses
+// house+postcode, but that is insufficient authority for a recovery POST.
+function recoveryStreet(value) {
+  const raw=typeof value==="string"?value:
+    value?.text||value?.addressDescription||value?.formattedAddress||"";
+  return String(raw).split(",")[0].toUpperCase()
+    .replace(/^\\s*\\d{1,6}[A-Z]?\\s+/, "")
+    .replace(/\\bRD\\b/g,"ROAD")
+    .replace(/\\bST\\b/g,"STREET")
+    .replace(/\\bAVE\\b/g,"AVENUE")
+    .replace(/[^A-Z0-9]+/g," ").trim();
+}
+function sameRecoveryProperty(a,b) {
+  return addressKey(a)!=="" && addressKey(a)===addressKey(b) &&
+    recoveryStreet(a)!=="" && recoveryStreet(a)===recoveryStreet(b);
+}
 function acceptedAudit(audit) {
   if(audit?.bookingId!==BOOKING_ID ||
      audit.channel!=="email" ||
@@ -73,7 +90,7 @@ function acceptedAudit(audit) {
 }
 function existingCustomerMatches(record,booking) {
   if(!record || normalName(record.name)!==normalName(booking.name) ||
-     addressKey(record.address)!==addressKey(booking.address))return false;
+     !sameRecoveryProperty(record.address,booking.address))return false;
   return !["inactive","deactivated","deleted","archived","cancelled","canceled"]
     .includes(String(record.status||"").toLowerCase());
 }
