@@ -78,7 +78,9 @@ export default async function handler(req) {
     const lat=Number(raw.latitude),lon=Number(raw.longitude);
     if(!Number.isFinite(lat)||!Number.isFinite(lon))
       return json({valid:true,covered:false,possible:true,
-        reason:"postcode_location_requires_review",postcode});
+        reason:"postcode_location_requires_review",postcode,
+        addresses:councilRows.map(({uprn,label,town,status})=>
+          ({uprn,label,town,status}))});
     const nearest=COVERED_TOWNS.map(town=>({
       ...town,distanceKm:distanceKm(lat,lon,town.lat,town.lon),
     })).sort((a,b)=>a.distanceKm-b.distanceKm)[0];
@@ -97,7 +99,7 @@ export default async function handler(req) {
       !rows.length?"council_address_lookup_unavailable":
       confirmed?"council_town_verified":
       active.length?"select_address_for_confirmation":
-      classifications?.review?.length?"service_town_requires_review":
+      review.length?"service_town_requires_review":
       "outside_current_service_towns";
     // These are public council addresses already returned by binAddresses.
     // Return them once to avoid immediately repeating the lookup in React.
@@ -108,7 +110,7 @@ export default async function handler(req) {
         Math.round(nearest.distanceKm*100)/100:null,
       requiresAddressSelection:true,
       addresses:rows.map(({uprn,label,town,status})=>({uprn,label,town,status}))},
-      200,Boolean(classifications));
+      200,Boolean(rows.length));
   }catch(error){
     console.warn("Preview postcode coverage lookup unavailable",
       error?.name||"unknown");
