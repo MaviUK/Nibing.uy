@@ -103,9 +103,8 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: "Missing required booking details" }) };
     }
     if (!termsAccepted) return { statusCode: 400, body: JSON.stringify({ error: "Terms must be accepted" }) };
-    if (!(await verifyRecaptcha(recaptchaToken, recaptchaAction))) {
-      return { statusCode: 403, body: JSON.stringify({ error: "Anti-bot check failed" }) };
-    }
+    // The shared booking handler checks the reCAPTCHA token once. Google
+    // tokens are single-use; verifying here first would reject every booking.
 
     // Share the production website booking pipeline: validation, terms PDF,
     // idempotency, Squeegee customer matching, automatic jobs and owner alerts.
