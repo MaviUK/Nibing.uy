@@ -38,6 +38,9 @@ async function fetchAuthoritativeSchedule(payload, fetchImpl = fetch, { timeoutM
         address: String(payload.address || ""),
         postcode: normalizedPostcode(payload.address),
         bins: bins.map(bin => ({ type: bin.type })),
+        // Only trusted Squeegee worker code adds the server-held staff PIN.
+        ...(payload.source === "street-signup" && process.env.STREET_SIGNUP_PIN
+          ? { staffPin: process.env.STREET_SIGNUP_PIN } : {}),
       }),
       signal: controller.signal,
       redirect: "error",
