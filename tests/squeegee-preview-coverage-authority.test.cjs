@@ -119,7 +119,8 @@ test("street signup supplies a real postcode snapshot to production Squeegee wor
   assert.doesNotMatch(street,/match\(\/\\\\bBT\\\\d/);
   assert.match(street,/bookingScheduleSnapshot:/);
   assert.match(street,/Booking received/);
-  assert.match(street,/Squeegee creation is processed separately/);
+  assert.match(street,/Please hand the phone back to Ni Bin Guy/);
+  assert.doesNotMatch(street,/Check Squeegee status \(owner sign-in\)/);
 });
 
 test("browser diagnostics never override server dates or staff cutoff exemption",()=>{
