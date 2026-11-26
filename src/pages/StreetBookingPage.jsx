@@ -195,6 +195,7 @@ export default function StreetBookingPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [acceptedReference, setAcceptedReference] = useState("");
   const [staffPin, setStaffPin] = useState("");
   const [pinVerified, setPinVerified] = useState(false);
   const [pinError, setPinError] = useState("");
@@ -318,6 +319,7 @@ export default function StreetBookingPage() {
     setTermsConfirmed(false);
     setTermsAccepted(false);
     setSuccess(false);
+    setAcceptedReference("");
     selectedPlaceRef.current = null;
   };
 
@@ -378,7 +380,7 @@ export default function StreetBookingPage() {
           lng: loc ? loc.lng() : null,
           source: "street-signup",
           bookingScheduleSnapshot: (() => {
-            const postcode = address.toUpperCase().match(/\\bBT\\d{1,2}[A-Z0-9]?\\s*\\d[A-Z]{2}\\b/)?.[0];
+            const postcode = address.toUpperCase().match(/\bBT\d{1,2}[A-Z0-9]?\s*\d[A-Z]{2}\b/)?.[0];
             if (!postcode || binDayStatus.state !== "matched" || binDayStatus.results.length !== bins.filter(bin => bin.type).length) return null;
             return { version: 1, postcode, matched: true,
               results: binDayStatus.results.map((result, index) => ({
@@ -405,6 +407,7 @@ export default function StreetBookingPage() {
       window.n64Score?.awardBooking(arcadeSubmissionId, bins);
       const booked = await response.json().catch(() => ({}));
       window.n64Score?.offerEntry(booked.arcadeBookingProof);
+      setAcceptedReference(String(booked.bookingId || ""));
       setSuccess(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
@@ -446,8 +449,11 @@ export default function StreetBookingPage() {
           ) : success ? (
             <div className="p-7 sm:p-10 text-center">
               <div className="mx-auto w-16 h-16 rounded-full bg-green-500 flex items-center justify-center text-3xl font-black">✓</div>
-              <h2 className="mt-5 text-3xl font-black">Signup complete</h2>
-              <p className="mt-3 text-gray-600">The booking confirmation email and Terms & Conditions Acceptance Certificate have been triggered. No quote will be sent.</p>
+              <h2 className="mt-5 text-3xl font-black">Booking received</h2>
+              <p className="mt-3 text-gray-600">The booking has been accepted by the website. Squeegee creation is processed separately and is not yet confirmed by this message.</p>
+              {acceptedReference && <p className="mt-3 text-sm font-bold">Booking reference: {acceptedReference}</p>}
+              {acceptedReference && <a className="block mt-3 underline text-blue-700" href={`/api/squeegee-production-auto-status?bookingId=${encodeURIComponent(acceptedReference)}`} target="_blank" rel="noopener noreferrer">Check Squeegee status (owner sign-in)</a>}
+              <p className="mt-3 text-sm text-amber-900">If Squeegee does not show the job, check its status before making another booking. An existing submission must not be resent.</p>
               <button type="button" onClick={reset} className="mt-6 bg-black hover:bg-neutral-800 text-white font-bold py-3 px-6 rounded-xl w-full">Add another street customer</button>
             </div>
           ) : (
