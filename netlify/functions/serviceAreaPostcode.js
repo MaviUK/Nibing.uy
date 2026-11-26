@@ -51,9 +51,28 @@ export default async function handler(req) {
         encodeURIComponent(canonicalPostcode),req.url),{signal:AbortSignal.timeout(7500)}),
     ]);
     const geo=geoResult.status==="fulfilled"?geoResult.value:null;
-    if(!geo?.ok) return json({valid:geo?.status!==404,covered:false,
-      possible:false,reason:geo?.status===404?"postcode_not_found":"postcode_lookup_unavailable"},
-      geo?.status===404?404:502);
+    // Council property records are sufficient to verify a precise address.
+    // A temporary postcodes.io outage must not discard a valid council UPRN.
+    let councilRows=[];
+    if(addressResult.status==="fulfilled" && addressResult.value.ok){
+      const council=await addressResult.value.json().catch(()=>null);
+      const classified=classifyCouncilAddresses(
+        council?.data?.addresses||council?.addresses||[]);
+      councilRows=classified.addresses;
+    }
+    if(!geo?.ok){
+      if(councilRows.length) {
+        const active=councilRows.filter(row=>row.status==="active");
+        return json({valid:true,covered:false,possible:active.length>0,
+          reason:"postcode_geolocation_unavailable_council_verified",
+          postcode:canonicalPostcode,requiresAddressSelection:true,
+          addresses:councilRows.map(({uprn,label,town,status})=>
+            ({uprn,label,town,status}))},200,true);
+      }
+      return json({valid:geo?.status!==404,covered:false,
+        possible:false,reason:geo?.status===404?"postcode_not_found":"postcode_lookup_unavailable"},
+        geo?.status===404?404:502);
+    }
     const payload=await geo.json();
     const raw=payload?.result||{};
     const lat=Number(raw.latitude),lon=Number(raw.longitude);
@@ -64,17 +83,13 @@ export default async function handler(req) {
       ...town,distanceKm:distanceKm(lat,lon,town.lat,town.lon),
     })).sort((a,b)=>a.distanceKm-b.distanceKm)[0];
     const near=Boolean(nearest && nearest.distanceKm<=nearest.radiusKm);
-    let classifications=null;
-    if(addressResult.status==="fulfilled"&&addressResult.value.ok){
-      const data=await addressResult.value.json().catch(()=>null);
-      classifications=classifyCouncilAddresses(data?.data?.addresses||data?.addresses||[]);
-    }
-    const rows=classifications?.addresses||[];
-    const active=classifications?.active||[];
+    const rows=councilRows;
+    const active=rows.filter(row=>row.status==="active");
+    const review=rows.filter(row=>row.status==="review");
     const nonactive=rows.length-active.length;
     const mixedTowns=new Set(active.map(x=>x.town)).size>1;
     const possible=Boolean((near&&(!rows.length||active.length>0||
-      (classifications?.review?.length||0)>0))||
+      review.length>0))||
       (!near&&active.length>0));
     const confirmed=near&&active.length>0&&nonactive===0&&!mixedTowns;
     const reason=!near?
