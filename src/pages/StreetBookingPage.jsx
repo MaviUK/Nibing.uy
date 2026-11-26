@@ -240,7 +240,7 @@ export default function StreetBookingPage() {
       try {
         const response = await fetch("/api/booking-schedule", {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({address,postcode,bins:selected}),
+          body:JSON.stringify({address,postcode,bins:selected,staffPin}),
           signal:controller.signal
         });
         const data = await response.json();
@@ -254,7 +254,7 @@ export default function StreetBookingPage() {
       }
     },450);
     return () => {clearTimeout(timer);controller.abort();};
-  },[address,bins]);
+  },[address,bins,staffPin]);
 
   const formatBinDate = (value) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return String(value || "");
