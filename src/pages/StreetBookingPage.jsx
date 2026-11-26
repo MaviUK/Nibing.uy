@@ -19,13 +19,16 @@ const PLANS = [
 const BIN_DATE_REASONS = {
   address_postcode_mismatch: "The selected address and postcode do not match. Choose the full address again.",
   council_address_not_found: "The council did not return any addresses for this BT postcode.",
-  council_address_ambiguous: "We could not match this house and street confidently to one council property. Choose the full address from the suggestions.",
+  council_address_ambiguous: "The number and postcode did not identify exactly one council property. Check the postcode or request manual review.",
   address_town_mismatch: "The town in the selected address differs from the council's recorded town.",
   service_area_not_covered: "The council lists this property in an area we no longer cover.",
   service_area_requires_confirmation: "The property's council town needs manual coverage confirmation.",
   council_calendar_failed: "The council bin collection calendar was unavailable for this address.",
   no_exact_town_work_on_next_two_council_dates: "We found the property, but neither of the next two collection dates matches a confirmed cleaning round.",
   council_collection_date_missing: "The council calendar has no usable upcoming collection date for the selected bin.",
+  council_no_schedule_results: "The council property was checked, but the date service returned no bin results.",
+  no_upcoming_council_dates: "The council calendar has no collection date after the booking cutoff for this bin.",
+  round_unconfirmed: "Council collection dates were found, but the corresponding cleaning round could not be confirmed.",
   request_failed: "The bin-day service returned an error. Please retry.",
   connection_failed: "We could not reach the bin-day service. Check your connection and retry.",
 };
@@ -267,10 +270,13 @@ export default function StreetBookingPage() {
         const data = await response.json();
         if (!controller.signal.aborted) {
           const results = Array.isArray(data?.results) ? data.results : [];
-          const failedRound = results.find(item => !item?.automatic)?.round?.resolvedBy;
+          const failedBin = results.find(item => !item?.automatic);
+          const failedRound = failedBin?.round?.resolvedBy;
           const reason = !response.ok ? "request_failed" :
-            data?.reason || failedRound || (results.some(item => !item?.councilDates?.length)
-              ? "council_collection_date_missing" : "no_exact_town_work_on_next_two_council_dates");
+            data?.reason || (!results.length ? "council_no_schedule_results" :
+              !failedBin?.councilDates?.length ? "council_collection_date_missing" :
+              !failedBin?.nextTwoCouncilDates?.length ? "no_upcoming_council_dates" :
+              failedRound || "round_unconfirmed");
           setBinDayStatus({
             state:response.ok && data?.matched ? "matched" : "manual",
             results, reason:response.ok && data?.matched ? null : reason,
@@ -509,6 +515,9 @@ export default function StreetBookingPage() {
                   <>
                     <p className="text-lg font-bold">{binDayStatus.state === "loading" ? "Checking your bin collection day…" : "Bin collection day check"}</p>
                     <p className="mt-2 text-sm font-semibold">{binDateFailureMessage(binDayStatus)}</p>
+                    {(binDayStatus.state === "manual" || binDayStatus.state === "error") && binDayStatus.reason && (
+                      <p className="mt-2 text-xs opacity-75">Diagnostic: {binDayStatus.reason}</p>
+                    )}
                     {(binDayStatus.state === "manual" || binDayStatus.state === "error") && (
                       <p className="mt-2 text-sm">No Squeegee cleaning date has been confirmed. Do not mark the job as automatically scheduled until it has been reviewed.</p>
                     )}
