@@ -113,6 +113,16 @@ test("authorised towns and retired towns come from one reviewed policy",async()=
     "Example Community Hall, Bangor, BT20 4AA"),false);
 });
 
+test("browser diagnostics never override server dates or staff cutoff exemption",()=>{
+  const debug=read("src/bookingScheduleDebug.js");
+  const schedule=read("netlify/functions/bookingSchedule.js");
+  assert.doesNotMatch(debug,/applySameDayCutoff/);
+  assert.doesNotMatch(debug,/new Response\\(JSON\\.stringify\\(data\\)/);
+  assert.match(debug,/return response;/);
+  assert.match(schedule,/staffVerified/);
+  assert.match(schedule,/cutoff\\.afterCutoff&&!staffVerified/);
+});
+
 test("verified Bangor postcode needs actual active council-town evidence",async()=>{
   const {response,body,observed}=await postcodeFunction({rows:[bangor]})("BT20 4AA");
   assert.equal(response.status,200);
