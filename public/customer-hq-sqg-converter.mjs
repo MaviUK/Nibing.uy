@@ -2,7 +2,7 @@
 export const SCORE_VERSION="2026-11-streak-20-plus-1-per-job-per-paid-bin-v3";
 export const PENALTY_SOURCE_VERSION="2026-11-flat-overdue-1xp-per-job-day-v3";
 const UUID=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
-const REF=/^(?:\d{1,12}|CUS\d{1,15}|[Aa]{2}\d{3,8})$/;
+const REF=/^(?:\d{1,12}|CUS\d{1,15}|[Aa]{2}\d{3,8}|NBG-[A-Z0-9]{8})$/;
 const EMAIL=/^[^\s@]{1,80}@[^\s@]{1,160}\.[^\s@]{2,24}$/;
 const FIRST=/^[\p{L}][\p{L}'’\-]{0,39}$/u;
 const TOWNS=["Newtownards","Donaghadee","Carrowdore","Groomsport","Crawfordsburn",
