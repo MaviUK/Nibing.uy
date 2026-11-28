@@ -30,7 +30,8 @@ test("Samsung null/omitted Origin is allowed only with matching signed form toke
  assert.equal(csrf.isAllowed({cookie:token,formToken:"",env,headers:new Headers(),now}),false);
  assert.equal(csrf.isAllowed({cookie:token,formToken:csrf.issueToken(env,now),env,headers:new Headers(),now}),false);
  assert.equal(csrf.isAllowed({cookie:"",formToken:token,env,headers:new Headers(),now}),false);
- assert.equal(csrf.isAllowed({cookie:token.slice(0,-1)+"0",formToken:token.slice(0,-1)+"0",env,headers:new Headers(),now}),false);
+ const tampered=token.slice(0,-1)+(token.endsWith("0")?"1":"0");
+ assert.equal(csrf.isAllowed({cookie:tampered,formToken:tampered,env,headers:new Headers(),now}),false);
  assert.equal(allowed(token,new Headers(),{now:now+csrf.WINDOW_MS}),false);
 });
 test("cross-site requests and foreign referrers are rejected even with valid token",()=>{
