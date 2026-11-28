@@ -334,7 +334,7 @@ test("new booking references pass current converter and per-job validator",async
  const {snapshot}=finishSqueegeeImport(state,"2026-11-07");
  assert.equal(snapshot.accounts.find(a=>a.id===customerIds[0]).ref,"NBG-ABCDEFG2");
  const validator=require("../netlify/functions/lib/squeegeePreviewBinHistory");
- assert.doesNotThrow(()=>validator.validateBinSource(snapshot));
+ assert.doesNotThrow(()=>validator.validateBinSource(snapshot,{now:Date.parse("2026-11-07T12:00:00Z")}));
  state.customers.get(customerIds[0]).ref="NBG-INVALID!";
  assert.throws(()=>finishSqueegeeImport(state,"2026-11-07"),/unverified_squeegee_customer_reference/);
 });
