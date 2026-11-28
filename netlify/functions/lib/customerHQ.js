@@ -72,7 +72,7 @@ function validateSource(raw){
   for(const item of raw.accounts){
     if(!item || !UUID.test(item.id) ||
       seenId.has(item.id.toLowerCase()) ||
-      typeof item.ref!=="string"||!(/^[0-9]{1,12}$|^CUS[0-9]{1,15}$|^[Aa]{2}[0-9]{3,8}$/.test(item.ref))||
+      typeof item.ref!=="string"||!(/^[0-9]{1,12}$|^CUS[0-9]{1,15}$|^[Aa]{2}[0-9]{3,8}$|^NBG-[A-Z0-9]{8}$/.test(item.ref))||
       seenRef.has(item.ref.toLowerCase()) ||
       !Number.isSafeInteger(item.points)||item.points<0||item.points>100000 ||
       !Number.isSafeInteger(item.paidCleans)||item.paidCleans<0||item.paidCleans>1000 ||
