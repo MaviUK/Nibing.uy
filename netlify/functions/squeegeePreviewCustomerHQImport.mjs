@@ -152,7 +152,7 @@ export default async function handler(request,ctx){
       '</p>'+(summary?'<p><strong>STREAK SCORING:</strong> '+
         (perJobReady?'PER SQUEEGEE JOB — CORRECTED':
           'OLDER CUSTOMER-WIDE CALCULATION — REIMPORT REQUIRED')+'</p>':'')+'</section>'+
-      '<section><h2>Upload your normal Squeegee backup</h2>'+
+      '<section><h2>Upload your normal Squeegee backup</h2><p><small>Importer revision: 28 November 2026 — NBG references supported</small></p>'+
       '<form id="hq-history-upload-form" method="post" enctype="multipart/form-data" action="'+PATH+'">'+
       '<input type="hidden" name="csrf" value="'+escape(csrfToken)+'">'+
       '<label for="hq-history-file">Choose your latest Squeegee .sqg backup</label>'+
