@@ -6,7 +6,7 @@ const path=require("node:path");
 const {pathToFileURL}=require("node:url");
 const base=path.resolve(__dirname,"..");
 const load=()=>import(pathToFileURL(path.join(base,
-  "public/customer-hq-sqg-converter.mjs")).href);
+  "public/customer-hq-sqg-converter-20261128.mjs")).href);
 const content=p=>fs.readFileSync(path.join(base,p),"utf8");
 function seed({day="2026-11-07",skip=false}={}){
  return load().then(({makeState,acceptSqueegeeRecord,finishSqueegeeImport})=>{
@@ -46,16 +46,17 @@ function seed({day="2026-11-07",skip=false}={}){
 }
 test("only owner Squeegee .sqg is accepted; browser and worker never upload raw archive",()=>{
  const page=content("netlify/functions/squeegeePreviewCustomerHQImport.mjs");
- const ui=content("public/customer-hq-sqg-import.mjs");
- const worker=content("public/customer-hq-sqg-worker.mjs");
+ const ui=content("public/customer-hq-sqg-import-20261128.mjs");
+ const worker=content("public/customer-hq-sqg-worker-20261128.mjs");
  assert.ok(page.includes('accept=".sqg,application/octet-stream,.json,application/json"'));
  assert.ok(page.includes("referenceMap"));
+ assert.ok(page.includes("customer-hq-sqg-import-20261128.mjs"));
  assert.ok(page.includes("verifyTestSessionCookie"));
  assert.ok(page.includes("uploadCsrf.isAllowedOwnerUpload"));
  assert.ok(page.includes("worker-src 'self'"));
- assert.ok(ui.includes('new Worker("/customer-hq-sqg-worker.mjs?v=streak-plus1-v3-20261108"'));
+ assert.ok(ui.includes('new Worker("/customer-hq-sqg-worker-20261128.mjs"'));
  assert.ok(ui.includes('result?.snapshot?.scoringVersion!=="2026-11-streak-20-plus-1-per-job-per-paid-bin-v3"'));
- assert.ok(worker.includes('customer-hq-sqg-converter.mjs?v=streak-plus1-v3-20261108'));
+ assert.ok(worker.includes('customer-hq-sqg-converter-20261128.mjs'));
  assert.ok(worker.includes('SCORE_VERSION!=="2026-11-streak-20-plus-1-per-job-per-paid-bin-v3"'));
  assert.ok(ui.includes('fetch(form.action,{method:"POST"'));
  assert.ok(ui.includes('body.append("history",bytes,'));
@@ -325,4 +326,15 @@ test("each consecutive paid visit on the SAME job increases per-bin XP by exactl
   assert.equal(job.nextBonus,23);
   assert.equal(customer.points,523);
   assert.equal(customer.balanceState,"settled");
+});
+
+test("new booking references pass current converter and per-job validator",async()=>{
+ const {state,customerIds,finishSqueegeeImport}=await seed();
+ state.customers.get(customerIds[0]).ref="NBG-ABCDEFG2";
+ const {snapshot}=finishSqueegeeImport(state,"2026-11-07");
+ assert.equal(snapshot.accounts.find(a=>a.id===customerIds[0]).ref,"NBG-ABCDEFG2");
+ const validator=require("../netlify/functions/lib/squeegeePreviewBinHistory");
+ assert.doesNotThrow(()=>validator.validateBinSource(snapshot));
+ state.customers.get(customerIds[0]).ref="NBG-INVALID!";
+ assert.throws(()=>finishSqueegeeImport(state,"2026-11-07"),/unverified_squeegee_customer_reference/);
 });
