@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import LevelWasher from "./LevelWasher.jsx"
 
 export default function CustomerPortalLoader({ standalone = false }) {
@@ -57,61 +57,53 @@ export default function CustomerPortalLoader({ standalone = false }) {
     return ()=>observer.disconnect()
   }, [standalone])
 
+  const [expandedWidgets, setExpandedWidgets] = useState({})
+  const toggleWidget = id => setExpandedWidgets(current => ({ ...current, [id]: !current[id] }))
+  const portalKey = "25a031e7-75af-4a0e-9f3a-d308fd9b2e3a"
+  const portalEndpoint = "https://sqgee.com"
+  const compactIds = ["upcoming-appointments", "appointment-history", "financial-history"]
+  const widgets = [
+    { id: "upcoming-appointments", title: "NEXT CLEAN", subtitle: "Your scheduled bin cleans", wide: false },
+    { id: "appointment-history", title: "CLEAN HISTORY", subtitle: "Your previous visits", wide: false },
+    { id: "financial-history", title: "PAYMENTS & HISTORY", subtitle: "Your account transactions", wide: false },
+    { id: "automatic-payments", title: "AUTOMATIC PAYMENTS", subtitle: "Manage payment methods", wide: false },
+    { id: "profile", title: "YOUR DETAILS", subtitle: "Manage your contact information", wide: false },
+  ]
   return (
-    <section
-      id="customer-portal"
-      style={{
-        scrollMarginTop: "110px",
-        padding: "72px 16px 88px",
-        background: "black",
-        textAlign: "center",
-        color: "white",
-      }}
-    >
+    <section id="customer-portal" className="nbg-portal-redesign" style={{ scrollMarginTop: "110px", padding: "64px 16px 80px", background: "#050505", color: "#fff" }}>
       <LevelWasher />
-      <div style={{ width: "100%", maxWidth: "1152px", margin: "0 auto" }}>
+      <div className="nbg-portal-inner">
         <div className="n64-portal-eyebrow" aria-hidden="true">{standalone ? "SQUEEGEE · OFFICIAL CUSTOMER ACCESS" : "LEVEL 07 · CUSTOMER HQ"}</div>
-        <h2
-          id="customer-portal-login"
-          style={{
-            fontSize: "1.875rem",
-            fontWeight: "bold",
-            color: "#ffd34e",
-            marginBottom: "12px",
-            fontFamily: "Arial Black, Trebuchet MS, sans-serif",
-            textTransform: "uppercase",
-          }}
-        >
-          {standalone ? "Squeegee Customer Login" : "Customer Portal"}
-        </h2>
-        {standalone && (
-          <p style={{ color: "#d4d4d8", margin: "0 auto 24px", maxWidth: "720px" }}>
-            Sign in below to the existing Squeegee customer portal to access the services and account features Squeegee provides. This is separate from your NI Bin Guy points login.
-          </p>
-        )}
-        <p style={{ color: "#d6e7f7", fontWeight: 700, lineHeight: 1.5, maxWidth: "680px", margin: "0 auto 26px", fontSize: "clamp(14px, 2vw, 17px)" }}>
-          {standalone ? "Manage your bin cleaning account securely with Squeegee." : "Your cleans, appointments and account details — all in one place."}
-        </p>
-        <div className="n64-portal-shell">
-        <div
-          data-sqc="layout"
-          data-sqa="25a031e7-75af-4a0e-9f3a-d308fd9b2e3a"
-          data-sqe="https://sqgee.com"
-          style={{
-            width: "100%",
-            maxWidth: "1152px",
-            minHeight: "700px",
-            margin: "0 auto",
-            display: "block",
-            background: "#111827",
-            borderRadius: "4px",
-            boxShadow: "none",
-            overflow: "visible",
-            padding: "20px",
-            boxSizing: "border-box",
-          }}
-        />
+        <h2 id="customer-portal-login" className="nbg-portal-heading">{standalone ? "SQUEEGEE CUSTOMER LOGIN" : "YOUR BIN HQ"}</h2>
+        <p className="nbg-portal-intro">Appointments, cleaning history and payments — all in one place.</p>
+        {standalone ? (
+          <div className="n64-portal-shell">
+            <div data-sqc="layout" data-sqa="25a031e7-75af-4a0e-9f3a-d308fd9b2e3a" data-sqe="https://sqgee.com" style={{ width: "100%", minHeight: "700px", boxSizing: "border-box" }} />
+          </div>
+        ) : (
+          <>
+        <div className="nbg-portal-login">
+          <div className="nbg-portal-panel-heading"><span>01</span><div><strong>ACCOUNT LOGIN</strong><small>Secure Squeegee customer access</small></div></div>
+          <div data-sqc="sign-in" data-sqa={portalKey} data-sqe={portalEndpoint} />
         </div>
+        <div className="nbg-portal-grid">
+          {widgets.map((widget, index) => (
+            <div className={`nbg-portal-tile ${compactIds.includes(widget.id) ? "nbg-portal-tile-history" : ""}`} key={widget.id}>
+              <div className="nbg-portal-panel-heading"><span>{String(index + 2).padStart(2, "0")}</span><div><strong>{widget.title}</strong><small>{widget.subtitle}</small></div></div>
+              <div id={`nbg-widget-${widget.id}`} className={compactIds.includes(widget.id) && !expandedWidgets[widget.id] ? "nbg-portal-preview" : "nbg-portal-full"}>
+                <div className="nbg-portal-widget" data-sqc={widget.id} data-sqa={portalKey} data-sqe={portalEndpoint} />
+              </div>
+              {compactIds.includes(widget.id) && (
+                <button type="button" className="nbg-portal-more" aria-expanded={Boolean(expandedWidgets[widget.id])} aria-controls={`nbg-widget-${widget.id}`} onClick={() => toggleWidget(widget.id)}>
+                  {expandedWidgets[widget.id] ? "SHOW LESS ▲" : "VIEW FULL LIST ▼"}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+          </>
+        )}
+        <p className="nbg-portal-footnote">Your NI Bin Guy points and streaks remain in Customer HQ. Squeegee manages the account widgets above.</p>
       </div>
     </section>
   )
